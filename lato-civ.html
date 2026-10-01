@@ -2719,7 +2719,7 @@ async function worldPrep(M,LY,C,opt,prog){
 /* ===================== 模擬引擎（一年一步；戰爭以月為步） ===================== */
 function Sim(WD,SET){
 var A=WD.A,NP=WD.NP,aS=WD.aS,aL=WD.aL,aD=WD.aD,P=SET.par,seed=String(P.seed||'lato');
-var S={WD:WD,SET:SET,y0:+P.y0,y1:+P.y0+(+P.years),y:+P.y0,snapEvery:Math.max(1,+P.snap||10),
+var S={WD:WD,SET:SET,y0:+P.y0,y1:+P.y0+(+P.years),y:+P.y0,snapEvery:Math.max(1,+P.snap||10,Math.ceil((+P.years||0)/300)),
   pop:new Float64Array(NP),K:new Float32Array(NP),owner:new Int32Array(NP),cult:new Int32Array(NP),cult2:new Int32Array(NP),mix:new Float32Array(NP),mixSince:new Int32Array(NP),relig:new Int32Array(NP),
   devast:new Float32Array(NP),unrest:new Float32Array(NP),ctrl:new Float32Array(NP),occ:new Int32Array(NP),nomad:new Uint8Array(NP),vil:new Int32Array(NP),vilMax:new Int32Array(NP),urb:new Float32Array(NP),
   trade:new Float32Array(NP),plague:new Float32Array(NP),famine:new Float32Array(NP),since:new Int32Array(NP),coreOf:new Int32Array(NP),warZone:new Int32Array(NP),
@@ -3421,7 +3421,7 @@ function spawnHorde(T,I,r){var p=T.p;if(p<0)return '';if(!S.owner[p]){var bp=-1,
   var tgt=S.owner[p]?S.states[S.owner[p]]:null;if(!tgt)return '';var era=Math.max(0,tgt.era-(r()<0.5?0:1)),techs=tgt.techs.slice();['herd','wheel','cav','stirrup'].forEach(function(id){if(TECH[TI[id]][2]<=era+1)techs[TI[id]]=1;});
   var c=newCulture(nameGen('north',r,'state')+'人','north','human',{traits:{nomad:1,martial:1}}),base=nameGen('north',r,'state');
   var h=newState({name:base+'汗國',base:base,gov:'khanate',cult:c.id,relig:newReligion(base+'薩滿',{folk:true}).id,race:'human',traits:{nomad:1,martial:1},values:{order:0.2,tradition:0.5,collective:0.3,faith:0.2,expansion:1,assim:-0.3},techs:techs,capP:ent,kind:'civ'});
-  if(!S.owner[ent]){S.owner[ent]=h.id;S.since[ent]=S.y;S.pop[ent]+=20000;blend(ent,c.id,20000);}var t=newTown(ent,A.siteI[ent],{pop:3000,cult:c.id});t.fn|=FNB.cap;h.cap=t.id;updateStates();econInit(h);h.army=Math.round(tgt.army*(0.6+0.8*I)+30000*I);h.treasury=h.army*5;h.hero=25;
+  if(!S.owner[ent]){S.owner[ent]=h.id;S.since[ent]=S.y;S.pop[ent]+=20000;blend(ent,c.id,20000);}var t=newTown(ent,A.siteI[ent],{pop:3000,cult:c.id});t.fn|=FNB.cap;h.cap=t.id;updateStates();econInit(h);h.army=Math.round(Math.min(tgt.army*(0.4+0.5*I)+30000*I,60000*I*(1+0.5*tgt.era)));h.treasury=h.army*5;h.hero=25;
   updateStates();var W=S.startWar({kind:'horde',a:[h.id],b:[tgt.id],goal:'conquest',cb:'外族入侵',p:p});if(W){W.sides[0].mob=h.army*1.3;W.sides[0].army=h.army;W.sides[0].raised=h.army;}
   return h.name+'大軍（約 '+fmt1(h.army)+' 騎）入侵'+tgt.name;}
 /* ---------- epidemics: spread along roads and trade routes, die out where people are immune ---------- */
@@ -3522,7 +3522,7 @@ S.startWar=function(o){var a=S.states[o.a[0]],b=S.states[o.b[0]];if(!a||!b||!a.a
   if(W.kind!=='civil'&&W.kind!=='raid'){/* defenders' allies and protectors, attackers' vassals and some allies */
     Object.keys(b.allies).forEach(function(k){var s=S.states[k];if(s&&s.alive&&W.sideOf[k]===undefined&&!(s.allies[a.id])&&r()<0.65*(0.5+0.5*s.stab))addMember(W,1,+k,'履行同盟');});
     if(b.overlord&&S.states[b.overlord].alive&&W.sideOf[b.overlord]===undefined&&r()<0.75)addMember(W,1,b.overlord,'保護藩屬');
-    aliveStates().forEach(function(s){if(s.overlord===a.id&&W.sideOf[s.id]===undefined&&s.vassal)addMember(W,0,s.id,'隨宗主出征');if(s.overlord===b.id&&W.sideOf[s.id]===undefined&&s.vassal)addMember(W,1,s.id,'隨宗主出征');});
+    aliveStates().forEach(function(s){var en=s.overlord===a.id?b:s.overlord===b.id?a:null;if(!en||!s.vassal||W.sideOf[s.id]!==undefined)return;if(r()<(s.nb&&s.nb[en.id]?0.7:0.2))addMember(W,s.overlord===a.id?0:1,s.id,'隨宗主出征');});
     Object.keys(a.allies).forEach(function(k){var s=S.states[k];if(s&&s.alive&&W.sideOf[k]===undefined&&!(s.allies[b.id])&&(s.opin[b.id]||0)<-0.2&&r()<0.35)addMember(W,0,+k,'響應盟友');});}
   if(S.coldWar){var ca=camp(a),cb=camp(b);if(ca&&cb&&ca!==cb){W.proxy=[ca===a.id?0:ca,cb===b.id?0:cb];if(W.proxy[0]||W.proxy[1])W.proxyWar=1;}else if(ca&&!cb&&ca!==a.id){var other=ca===S.coldWar.a?S.coldWar.b:S.coldWar.a;if(r()<0.5){W.proxy=[ca,other];W.proxyWar=1;}}else if(cb&&!ca&&cb!==b.id){var oth=cb===S.coldWar.a?S.coldWar.b:S.coldWar.a;if(r()<0.5){W.proxy=[oth,cb];W.proxyWar=1;}}}
   W.name=warName(W);
@@ -3532,7 +3532,7 @@ S.startWar=function(o){var a=S.states[o.a[0]],b=S.states[o.b[0]];if(!a||!b||!a.a
     return mob*(W.kind==='raid'&&sd.k===0?0.4:1)*Math.pow(PV.aggr,0.3);});
   W.sides.forEach(function(sd,k){var q0=sideQual(sd)||1,q1=sideQual(W.sides[1-k])||1,need=Math.max(cap[1-k]*q1/q0*1.4,W.sides[1-k].army*q1/q0*1.6);sd.mob=Math.max(sd.army,Math.min(cap[k],need));sd.cap=cap[k];sd.peak=sd.army;
     sd.manp=Math.max(sd.mob*1.5,sd.pop0*[0.12,0.07,0.06,0.05,0.06,0.16,0.2][S.states[sd.lead].era]*Math.min(1,sd.mob/Math.max(1,cap[k])*1.2));});
-  W.ready=1;newPhase(W);var names=function(sd){return sd.members.map(function(id){return S.states[id].name;}).join('、');};
+  W.ready=1;newPhase(W);var names=function(sd){var L=sd.members.map(function(id){return S.states[id].name;});return L.length>4?L.slice(0,4).join('、')+'等 '+L.length+' 國':L.join('、');};
   W.events.push([t0,names(W.sides[0])+'以「'+W.cb+'」為由'+(W.kind==='civil'?'起兵':'向'+names(W.sides[1])+'開戰')]);
   var big=W.sides[0].pop0+W.sides[1].pop0;chron('戰爭',W.name+'爆發：'+names(W.sides[0])+(W.kind==='civil'?'對抗':'進攻')+names(W.sides[1])+'（'+W.cb+'）'+(W.proxyWar?'；冷戰兩大陣營介入，形同代理戰爭':'')+'。',{m:mo,s:W.sides[0].members.concat(W.sides[1].members),p:W.p,w:W.id,imp:big>2e7?3:big>3e6?2:1,tag:'war'});
   return W;};
@@ -3942,7 +3942,7 @@ function render(cv,fit){var dpr=fit?Math.min(2,window.devicePixelRatio||1):1;if(
   /* towns and ruins */
   var labels=[];if(q('oTown').checked||q('oRuin').checked){for(var t0=0;t0<sn.towns.length;t0++){var T=S.towns[t0],fl=sn.tfn[t0],pop=sn.towns[t0];
       if(fl&0x8000){if(!q('oRuin').checked||(T.ruin&&T.ruin.tier<1&&CS.z<2))continue;var v1=vis(T.x+0.5,T.y+0.5,6);if(!v1)continue;var rr=(T.ruin&&T.ruin.tier>=2?3.2:2.2)*sz;x.strokeStyle='rgba(97,97,97,0.95)';x.lineWidth=1.3*dpr;x.beginPath();x.moveTo(v1[0]-rr,v1[1]-rr);x.lineTo(v1[0]+rr,v1[1]+rr);x.moveTo(v1[0]+rr,v1[1]-rr);x.lineTo(v1[0]-rr,v1[1]+rr);x.stroke();continue;}
-      if(!q('oTown').checked||!(pop>0))continue;var tr=S.tierOf(pop),minT=CS.z<1.8?2:CS.z<4?1:0;if(tr<minT&&!(fl&FNB.cap&&tr>=minT-1))continue;var v2=vis(T.x+0.5,T.y+0.5,10);if(!v2)continue;var r0=[1.3,1.8,2.5,3.4,4.6][tr]*Math.min(2.2,1+0.25*(CS.z-1))*dpr;
+      if(!q('oTown').checked||!(pop>0))continue;var tr=S.tierOf(pop),minT=CS.z<1.8?2:CS.z<4?1:0;if(tr<minT&&!(fl&FNB.cap&&tr>=minT-1&&CS.z>=1.8))continue;var v2=vis(T.x+0.5,T.y+0.5,10);if(!v2)continue;var r0=[1.3,1.8,2.5,3.4,4.6][tr]*Math.min(2.2,1+0.25*(CS.z-1))*dpr;
       x.beginPath();if(fl&FNB.fort&&tr<=2){x.moveTo(v2[0],v2[1]-r0*1.3);x.lineTo(v2[0]+r0*1.2,v2[1]+r0);x.lineTo(v2[0]-r0*1.2,v2[1]+r0);x.closePath();}else if(tr>=3){x.rect(v2[0]-r0,v2[1]-r0,r0*2,r0*2);}else x.arc(v2[0],v2[1],r0,0,2*PI);
       x.fillStyle=fl&FNB.mine&&tr<=1?'#455A64':fl&FNB.port?'#0D47A1':fl&FNB.holy?'#6A1B9A':'#3E2723';x.fill();x.lineWidth=1*dpr;x.strokeStyle='#fff';x.stroke();
       if(fl&FNB.cap){x.beginPath();x.arc(v2[0],v2[1],r0+2.2*dpr,0,2*PI);x.strokeStyle='#B71C1C';x.lineWidth=1.6*dpr;x.stroke();}
@@ -3975,7 +3975,7 @@ function legend(){var S=CS.S,sn=S.snaps[CS.si],L=CS.layer,h='';
     h=Object.keys(cnt).sort(function(a,b){return cnt[b]-cnt[a];}).slice(0,18).map(function(k){var o=tb[k];return '<span><i class="lt-sw" style="background:'+esc(o.color)+'"></i>'+esc(o.name)+(o.fused?'（融合）':'')+' '+fmt1(cnt[k])+'</span>';}).join('')+(L==='cult'?'<span class="lt-note">細斜線＝兩族雜居（遷徙融合區）</span>':'');}
   else if(L==='dens')h=DENS.map(function(d){var c=d[1];return '<span><i class="lt-sw" style="background:rgb('+c.map(Math.round).join(',')+')"></i>'+d[0]+'</span>';}).join('')+'<span class="lt-note">人／平方公里</span>';
   else if(L==='ctrl')h='<span><i class="lt-sw" style="background:rgb(40,140,70)"></i>核心區</span><span><i class="lt-sw" style="background:rgb(245,200,60)"></i>半邊陲</span><span><i class="lt-sw" style="background:rgb(200,40,40)"></i>邊陲</span><span class="lt-note">控制力隨距首都的交通時間遞減；邊陲在核心動盪時易叛離</span>';
-  h+='<br><span>■ 城市　● 城鎮／集鎮　▲ 要塞　<b style="color:#0D47A1">●</b> 港口　<b style="color:#6A1B9A">●</b> 聖城　<b style="color:#455A64">●</b> 礦業鎮　◎ 首都　▪ 村落　□ 遊牧營地　✕ 廢墟／遺址　<b style="color:#D50000">✕</b> 戰役　<b style="color:#D50000">○</b> 圍城　━ 陸上商路　┅ 海上航線</span>';
+  h+='<div class="lt-note">■ 城市　● 城鎮／集鎮　▲ 要塞　<b style="color:#0D47A1">●</b> 港口　<b style="color:#6A1B9A">●</b> 聖城　<b style="color:#455A64">●</b> 礦業鎮　◎ 首都　▪ 村落　□ 遊牧營地　✕ 廢墟／遺址　<b style="color:#D50000">✕</b> 戰役　<b style="color:#D50000">○</b> 圍城　━ 陸上商路　┅ 海上航線</div>';
   q('cLeg').innerHTML=h;}
 /* ---------- interaction ---------- */
 (function(){var cv=q('cCv'),drag=null,moved=false;
