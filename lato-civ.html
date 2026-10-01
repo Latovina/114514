@@ -2388,8 +2388,8 @@ if(!root)return;
 var PI=Math.PI,D2R=PI/180;
 function q(k){return root.querySelector('[data-k="'+k+'"]');}
 function mk(w,h){var c=document.createElement('canvas');c.width=w;c.height=h;return c;}
-function fmt(n){return Math.round(n).toLocaleString('en-US');}
-function fmt1(n){return n>=1e8?(n/1e8).toFixed(2)+' 億':n>=1e4?(n/1e4).toFixed(n>=1e6?0:1)+' 萬':fmt(n);}
+function fmt(n){return isFinite(n)?Math.round(n).toLocaleString('en-US'):'—';}
+function fmt1(n){return !isFinite(n)?'—':n>=1e8?(n/1e8).toFixed(2)+' 億':n>=1e4?(n/1e4).toFixed(n>=1e6?0:1)+' 萬':fmt(n);}
 function esc(s){return String(s===undefined||s===null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function mb32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};}
 function hstr(s){s=String(s);var h=1779033703^s.length;for(var i=0;i<s.length;i++){h=Math.imul(h^s.charCodeAt(i),3432918353);h=h<<13|h>>>19;}return h>>>0;}
@@ -2468,9 +2468,9 @@ var TECH=[
 ];
 var TI={};TECH.forEach(function(t,i){TI[t[0]]=i;});
 /* starting technologies by era */
-var START_TECH=[['herd','canoe'],['agri','herd','pottery','canoe','irrig','wheel'],['agri','herd','pottery','canoe','irrig','wheel','writing','bronze','calendar','sail'],
-  ['agri','herd','pottery','canoe','irrig','wheel','writing','bronze','calendar','sail','iron','coin','roads','bureau','philo','cav'],
-  ['agri','herd','pottery','canoe','irrig','wheel','writing','bronze','calendar','sail','iron','coin','roads','bureau','philo','cav','plough','paper','castle','stirrup','xbow','compass','bank']];
+var START_TECH=[['herd','canoe'],['agri','herd','pottery','canoe','irrig','wheel'],['agri','herd','pottery','canoe','irrig','wheel','writing','bronze','calendar','sail','iron'],
+  ['agri','herd','pottery','canoe','irrig','wheel','writing','bronze','calendar','sail','iron','coin','roads','bureau','philo','cav','plough','castle','paper'],
+  ['agri','herd','pottery','canoe','irrig','wheel','writing','bronze','calendar','sail','iron','coin','roads','bureau','philo','cav','plough','paper','castle','stirrup','xbow','compass','bank','print','gunpowder','musket']];
 
 /* ---------- races ---------- */
 var RACES={
@@ -2839,7 +2839,7 @@ function autoCivs(n){var out=[],r=mb32(hstr(seed+'|auto')),races=Object.keys(RAC
 S.init=function(){setupNatives();var civs=(SET.civs&&SET.civs.length)?SET.civs:autoCivs(V(P.autoN,6));S.pending=[];
   civs.forEach(function(d,i){var yy=V(d.year,S.y0);if(yy>S.y0)S.pending.push([yy,d,i]);else spawnCiv(d,i);});
   S.nodes=(SET.events||[]).map(function(e,i){return Object.assign({i:i,done:false},e);});
-  for(var p=0;p<NP;p++)S.K[p]=Kof(p);updateStates(true);controlAll();S.states.forEach(function(st){if(st)econInit(st);});snapshot();};
+  for(var p=0;p<NP;p++)S.K[p]=Kof(p);updateStates(true);controlAll();S.states.forEach(function(st){if(st)econInit(st);});stagesYear();snapshot();};
 /* ===================== 人口：豐歉、成長、饑荒、遷徙；文化與宗教；農耕傳播、部落與拓殖 ===================== */
 var CAUSE=['人口外移','戰火','瘟疫','饑荒','氣候變遷','天災','礦脈枯竭','商路改道','屠城劫掠','政局動盪','邊防撤廢','遷都他處'];
 S.CAUSE=CAUSE;S.loss=new Uint8Array(NP);S.lossY=new Int32Array(NP);S.harv=new Float32Array(WD.nzone);S.immune=new Int32Array(NP);S.fus={};S.tp=[];
@@ -2860,7 +2860,7 @@ var famS=new Float64Array(1);
 function demography(){var fd=0;if(famS.length<S.states.length)famS=new Float64Array(S.states.length+64);else famS.fill(0);
   for(var p=0;p<NP;p++){var P0=S.pop[p];if(P0<=0)continue;var o=S.owner[p],st=o?S.states[o]:null,Ke=Math.max(1,S.K[p]*(1+S.harv[A.zone[p]])),ratio=P0/Ke;
     if(ratio<1){var g=0.011*PV.grow*S.gmod[p]*(st?st.m.grow*(0.55+0.6*st.stab):0.55)*(1-Math.min(1,S.plague[p]*3));S.pop[p]=P0*(1+g*(1-ratio));if(S.famine[p]>0)S.famine[p]*=0.4;}
-    else{var buf=0.04+(st?0.03*(st.techs[TI.writing]||0)+0.03*(st.techs[TI.bureau]||0)+0.04*Math.min(1,S.trade[p]/Math.max(1,S.tradeMax)*5)+(st.era>=5?0.08:0):0),ex=ratio-1-buf;if(ex<=0){S.famine[p]*=0.4;continue;}var dr=Math.min(0.3,0.15*ex+1.2*ex*ex),dd=P0*dr;S.pop[p]=P0-dd;S.famine[p]=ex;if(S.warZone[p]&&S.warAtt){S.warAtt(p,dd*0.6);}if(dr>0.004){fd+=dd;if(o)famS[o]+=dd;S.unrest[p]=Math.min(1.5,S.unrest[p]+ex*0.5);if(dr>0.03)lossMark(p,S.cold>0.4&&S.harv[A.zone[p]]<0?4:3);}}}
+    else{var buf=0.04+(st?0.03*(st.techs[TI.writing]||0)+0.03*(st.techs[TI.bureau]||0)+0.04*Math.min(1,S.trade[p]/Math.max(1,S.tradeMax||1)*5)+(st.era>=5?0.08:0):0),ex=ratio-1-buf;if(ex<=0){S.famine[p]*=0.4;continue;}var dr=Math.min(0.3,0.15*ex+1.2*ex*ex),dd=P0*dr;S.pop[p]=P0-dd;S.famine[p]=ex;if(S.warZone[p]&&S.warAtt){S.warAtt(p,dd*0.6);}if(dr>0.004){fd+=dd;if(o)famS[o]+=dd;S.unrest[p]=Math.min(1.5,S.unrest[p]+ex*0.5);if(dr>0.03)lossMark(p,S.cold>0.4&&S.harv[A.zone[p]]<0?4:3);}}}
   S.stat.deaths.famine+=fd;S.yFam=fd;
   for(var i=1;i<S.states.length;i++){var s=S.states[i];if(!s||!s.alive||famS[i]<20000)continue;if(famS[i]>0.03*s.popSum&&S.y-(s.lastFam||-99)>=8){s.lastFam=S.y;
       chron('災害',s.name+'境內大饑荒，餓死約 '+fmt1(famS[i])+' 人。',{s:[i],p:s.capP,imp:famS[i]>0.08*s.popSum?3:2,tag:'famine'});}}}
@@ -2949,7 +2949,7 @@ function overseas(st,r){var ports=WD.ports,seen=seaReach(st),cand=[];Object.keys
 /* ===================== 聚居地：村落（候選點依擴散順序佔用）、中地體系的城鎮、廢墟 ===================== */
 var NS=WD.sS[NP],TIERP=[0,2000,10000,50000,400000],URB0=[0,0.02,0.04,0.06,0.09,0.1,0.25];
 S.sv=new Uint8Array(NS);S.svY=new Int16Array(NS);S.svC=new Uint8Array(NS);S.TIERP=TIERP;
-S.mkt=new Int32Array(NP).fill(-1);S.regc=new Int32Array(NP).fill(-1);S.U=new Float32Array(NP);S.tpop=new Float32Array(NP);
+S.mkt=new Int32Array(NP).fill(-1);S.regc=new Int32Array(NP).fill(-1);S.U=new Float32Array(NP);S.tpop=new Float32Array(NP);S.tradeMax=1;
 function tierOf(pop){var t=0;for(var i=1;i<5;i++)if(pop>=TIERP[i])t=i;return t;}
 S.tierOf=tierOf;
 function fnName(t){var a=[];FN.forEach(function(f,i){if(t.fn&(1<<i))a.push(f[1]);});return a.join('、');}
@@ -2969,7 +2969,7 @@ function urbanPool(){var mx=1,p;for(p=0;p<NP;p++)if(S.trade[p]>mx)mx=S.trade[p];
     S.U[p]=S.pop[p]*clamp(u*(1-0.5*S.devast[p]),0,0.85);}}
 /* ---------- central places: market catchments (all towns) and regional catchments (towns of 15,000 or more) ---------- */
 function catchments(){var src=[],keys=[],ids=[],k,t,lm=0;
-  for(k=0;k<S.towns.length;k++){t=S.towns[k];if(t.ruin)continue;var a=Math.log(1+t.pop/3000);if(a>lm)lm=a;src.push(t.p);ids.push(k);keys.push(a);}
+  for(k=0;k<S.towns.length;k++){t=S.towns[k];if(t.ruin)continue;var a=Math.log(1+Math.max(0,t.pop)/3000);if(a>lm)lm=a;src.push(t.p);ids.push(k);keys.push(a);}
   if(!src.length)return;keys=keys.map(function(a){return 2.5*(lm-a);});
   function cost(e,a,n,la){var o=S.owner[n],to=S.owner[src[la]];if(!o)return -1;if(hostile(o,to))return -1;return aD[e]/mvOf(o)+(o!==to?5:0);}
   var r1=msd(src,keys,cost,12+2.5*lm);for(var p=0;p<NP;p++)S.mkt[p]=r1.lab[p]>=0?ids[r1.lab[p]]:-1;
@@ -2984,8 +2984,8 @@ function catchments(){var src=[],keys=[],ids=[],k,t,lm=0;
 var DEPT={Cu:'bronze',SnW:'bronze',Fe:'iron',Au:'coin',Ag:'coin',PbZn:'coin',coal:'steam',oil:'combustion',magic:'mana2',Ni:'industry',Al:'electric',Pt:'industry',REE:'electric',U:'electric'};
 function townTargets(){var capU={},p,k;for(p=0;p<NP;p++){var o=S.owner[p];if(o)capU[o]=(capU[o]||0)+S.U[p];}
   var relPop={};for(p=0;p<NP;p++){var rl=S.relig[p];if(rl)relPop[rl]=(relPop[rl]||0)+S.pop[p];}
-  var wIn=new Float64Array(NP),SPEC=FNB.mine|FNB.fort,mk=function(t){return !(t.fn&SPEC)||(t.fn&~SPEC);};for(k=0;k<S.towns.length;k++){var t0=S.towns[k];if(!t0.ruin&&mk(t0))wIn[t0.p]+=Math.pow(t0.pop+500,1.3);}
-  for(k=0;k<S.towns.length;k++){var t=S.towns[k];if(t.ruin)continue;var o2=S.owner[t.p],st=o2?S.states[o2]:null,tg=(mk(t)?S.U[t.p]*0.3*Math.pow(t.pop+500,1.3)/Math.max(1,wIn[t.p]):0)+t.catch*0.4+t.rcatch*0.12;
+  var wIn=new Float64Array(NP),SPEC=FNB.mine|FNB.fort,mk=function(t){return !(t.fn&SPEC)||(t.fn&~SPEC);};for(k=0;k<S.towns.length;k++){var t0=S.towns[k];if(!t0.ruin&&mk(t0))wIn[t0.p]+=Math.pow(Math.max(0,t0.pop)+500,1.3);}
+  for(k=0;k<S.towns.length;k++){var t=S.towns[k];if(t.ruin)continue;var o2=S.owner[t.p],st=o2?S.states[o2]:null,tg=(mk(t)?S.U[t.p]*0.3*Math.pow(Math.max(0,t.pop)+500,1.3)/Math.max(1,wIn[t.p]):0)+t.catch*0.4+t.rcatch*0.12;
     if(st&&st.cap===t.id)tg+=(capU[o2]||0)*0.07*(GOV[st.gov]||GOV.tribe)[2];
     tg+=0.08*S.trade[t.p]*(t.fn&FNB.hub?1.5:1);if(t.fn&FNB.port)tg+=0.05*S.trade[t.p]+600;
     if(t.mine&&t.mine.ore>0&&st)tg+=1200*t.mine.s*(1+0.6*st.era)*RACES[st.race].mine;
@@ -3295,8 +3295,9 @@ function stagesYear(){var all=aliveStates(),wp=0,i;for(i=0;i<NP;i++)wp+=S.pop[i]
     if(g==='tribe'||g==='chiefdom'||st.kind==='tribe')s1='tribal';else if(st.stab<0.3||(mx>=10&&st.nprov<mx*0.7))s1='decline';else if(st.era>=5&&st.techs[TI.ocean]&&(st.colonies||0)>=3)s1='global';
     else if(g==='empire'||st.nprov>=60||st.popSum>=wp*0.15)s1='empire';else if(st.nprov>=15||st.popSum>=top10&&st.popSum>2e6)s1='regional';else s1='feudal';
     if(s1!==s0){st.stage=s1;st.hist.push([S.y,'stage',s1]);if((s1==='empire'||s1==='global')&&st.popSum>3e6)chron('階段',st.name+'進入「'+STAGES[s1]+'」階段。',{s:[st.id],p:st.capP,imp:2,tag:'stage'});}});
-  var cnt={};all.forEach(function(s){if(s.popSum>wp*0.03)cnt[s.stage]=(cnt[s.stage]||0)+s.popSum;});var ws='tribal';
-  if(cnt.global)ws='global';else if(cnt.empire)ws='empire';else if(cnt.regional)ws='regional';else if(cnt.feudal||cnt.decline)ws=(cnt.decline||0)>(cnt.feudal||0)*1.5&&S.wstage&&S.wstage!=='tribal'?'decline':'feudal';
+  var cnt={tribal:0,feudal:0,regional:0,empire:0,global:0,decline:0},tot=0;all.forEach(function(s){cnt[s.stage]=(cnt[s.stage]||0)+s.popSum;tot+=s.popSum;});tot=Math.max(1,tot);var ws='tribal';
+  if(cnt.global>=tot*0.1)ws='global';else if(cnt.empire>=tot*0.2)ws='empire';else if(cnt.regional+cnt.empire>=tot*0.25)ws='regional';
+  else if(cnt.decline>=tot*0.4&&S.wstage&&S.wstage!=='tribal')ws='decline';else if(cnt.feudal+cnt.regional+cnt.empire+cnt.decline+cnt.global>=tot*0.3)ws='feudal';
   if(ws!==S.wstage){var first=!S.wstage;S.wstage=ws;S.wstHist=S.wstHist||[];S.wstHist.push([S.y,ws]);if(!first)chron('時代','世界進入「'+STAGES[ws]+'」時代。',{imp:3,tag:'wstage'});}
   var era=0;all.forEach(function(s){if(s.era>era)era=s.era;});if(S.wera===undefined||era>S.wera){if(S.wera!==undefined)chron('時代','世界最先進的文明邁入'+ERAS[era]+'。',{imp:2,tag:'era'});S.wera=era;}}
 S.stagesYear=stagesYear;
@@ -3430,7 +3431,7 @@ function plaguesYear(){var r=rng('plague');S.plague.fill(0);S.plagues.forEach(fu
     k.forEach(function(ps){var p=+ps,y=P.inf[ps];if(S.y-y>2)return;any=true;var st=S.owner[p]?S.states[S.owner[p]]:null,mul=st?st.m.plague:1,dens=Math.min(3,S.pop[p]/Math.max(1,A.area[p])/20),m=P.mort*mul*(0.5+0.5*dens+S.urb[p])*(S.y===y?1:0.4);
       var d=S.pop[p]*Math.min(0.6,m);S.pop[p]-=d;P.deaths+=d;S.stat.deaths.plague+=d;S.plague[p]=Math.max(S.plague[p],m);lossMark(p,2);var t=bigTown(p);if(t)t.pop*=1-Math.min(0.7,m*1.3);
       if(S.warZone[p]){var W=S.warById[S.warZone[p]];if(W&&W.active){W.plague=1;var k2=ctl(W,p);if(k2>=0){W.sides[k2].civ.dis+=d*0.3;}}}
-      for(var e=aS[p];e<aS[p+1];e++){var n=aL[e];if(P.inf[n]||S.immune[n]>S.y)continue;var pr=0.35*(0.4+Math.min(1.5,S.trade[n]/Math.max(1,S.tradeMax)*4))*Math.min(1.5,0.3+dens);if(r()<pr)nx[n]=S.y;}
+      for(var e=aS[p];e<aS[p+1];e++){var n=aL[e];if(P.inf[n]||S.immune[n]>S.y)continue;var pr=0.35*(0.4+Math.min(1.5,S.trade[n]/Math.max(1,S.tradeMax||1)*4))*Math.min(1.5,0.3+dens);if(r()<pr)nx[n]=S.y;}
       if(S.trade[p]>S.tradeMax*0.2)S.routes.forEach(function(rt){if(!rt.active||rt.path.indexOf(p)<0||r()>0.25)return;var q=rt.path[rt.path.length-1]===p?rt.path[0]:rt.path[rt.path.length-1];if(!P.inf[q]&&S.immune[q]<=S.y)nx[q]=S.y;});
       S.immune[p]=S.y+40+Math.floor(r()*40);});
     Object.keys(nx).forEach(function(q){P.inf[q]=nx[q];P.n++;});if(!any){P.active=false;P.y1=S.y;
@@ -3550,7 +3551,7 @@ function addCas(W,k,c,era){var sd=W.sides[k],dow=c[1]*DOW[era];sd.cas.kia+=c[0];
   var cp=sd.comp||{inf:1};Object.keys(cp).forEach(function(u){var lost=(c[0]+c[1]+c[3]+c[4])*cp[u]/(CREW[u]||1)*(CREW[u]?0.5:0.6);sd.wpnLost[u]=(sd.wpnLost[u]||0)+lost;});
   var hl=(c[0]+c[1]+c[3]+c[4])*horseShare(cp)*1.1;sd.horsesLost+=hl;sd.cost.horse+=hl*HORSEP[era];}
 function addCiv(W,k,p,kia,sw,lw,mia,abd){var sd=W.sides[k];sd.civ.kia+=kia;sd.civ.sw+=sw;sd.civ.lw+=lw;sd.civ.mia+=mia;sd.civ.abd+=abd;phaseOf(W).civD[k]+=kia;S.pop[p]=Math.max(0,S.pop[p]-kia-mia*0.5-abd);
-  var t=bigTown(p);if(t&&S.pop[p]>0){var f=Math.min(1,(kia+abd)/Math.max(1,S.pop[p]+kia+abd));t.pop*=1-f*1.5;}S.stat.deaths.war+=kia;}
+  var t=bigTown(p);if(t&&S.pop[p]>0){var f=Math.min(1,(kia+abd)/Math.max(1,S.pop[p]+kia+abd));t.pop*=Math.max(0,1-f*1.5);}S.stat.deaths.war+=kia;}
 function theater(W,p,b){var T=W.theater[p];if(!T)T=W.theater[p]={first:W.tNow,last:W.tNow,b:0,pop:S.pop[p]};T.last=W.tNow;if(b)T.b++;S.warZone[p]=W.id;}
 /* ---------- one engagement: field battle, siege, assault and sack; a raid takes loot and captives ---------- */
 function sideQual(sd){var q=0,w=0;sd.members.forEach(function(id){var st=S.states[id];if(!st)return;var s=sd.share[id]||1;q+=st.m.war*(RACES[st.race]||RACES.human).war*(st.hero?1.2:1)*s;w+=s;});return w?q/w:1;}
@@ -3716,14 +3717,18 @@ function yearStep(){S.y++;var D=S.dbg||function(){};
   if(S.pending.length)S.pending=S.pending.filter(function(x){if(x[0]<=S.y){var st=spawnCiv(x[1],x[2]);if(st)econInit(st);return false;}return true;});
   nodesYear();eventsYear();effectsYear();harvest();D('events');
   for(var p=0;p<NP;p++){var k1=Kof(p);S.K[p]=k1>=S.K[p]*0.97?k1:S.K[p]*0.97;S.devast[p]*=0.86;}
-  plaguesYear();demography();D('demography');migrate();D('migrate');cultureYear();religionYear();agriSpread();tribesYear();colonize();if(S.y%10===0)nomads();D('extend');
+  plaguesYear();demography();D('demography');migrate();sane('人口');D('migrate');cultureYear();religionYear();agriSpread();tribesYear();colonize();if(S.y%10===0)nomads();D('extend');
   updateStates();unrestSums();controlAll();econYear();D('econ');techYear();D('tech');
   unrestYear();politicsYear();succession();coupsRevolutions();rebellions();govEvolve();fragmentation();updateStates();capitals();religionEvents();D('politics');
   opinions();alliances();tributes();coldWar();radiation();warDecisions();D('diplo');
   warsYear();updateStates();D('wars');
-  settlements(S.y%5===0);if(S.y%10===0||(S.y%3===0&&!S.routes.some(function(r){return r.active;})))tradeRoutes();D('settle');
+  settlements(S.y%5===0);if(S.y%10===0||(S.y%3===0&&!S.routes.some(function(r){return r.active;})))tradeRoutes();sane('聚落');D('settle');
   stagesYear();if((S.y-S.y0)%S.snapEvery===0||S.y>=S.y1)snapshot();}
 S.step=yearStep;
+function sane(where){var bad=0,p,k;for(p=0;p<NP;p++){if(!(S.pop[p]>=0)||S.pop[p]===Infinity){S.pop[p]=0;bad++;}if(!(S.K[p]>=0)||S.K[p]===Infinity){S.K[p]=Kof(p)||0;bad++;}if(!isFinite(S.mix[p])){S.mix[p]=0;bad++;}if(!isFinite(S.unrest[p])){S.unrest[p]=0;bad++;}if(!isFinite(S.trade[p])){S.trade[p]=0;bad++;}}
+  for(k=0;k<S.towns.length;k++){var t=S.towns[k];if(!(t.pop>=0)||t.pop===Infinity){t.pop=0;bad++;}if(!isFinite(t.tgt))t.tgt=0;}
+  aliveStates().forEach(function(st){['stab','legit','exh','infl','army','treasury','debt','gdp','rp'].forEach(function(f){if(!isFinite(st[f])){st[f]=f==='stab'||f==='legit'?0.5:0;bad++;}});if(!(st.price>0)||!isFinite(st.price)){st.price=1;bad++;}if(!(st.cur.rate>0)||!isFinite(st.cur.rate)){st.cur.rate=st.cur.rate0=1;bad++;}});
+  if(bad){S.repairs=(S.repairs||0)+bad;if(!S.warned&&typeof console!=='undefined'){S.warned=1;console.warn('LatoCiv: '+S.y+' 年'+where+'計算出現 '+bad+' 個無效數值，已修正。');}}}
 /* ---------- snapshots for the timeline ---------- */
 function snapshot(){if(S.snaps.length&&S.snaps[S.snaps.length-1].y===S.y)S.snaps.pop();var n=NP,sn={y:S.y,owner:new Int16Array(n),cult:new Int16Array(n),cult2:new Int16Array(n),mix:new Uint8Array(n),relig:new Int16Array(n),pop:new Float32Array(n),ctrl:new Uint8Array(n),occ:new Int16Array(n),vil:new Uint16Array(n),
     towns:new Float32Array(S.towns.length),tfn:new Uint16Array(S.towns.length),sv:S.sv.slice(),routes:[],wars:[],states:{},wstage:S.wstage,wera:S.wera,cold:S.cold,mana:S.env.mana,totPop:0,nStates:0,urbPop:0};
