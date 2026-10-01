@@ -2388,7 +2388,7 @@ async function loadMap(P0,prog){var LIB=window.LatoTerrainLib;if(!LIB)throw new 
   if(P0.known){var kb=new Blob([b64bytes(P0.known.data)],{type:P0.known.type||'image/png'});kd=P0.known.h16?await PL.readH16(kb,prog):await PL.readBands(kb,P0.legend,[C.hex(P0.ui.csea),[255,255,255],C.hex(P0.ui.cice),[119,119,119]],prog);}
   var M=await PL.build(px,P0.W0,P0.H0,{ui:P0.ui,cfg:P0.cfg,legend:P0.legend,names:P0.names,knownData:kd,nations:P0.nations,places:P0.places,seasons:P0.seasons},function(l,f){return prog('重建地圖：'+l,0.05+0.8*f);});
   var disp=PL.display(M,2048),nms=PL.namesFrom(P0.names),tz=PL.tzRef(M,nms);disp.D.tzRef=tz;
-  WX.map={WD:WD,P0:P0,M:M,C:C,LY:LY,PL:PL,disp:disp,names:nms,tz:tz,W0:P0.W0,H0:P0.H0,kpx:Math.sqrt(+P0.ui.area/M.src.nIn),g:M.g};WX.seed='wx-'+P0.seed;
+  WX.map={WD:WD,P0:P0,M:M,C:C,LY:LY,PL:PL,disp:disp,names:nms,tz:tz,W0:P0.W0,H0:P0.H0,kpx:Math.sqrt(+P0.ui.area/M.src.nIn),g:M.g};WX.seed='wx-'+P0.seed;WX.nz=null;WX.tcEv={};WX.sup=null;WX.tcCand=null;
   await prog('整理氣候網格',0.88);grid1();await prog('劃分預報區',0.92);regions();if(typeof wx5Init==='function')wx5Init();}
 /* ---------- 1° climate grid (January / July), interpolated by date ---------- */
 function grid1(){var m=WX.map,cl=m.M.clim,S=m.LY.S,NX=360,NY=180,N=NX*NY,F=['Tj','Tl','Pj','Pl','Uj','Vj','Ul','Vl','Pj_hpa','Pl_hpa','zL','landF','sstA','SSTj','SSTl'],o={NX:NX,NY:NY,N:N};
@@ -2439,49 +2439,136 @@ function systems(t,base){var S={lows:[],highs:[],tcs:[]},T0=Math.floor(t),sd=WX.
       var rh=mb32(hstr(sd+'|H|'+h+'|'+k));if(rh()<0.85){var t1=k+rh(),L2=5+rh()*4,lo1=rh()*360-180,cold=win>0.5&&rh()<0.45,la1=(latC-6+(rh()-0.5)*10)+(cold?10:0),S1=8+rh()*(10+10*win)+(cold?8:0),R1=1500+rh()*800,sp1=400+rh()*300,dr1=(0.3+rh()*0.5)*(cold?2:1),a1=t-t1,id2='H'+h+'_'+k;
         if(a1>=0&&a1<L2){var fc2=fcPert(id2,base,t),la2=la1-dr1*a1,lo2=lo1+sp1*a1/(111*Math.cos(la1*D2R));if(fc2){lo2+=fc2.dx;la2+=fc2.dy;S1*=fc2.dm;}var onL=landAtLL(wrapLon(lo2),h*la2);
           S.highs.push({id:id2,lon:wrapLon(lo2),lat:h*clamp(la2,15,80),S:S1*Math.pow(Math.sin(PI*a1/L2),0.7),R:R1,h:h,cold:cold&&onL?(6+8*win)*Math.pow(Math.sin(PI*a1/L2),0.7):0});}}}});
-  var tr=WX.map.M.clim.cyc?WX.map.M.clim.cyc.tracks:[];
-  [1,-1].forEach(function(h){var cand=tr.filter(function(p){return h>0?p[0][1]>0:p[0][1]<0;});if(!cand.length)return;for(var k=T0-40;k<=T0+2;k++){var doy=((k%365)+365)%365,s=tcSeason(doy,h),r=mb32(hstr(sd+'|T|'+h+'|'+k));if(r()>0.4*s)continue;
-      var trk=cand[Math.floor(r()*cand.length)],t0=k+r()*0.9,id='T'+h+'_'+k,a=t-t0;if(a< -TC_PRE)continue;var T=tcState(trk,a,fcPert(id,base,t),h,landAtLL);if(!T)continue;T.id=id;T.name='';S.tcs.push(T);}});
+  /* cyclones born in the last 40 days, with their interactions (worked out over a longer span, so that earlier ones are known) */
+  var tr=WX.map.M.clim.cyc?WX.map.M.clim.cyc.tracks:[],raw=tcRaw(T0-90,T0+2,tr),mods=tcInteract(raw,landAtLL);
+  raw.forEach(function(Z){if(Z.k<T0-40)return;var a=t-Z.t0;if(a< -TC_PRE)return;var md=mods[Z.id]?tcModAt(mods[Z.id],t):Z.sup?SUPMD:null;if(md&&md.gone)return;
+    var T=tcState(Z.trk,a,fcPert(Z.id,base,t),Z.h,landAtLL,md);if(!T)return;T.id=Z.id;T.name='';S.tcs.push(T);});
+  tcFuji(S.tcs,landAtLL);
   S.lows.forEach(function(L){L.fr=fronts(L);});return S;}
 function tcCat(kt){return kt>=137?'五級颶風（超強颱風）':kt>=113?'四級颶風（強烈颱風）':kt>=96?'三級颶風（強烈颱風）':kt>=83?'二級颶風（中度颱風）':kt>=64?'一級颶風（中度颱風）':kt>=34?'熱帶風暴（輕度颱風）':'熱帶性低氣壓';}
 function tcShort(kt){return kt>=96?'強烈颱風':kt>=64?'中度颱風':kt>=34?'輕度颱風':'熱帶性低氣壓';}
 function tcPress(kt){return Math.round(1010-Math.pow(kt/14,2));}
+/* size grows with intensity: radius of the cloud shield and outer circulation (km) — depression about 290, tropical storm 380,
+   typhoon 450–560, category 5 about 700; a super typhoon grows to 1.45 times that. The gale (34 kt) radius is a little over half of it. */
+function tcRad(kt,sup){return (200+3.6*clamp(kt,0,170))*(sup?1+0.45*(+sup)*sm(64,150,kt):1);}
+/* size of a cyclone state; supF (0–1) grows while a merger turns it into a super typhoon, so the storm swells smoothly */
+function tcSz(T){return tcRad(T.kt,T.supF!==undefined?T.supF:T.sup?1:0);}
+/* a storm destined to be a super typhoon is called one from 130 kt */
+var SUP_KT=130;function tcIsSup(T){return !!T.sup&&T.kt>=SUP_KT;}
+function tcR34(T){return T.kt<34||T.stage==='dist'||T.stage==='rem'?0:0.55*(T.R||tcSz(T));}
+function tcCatT(T){return tcIsSup(T)?'超級颱風（等級外）':tcCat(T.kt);}
 /* ---------- tropical cyclone life cycle ----------
    A tropical disturbance (a convective cloud cluster drifting in from upstream) organises for TC_PRE days into the depression that
    starts the climatological track; along the track the cyclone strengthens and weakens as the track says, and poleward of about 31°
    begins its extratropical transition; after the track ends it fills over land (remnant low) or completes the transition at high
    latitude or over cold water, and fades out within TC_POST days. Every quantity is a smooth function of time: nothing pops or cuts. */
 var TC_PRE=1.4,TC_POST=1.8,TC_SPD=420;
-function tcLen(trk){if(trk.len)return trk.len;var L=0;for(var s=0;s<trk.length-1;s++)L+=hav(trk[s][0],trk[s][1],trk[s+1][0],trk[s+1][1]);trk.len=L;return L;}
+/* cumulative distance along a track (km), cached on the track */
+function tcCum(trk){if(trk.cum)return trk.cum;var c=[0];for(var s=0;s<trk.length-1;s++)c.push(c[s]+hav(trk[s][0],trk[s][1],trk[s+1][0],trk[s+1][1]));trk.cum=c;trk.len=c[c.length-1];return c;}
+function tcLen(trk){return tcCum(trk)[trk.length-1];}
 function tcBrg(a,b){var la1=a[1]*D2R,la2=b[1]*D2R,dl=wrapLon(b[0]-a[0])*D2R;return Math.atan2(Math.sin(dl)*Math.cos(la2),Math.cos(la1)*Math.sin(la2)-Math.sin(la1)*Math.cos(la2)*Math.cos(dl))/D2R;}
 function tcMoveLL(lo,la,brg,km){var d=km/6371,la1=la*D2R,b=brg*D2R,la2=Math.asin(clamp(Math.sin(la1)*Math.cos(d)+Math.cos(la1)*Math.sin(d)*Math.cos(b),-1,1)),lo2=lo*D2R+Math.atan2(Math.sin(b)*Math.sin(d)*Math.cos(la1),Math.cos(d)-Math.sin(la1)*Math.sin(la2));return [wrapLon(lo2/D2R),la2/D2R];}
-function tcState(trk,a,fc,h,landAt){var n=trk.length;if(n<2||a< -TC_PRE)return null;var L=tcLen(trk),sp=TC_SPD*(fc?1+fc.dt:1),dist=a*sp,lo,la,kt,brg,vis=1,et=0,R=null,post=false;
-  if(a<0){brg=tcBrg(trk[0],trk[1]);var s=sm(-TC_PRE,0,a),p0=tcMoveLL(trk[0][0],trk[0][1],brg+180,-a*260);lo=p0[0];la=p0[1];kt=12+(trk[0][2]-12)*s;vis=sm(-TC_PRE,-TC_PRE+0.7,a);R=230+2.6*trk[0][2]+90*(1-s);}
-  else if(dist<=L){var acc=0;for(var q=0;q<n-1;q++){var L3=hav(trk[q][0],trk[q][1],trk[q+1][0],trk[q+1][1]);if(acc+L3>=dist||q===n-2){var f=clamp((dist-acc)/Math.max(1,L3),0,1);
-        lo=trk[q][0]+wrapLon(trk[q+1][0]-trk[q][0])*f;la=trk[q][1]+(trk[q+1][1]-trk[q][1])*f;kt=trk[q][2]+(trk[q+1][2]-trk[q][2])*f;brg=tcBrg(trk[q],trk[q+1]);break;}acc+=L3;}
-    et=sm(31,44,Math.abs(la));}
+function tcState(trk,a,fc,h,landAt,md){var n=trk.length;if(n<2||a< -TC_PRE)return null;var cum=tcCum(trk),L=cum[n-1],sp=TC_SPD*(fc?1+fc.dt:1),dist=a*sp,lo,la,kt,brg,vis=1,et=0,R=null,post=false;
+  if(a<0){brg=tcBrg(trk[0],trk[1]);var s=sm(-TC_PRE,0,a),p0=tcMoveLL(trk[0][0],trk[0][1],brg+180,-a*260);lo=p0[0];la=p0[1];kt=12+(trk[0][2]-12)*s;vis=sm(-TC_PRE,-TC_PRE+0.7,a);R=tcRad(trk[0][2])+90*(1-s);}
+  else if(dist<=L){var q=0,q1=n-2;while(q<q1){var qm=(q+q1+1)>>1;if(cum[qm]<=dist)q=qm;else q1=qm-1;}var f=clamp((dist-cum[q])/Math.max(1,cum[q+1]-cum[q]),0,1);
+    lo=trk[q][0]+wrapLon(trk[q+1][0]-trk[q][0])*f;la=trk[q][1]+(trk[q+1][1]-trk[q][1])*f;kt=trk[q][2]+(trk[q+1][2]-trk[q][2])*f;brg=tcBrg(trk[q],trk[q+1]);et=sm(31,44,Math.abs(la));}
   else{post=true;var tau=(dist-L)/sp,e=trk[n-1],b=trk[n-2],onL0=landAt(wrapLon(e[0]),e[1]),hi=Math.abs(e[1])>=33,Tend=onL0?1.2:TC_POST;if(tau>Tend)return null;brg=tcBrg(b,e);var p1=tcMoveLL(e[0],e[1],brg,Math.max(0,260*tau-40*tau*tau));lo=p1[0];la=p1[1];
     var e0=sm(31,44,Math.abs(e[1]));et=hi?Math.max(e0,sm(0,0.8,tau)):e0*(1-sm(0,1,tau));kt=e[2]*Math.exp(-tau/(onL0?0.4:hi?1.0:0.7));vis=1-sm(Tend-0.8,Tend,tau);}
-  if(fc){lo+=fc.dx*0.5;la+=fc.dy*0.5;kt*=fc.dm;}lo=wrapLon(lo);la=clamp(la,-85,85);var land=landAt(lo,la);
-  var stage=a<0?(kt<25?'dist':'td'):et>(post?0.5:0.6)?'et':kt>=64?'ty':kt>=34?'ts':kt>=25||!post?'td':'rem';
-  var org=sm(16,55,kt)*(1-0.8*et)*(land?0.7:1)*(post?0.75:1),eye=sm(62,100,kt)*(1-et)*(land?0.3:1)*(post?0.5:1);if(R===null)R=(230+2.6*kt)*(1+0.9*et);
-  return {lon:lo,lat:la,kt:kt,trk:trk,dist:dist,h:h,land:land,stage:stage,vis:vis,org:org,eye:eye,et:et,R:R,brg:brg,age:a};}
+  if(fc){lo+=fc.dx*0.5;la+=fc.dy*0.5;kt*=fc.dm;}
+  var T={lon:lo,lat:la,kt:kt,trk:trk,dist:dist,h:h,vis:vis,et:et,R0:R,brg:brg,age:a,post:post,sup:false,supF:0,fade:0,inter:null};
+  if(md){T.kt*=md.g;T.vis*=md.vis;T.sup=!!md.sup;T.supF=md.supF||0;T.fade=md.fade||0;T.inter=md.inter||null;if(md.g>1||T.supF>0)T.kt=tcKtCap(T.kt);}
+  return tcDerive(T,landAt);}
+/* intensities lifted by a merger or a super typhoon level off smoothly below 185 kt */
+function tcKtCap(kt){return kt<=150?kt:150+35*(1-Math.exp(-(kt-150)/35));}
+/* stage, organisation, eye and size from the current intensity and position (a cyclone torn apart by a neighbour ends as a remnant low) */
+function tcDerive(T,landAt){T.kt=Math.min(185,T.kt);T.lon=wrapLon(T.lon);T.lat=clamp(T.lat,-85,85);var kt=T.kt,et=T.et,post=T.post,a=T.age,fd=T.fade||0,land=landAt(T.lon,T.lat),w=1-0.7*fd;T.land=land;
+  T.stage=a<0?(kt<25?'dist':'td'):et>(post?0.5:0.6)?'et':fd>0.5?'rem':kt>=64?'ty':kt>=34?'ts':kt>=25||!post?'td':'rem';
+  T.org=sm(16,55,kt)*(1-0.8*et)*(land?0.7:1)*(post?0.75:1)*w;T.eye=sm(62,100,kt)*(1-et)*(land?0.3:1)*(post?0.5:1)*w*w;T.R=T.R0!==null?T.R0:tcSz(T)*(1+0.9*et);return T;}
+/* the cyclones born on days k0…k1: each day and hemisphere draws, as always, whether one forms and which climatological track it follows;
+   the super typhoon of a 5-year period (below) joins them */
+function tcRaw(k0,k1,tr){var out=[],sd=WX.seed;
+  [1,-1].forEach(function(h){var cand=tcCand(tr,h);if(!cand.length)return;for(var k=k0;k<=k1;k++){var doy=((k%365)+365)%365,s=tcSeason(doy,h),r=mb32(hstr(sd+'|T|'+h+'|'+k));if(r()>0.4*s)continue;
+      var trk=cand[Math.floor(r()*cand.length)];out.push({id:'T'+h+'_'+k,k:k,h:h,trk:trk,t0:k+r()*0.9,sup:false});}});
+  for(var n=Math.floor(Math.floor(k0/365)/SUP_Y);n<=Math.floor(Math.floor(k1/365)/SUP_Y);n++){var E=supPeriod(n,tr);if(E&&E.k>=k0&&E.k<=k1)out.push(E);}
+  return out.sort(function(a,b){return a.t0-b.t0;});}
+function tcCand(tr,h){var c=WX.tcCand;if(!c||c.tr!==tr)c=WX.tcCand={tr:tr};return c[h]||(c[h]=tr.filter(function(p){return h>0?p[0][1]>0:p[0][1]<0;}));}
+/* super typhoons: one draw per 5-year period (years 0–4, 5–9, …). The chance is 5 %; every period that passes without one adds another
+   5 % (10 %, 15 %, …), and after one has formed it starts again at 5 %. A successful draw takes one of the most intense climatological
+   tracks, in season, and lifts its peak to 150–185 kt; the storm is also far larger than an ordinary typhoon. */
+var SUP_Y=5,SUP_P=0.05,SUPMD={g:1,vis:1,sup:true,supF:1,fade:0,inter:null};
+function supPeriod(n,tr){if(n<0||!tr||!tr.length)return null;var S=WX.sup;if(!S||S.seed!==WX.seed||S.tr!==tr)S=WX.sup={seed:WX.seed,tr:tr,k:[],ev:[]};
+  for(var i=S.ev.length;i<=n;i++){var k=i&&!S.ev[i-1]?S.k[i-1]+1:1,r=mb32(hstr(WX.seed+'|SUP|'+i));S.k.push(k);S.ev.push(r()<Math.min(1,SUP_P*k)?supMake(i,r,tr):null);}
+  return S.ev[n];}
+function supMake(n,r,tr){var best=null,bs=-1,pk=0;for(var c=0;c<6;c++){var t=tr[Math.floor(r()*tr.length)],p=0;for(var j=0;j<t.length;j++)p=Math.max(p,t[j][2]);var sc=p*(0.7+0.3*r())*Math.min(1,t.length/24);if(sc>bs){bs=sc;best=t;pk=p;}}
+  var h=best[0][1]>=0?1:-1,doy=0;for(var g=0;g<300;g++){doy=Math.floor(r()*365);if(r()<tcSeason(doy,h))break;}
+  var k=(n*SUP_Y+Math.floor(r()*SUP_Y))*365+doy,top=Math.max(pk,150+35*r()),trk=best.map(function(p){return [p[0],p[1],Math.min(185,p[2]+(top-pk)*Math.pow(clamp(p[2]/pk,0,1),2))];});
+  return {id:'S'+h+'_'+k,k:k,h:h,trk:trk,t0:k+r()*0.9,sup:true,n:n};}
+function supChance(n){var tr=WX.map&&WX.map.M.clim.cyc?WX.map.M.clim.cyc.tracks:[];if(n<0||!tr.length)return 0;supPeriod(n,tr);return Math.min(1,SUP_P*WX.sup.k[n]);}
+function supNote(t){var n=Math.floor(Math.floor(Math.floor(t)/365)/SUP_Y),p=supChance(n);if(!p)return '';var E=WX.sup.ev[n],a='超級颱風：本期（'+n*SUP_Y+'–'+(n*SUP_Y+SUP_Y-1)+' 年）';
+  if(E&&t>=E.t0)return a+'已生成 '+tcCode({id:E.id})+'，下一期機率回到 5%';
+  return a+'生成機率 '+Math.round(p*100)+'%'+(WX.sup.k[n]>1?'（已連續 '+(WX.sup.k[n]-1)+' 期未生成，每期累加 5%）':'（每 5 年一期，未生成則下一期累加 5%）');}
+/* cyclone–cyclone interaction (Fujiwhara effect). Two cyclones of one hemisphere that come closer than about 0.75 × their combined size
+   begin to circle each other. Then either the weaker is drawn in and absorbed — when two typhoons merge this way the result is a super
+   typhoon — or the interference shears the weaker apart and it dissipates (two weak ones may both fall apart). Each pair is judged once,
+   from the undisturbed tracks; the outcomes are applied in time order, and a cyclone already being absorbed or torn apart takes no further part. */
+function tcCap(trk){if(trk.cap)return trk.cap;var x=0,y=0,z=0,V=trk.map(function(p){var a=p[1]*D2R,b=p[0]*D2R,v=[Math.cos(a)*Math.cos(b),Math.cos(a)*Math.sin(b),Math.sin(a)];x+=v[0];y+=v[1];z+=v[2];return v;}),l=Math.hypot(x,y,z)||1,m=0;
+  x/=l;y/=l;z/=l;V.forEach(function(v){m=Math.max(m,Math.acos(clamp(v[0]*x+v[1]*y+v[2]*z,-1,1)));});return (trk.cap=[x,y,z,m]);}
+function tcPairEv(A,B,landAt){var C=WX.tcEv||(WX.tcEv={}),key=A.id<B.id?A.id+'|'+B.id:B.id+'|'+A.id;if(key in C)return C[key];var ev=null,ca=tcCap(A.trk),cb=tcCap(B.trk);
+  if(Math.acos(clamp(ca[0]*cb[0]+ca[1]*cb[1]+ca[2]*cb[2],-1,1))<=ca[3]+cb[3]+0.25){var s1=Math.min(A.t0+tcLen(A.trk)/TC_SPD,B.t0+tcLen(B.trk)/TC_SPD);
+    for(var t=Math.max(A.t0,B.t0);t<=s1;t+=0.25){var a=tcState(A.trk,t-A.t0,null,A.h,landAt,A.sup?SUPMD:null),b=tcState(B.trk,t-B.t0,null,B.h,landAt,B.sup?SUPMD:null);
+      if(!a||!b||a.kt<25||b.kt<25||a.et>0.4||b.et>0.4)continue;if(hav(a.lon,a.lat,b.lon,b.lat)<clamp(0.75*(a.R+b.R),650,1500)){ev={t:t,key:key,k:{}};ev.k[A.id]=a.kt;ev.k[B.id]=b.kt;break;}}}
+  return (C[key]=ev);}
+function tcInteract(raw,landAt){var M={},evs=[],i,j;
+  for(i=0;i<raw.length;i++)for(j=i+1;j<raw.length;j++){var A=raw[i],B=raw[j];if(A.h!==B.h||B.t0>A.t0+tcLen(A.trk)/TC_SPD)continue;var e=tcPairEv(A,B,landAt);if(e)evs.push([e,A,B]);}
+  evs.sort(function(x,y){return x[0].t-y[0].t||(x[0].key<y[0].key?-1:1);});function get(Z){return M[Z.id]||(M[Z.id]={sup:Z.sup,ops:[],gone:1e18});}
+  evs.forEach(function(E){var e=E[0],mA=get(E[1]),mB=get(E[2]);if(mA.gone<1e18||mB.gone<1e18)return;
+    var ka=e.k[E[1].id]*gAt(mA,e.t),kb=e.k[E[2].id]*gAt(mB,e.t),sw=ka<kb,a=sw?E[2]:E[1],b=sw?E[1]:E[2],ma=sw?mB:mA,mb=sw?mA:mB,kA=Math.max(ka,kb),kB=Math.min(ka,kb),r=mb32(hstr(WX.seed+'|TI|'+e.key)),T=1+0.6*r();
+    if(r()<(kB>=34?0.55:0.4)){/* merge: the weaker spirals into the stronger; two typhoons make a super typhoon */
+      var sup=kA>=64&&kB>=64,top=sup?150+0.3*Math.max(0,kA+0.6*kB-150):Math.min(kA+0.4*kB,kA*1.5,150);ma.ops.push({t:e.t,T:T,ty:'abs',f:top/kA,sup:sup,o:b.id});mb.ops.push({t:e.t,T:T,ty:'mrg',o:a.id});mb.gone=e.t+T;}
+    else if(kA<64&&r()<0.4){/* two weak cyclones tear each other apart */
+      mb.ops.push({t:e.t,T:T+0.3,ty:'dis',o:a.id});mb.gone=e.t+T+0.3;ma.ops.push({t:e.t+0.2,T:T+0.6,ty:'dis2',o:b.id});ma.gone=e.t+T+0.8;}
+    else{/* the weaker is sheared apart and dissipates, the stronger weakens */
+      mb.ops.push({t:e.t,T:T+0.3,ty:'dis',o:a.id});mb.gone=e.t+T+0.3;ma.ops.push({t:e.t,T:T+0.3,ty:'dec',f:0.72+0.13*r(),o:b.id});}});
+  return M;}
+function gAt(m,t){var g=1;for(var i=0;i<m.ops.length;i++){var o=m.ops[i];if(o.f&&t>o.t)g*=1+(o.f-1)*sm(o.t,o.t+o.T,t);}return g;}
+function tcModAt(m,t){if(t>=m.gone)return {gone:true};var md={g:gAt(m,t),vis:1,sup:m.sup,supF:m.sup?1:0,fade:0,inter:null};
+  m.ops.forEach(function(o){if(t<o.t)return;var s=sm(o.t,o.t+o.T,t);if(o.sup){md.supF=Math.max(md.supF,s);if(s>0.5)md.sup=true;}
+    if(o.ty==='mrg'){md.vis*=1-s;md.g*=1-0.4*s;}else if(o.ty==='dis'||o.ty==='dis2'){md.vis*=1-s;md.fade=Math.max(md.fade,s);md.g*=1-0.55*s;}
+    if(t<o.t+o.T+1)md.inter={ty:o.ty,o:o.o,s:s,sup:!!o.sup};});
+  return md;}
+/* while two cyclones interact they circle each other (counter-clockwise in the north): one being absorbed spirals into its partner,
+   one being torn apart swings round it and drifts off, and the stronger only wobbles, back on its own track when the interaction ends */
+function tcFuji(L,landAt){var by={};L.forEach(function(T){by[T.id]=T;});
+  L.forEach(function(B){var I=B.inter;if(!I||(I.ty!=='mrg'&&I.ty!=='dis')||I.s>=1)return;var A=by[I.o];if(!A)return;var s=I.s,h=B.h||1,cl=Math.cos(A.lat*D2R),
+      rx=wrapLon(B.lon-A.lon)*111.2*cl,ry=(B.lat-A.lat)*111.2,th=h*(I.ty==='mrg'?2.1:0.9)*s,k=I.ty==='mrg'?1-s:1+0.3*s,c=Math.cos(th),sn=Math.sin(th),nx=(rx*c-ry*sn)*k,ny=(rx*sn+ry*c)*k,
+      wa=A.kt*A.kt,wb=B.kt*B.kt,w=wb/(wa+wb+1)*Math.sin(PI*s),pa=offLL(A.lon,A.lat,-(nx-rx)*w,-(ny-ry)*w),pb=offLL(pa[0],pa[1],nx,ny);
+    A.lon=pa[0];A.lat=pa[1];B.lon=pb[0];B.lat=pb[1];tcDerive(A,landAt);tcDerive(B,landAt);});}
+/* what an interaction is doing to a cyclone, for bulletins and labels */
+function tcIntTxt(T,pre,short){var I=T.inter;if(!I)return '';var c=tcCode({id:I.o}),n=nm(c),w=n?'「'+n+'」':c,s;
+  if(I.ty==='mrg')s=short?'併入'+w+'中':'受'+w+'牽引繞轉（藤原效應），即將併入對方';
+  else if(I.ty==='dis'||I.ty==='dis2')s=short?'受'+w+'干擾消散中':'與'+w+'互相干擾（藤原效應），結構瓦解，正在消散';
+  else if(I.ty==='abs')s=short?(I.s<1?'吸收'+w+'中':'已吸收'+w)+(I.sup&&!tcIsSup(T)?'→超級颱風':''):(I.s<1?'正吸收'+w+'（藤原效應）'+(I.sup?(tcIsSup(T)?'，合併增強為超級颱風':'，合併後將增強為超級颱風'):'，強度增強中'):'已吸收'+w+(I.sup?'，合併增強為超級颱風':'，強度增強'));
+  else s=short?'受'+w+'干擾減弱':'受'+w+'干擾（藤原效應），強度減弱';
+  return (pre||'')+s;}
 /* short name by stage (disturbance, remnant low and extratropical cyclone are named as such, not by wind speed) */
-function tcShortT(T){return T.stage==='dist'?'熱帶擾動':T.stage==='rem'?'殘餘低氣壓':T.stage==='et'?'溫帶氣旋':tcShort(T.kt);}
+function tcShortT(T){return T.stage==='dist'?'熱帶擾動':T.stage==='rem'?'殘餘低氣壓':T.stage==='et'?'溫帶氣旋':tcIsSup(T)?'超級颱風':tcShort(T.kt);}
 /* weather-map symbol: dashed circle with a cross for a disturbance, hollow symbol for a depression, filled for storms and typhoons,
    grey hollow for remnant lows and extratropical cyclones; it turns cyclonically with time and fades in and out with the system */
 function tcSymbol(x,px,py,T,k,t){var st=T.stage||(T.kt>=64?'ty':T.kt>=34?'ts':'td'),vis=T.vis===undefined?1:clamp(T.vis,0,1);if(vis<0.03)return;var h=T.h||(T.lat>=0?1:-1),kt=T.kt;
   x.save();x.globalAlpha*=vis;x.translate(px,py);x.lineCap='round';
   if(st==='dist'){x.strokeStyle='#546E7A';x.lineWidth=1.6*k;x.setLineDash([3*k,3*k]);x.beginPath();x.arc(0,0,9*k,0,2*PI);x.stroke();x.setLineDash([]);x.beginPath();x.moveTo(-3.5*k,-3.5*k);x.lineTo(3.5*k,3.5*k);x.moveTo(3.5*k,-3.5*k);x.lineTo(-3.5*k,3.5*k);x.stroke();x.restore();return;}
-  var gray=st==='rem'||st==='et',col=gray?'#546E7A':kt>=96?'#B71C1C':kt>=64?'#E65100':'#F9A825',hol=st==='td'||gray,r=(5.5+2*sm(34,130,kt))*k;
+  var gray=st==='rem'||st==='et',sup=tcIsSup(T)&&!gray,col=gray?'#546E7A':sup?'#6A1B9A':kt>=96?'#B71C1C':kt>=64?'#E65100':'#F9A825',hol=st==='td'||gray,r=tcSymR(T)*k;
   x.rotate(-h*(t||0)*4);if(h<0)x.scale(1,-1);x.strokeStyle=col;x.fillStyle=col;x.lineWidth=2.2*k;x.beginPath();x.arc(0,0,r,0,2*PI);if(hol)x.stroke();else x.fill();
-  x.beginPath();x.arc(0,0,r*1.7,-0.2,1.3);x.stroke();x.beginPath();x.arc(0,0,r*1.7,PI-0.2,PI+1.3);x.stroke();x.restore();}
+  x.beginPath();x.arc(0,0,r*1.7,-0.2,1.3);x.stroke();x.beginPath();x.arc(0,0,r*1.7,PI-0.2,PI+1.3);x.stroke();
+  if(sup){x.lineWidth=1.6*k;x.beginPath();x.arc(0,0,r*2.3,0.5,1.9);x.stroke();x.beginPath();x.arc(0,0,r*2.3,PI+0.5,PI+1.9);x.stroke();}x.restore();}
+/* symbol radius (before scaling): grows with intensity, largest for super typhoons */
+function tcSymR(T){return 4.5+4.5*sm(25,150,T.kt)+(tcIsSup(T)?2.5:0);}
 /* satellite look of the tropical cyclones at a point (2D cloud maps; the globe draws the same in its cloud shader).
    Returns [cloud 0..1, blend weight 0..1, share of the background kept] or null (outside half the radius the cyclone only adds cloud): scattered convective clusters while it is a disturbance; curved bands, a central
    dense overcast and an eye as it strengthens; ragged and eyeless when it fills; during extratropical transition a broad shield
    pushed poleward and downstream while the equatorward side dries out. The bands turn cyclonically with time. */
 function tcSat(Fd,lo,la){var Ls=Fd.S&&Fd.S.tcs;if(!Ls||!Ls.length)return null;var best=null,t=Fd.t||0,X=0,Y=0,Z=0,got=false;
-  for(var k=0;k<Ls.length;k++){var T=Ls[k],vis=T.vis===undefined?1:T.vis;if(vis<0.01)continue;var R=T.R||(230+2.6*T.kt),dyk=(la-T.lat)*111.2;if(Math.abs(dyk)>R*2)continue;var dxk=wrapLon(lo-T.lon)*111.2*Math.cos(la*D2R);if(Math.abs(dxk)>R*2)continue;
+  for(var k=0;k<Ls.length;k++){var T=Ls[k],vis=T.vis===undefined?1:T.vis;if(vis<0.01)continue;var R=T.R||tcSz(T),dyk=(la-T.lat)*111.2;if(Math.abs(dyk)>R*2)continue;var dxk=wrapLon(lo-T.lon)*111.2*Math.cos(la*D2R);if(Math.abs(dxk)>R*2)continue;
     var h=T.h||(T.lat>=0?1:-1),et=T.et||0,org=T.org===undefined?sm(16,55,T.kt):T.org,eye=T.eye===undefined?sm(62,100,T.kt):T.eye,ox=dxk/R-et*0.35,oy=dyk/R-h*et*0.45,rr=Math.hypot(ox/(1+0.4*et),oy/(1+0.9*et));if(rr>=1.15)continue;
     if(!got){X=Math.cos(la*D2R)*Math.cos(lo*D2R);Y=Math.cos(la*D2R)*Math.sin(lo*D2R);Z=Math.sin(la*D2R);got=true;}var dn=clamp(0.5+0.62*WX.map.C.fbm(WX.nz,X*40+t*0.8,Y*40-t*0.6,Z*40+t*0.4,3),0,1);
     var th=Math.atan2(ox,oy),sp=0.5+0.5*Math.sin(2*th*h-Math.log(rr+0.03)*5+t*3)+0.45*(dn-0.5),band=sm(0.25,0.6,sp)*(1-sm(0.7,1.05,rr)),cdo=(1-sm(0.25+0.15*org,0.45+0.2*org,rr))*sm(0.25,0.6,org),outer=0.28*(1-sm(0.45,1.05,rr)),clus=sm(0.45,0.68,dn+0.25*(1-rr))*(1-sm(0.55,1,rr));
@@ -2507,14 +2594,14 @@ function fields(t,base){var g=WX.g1,NX=360,NY=180,N=g.N,cl=climAt(t),S=systems(t
     if(L.fr){[['c',L.fr.c,130,1.5],['w',L.fr.w,300,1.0],['o',L.fr.o,220,1.3]].forEach(function(fr){if(!fr[1])return;var P=fr[1],lo0=P[Math.floor(P.length/2)][0],la0=P[Math.floor(P.length/2)][1];each(lo0,la0,L.R*1.4+600,function(c2,d,lo,la){var dd=lineDist(lo,la,P);F[c2]+=fr[3]*Math.exp(-(dd*dd)/(fr[2]*fr[2]))*Math.min(1,-L.D/18);});});
       each(L.lon,L.lat,L.R*1.6,function(c2,d,lo,la){var dx=wrapLon(lo-L.lon)*Math.cos(la*D2R),dy=(la-L.lat)*L.h,b=(Math.atan2(dx,dy)/D2R+360)%360,k=Math.exp(-(d*d)/(L.R*L.R*1.4))*Math.min(1,-L.D/20);if(b>100&&b<200)dT[c2]+=3.5*k;else if(b>=200&&b<330)dT[c2]-=4*k;});}});
   S.highs.forEach(function(H){each(H.lon,H.lat,H.R*2,function(c2,d){var e=Math.exp(-(d*d)/(H.R*H.R));slp[c2]+=H.S*e;F[c2]-=1.3*e*Math.min(1,H.S/14);if(H.cold)dT[c2]-=H.cold*e;});});
-  S.tcs.forEach(function(T){var vis=T.vis===undefined?1:T.vis,et=T.et||0,dp=(1010-tcPress(T.kt))*vis,Rp=260*(1+0.8*et),RF=420*(0.7+0.3*sm(12,45,T.kt))*(1+0.6*et),Fa=3.2*vis*(0.3+0.7*sm(12,60,T.kt))*(1-0.3*et),Rm=(35+Math.max(0,80-T.kt*0.3))*(1+1.5*et),vmax=T.kt*0.514*vis,fo=null;
+  S.tcs.forEach(function(T){var vis=T.vis===undefined?1:T.vis,et=T.et||0,zf=tcSz(T)/416,dp=(1010-tcPress(T.kt))*vis,Rp=260*(1+0.8*et)*zf,RF=420*(0.7+0.3*sm(12,45,T.kt))*(1+0.6*et)*zf,Fa=3.2*vis*(0.3+0.7*sm(12,60,T.kt))*(1-0.3*et),Rm=(35+Math.max(0,80-T.kt*0.3))*(1+1.5*et)*(1+0.3*(T.supF||0)),vmax=T.kt*0.514*vis,ex=clamp(0.6/Math.sqrt(zf),0.4,0.75),Rw=T.Rw=900*(1+0.6*et)*Math.max(0.8,zf),fo=null;
     if(et>0.01&&T.brg!==undefined){fo=tcMoveLL(T.lon,T.lat,T.brg,0.35*RF*et);fo=tcMoveLL(fo[0],fo[1],T.lat>=0?0:180,0.25*RF*et);}
-    each(T.lon,T.lat,900*(1+0.6*et),function(c2,d,lo,la){slp[c2]-=dp*Math.exp(-(d*d)/(Rp*Rp));var dF=fo?hav(lo,la,fo[0],fo[1]):d;F[c2]+=Fa*Math.exp(-(dF*dF)/(RF*RF));var vt=d<Rm?vmax*d/Rm:vmax*Math.pow(Rm/d,0.6);if(vt>tcw[c2]){tcw[c2]=vt;tcr[c2]=1;}});});
+    each(T.lon,T.lat,Rw,function(c2,d,lo,la){slp[c2]-=dp*Math.exp(-(d*d)/(Rp*Rp));var dF=fo?hav(lo,la,fo[0],fo[1]):d;F[c2]+=Fa*Math.exp(-(dF*dF)/(RF*RF));var vt=d<Rm?vmax*d/Rm:vmax*Math.pow(Rm/d,ex);if(vt>tcw[c2]){tcw[c2]=vt;tcr[c2]=1;}});});
   /* winds: geostrophic from the pressure field with surface friction; near the equator the climatological trades */
   for(j=1;j<NY-1;j++){var la=g.lat[j],f=2*7.292e-5*Math.sin(la*D2R),dx=111e3*Math.max(0.1,Math.cos(la*D2R)),dy=111e3;for(i=0;i<NX;i++){c=j*NX+i;var ie=j*NX+(i+1)%NX,iw=j*NX+(i+NX-1)%NX,dpx=(slp[ie]-slp[iw])*100/(2*dx),dpy=(slp[c-NX]-slp[c+NX])*100/(2*dy);
       var ug=0,vg=0;if(Math.abs(la)>6){ug=-dpy/(1.2*f);vg=dpx/(1.2*f);}var land=g.landF[c]>0.5,rot=(land?30:18)*D2R*(la>=0?1:-1),kf=land?0.5:0.7,ur=(ug*Math.cos(rot)-vg*Math.sin(rot))*kf,vr=(ug*Math.sin(rot)+vg*Math.cos(rot))*kf,bl=sm(4,14,Math.abs(la));
       u[c]=cl.U[c]*(1-bl)+ur*bl+cl.U[c]*0.3*bl;v[c]=cl.V[c]*(1-bl)+vr*bl+cl.V[c]*0.3*bl;var sp=Math.hypot(u[c],v[c]);if(sp>32){u[c]*=32/sp;v[c]*=32/sp;}}}
-  S.tcs.forEach(function(T){var h=T.lat>=0?1:-1;each(T.lon,T.lat,900*(1+0.6*(T.et||0)),function(c2,d,lo,la){var dxk=wrapLon(lo-T.lon)*Math.cos(la*D2R)*111,dyk=(la-T.lat)*111,r=Math.hypot(dxk,dyk)||1,vt=tcw[c2];u[c2]+=-h*dyk/r*vt*0.8-dxk/r*vt*0.25;v[c2]+=h*dxk/r*vt*0.8-dyk/r*vt*0.25;});});
+  S.tcs.forEach(function(T){var h=T.lat>=0?1:-1;each(T.lon,T.lat,T.Rw||900,function(c2,d,lo,la){var dxk=wrapLon(lo-T.lon)*Math.cos(la*D2R)*111,dyk=(la-T.lat)*111,r=Math.hypot(dxk,dyk)||1,vt=tcw[c2];u[c2]+=-h*dyk/r*vt*0.8-dxk/r*vt*0.25;v[c2]+=h*dxk/r*vt*0.8-dyk/r*vt*0.25;});});
   /* temperature anomaly: advection of the climatological sea-level temperature gradient by the synoptic wind, plus large-scale noise */
   var Tsl=new Float32Array(N);for(c=0;c<N;c++)Tsl[c]=cl.T[c]+0.0065*Math.max(0,g.zL[c]);
   for(j=1;j<NY-1;j++){var la2=g.lat[j],dx2=111e3*Math.max(0.1,Math.cos(la2*D2R));for(i=0;i<NX;i++){c=j*NX+i;var ie2=j*NX+(i+1)%NX,iw2=j*NX+(i+NX-1)%NX,gTx=(Tsl[ie2]-Tsl[iw2])/(2*dx2),gTy=(Tsl[c-NX]-Tsl[c+NX])/(2*111e3);
@@ -2549,7 +2636,7 @@ function report(Fd,hr,full){var P=WX.pts,n=P.n,out=WX.reg.map(function(r){return
     if(o.kind==='land'?o.w85>17.2:o.w85>20.8)o.warn.push(o.kind==='sea'?'海上強風':'強風');if(o.fog>0.25)o.warn.push('濃霧');if(o.dust>0.25)o.warn.push('沙塵暴');if(o.kind==='land'&&o.thF>0.3&&o.cov>0.25)o.warn.push('雷雨');});
   /* tropical cyclones near each region */
   Fd.S.tcs.forEach(function(T){WX.reg.forEach(function(r,ri){if(!out[ri].n)return;var d=1e9;for(var k2=r.p0;k2<r.p1;k2+=Math.max(1,Math.floor((r.p1-r.p0)/60))){var e=hav(T.lon,T.lat,P.lon[k2],P.lat[k2]);if(e<d)d=e;}
-    if(d<700&&T.kt>=34)out[ri].warn.unshift(tcLabel(T)+(d<150?' 中心籠罩':' 距約 '+fmt(Math.round(d/10)*10)+' 公里'));});});
+    var Rz=T.R||tcSz(T);if(d<450+0.6*Rz&&T.kt>=34)out[ri].warn.unshift(tcLabel(T)+(d<0.35*Rz?' 中心籠罩':' 距約 '+fmt(Math.round(d/10)*10)+' 公里'));});});
   if(full){var dl=[];Fd.S.lows.forEach(function(L){if(L.D<-22&&Math.abs(L.lat)<75){var tp=Math.abs(L.lat)>=20&&L.fr?'（伴隨鋒面）':'';dl.push({L:L,t:tp});}});
     var tornado=WX.reg.map(function(){return 0;});Fd.S.lows.forEach(function(L){if(!L.fr||Math.abs(L.lat)>50||Math.abs(L.lat)<25||L.D>-14)return;WX.reg.forEach(function(r,ri){if(r.kind!=='land')return;var o=out[ri];if(o.Tx<24||o.cov<0.15)return;var d=hav(L.lon,L.lat,r.c[0],r.c[1]);if(d<L.R*1.5&&o.warn.indexOf('龍捲風')<0&&o.thF>0.1)o.warn.push('龍捲風');});});}
   return out;}
@@ -2562,9 +2649,10 @@ function overview(Fd,rep){var S=Fd.S,out=[];[1,-1].forEach(function(h){var L=S.l
     if(s.length)out.push((h>0?'北半球：':'南半球：')+s.join('；')+'。');});
   S.tcs.forEach(function(T){if(T.vis!==undefined&&T.vis<0.25)return;var r=nearReg(T.lon,T.lat),at=r?r.name+'附近':llTxt(T.lon,T.lat);
     if(T.stage==='dist'){out.push('熱帶擾動：'+at+(T.land?'':'海面')+'有對流雲團逐漸組織，可能發展為熱帶性低氣壓。');return;}
-    if(T.stage==='rem'){out.push(tcLabel(T)+'已減弱為殘餘低氣壓（中心氣壓約 '+tcPress(T.kt)+' hPa），位於'+at+'，將逐漸消散。');return;}
-    if(T.stage==='et'){out.push(tcLabel(T)+'正轉變為溫帶氣旋（中心氣壓約 '+tcPress(T.kt)+' hPa，近中心最大風速 '+Math.round(T.kt*0.514)+' m/s），位於'+at+'，向'+tcMove(T)+'移動，暴風範圍擴大。');return;}
-    out.push(tcLabel(T)+'（'+tcCat(T.kt)+'，中心氣壓約 '+tcPress(T.kt)+' hPa，近中心最大風速 '+Math.round(T.kt*0.514)+' m/s）位於'+at+'，向'+tcMove(T)+'移動'+(T.land?'，已登陸':'')+'。');});
+    if(T.stage==='rem'){out.push(tcLabel(T)+'已減弱為殘餘低氣壓（中心氣壓約 '+tcPress(T.kt)+' hPa），位於'+at+(T.inter?tcIntTxt(T,'；'):'，將逐漸消散')+'。');return;}
+    if(T.stage==='et'){out.push(tcLabel(T)+'正轉變為溫帶氣旋（中心氣壓約 '+tcPress(T.kt)+' hPa，近中心最大風速 '+Math.round(T.kt*0.514)+' m/s），位於'+at+'，向'+tcMove(T)+'移動，暴風範圍擴大'+tcIntTxt(T,'；')+'。');return;}
+    var r34=tcR34(T);out.push(tcLabel(T)+'（'+tcCatT(T)+'，中心氣壓約 '+tcPress(T.kt)+' hPa，近中心最大風速 '+Math.round(T.kt*0.514)+' m/s'+(r34?'，暴風半徑約 '+fmt(Math.round(r34/10)*10)+' 公里':'')+'）位於'+at+'，向'+tcMove(T)+'移動'+(T.land?'，已登陸':'')+tcIntTxt(T,'；')+'。');});
+  var sn=supNote(Fd.t);if(sn)out.push(sn+'。');
   var land=rep.filter(function(o){return o.kind==='land'&&o.n;});if(land.length){var hot=land.slice().sort(function(a,b){return b.TxHi-a.TxHi;})[0],cold=land.slice().sort(function(a,b){return a.TnLo-b.TnLo;})[0],wet=land.slice().sort(function(a,b){return b.prMax-a.prMax;})[0];
     out.push('極值：最高溫 '+hot.name+' 約 '+Math.round(hot.TxHi)+'°C；最低溫 '+cold.name+' 約 '+Math.round(cold.TnLo)+'°C；雨量最大 '+wet.name+'（局部 '+Math.round(wet.prMax)+' mm）。');}
   return out;}
@@ -2633,6 +2721,11 @@ function isobars(slp){var segs=[],NX=360,NY=180;for(var lv=952;lv<=1060;lv+=4){f
   var cen=[];for(var j2=3;j2<NY-3;j2+=1)for(var i2=0;i2<NX;i2++){var v=slp[j2*NX+i2],mn=true,mx=true,s=0,n=0;for(var b2=-4;b2<=4&&(mn||mx);b2++)for(var a2=-4;a2<=4;a2++){if(!a2&&!b2)continue;var jj=clamp(j2+b2,0,NY-1),w=slp[jj*NX+((i2+a2)%NX+NX)%NX];s+=w;n++;if(w<v)mn=false;if(w>v)mx=false;}
     var avg=s/n;if(mn&&v<1008&&v<avg-2.5)cen.push(['L',-179.5+i2,89.5-j2,v]);else if(mx&&v>1018&&v>avg+2)cen.push(['H',-179.5+i2,89.5-j2,v]);}
   return {segs:segs,cen:cen};}
+/* gale-force (34 kt) wind circle of a tropical cyclone: it grows with intensity and is largest for super typhoons */
+function tcGale(c,T,P,jump,k){var r=tcR34(T),al=T.vis===undefined?1:clamp(T.vis,0,1);if(!(r>0)||al<0.2)return;var pv=null,ok=true;c.beginPath();
+  for(var a=0;a<=48;a++){var o=offLL(T.lon,T.lat,r*Math.sin(a*PI/24),r*Math.cos(a*PI/24)),p=P(o[0],o[1]);if(!a)c.moveTo(p[0],p[1]);else if(Math.abs(p[0]-pv[0])>jump){ok=false;c.moveTo(p[0],p[1]);}else c.lineTo(p[0],p[1]);pv=p;}
+  var sup=tcIsSup(T);if(ok){c.fillStyle=sup?'rgba(106,27,154,'+(0.13*al).toFixed(3)+')':'rgba(230,81,0,'+(0.07*al).toFixed(3)+')';c.fill();}
+  c.setLineDash([5*k,4*k]);c.strokeStyle=sup?'rgba(106,27,154,'+(0.85*al).toFixed(3)+')':'rgba(191,54,12,'+(0.55*al).toFixed(3)+')';c.lineWidth=(sup?1.8:1.3)*k;c.stroke();c.setLineDash([]);}
 /* ---------- painting (screen or export) ---------- */
 function frontLine(c,P,view,type,dpr){var pts=P.map(function(p){var q2=llPx(p[0],p[1]);return [(q2[0]-view.ox)*view.s,(q2[1]-view.oy)*view.s];});for(var k=1;k<pts.length;k++)if(Math.abs(pts[k][0]-pts[k-1][0])>view.s*dW()*0.4)return;
   var sk=dpr||1,col=type==='c'?'#1565C0':type==='w'?'#C62828':'#7B1FA2';c.strokeStyle=col;c.fillStyle=col;c.lineWidth=2.4*sk;c.beginPath();pts.forEach(function(p,k){if(k)c.lineTo(p[0],p[1]);else c.moveTo(p[0],p[1]);});c.stroke();
@@ -2656,8 +2749,8 @@ function paint(c,view,dpr,exp){c.setTransform(1,0,0,1,0,0);c.fillStyle='#cfd6de'
   if(q('Ltc').checked)(WX.cur.tcs||[]).forEach(function(T){var p=llPx(T.lon,T.lat),x=(p[0]-view.ox)*view.s,y=(p[1]-view.oy)*view.s;
       if(T.fc&&T.fc.length){c.setLineDash([4,4]);c.strokeStyle=sat?'#FFD54F':'#6A1B9A';c.lineWidth=1.6;c.beginPath();c.moveTo(x,y);T.fc.forEach(function(f2){var q3=llPx(f2[0],f2[1]);c.lineTo((q3[0]-view.ox)*view.s,(q3[1]-view.oy)*view.s);});c.stroke();c.setLineDash([]);
         T.fc.forEach(function(f2,k){var q3=llPx(f2[0],f2[1]),xx=(q3[0]-view.ox)*view.s,yy=(q3[1]-view.oy)*view.s;c.beginPath();c.arc(xx,yy,3+k*2.5,0,2*PI);c.strokeStyle='rgba(106,27,154,0.5)';c.stroke();c.fillStyle=sat?'#FFE082':'#4A148C';c.font='10px system-ui,sans-serif';c.textAlign='left';c.fillText('+'+(k+1)+'日',xx+6,yy);});}
-      tcSymbol(c,x,y,T,1.2,0);if(T.vis!==undefined&&T.vis<0.25)return;
-      c.font='700 12px system-ui,sans-serif';c.textAlign='left';c.textBaseline='middle';c.lineWidth=3;c.strokeStyle='rgba(255,255,255,0.9)';var lb=T.stage==='dist'?'熱帶擾動':tcLabel(T)+' '+tcPress(T.kt)+'hPa';c.strokeText(lb,x+16,y);c.fillStyle='#4A148C';c.fillText(lb,x+16,y);});
+      tcGale(c,T,function(lo,la){var q5=llPx(lo,la);return [(q5[0]-view.ox)*view.s,(q5[1]-view.oy)*view.s];},view.s*dW()*0.4,1);tcSymbol(c,x,y,T,1.2,0);if(T.vis!==undefined&&T.vis<0.25)return;var lx=x+tcSymR(T)*1.2*(tcIsSup(T)?2.3:1.7)+5;
+      c.font='700 12px system-ui,sans-serif';c.textAlign='left';c.textBaseline='middle';c.lineWidth=3;c.strokeStyle='rgba(255,255,255,0.9)';var lb=T.stage==='dist'?'熱帶擾動':tcLabel(T)+' '+tcPress(T.kt)+'hPa'+(T.inter?'（'+tcIntTxt(T,'',true)+'）':'');c.strokeText(lb,lx,y);c.fillStyle=tcIsSup(T)?'#6A1B9A':'#4A148C';c.fillText(lb,lx,y);});
   paintDis(c,view,WX.cur.D);
   if(q('Lnm').checked){c.font='600 11px system-ui,sans-serif';c.textAlign='center';c.textBaseline='middle';var near=!exp&&view.s>=0.9;(near?WX.reg.filter(function(r){return r.kind==='land';}):WX.clbl.filter(function(r){return (!exp&&view.s>=0.5)||r.area>(exp?4e5:1.5e6);})).forEach(function(r){var p=llPx(r.c[0],r.c[1]),x=(p[0]-view.ox)*view.s,y=(p[1]-view.oy)*view.s;if(x<0||y<0||x>view.cw||y>view.ch)return;
     c.lineWidth=3;c.strokeStyle=sat?'rgba(0,0,0,0.6)':'rgba(255,255,255,0.85)';c.strokeText(r.name,x,y);c.fillStyle=sat?'#FFFFFF':'#333';c.fillText(r.name,x,y);});}
@@ -2681,7 +2774,7 @@ function pickAt(x,y){if(!WX.cur)return;var d=WX.map.disp,dx=Math.floor(V.ox+x/V.
 /* ---------- issuing a forecast ---------- */
 async function issue(){if(!WX.map||busy)return;busy++;sync();err('');try{var t=tNow(),hr=+q('hh').value,t0=Date.now();
   await prog('計算天氣場',0.1);var F0=fields(t,t);await prog('繪製天氣圖',0.25);OV=buildOverlay(F0,hr);var iso=isobars(F0.slp);
-  var tcs=F0.S.tcs.filter(function(T){return T.vis===undefined||T.vis>=0.2;}).map(function(T){var o={id:T.id,name:'',kt:T.kt,lon:T.lon,lat:T.lat,land:T.land,stage:T.stage,vis:T.vis,h:T.h,et:T.et,org:T.org,eye:T.eye,R:T.R,brg:T.brg,trk:T.trk,dist:T.dist,fc:[]};for(var k=1;k<=3;k++){var Sk=systems(t+k,t).tcs.filter(function(x){return x.id===T.id;})[0];if(Sk)o.fc.push([Sk.lon,Sk.lat,Sk.kt]);}return o;});
+  var tcs=F0.S.tcs.filter(function(T){return T.vis===undefined||T.vis>=0.2;}).map(function(T){var o={id:T.id,name:'',kt:T.kt,lon:T.lon,lat:T.lat,land:T.land,stage:T.stage,vis:T.vis,h:T.h,et:T.et,org:T.org,eye:T.eye,R:T.R,brg:T.brg,trk:T.trk,dist:T.dist,sup:T.sup,supF:T.supF,inter:T.inter,fc:[]};for(var k=1;k<=3;k++){var Sk=systems(t+k,t).tcs.filter(function(x){return x.id===T.id;})[0];if(Sk)o.fc.push([Sk.lon,Sk.lat,Sk.kt]);}return o;});
   await prog('各地區預報',0.45);var rep=report(F0,hr,true),fc=[],rf=[];for(var k=1;k<=4;k++){await prog('第 '+k+' 日預測',0.5+k*0.1);var Fk=fields(Math.floor(t)+k+0.5,t);fc.push(Fk);rf.push(report(Fk,12,false));}
   await prog('近日雨量與災情',0.95);var hist=[rainPrev(t-1),rainPrev(t-2)],Dz=disasters(t,F0,rep,hist);
   WX.cur={t:t,hr:hr,F:F0,iso:iso,tcs:tcs,rep:rep,fc:fc,rf:rf,ov:overview(F0,rep),D:Dz};renderText();renderDis();renderNames();renderRegions();q('ttl').textContent=dateTxt(t,true)+'（'+(WX.map.tz.name||'基準')+'標準時）';draw();
@@ -2707,7 +2800,7 @@ function renderText(){var C=WX.cur;q('tx').value=bulletin();var W=C.rep.filter(f
 function dl(blob,name){var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},60000);}
 q('cp').addEventListener('click',function(){var ta=q('tx');ta.select();try{document.execCommand('copy');info('已複製預報文字。');}catch(e){}});
 q('txt').addEventListener('click',function(){dl(new Blob([bulletin()],{type:'text/plain'}),'天氣預報_'+dateTxt(WX.cur.t,false)+'.txt');});
-q('json').addEventListener('click',function(){var C=WX.cur,o={format:'LatoWeather',v:1,seed:WX.map.P0.seed,date:dateTxt(C.t,true),hour:C.hr,overview:C.ov,cyclones:C.tcs.map(function(T){return {code:tcCode(T),name:nm(tcCode(T)),cat:T.stage==='dist'?'熱帶擾動':T.stage==='rem'?'殘餘低氣壓':T.stage==='et'?'溫帶氣旋':tcCat(T.kt),hpa:tcPress(T.kt),lon:+T.lon.toFixed(2),lat:+T.lat.toFixed(2),forecast:T.fc};}),
+q('json').addEventListener('click',function(){var C=WX.cur,o={format:'LatoWeather',v:1,seed:WX.map.P0.seed,date:dateTxt(C.t,true),hour:C.hr,overview:C.ov,cyclones:C.tcs.map(function(T){return {code:tcCode(T),name:nm(tcCode(T)),cat:T.stage==='dist'?'熱帶擾動':T.stage==='rem'?'殘餘低氣壓':T.stage==='et'?'溫帶氣旋':tcCatT(T),superTyphoon:tcIsSup(T),galeRadiusKm:Math.round(tcR34(T)),interaction:T.inter?tcIntTxt(T):null,hpa:tcPress(T.kt),lon:+T.lon.toFixed(2),lat:+T.lat.toFixed(2),forecast:T.fc};}),
   earthquakes:C.D.q.map(function(E){return {code:E.code||null,name:E.code?nm(E.code):'',M:E.M,depth:E.dep,lon:+E.lon.toFixed(2),lat:+E.lat.toFixed(2),maxShindo:E.maxS||0,tsunami:!!E.tsu,aftershock:!!E.after};}),
   volcanoes:C.D.v.map(function(s){return {code:s.v.id,name:nm(s.v.id),type:VTYN[s.v.type],alert:s.alert,erupting:s.erupting,vei:s.e?s.e.vei:null,p30:+(s.p30*100).toFixed(2)};}),tornadoes:C.D.tor,hazards:C.D.oth.map(function(x){return {region:x[1],type:x[2]};}),
   regions:C.rep.map(function(r,i){return r.n?{name:r.name,kind:r.kind,cond:r.cond,tmin:Math.round(r.Tn),tmax:Math.round(r.Tx),pop:Math.round(r.pop*100),rain:Math.round(r.pr),wind:r.wind,warnings:r.warn,outlook:C.rf.map(function(R){var x=R[i];return {cond:x.cond,tmin:Math.round(x.Tn),tmax:Math.round(x.Tx),pop:Math.round(x.pop*100),warnings:x.warn};})}:null;}).filter(Boolean)};
@@ -2720,7 +2813,7 @@ q('png').addEventListener('click',function(){var d=WX.map.disp,W=d.W,H=d.H,top=4
   x.fillText('等壓線每 4 hPa；「高」「低」為氣壓中心',lx,ly);x.fillText('降雨強度為日雨量；紫色虛線為熱帶氣旋預測路徑',16,ly+26);
   c.toBlob(function(b){dl(b,'天氣圖_'+dateTxt(WX.cur.t,false)+'.png');},'image/png');});
 q('lg').innerHTML='<div class="lt-leg"><b>降水（日雨量）</b>'+PRC.map(function(e){return '<span><span class="lt-chip" style="background:rgb('+e[1].join(',')+')"></span>≥'+e[0]+' mm</span>';}).join('')+'<span><span class="lt-chip" style="background:#C8D7FF"></span>雪</span><span><span class="lt-chip" style="background:#AFAFAF"></span>霧</span><span><span class="lt-chip" style="background:#CDAA6E"></span>沙塵</span></div>'+
- '<div class="lt-leg"><b>符號</b><span>紫色閃電＝雷雨</span><span>藍色星形＝降雪</span><span>三橫線＝霧</span><span>「高」「低」＝高低氣壓中心（hPa）</span><span style="color:#1565C0">▲ 冷鋒</span><span style="color:#C62828">● 暖鋒</span><span style="color:#7B1FA2">▲● 錮囚鋒</span><span>颱風符號＋虛線＝未來三日預測路徑</span></div>'+
+ '<div class="lt-leg"><b>符號</b><span>紫色閃電＝雷雨</span><span>藍色星形＝降雪</span><span>三橫線＝霧</span><span>「高」「低」＝高低氣壓中心（hPa）</span><span style="color:#1565C0">▲ 冷鋒</span><span style="color:#C62828">● 暖鋒</span><span style="color:#7B1FA2">▲● 錮囚鋒</span><span>颱風符號＋虛線＝未來三日預測路徑</span><span>颱風符號與虛線暴風圈（34 kt 風速範圍）隨強度變大</span><span style="color:#6A1B9A">紫色＝超級颱風</span></div>'+
  '<div class="lt-leg"><b>氣溫</b>'+[-30,-15,0,10,20,30,40].map(function(T){return '<span><span class="lt-chip" style="background:rgb('+tColor(T).map(Math.round).join(',')+')"></span>'+T+'°C</span>';}).join('')+'</div>';
 /* ---------- disaster settings, naming ---------- */
 function rainPrev(tt){var F=fields(Math.floor(tt)+0.5,tt),P=WX.pts,s=new Float32Array(WX.reg.length),n=new Float32Array(WX.reg.length);for(var k=0;k<P.n;k+=2){var w=pointWx(F,P.lon[k],P.lat[k],P.z[k],12,P.gx[k],P.gy[k],P.land[k]),ri=P.reg[k];n[ri]++;if(w.wet)s[ri]+=w.pr;}for(var i=0;i<s.length;i++)s[i]=n[i]?s[i]/n[i]:0;return s;}
@@ -2754,7 +2847,7 @@ function saveOpts(){try{localStorage.setItem(optKey(),JSON.stringify(WX.opt));}c
 function loadOpts(){try{var s=localStorage.getItem(optKey());if(s){var o=JSON.parse(s);if(o&&o.names)WX.opt=Object.assign(WX.opt,o);}}catch(e){}}
 /* ---------- tropical cyclone codes: order of genesis within the calendar year ---------- */
 var TCC={};
-function tcCode(T){if(TCC[T.id])return TCC[T.id];var p=T.id.split('_'),h=+p[0].slice(1),k=+p[1],y=Math.floor(k/365),n=0,tr=WX.map.M.clim.cyc?WX.map.M.clim.cyc.tracks:[];
+function tcCode(T){if(TCC[T.id])return TCC[T.id];if(T.id.charAt(0)==='S')return (TCC[T.id]='ST'+Math.floor(+T.id.split('_')[1]/365));var p=T.id.split('_'),h=+p[0].slice(1),k=+p[1],y=Math.floor(k/365),n=0,tr=WX.map.M.clim.cyc?WX.map.M.clim.cyc.tracks:[];
   var hasN=tr.some(function(x){return x[0][1]>0;}),hasS=tr.some(function(x){return x[0][1]<0;});
   for(var d=y*365;d<=k;d++){[1,-1].forEach(function(hh){if(d===k&&hh===-1&&h===1)return;if(hh>0?!hasN:!hasS)return;var doy=((d%365)+365)%365,s=tcSeason(doy,hh),r=mb32(hstr(WX.seed+'|T|'+hh+'|'+d));if(r()<=0.4*s)n++;});}
   return (TCC[T.id]='T'+y+'-'+('0'+Math.max(1,n)).slice(-2));}
@@ -2822,7 +2915,7 @@ function disasters(t,F0,rep,hist){var day=Math.floor(t),P=WX.pts,regs=WX.reg,D={
     if(R.kind!=='land')return;
     if(o.riv>0.02&&(r3>150||o.prMax>100)){warn(ri,'河川氾濫');D.oth.push(['洪',R.name,'河川氾濫',ri]);}else if(o.prMax>90&&o.cov>0.2){warn(ri,'淹水');D.oth.push(['洪',R.name,'局部淹水',ri]);}
     if(o.steep>0.1&&(o.prMax>80||r3>200)){warn(ri,'山崩與土石流');D.oth.push(['崩',R.name,'山崩與土石流',ri]);}
-    if(o.coast>0.05)F0.S.tcs.forEach(function(T){if(T.kt>=64&&hav(T.lon,T.lat,R.c[0],R.c[1])<Math.max(250,Math.sqrt(R.area)*0.6)){warn(ri,'暴潮');D.oth.push(['潮',R.name,'暴潮（'+tcLabel(T)+'）',ri]);}});
+    if(o.coast>0.05)F0.S.tcs.forEach(function(T){if(T.kt>=64&&hav(T.lon,T.lat,R.c[0],R.c[1])<Math.max(250,Math.sqrt(R.area)*0.6)*Math.max(1,(T.R||400)/560)){warn(ri,'暴潮');D.oth.push(['潮',R.name,'暴潮（'+tcLabel(T)+'）',ri]);}});
     if(o.Tx>=30&&o.slow<-0.2&&o.pop<0.25&&o.w85>6&&o.climP>25&&o.climP<140){var fi=clamp((o.Tx-28)/10,0,1)*clamp(-o.slow,0,1);if(fi>0.25){warn(ri,'野火');D.oth.push(['火',R.name,'野火'+(fi>0.6?'（大範圍）':''),ri]);}}
     if(o.slow<-0.45&&o.climP>30){warn(ri,'乾旱');D.oth.push(['旱',R.name,'乾旱'+(o.slow<-0.65?'（嚴重）':''),ri]);}});
   return D;}
@@ -2907,7 +3000,7 @@ function renderFrame(t,kind,box,W,H,prevT){var F=fields(t,t),hr=Math.round((t-Ma
   F.S.tcs.forEach(function(T){if(!tcLive(T))return;var tr=AN.trail[T.id]||(AN.trail[T.id]=[]);tr.push([T.lon,T.lat,T.kt]);AN.seen[T.id]=t;});
   Object.keys(AN.trail).forEach(function(id){var tr=AN.trail[id],alive=F.S.tcs.some(function(T){return T.id===id&&tcLive(T);}),al=alive?0.85:0.6*Math.max(0,1-(t-(AN.seen[id]||t))/2);if(al<0.02){delete AN.trail[id];return;}
     if(tr.length>1){x.strokeStyle='rgba(106,27,154,'+al.toFixed(3)+')';x.lineWidth=2*k;x.beginPath();var pv=null;tr.forEach(function(q2){var p=P(q2[0],q2[1]);if(pv&&Math.abs(p[0]-pv[0])<W*0.4)x.lineTo(p[0],p[1]);else x.moveTo(p[0],p[1]);pv=p;});x.stroke();}});
-  F.S.tcs.forEach(function(T){var p=P(T.lon,T.lat),vis=T.vis===undefined?1:T.vis;tcSymbol(x,p[0],p[1],T,k,t);if(vis<0.25)return;x.save();x.globalAlpha=Math.min(1,vis*1.25);label(T.stage==='dist'?'熱帶擾動':tcLabel(T),p[0]+15*k,p[1],T.stage==='dist'||T.stage==='rem'||T.stage==='et'?'#37474F':'#4A148C',11);x.restore();});
+  F.S.tcs.forEach(function(T){var p=P(T.lon,T.lat),vis=T.vis===undefined?1:T.vis;tcGale(x,T,P,W*0.4,k);tcSymbol(x,p[0],p[1],T,k,t);if(vis<0.25)return;x.save();x.globalAlpha=Math.min(1,vis*1.25);label(T.stage==='dist'?'熱帶擾動':tcLabel(T)+(T.inter?'（'+tcIntTxt(T,'',true)+'）':''),p[0]+(tcSymR(T)*(tcIsSup(T)?2.3:1.7)+5)*k,p[1],T.stage==='dist'||T.stage==='rem'||T.stage==='et'?'#37474F':'#4A148C',11);x.restore();});
   if(kind==='dis'){for(var d0=Math.floor(prevT)+1;d0<=Math.floor(t);d0++)quakesOn(d0).forEach(function(E){if(E.M>=5.8)AN.eq.push([E.lon,E.lat,E.M,d0,E.code]);});
     AN.eq.forEach(function(e){var age=Math.floor(t)-e[3],p=P(e[0],e[1]),r=Math.max(2.5,Math.pow(2,e[2]-4.8)*1.4)*k,al=Math.max(0.15,1-age/120);x.beginPath();x.arc(p[0],p[1],r,0,2*PI);x.fillStyle='rgba(211,47,47,'+(0.55*al).toFixed(2)+')';x.fill();x.lineWidth=k;x.strokeStyle='rgba(255,255,255,'+al.toFixed(2)+')';x.stroke();
       if(e[2]>=7&&age<30)label('M'+e[2].toFixed(1)+(e[4]&&nm(e[4])?' '+nm(e[4]):''),p[0]+r+3*k,p[1],'#8E1B1B',11);});

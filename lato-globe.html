@@ -34,6 +34,7 @@
 .lt-gb .lt-tag{font-size:11px;color:#fff;background:#6D4C41;border-radius:4px;padding:0 4px;margin-left:5px;}
 .lt-gb .lt-gleg{font-size:12px;}
 .lt-gb .lt-gleg span{display:inline-block;width:110px;height:10px;vertical-align:middle;border:1px solid #999;margin:0 6px;}
+.lt-gb .lt-gdis{font-size:12.5px;line-height:1.65;color:#333;max-height:320px;overflow:auto;}
 body{margin:0;padding:12px;font-family:system-ui,-apple-system,"Noto Sans TC","Microsoft JhengHei",sans-serif;background:#fafafa;color:#222;}
 </style></head><body>
 <div id="lato-globe"></div>
@@ -2379,7 +2380,7 @@ async function loadMap(P0,prog){var LIB=window.LatoTerrainLib;if(!LIB)throw new 
   if(P0.known){var kb=new Blob([b64bytes(P0.known.data)],{type:P0.known.type||'image/png'});kd=P0.known.h16?await PL.readH16(kb,prog):await PL.readBands(kb,P0.legend,[C.hex(P0.ui.csea),[255,255,255],C.hex(P0.ui.cice),[119,119,119]],prog);}
   var M=await PL.build(px,P0.W0,P0.H0,{ui:P0.ui,cfg:P0.cfg,legend:P0.legend,names:P0.names,knownData:kd,nations:P0.nations,places:P0.places,seasons:P0.seasons},function(l,f){return prog('重建地圖：'+l,0.05+0.8*f);});
   var disp=PL.display(M,2048),nms=PL.namesFrom(P0.names),tz=PL.tzRef(M,nms);disp.D.tzRef=tz;
-  WX.map={WD:WD,P0:P0,M:M,C:C,LY:LY,PL:PL,disp:disp,names:nms,tz:tz,W0:P0.W0,H0:P0.H0,kpx:Math.sqrt(+P0.ui.area/M.src.nIn),g:M.g};WX.seed='wx-'+P0.seed;
+  WX.map={WD:WD,P0:P0,M:M,C:C,LY:LY,PL:PL,disp:disp,names:nms,tz:tz,W0:P0.W0,H0:P0.H0,kpx:Math.sqrt(+P0.ui.area/M.src.nIn),g:M.g};WX.seed='wx-'+P0.seed;WX.nz=null;WX.tcEv={};WX.sup=null;WX.tcCand=null;
   await prog('整理氣候網格',0.88);grid1();await prog('劃分預報區',0.92);regions();if(typeof wx5Init==='function')wx5Init();}
 /* ---------- 1° climate grid (January / July), interpolated by date ---------- */
 function grid1(){var m=WX.map,cl=m.M.clim,S=m.LY.S,NX=360,NY=180,N=NX*NY,F=['Tj','Tl','Pj','Pl','Uj','Vj','Ul','Vl','Pj_hpa','Pl_hpa','zL','landF','sstA','SSTj','SSTl'],o={NX:NX,NY:NY,N:N};
@@ -2430,49 +2431,136 @@ function systems(t,base){var S={lows:[],highs:[],tcs:[]},T0=Math.floor(t),sd=WX.
       var rh=mb32(hstr(sd+'|H|'+h+'|'+k));if(rh()<0.85){var t1=k+rh(),L2=5+rh()*4,lo1=rh()*360-180,cold=win>0.5&&rh()<0.45,la1=(latC-6+(rh()-0.5)*10)+(cold?10:0),S1=8+rh()*(10+10*win)+(cold?8:0),R1=1500+rh()*800,sp1=400+rh()*300,dr1=(0.3+rh()*0.5)*(cold?2:1),a1=t-t1,id2='H'+h+'_'+k;
         if(a1>=0&&a1<L2){var fc2=fcPert(id2,base,t),la2=la1-dr1*a1,lo2=lo1+sp1*a1/(111*Math.cos(la1*D2R));if(fc2){lo2+=fc2.dx;la2+=fc2.dy;S1*=fc2.dm;}var onL=landAtLL(wrapLon(lo2),h*la2);
           S.highs.push({id:id2,lon:wrapLon(lo2),lat:h*clamp(la2,15,80),S:S1*Math.pow(Math.sin(PI*a1/L2),0.7),R:R1,h:h,cold:cold&&onL?(6+8*win)*Math.pow(Math.sin(PI*a1/L2),0.7):0});}}}});
-  var tr=WX.map.M.clim.cyc?WX.map.M.clim.cyc.tracks:[];
-  [1,-1].forEach(function(h){var cand=tr.filter(function(p){return h>0?p[0][1]>0:p[0][1]<0;});if(!cand.length)return;for(var k=T0-40;k<=T0+2;k++){var doy=((k%365)+365)%365,s=tcSeason(doy,h),r=mb32(hstr(sd+'|T|'+h+'|'+k));if(r()>0.4*s)continue;
-      var trk=cand[Math.floor(r()*cand.length)],t0=k+r()*0.9,id='T'+h+'_'+k,a=t-t0;if(a< -TC_PRE)continue;var T=tcState(trk,a,fcPert(id,base,t),h,landAtLL);if(!T)continue;T.id=id;T.name='';S.tcs.push(T);}});
+  /* cyclones born in the last 40 days, with their interactions (worked out over a longer span, so that earlier ones are known) */
+  var tr=WX.map.M.clim.cyc?WX.map.M.clim.cyc.tracks:[],raw=tcRaw(T0-90,T0+2,tr),mods=tcInteract(raw,landAtLL);
+  raw.forEach(function(Z){if(Z.k<T0-40)return;var a=t-Z.t0;if(a< -TC_PRE)return;var md=mods[Z.id]?tcModAt(mods[Z.id],t):Z.sup?SUPMD:null;if(md&&md.gone)return;
+    var T=tcState(Z.trk,a,fcPert(Z.id,base,t),Z.h,landAtLL,md);if(!T)return;T.id=Z.id;T.name='';S.tcs.push(T);});
+  tcFuji(S.tcs,landAtLL);
   S.lows.forEach(function(L){L.fr=fronts(L);});return S;}
 function tcCat(kt){return kt>=137?'五級颶風（超強颱風）':kt>=113?'四級颶風（強烈颱風）':kt>=96?'三級颶風（強烈颱風）':kt>=83?'二級颶風（中度颱風）':kt>=64?'一級颶風（中度颱風）':kt>=34?'熱帶風暴（輕度颱風）':'熱帶性低氣壓';}
 function tcShort(kt){return kt>=96?'強烈颱風':kt>=64?'中度颱風':kt>=34?'輕度颱風':'熱帶性低氣壓';}
 function tcPress(kt){return Math.round(1010-Math.pow(kt/14,2));}
+/* size grows with intensity: radius of the cloud shield and outer circulation (km) — depression about 290, tropical storm 380,
+   typhoon 450–560, category 5 about 700; a super typhoon grows to 1.45 times that. The gale (34 kt) radius is a little over half of it. */
+function tcRad(kt,sup){return (200+3.6*clamp(kt,0,170))*(sup?1+0.45*(+sup)*sm(64,150,kt):1);}
+/* size of a cyclone state; supF (0–1) grows while a merger turns it into a super typhoon, so the storm swells smoothly */
+function tcSz(T){return tcRad(T.kt,T.supF!==undefined?T.supF:T.sup?1:0);}
+/* a storm destined to be a super typhoon is called one from 130 kt */
+var SUP_KT=130;function tcIsSup(T){return !!T.sup&&T.kt>=SUP_KT;}
+function tcR34(T){return T.kt<34||T.stage==='dist'||T.stage==='rem'?0:0.55*(T.R||tcSz(T));}
+function tcCatT(T){return tcIsSup(T)?'超級颱風（等級外）':tcCat(T.kt);}
 /* ---------- tropical cyclone life cycle ----------
    A tropical disturbance (a convective cloud cluster drifting in from upstream) organises for TC_PRE days into the depression that
    starts the climatological track; along the track the cyclone strengthens and weakens as the track says, and poleward of about 31°
    begins its extratropical transition; after the track ends it fills over land (remnant low) or completes the transition at high
    latitude or over cold water, and fades out within TC_POST days. Every quantity is a smooth function of time: nothing pops or cuts. */
 var TC_PRE=1.4,TC_POST=1.8,TC_SPD=420;
-function tcLen(trk){if(trk.len)return trk.len;var L=0;for(var s=0;s<trk.length-1;s++)L+=hav(trk[s][0],trk[s][1],trk[s+1][0],trk[s+1][1]);trk.len=L;return L;}
+/* cumulative distance along a track (km), cached on the track */
+function tcCum(trk){if(trk.cum)return trk.cum;var c=[0];for(var s=0;s<trk.length-1;s++)c.push(c[s]+hav(trk[s][0],trk[s][1],trk[s+1][0],trk[s+1][1]));trk.cum=c;trk.len=c[c.length-1];return c;}
+function tcLen(trk){return tcCum(trk)[trk.length-1];}
 function tcBrg(a,b){var la1=a[1]*D2R,la2=b[1]*D2R,dl=wrapLon(b[0]-a[0])*D2R;return Math.atan2(Math.sin(dl)*Math.cos(la2),Math.cos(la1)*Math.sin(la2)-Math.sin(la1)*Math.cos(la2)*Math.cos(dl))/D2R;}
 function tcMoveLL(lo,la,brg,km){var d=km/6371,la1=la*D2R,b=brg*D2R,la2=Math.asin(clamp(Math.sin(la1)*Math.cos(d)+Math.cos(la1)*Math.sin(d)*Math.cos(b),-1,1)),lo2=lo*D2R+Math.atan2(Math.sin(b)*Math.sin(d)*Math.cos(la1),Math.cos(d)-Math.sin(la1)*Math.sin(la2));return [wrapLon(lo2/D2R),la2/D2R];}
-function tcState(trk,a,fc,h,landAt){var n=trk.length;if(n<2||a< -TC_PRE)return null;var L=tcLen(trk),sp=TC_SPD*(fc?1+fc.dt:1),dist=a*sp,lo,la,kt,brg,vis=1,et=0,R=null,post=false;
-  if(a<0){brg=tcBrg(trk[0],trk[1]);var s=sm(-TC_PRE,0,a),p0=tcMoveLL(trk[0][0],trk[0][1],brg+180,-a*260);lo=p0[0];la=p0[1];kt=12+(trk[0][2]-12)*s;vis=sm(-TC_PRE,-TC_PRE+0.7,a);R=230+2.6*trk[0][2]+90*(1-s);}
-  else if(dist<=L){var acc=0;for(var q=0;q<n-1;q++){var L3=hav(trk[q][0],trk[q][1],trk[q+1][0],trk[q+1][1]);if(acc+L3>=dist||q===n-2){var f=clamp((dist-acc)/Math.max(1,L3),0,1);
-        lo=trk[q][0]+wrapLon(trk[q+1][0]-trk[q][0])*f;la=trk[q][1]+(trk[q+1][1]-trk[q][1])*f;kt=trk[q][2]+(trk[q+1][2]-trk[q][2])*f;brg=tcBrg(trk[q],trk[q+1]);break;}acc+=L3;}
-    et=sm(31,44,Math.abs(la));}
+function tcState(trk,a,fc,h,landAt,md){var n=trk.length;if(n<2||a< -TC_PRE)return null;var cum=tcCum(trk),L=cum[n-1],sp=TC_SPD*(fc?1+fc.dt:1),dist=a*sp,lo,la,kt,brg,vis=1,et=0,R=null,post=false;
+  if(a<0){brg=tcBrg(trk[0],trk[1]);var s=sm(-TC_PRE,0,a),p0=tcMoveLL(trk[0][0],trk[0][1],brg+180,-a*260);lo=p0[0];la=p0[1];kt=12+(trk[0][2]-12)*s;vis=sm(-TC_PRE,-TC_PRE+0.7,a);R=tcRad(trk[0][2])+90*(1-s);}
+  else if(dist<=L){var q=0,q1=n-2;while(q<q1){var qm=(q+q1+1)>>1;if(cum[qm]<=dist)q=qm;else q1=qm-1;}var f=clamp((dist-cum[q])/Math.max(1,cum[q+1]-cum[q]),0,1);
+    lo=trk[q][0]+wrapLon(trk[q+1][0]-trk[q][0])*f;la=trk[q][1]+(trk[q+1][1]-trk[q][1])*f;kt=trk[q][2]+(trk[q+1][2]-trk[q][2])*f;brg=tcBrg(trk[q],trk[q+1]);et=sm(31,44,Math.abs(la));}
   else{post=true;var tau=(dist-L)/sp,e=trk[n-1],b=trk[n-2],onL0=landAt(wrapLon(e[0]),e[1]),hi=Math.abs(e[1])>=33,Tend=onL0?1.2:TC_POST;if(tau>Tend)return null;brg=tcBrg(b,e);var p1=tcMoveLL(e[0],e[1],brg,Math.max(0,260*tau-40*tau*tau));lo=p1[0];la=p1[1];
     var e0=sm(31,44,Math.abs(e[1]));et=hi?Math.max(e0,sm(0,0.8,tau)):e0*(1-sm(0,1,tau));kt=e[2]*Math.exp(-tau/(onL0?0.4:hi?1.0:0.7));vis=1-sm(Tend-0.8,Tend,tau);}
-  if(fc){lo+=fc.dx*0.5;la+=fc.dy*0.5;kt*=fc.dm;}lo=wrapLon(lo);la=clamp(la,-85,85);var land=landAt(lo,la);
-  var stage=a<0?(kt<25?'dist':'td'):et>(post?0.5:0.6)?'et':kt>=64?'ty':kt>=34?'ts':kt>=25||!post?'td':'rem';
-  var org=sm(16,55,kt)*(1-0.8*et)*(land?0.7:1)*(post?0.75:1),eye=sm(62,100,kt)*(1-et)*(land?0.3:1)*(post?0.5:1);if(R===null)R=(230+2.6*kt)*(1+0.9*et);
-  return {lon:lo,lat:la,kt:kt,trk:trk,dist:dist,h:h,land:land,stage:stage,vis:vis,org:org,eye:eye,et:et,R:R,brg:brg,age:a};}
+  if(fc){lo+=fc.dx*0.5;la+=fc.dy*0.5;kt*=fc.dm;}
+  var T={lon:lo,lat:la,kt:kt,trk:trk,dist:dist,h:h,vis:vis,et:et,R0:R,brg:brg,age:a,post:post,sup:false,supF:0,fade:0,inter:null};
+  if(md){T.kt*=md.g;T.vis*=md.vis;T.sup=!!md.sup;T.supF=md.supF||0;T.fade=md.fade||0;T.inter=md.inter||null;if(md.g>1||T.supF>0)T.kt=tcKtCap(T.kt);}
+  return tcDerive(T,landAt);}
+/* intensities lifted by a merger or a super typhoon level off smoothly below 185 kt */
+function tcKtCap(kt){return kt<=150?kt:150+35*(1-Math.exp(-(kt-150)/35));}
+/* stage, organisation, eye and size from the current intensity and position (a cyclone torn apart by a neighbour ends as a remnant low) */
+function tcDerive(T,landAt){T.kt=Math.min(185,T.kt);T.lon=wrapLon(T.lon);T.lat=clamp(T.lat,-85,85);var kt=T.kt,et=T.et,post=T.post,a=T.age,fd=T.fade||0,land=landAt(T.lon,T.lat),w=1-0.7*fd;T.land=land;
+  T.stage=a<0?(kt<25?'dist':'td'):et>(post?0.5:0.6)?'et':fd>0.5?'rem':kt>=64?'ty':kt>=34?'ts':kt>=25||!post?'td':'rem';
+  T.org=sm(16,55,kt)*(1-0.8*et)*(land?0.7:1)*(post?0.75:1)*w;T.eye=sm(62,100,kt)*(1-et)*(land?0.3:1)*(post?0.5:1)*w*w;T.R=T.R0!==null?T.R0:tcSz(T)*(1+0.9*et);return T;}
+/* the cyclones born on days k0…k1: each day and hemisphere draws, as always, whether one forms and which climatological track it follows;
+   the super typhoon of a 5-year period (below) joins them */
+function tcRaw(k0,k1,tr){var out=[],sd=WX.seed;
+  [1,-1].forEach(function(h){var cand=tcCand(tr,h);if(!cand.length)return;for(var k=k0;k<=k1;k++){var doy=((k%365)+365)%365,s=tcSeason(doy,h),r=mb32(hstr(sd+'|T|'+h+'|'+k));if(r()>0.4*s)continue;
+      var trk=cand[Math.floor(r()*cand.length)];out.push({id:'T'+h+'_'+k,k:k,h:h,trk:trk,t0:k+r()*0.9,sup:false});}});
+  for(var n=Math.floor(Math.floor(k0/365)/SUP_Y);n<=Math.floor(Math.floor(k1/365)/SUP_Y);n++){var E=supPeriod(n,tr);if(E&&E.k>=k0&&E.k<=k1)out.push(E);}
+  return out.sort(function(a,b){return a.t0-b.t0;});}
+function tcCand(tr,h){var c=WX.tcCand;if(!c||c.tr!==tr)c=WX.tcCand={tr:tr};return c[h]||(c[h]=tr.filter(function(p){return h>0?p[0][1]>0:p[0][1]<0;}));}
+/* super typhoons: one draw per 5-year period (years 0–4, 5–9, …). The chance is 5 %; every period that passes without one adds another
+   5 % (10 %, 15 %, …), and after one has formed it starts again at 5 %. A successful draw takes one of the most intense climatological
+   tracks, in season, and lifts its peak to 150–185 kt; the storm is also far larger than an ordinary typhoon. */
+var SUP_Y=5,SUP_P=0.05,SUPMD={g:1,vis:1,sup:true,supF:1,fade:0,inter:null};
+function supPeriod(n,tr){if(n<0||!tr||!tr.length)return null;var S=WX.sup;if(!S||S.seed!==WX.seed||S.tr!==tr)S=WX.sup={seed:WX.seed,tr:tr,k:[],ev:[]};
+  for(var i=S.ev.length;i<=n;i++){var k=i&&!S.ev[i-1]?S.k[i-1]+1:1,r=mb32(hstr(WX.seed+'|SUP|'+i));S.k.push(k);S.ev.push(r()<Math.min(1,SUP_P*k)?supMake(i,r,tr):null);}
+  return S.ev[n];}
+function supMake(n,r,tr){var best=null,bs=-1,pk=0;for(var c=0;c<6;c++){var t=tr[Math.floor(r()*tr.length)],p=0;for(var j=0;j<t.length;j++)p=Math.max(p,t[j][2]);var sc=p*(0.7+0.3*r())*Math.min(1,t.length/24);if(sc>bs){bs=sc;best=t;pk=p;}}
+  var h=best[0][1]>=0?1:-1,doy=0;for(var g=0;g<300;g++){doy=Math.floor(r()*365);if(r()<tcSeason(doy,h))break;}
+  var k=(n*SUP_Y+Math.floor(r()*SUP_Y))*365+doy,top=Math.max(pk,150+35*r()),trk=best.map(function(p){return [p[0],p[1],Math.min(185,p[2]+(top-pk)*Math.pow(clamp(p[2]/pk,0,1),2))];});
+  return {id:'S'+h+'_'+k,k:k,h:h,trk:trk,t0:k+r()*0.9,sup:true,n:n};}
+function supChance(n){var tr=WX.map&&WX.map.M.clim.cyc?WX.map.M.clim.cyc.tracks:[];if(n<0||!tr.length)return 0;supPeriod(n,tr);return Math.min(1,SUP_P*WX.sup.k[n]);}
+function supNote(t){var n=Math.floor(Math.floor(Math.floor(t)/365)/SUP_Y),p=supChance(n);if(!p)return '';var E=WX.sup.ev[n],a='超級颱風：本期（'+n*SUP_Y+'–'+(n*SUP_Y+SUP_Y-1)+' 年）';
+  if(E&&t>=E.t0)return a+'已生成 '+tcCode({id:E.id})+'，下一期機率回到 5%';
+  return a+'生成機率 '+Math.round(p*100)+'%'+(WX.sup.k[n]>1?'（已連續 '+(WX.sup.k[n]-1)+' 期未生成，每期累加 5%）':'（每 5 年一期，未生成則下一期累加 5%）');}
+/* cyclone–cyclone interaction (Fujiwhara effect). Two cyclones of one hemisphere that come closer than about 0.75 × their combined size
+   begin to circle each other. Then either the weaker is drawn in and absorbed — when two typhoons merge this way the result is a super
+   typhoon — or the interference shears the weaker apart and it dissipates (two weak ones may both fall apart). Each pair is judged once,
+   from the undisturbed tracks; the outcomes are applied in time order, and a cyclone already being absorbed or torn apart takes no further part. */
+function tcCap(trk){if(trk.cap)return trk.cap;var x=0,y=0,z=0,V=trk.map(function(p){var a=p[1]*D2R,b=p[0]*D2R,v=[Math.cos(a)*Math.cos(b),Math.cos(a)*Math.sin(b),Math.sin(a)];x+=v[0];y+=v[1];z+=v[2];return v;}),l=Math.hypot(x,y,z)||1,m=0;
+  x/=l;y/=l;z/=l;V.forEach(function(v){m=Math.max(m,Math.acos(clamp(v[0]*x+v[1]*y+v[2]*z,-1,1)));});return (trk.cap=[x,y,z,m]);}
+function tcPairEv(A,B,landAt){var C=WX.tcEv||(WX.tcEv={}),key=A.id<B.id?A.id+'|'+B.id:B.id+'|'+A.id;if(key in C)return C[key];var ev=null,ca=tcCap(A.trk),cb=tcCap(B.trk);
+  if(Math.acos(clamp(ca[0]*cb[0]+ca[1]*cb[1]+ca[2]*cb[2],-1,1))<=ca[3]+cb[3]+0.25){var s1=Math.min(A.t0+tcLen(A.trk)/TC_SPD,B.t0+tcLen(B.trk)/TC_SPD);
+    for(var t=Math.max(A.t0,B.t0);t<=s1;t+=0.25){var a=tcState(A.trk,t-A.t0,null,A.h,landAt,A.sup?SUPMD:null),b=tcState(B.trk,t-B.t0,null,B.h,landAt,B.sup?SUPMD:null);
+      if(!a||!b||a.kt<25||b.kt<25||a.et>0.4||b.et>0.4)continue;if(hav(a.lon,a.lat,b.lon,b.lat)<clamp(0.75*(a.R+b.R),650,1500)){ev={t:t,key:key,k:{}};ev.k[A.id]=a.kt;ev.k[B.id]=b.kt;break;}}}
+  return (C[key]=ev);}
+function tcInteract(raw,landAt){var M={},evs=[],i,j;
+  for(i=0;i<raw.length;i++)for(j=i+1;j<raw.length;j++){var A=raw[i],B=raw[j];if(A.h!==B.h||B.t0>A.t0+tcLen(A.trk)/TC_SPD)continue;var e=tcPairEv(A,B,landAt);if(e)evs.push([e,A,B]);}
+  evs.sort(function(x,y){return x[0].t-y[0].t||(x[0].key<y[0].key?-1:1);});function get(Z){return M[Z.id]||(M[Z.id]={sup:Z.sup,ops:[],gone:1e18});}
+  evs.forEach(function(E){var e=E[0],mA=get(E[1]),mB=get(E[2]);if(mA.gone<1e18||mB.gone<1e18)return;
+    var ka=e.k[E[1].id]*gAt(mA,e.t),kb=e.k[E[2].id]*gAt(mB,e.t),sw=ka<kb,a=sw?E[2]:E[1],b=sw?E[1]:E[2],ma=sw?mB:mA,mb=sw?mA:mB,kA=Math.max(ka,kb),kB=Math.min(ka,kb),r=mb32(hstr(WX.seed+'|TI|'+e.key)),T=1+0.6*r();
+    if(r()<(kB>=34?0.55:0.4)){/* merge: the weaker spirals into the stronger; two typhoons make a super typhoon */
+      var sup=kA>=64&&kB>=64,top=sup?150+0.3*Math.max(0,kA+0.6*kB-150):Math.min(kA+0.4*kB,kA*1.5,150);ma.ops.push({t:e.t,T:T,ty:'abs',f:top/kA,sup:sup,o:b.id});mb.ops.push({t:e.t,T:T,ty:'mrg',o:a.id});mb.gone=e.t+T;}
+    else if(kA<64&&r()<0.4){/* two weak cyclones tear each other apart */
+      mb.ops.push({t:e.t,T:T+0.3,ty:'dis',o:a.id});mb.gone=e.t+T+0.3;ma.ops.push({t:e.t+0.2,T:T+0.6,ty:'dis2',o:b.id});ma.gone=e.t+T+0.8;}
+    else{/* the weaker is sheared apart and dissipates, the stronger weakens */
+      mb.ops.push({t:e.t,T:T+0.3,ty:'dis',o:a.id});mb.gone=e.t+T+0.3;ma.ops.push({t:e.t,T:T+0.3,ty:'dec',f:0.72+0.13*r(),o:b.id});}});
+  return M;}
+function gAt(m,t){var g=1;for(var i=0;i<m.ops.length;i++){var o=m.ops[i];if(o.f&&t>o.t)g*=1+(o.f-1)*sm(o.t,o.t+o.T,t);}return g;}
+function tcModAt(m,t){if(t>=m.gone)return {gone:true};var md={g:gAt(m,t),vis:1,sup:m.sup,supF:m.sup?1:0,fade:0,inter:null};
+  m.ops.forEach(function(o){if(t<o.t)return;var s=sm(o.t,o.t+o.T,t);if(o.sup){md.supF=Math.max(md.supF,s);if(s>0.5)md.sup=true;}
+    if(o.ty==='mrg'){md.vis*=1-s;md.g*=1-0.4*s;}else if(o.ty==='dis'||o.ty==='dis2'){md.vis*=1-s;md.fade=Math.max(md.fade,s);md.g*=1-0.55*s;}
+    if(t<o.t+o.T+1)md.inter={ty:o.ty,o:o.o,s:s,sup:!!o.sup};});
+  return md;}
+/* while two cyclones interact they circle each other (counter-clockwise in the north): one being absorbed spirals into its partner,
+   one being torn apart swings round it and drifts off, and the stronger only wobbles, back on its own track when the interaction ends */
+function tcFuji(L,landAt){var by={};L.forEach(function(T){by[T.id]=T;});
+  L.forEach(function(B){var I=B.inter;if(!I||(I.ty!=='mrg'&&I.ty!=='dis')||I.s>=1)return;var A=by[I.o];if(!A)return;var s=I.s,h=B.h||1,cl=Math.cos(A.lat*D2R),
+      rx=wrapLon(B.lon-A.lon)*111.2*cl,ry=(B.lat-A.lat)*111.2,th=h*(I.ty==='mrg'?2.1:0.9)*s,k=I.ty==='mrg'?1-s:1+0.3*s,c=Math.cos(th),sn=Math.sin(th),nx=(rx*c-ry*sn)*k,ny=(rx*sn+ry*c)*k,
+      wa=A.kt*A.kt,wb=B.kt*B.kt,w=wb/(wa+wb+1)*Math.sin(PI*s),pa=offLL(A.lon,A.lat,-(nx-rx)*w,-(ny-ry)*w),pb=offLL(pa[0],pa[1],nx,ny);
+    A.lon=pa[0];A.lat=pa[1];B.lon=pb[0];B.lat=pb[1];tcDerive(A,landAt);tcDerive(B,landAt);});}
+/* what an interaction is doing to a cyclone, for bulletins and labels */
+function tcIntTxt(T,pre,short){var I=T.inter;if(!I)return '';var c=tcCode({id:I.o}),n=nm(c),w=n?'「'+n+'」':c,s;
+  if(I.ty==='mrg')s=short?'併入'+w+'中':'受'+w+'牽引繞轉（藤原效應），即將併入對方';
+  else if(I.ty==='dis'||I.ty==='dis2')s=short?'受'+w+'干擾消散中':'與'+w+'互相干擾（藤原效應），結構瓦解，正在消散';
+  else if(I.ty==='abs')s=short?(I.s<1?'吸收'+w+'中':'已吸收'+w)+(I.sup&&!tcIsSup(T)?'→超級颱風':''):(I.s<1?'正吸收'+w+'（藤原效應）'+(I.sup?(tcIsSup(T)?'，合併增強為超級颱風':'，合併後將增強為超級颱風'):'，強度增強中'):'已吸收'+w+(I.sup?'，合併增強為超級颱風':'，強度增強'));
+  else s=short?'受'+w+'干擾減弱':'受'+w+'干擾（藤原效應），強度減弱';
+  return (pre||'')+s;}
 /* short name by stage (disturbance, remnant low and extratropical cyclone are named as such, not by wind speed) */
-function tcShortT(T){return T.stage==='dist'?'熱帶擾動':T.stage==='rem'?'殘餘低氣壓':T.stage==='et'?'溫帶氣旋':tcShort(T.kt);}
+function tcShortT(T){return T.stage==='dist'?'熱帶擾動':T.stage==='rem'?'殘餘低氣壓':T.stage==='et'?'溫帶氣旋':tcIsSup(T)?'超級颱風':tcShort(T.kt);}
 /* weather-map symbol: dashed circle with a cross for a disturbance, hollow symbol for a depression, filled for storms and typhoons,
    grey hollow for remnant lows and extratropical cyclones; it turns cyclonically with time and fades in and out with the system */
 function tcSymbol(x,px,py,T,k,t){var st=T.stage||(T.kt>=64?'ty':T.kt>=34?'ts':'td'),vis=T.vis===undefined?1:clamp(T.vis,0,1);if(vis<0.03)return;var h=T.h||(T.lat>=0?1:-1),kt=T.kt;
   x.save();x.globalAlpha*=vis;x.translate(px,py);x.lineCap='round';
   if(st==='dist'){x.strokeStyle='#546E7A';x.lineWidth=1.6*k;x.setLineDash([3*k,3*k]);x.beginPath();x.arc(0,0,9*k,0,2*PI);x.stroke();x.setLineDash([]);x.beginPath();x.moveTo(-3.5*k,-3.5*k);x.lineTo(3.5*k,3.5*k);x.moveTo(3.5*k,-3.5*k);x.lineTo(-3.5*k,3.5*k);x.stroke();x.restore();return;}
-  var gray=st==='rem'||st==='et',col=gray?'#546E7A':kt>=96?'#B71C1C':kt>=64?'#E65100':'#F9A825',hol=st==='td'||gray,r=(5.5+2*sm(34,130,kt))*k;
+  var gray=st==='rem'||st==='et',sup=tcIsSup(T)&&!gray,col=gray?'#546E7A':sup?'#6A1B9A':kt>=96?'#B71C1C':kt>=64?'#E65100':'#F9A825',hol=st==='td'||gray,r=tcSymR(T)*k;
   x.rotate(-h*(t||0)*4);if(h<0)x.scale(1,-1);x.strokeStyle=col;x.fillStyle=col;x.lineWidth=2.2*k;x.beginPath();x.arc(0,0,r,0,2*PI);if(hol)x.stroke();else x.fill();
-  x.beginPath();x.arc(0,0,r*1.7,-0.2,1.3);x.stroke();x.beginPath();x.arc(0,0,r*1.7,PI-0.2,PI+1.3);x.stroke();x.restore();}
+  x.beginPath();x.arc(0,0,r*1.7,-0.2,1.3);x.stroke();x.beginPath();x.arc(0,0,r*1.7,PI-0.2,PI+1.3);x.stroke();
+  if(sup){x.lineWidth=1.6*k;x.beginPath();x.arc(0,0,r*2.3,0.5,1.9);x.stroke();x.beginPath();x.arc(0,0,r*2.3,PI+0.5,PI+1.9);x.stroke();}x.restore();}
+/* symbol radius (before scaling): grows with intensity, largest for super typhoons */
+function tcSymR(T){return 4.5+4.5*sm(25,150,T.kt)+(tcIsSup(T)?2.5:0);}
 /* satellite look of the tropical cyclones at a point (2D cloud maps; the globe draws the same in its cloud shader).
    Returns [cloud 0..1, blend weight 0..1, share of the background kept] or null (outside half the radius the cyclone only adds cloud): scattered convective clusters while it is a disturbance; curved bands, a central
    dense overcast and an eye as it strengthens; ragged and eyeless when it fills; during extratropical transition a broad shield
    pushed poleward and downstream while the equatorward side dries out. The bands turn cyclonically with time. */
 function tcSat(Fd,lo,la){var Ls=Fd.S&&Fd.S.tcs;if(!Ls||!Ls.length)return null;var best=null,t=Fd.t||0,X=0,Y=0,Z=0,got=false;
-  for(var k=0;k<Ls.length;k++){var T=Ls[k],vis=T.vis===undefined?1:T.vis;if(vis<0.01)continue;var R=T.R||(230+2.6*T.kt),dyk=(la-T.lat)*111.2;if(Math.abs(dyk)>R*2)continue;var dxk=wrapLon(lo-T.lon)*111.2*Math.cos(la*D2R);if(Math.abs(dxk)>R*2)continue;
+  for(var k=0;k<Ls.length;k++){var T=Ls[k],vis=T.vis===undefined?1:T.vis;if(vis<0.01)continue;var R=T.R||tcSz(T),dyk=(la-T.lat)*111.2;if(Math.abs(dyk)>R*2)continue;var dxk=wrapLon(lo-T.lon)*111.2*Math.cos(la*D2R);if(Math.abs(dxk)>R*2)continue;
     var h=T.h||(T.lat>=0?1:-1),et=T.et||0,org=T.org===undefined?sm(16,55,T.kt):T.org,eye=T.eye===undefined?sm(62,100,T.kt):T.eye,ox=dxk/R-et*0.35,oy=dyk/R-h*et*0.45,rr=Math.hypot(ox/(1+0.4*et),oy/(1+0.9*et));if(rr>=1.15)continue;
     if(!got){X=Math.cos(la*D2R)*Math.cos(lo*D2R);Y=Math.cos(la*D2R)*Math.sin(lo*D2R);Z=Math.sin(la*D2R);got=true;}var dn=clamp(0.5+0.62*WX.map.C.fbm(WX.nz,X*40+t*0.8,Y*40-t*0.6,Z*40+t*0.4,3),0,1);
     var th=Math.atan2(ox,oy),sp=0.5+0.5*Math.sin(2*th*h-Math.log(rr+0.03)*5+t*3)+0.45*(dn-0.5),band=sm(0.25,0.6,sp)*(1-sm(0.7,1.05,rr)),cdo=(1-sm(0.25+0.15*org,0.45+0.2*org,rr))*sm(0.25,0.6,org),outer=0.28*(1-sm(0.45,1.05,rr)),clus=sm(0.45,0.68,dn+0.25*(1-rr))*(1-sm(0.55,1,rr));
@@ -2498,14 +2586,14 @@ function fields(t,base){var g=WX.g1,NX=360,NY=180,N=g.N,cl=climAt(t),S=systems(t
     if(L.fr){[['c',L.fr.c,130,1.5],['w',L.fr.w,300,1.0],['o',L.fr.o,220,1.3]].forEach(function(fr){if(!fr[1])return;var P=fr[1],lo0=P[Math.floor(P.length/2)][0],la0=P[Math.floor(P.length/2)][1];each(lo0,la0,L.R*1.4+600,function(c2,d,lo,la){var dd=lineDist(lo,la,P);F[c2]+=fr[3]*Math.exp(-(dd*dd)/(fr[2]*fr[2]))*Math.min(1,-L.D/18);});});
       each(L.lon,L.lat,L.R*1.6,function(c2,d,lo,la){var dx=wrapLon(lo-L.lon)*Math.cos(la*D2R),dy=(la-L.lat)*L.h,b=(Math.atan2(dx,dy)/D2R+360)%360,k=Math.exp(-(d*d)/(L.R*L.R*1.4))*Math.min(1,-L.D/20);if(b>100&&b<200)dT[c2]+=3.5*k;else if(b>=200&&b<330)dT[c2]-=4*k;});}});
   S.highs.forEach(function(H){each(H.lon,H.lat,H.R*2,function(c2,d){var e=Math.exp(-(d*d)/(H.R*H.R));slp[c2]+=H.S*e;F[c2]-=1.3*e*Math.min(1,H.S/14);if(H.cold)dT[c2]-=H.cold*e;});});
-  S.tcs.forEach(function(T){var vis=T.vis===undefined?1:T.vis,et=T.et||0,dp=(1010-tcPress(T.kt))*vis,Rp=260*(1+0.8*et),RF=420*(0.7+0.3*sm(12,45,T.kt))*(1+0.6*et),Fa=3.2*vis*(0.3+0.7*sm(12,60,T.kt))*(1-0.3*et),Rm=(35+Math.max(0,80-T.kt*0.3))*(1+1.5*et),vmax=T.kt*0.514*vis,fo=null;
+  S.tcs.forEach(function(T){var vis=T.vis===undefined?1:T.vis,et=T.et||0,zf=tcSz(T)/416,dp=(1010-tcPress(T.kt))*vis,Rp=260*(1+0.8*et)*zf,RF=420*(0.7+0.3*sm(12,45,T.kt))*(1+0.6*et)*zf,Fa=3.2*vis*(0.3+0.7*sm(12,60,T.kt))*(1-0.3*et),Rm=(35+Math.max(0,80-T.kt*0.3))*(1+1.5*et)*(1+0.3*(T.supF||0)),vmax=T.kt*0.514*vis,ex=clamp(0.6/Math.sqrt(zf),0.4,0.75),Rw=T.Rw=900*(1+0.6*et)*Math.max(0.8,zf),fo=null;
     if(et>0.01&&T.brg!==undefined){fo=tcMoveLL(T.lon,T.lat,T.brg,0.35*RF*et);fo=tcMoveLL(fo[0],fo[1],T.lat>=0?0:180,0.25*RF*et);}
-    each(T.lon,T.lat,900*(1+0.6*et),function(c2,d,lo,la){slp[c2]-=dp*Math.exp(-(d*d)/(Rp*Rp));var dF=fo?hav(lo,la,fo[0],fo[1]):d;F[c2]+=Fa*Math.exp(-(dF*dF)/(RF*RF));var vt=d<Rm?vmax*d/Rm:vmax*Math.pow(Rm/d,0.6);if(vt>tcw[c2]){tcw[c2]=vt;tcr[c2]=1;}});});
+    each(T.lon,T.lat,Rw,function(c2,d,lo,la){slp[c2]-=dp*Math.exp(-(d*d)/(Rp*Rp));var dF=fo?hav(lo,la,fo[0],fo[1]):d;F[c2]+=Fa*Math.exp(-(dF*dF)/(RF*RF));var vt=d<Rm?vmax*d/Rm:vmax*Math.pow(Rm/d,ex);if(vt>tcw[c2]){tcw[c2]=vt;tcr[c2]=1;}});});
   /* winds: geostrophic from the pressure field with surface friction; near the equator the climatological trades */
   for(j=1;j<NY-1;j++){var la=g.lat[j],f=2*7.292e-5*Math.sin(la*D2R),dx=111e3*Math.max(0.1,Math.cos(la*D2R)),dy=111e3;for(i=0;i<NX;i++){c=j*NX+i;var ie=j*NX+(i+1)%NX,iw=j*NX+(i+NX-1)%NX,dpx=(slp[ie]-slp[iw])*100/(2*dx),dpy=(slp[c-NX]-slp[c+NX])*100/(2*dy);
       var ug=0,vg=0;if(Math.abs(la)>6){ug=-dpy/(1.2*f);vg=dpx/(1.2*f);}var land=g.landF[c]>0.5,rot=(land?30:18)*D2R*(la>=0?1:-1),kf=land?0.5:0.7,ur=(ug*Math.cos(rot)-vg*Math.sin(rot))*kf,vr=(ug*Math.sin(rot)+vg*Math.cos(rot))*kf,bl=sm(4,14,Math.abs(la));
       u[c]=cl.U[c]*(1-bl)+ur*bl+cl.U[c]*0.3*bl;v[c]=cl.V[c]*(1-bl)+vr*bl+cl.V[c]*0.3*bl;var sp=Math.hypot(u[c],v[c]);if(sp>32){u[c]*=32/sp;v[c]*=32/sp;}}}
-  S.tcs.forEach(function(T){var h=T.lat>=0?1:-1;each(T.lon,T.lat,900*(1+0.6*(T.et||0)),function(c2,d,lo,la){var dxk=wrapLon(lo-T.lon)*Math.cos(la*D2R)*111,dyk=(la-T.lat)*111,r=Math.hypot(dxk,dyk)||1,vt=tcw[c2];u[c2]+=-h*dyk/r*vt*0.8-dxk/r*vt*0.25;v[c2]+=h*dxk/r*vt*0.8-dyk/r*vt*0.25;});});
+  S.tcs.forEach(function(T){var h=T.lat>=0?1:-1;each(T.lon,T.lat,T.Rw||900,function(c2,d,lo,la){var dxk=wrapLon(lo-T.lon)*Math.cos(la*D2R)*111,dyk=(la-T.lat)*111,r=Math.hypot(dxk,dyk)||1,vt=tcw[c2];u[c2]+=-h*dyk/r*vt*0.8-dxk/r*vt*0.25;v[c2]+=h*dxk/r*vt*0.8-dyk/r*vt*0.25;});});
   /* temperature anomaly: advection of the climatological sea-level temperature gradient by the synoptic wind, plus large-scale noise */
   var Tsl=new Float32Array(N);for(c=0;c<N;c++)Tsl[c]=cl.T[c]+0.0065*Math.max(0,g.zL[c]);
   for(j=1;j<NY-1;j++){var la2=g.lat[j],dx2=111e3*Math.max(0.1,Math.cos(la2*D2R));for(i=0;i<NX;i++){c=j*NX+i;var ie2=j*NX+(i+1)%NX,iw2=j*NX+(i+NX-1)%NX,gTx=(Tsl[ie2]-Tsl[iw2])/(2*dx2),gTy=(Tsl[c-NX]-Tsl[c+NX])/(2*111e3);
@@ -2540,7 +2628,7 @@ function report(Fd,hr,full){var P=WX.pts,n=P.n,out=WX.reg.map(function(r){return
     if(o.kind==='land'?o.w85>17.2:o.w85>20.8)o.warn.push(o.kind==='sea'?'海上強風':'強風');if(o.fog>0.25)o.warn.push('濃霧');if(o.dust>0.25)o.warn.push('沙塵暴');if(o.kind==='land'&&o.thF>0.3&&o.cov>0.25)o.warn.push('雷雨');});
   /* tropical cyclones near each region */
   Fd.S.tcs.forEach(function(T){WX.reg.forEach(function(r,ri){if(!out[ri].n)return;var d=1e9;for(var k2=r.p0;k2<r.p1;k2+=Math.max(1,Math.floor((r.p1-r.p0)/60))){var e=hav(T.lon,T.lat,P.lon[k2],P.lat[k2]);if(e<d)d=e;}
-    if(d<700&&T.kt>=34)out[ri].warn.unshift(tcLabel(T)+(d<150?' 中心籠罩':' 距約 '+fmt(Math.round(d/10)*10)+' 公里'));});});
+    var Rz=T.R||tcSz(T);if(d<450+0.6*Rz&&T.kt>=34)out[ri].warn.unshift(tcLabel(T)+(d<0.35*Rz?' 中心籠罩':' 距約 '+fmt(Math.round(d/10)*10)+' 公里'));});});
   if(full){var dl=[];Fd.S.lows.forEach(function(L){if(L.D<-22&&Math.abs(L.lat)<75){var tp=Math.abs(L.lat)>=20&&L.fr?'（伴隨鋒面）':'';dl.push({L:L,t:tp});}});
     var tornado=WX.reg.map(function(){return 0;});Fd.S.lows.forEach(function(L){if(!L.fr||Math.abs(L.lat)>50||Math.abs(L.lat)<25||L.D>-14)return;WX.reg.forEach(function(r,ri){if(r.kind!=='land')return;var o=out[ri];if(o.Tx<24||o.cov<0.15)return;var d=hav(L.lon,L.lat,r.c[0],r.c[1]);if(d<L.R*1.5&&o.warn.indexOf('龍捲風')<0&&o.thF>0.1)o.warn.push('龍捲風');});});}
   return out;}
@@ -2553,9 +2641,10 @@ function overview(Fd,rep){var S=Fd.S,out=[];[1,-1].forEach(function(h){var L=S.l
     if(s.length)out.push((h>0?'北半球：':'南半球：')+s.join('；')+'。');});
   S.tcs.forEach(function(T){if(T.vis!==undefined&&T.vis<0.25)return;var r=nearReg(T.lon,T.lat),at=r?r.name+'附近':llTxt(T.lon,T.lat);
     if(T.stage==='dist'){out.push('熱帶擾動：'+at+(T.land?'':'海面')+'有對流雲團逐漸組織，可能發展為熱帶性低氣壓。');return;}
-    if(T.stage==='rem'){out.push(tcLabel(T)+'已減弱為殘餘低氣壓（中心氣壓約 '+tcPress(T.kt)+' hPa），位於'+at+'，將逐漸消散。');return;}
-    if(T.stage==='et'){out.push(tcLabel(T)+'正轉變為溫帶氣旋（中心氣壓約 '+tcPress(T.kt)+' hPa，近中心最大風速 '+Math.round(T.kt*0.514)+' m/s），位於'+at+'，向'+tcMove(T)+'移動，暴風範圍擴大。');return;}
-    out.push(tcLabel(T)+'（'+tcCat(T.kt)+'，中心氣壓約 '+tcPress(T.kt)+' hPa，近中心最大風速 '+Math.round(T.kt*0.514)+' m/s）位於'+at+'，向'+tcMove(T)+'移動'+(T.land?'，已登陸':'')+'。');});
+    if(T.stage==='rem'){out.push(tcLabel(T)+'已減弱為殘餘低氣壓（中心氣壓約 '+tcPress(T.kt)+' hPa），位於'+at+(T.inter?tcIntTxt(T,'；'):'，將逐漸消散')+'。');return;}
+    if(T.stage==='et'){out.push(tcLabel(T)+'正轉變為溫帶氣旋（中心氣壓約 '+tcPress(T.kt)+' hPa，近中心最大風速 '+Math.round(T.kt*0.514)+' m/s），位於'+at+'，向'+tcMove(T)+'移動，暴風範圍擴大'+tcIntTxt(T,'；')+'。');return;}
+    var r34=tcR34(T);out.push(tcLabel(T)+'（'+tcCatT(T)+'，中心氣壓約 '+tcPress(T.kt)+' hPa，近中心最大風速 '+Math.round(T.kt*0.514)+' m/s'+(r34?'，暴風半徑約 '+fmt(Math.round(r34/10)*10)+' 公里':'')+'）位於'+at+'，向'+tcMove(T)+'移動'+(T.land?'，已登陸':'')+tcIntTxt(T,'；')+'。');});
+  var sn=supNote(Fd.t);if(sn)out.push(sn+'。');
   var land=rep.filter(function(o){return o.kind==='land'&&o.n;});if(land.length){var hot=land.slice().sort(function(a,b){return b.TxHi-a.TxHi;})[0],cold=land.slice().sort(function(a,b){return a.TnLo-b.TnLo;})[0],wet=land.slice().sort(function(a,b){return b.prMax-a.prMax;})[0];
     out.push('極值：最高溫 '+hot.name+' 約 '+Math.round(hot.TxHi)+'°C；最低溫 '+cold.name+' 約 '+Math.round(cold.TnLo)+'°C；雨量最大 '+wet.name+'（局部 '+Math.round(wet.prMax)+' mm）。');}
   return out;}
@@ -2635,6 +2724,67 @@ function frameExtras(x,t,F,hr,box,W,H,kind){var X=AN.extras||{},k,d=WX.map.disp;
     var wmax=0;lines.forEach(function(l){wmax=Math.max(wmax,x.measureText(l).width);});x.fillStyle='rgba(0,0,0,0.55)';x.fillRect(8,H-10-lines.length*fs*1.35-6,wmax+16,lines.length*fs*1.35+8);x.fillStyle='#fff';lines.forEach(function(l,i){x.fillText(l,16,H-10-(lines.length-1-i)*fs*1.35-fs*0.3);});x.restore();}
   AN.shockMarks&&WX.shock.forEach(function(e){var tt=t-e.t0;if(!(tt>=0&&tt<(e.type==='nuke'?30:+e.dur||30)))return;var p=llPx(+e.lon,+e.lat),px=(p[0]-box.x0)/box.w*W,py=(p[1]-box.y0)/box.h*H;if(px<0||py<0||px>W||py>H)return;x.save();x.fillStyle=e.type==='nuke'?'rgba(255,111,0,0.9)':'rgba(170,0,255,0.9)';x.beginPath();x.arc(px,py,Math.max(5,W/150),0,2*PI);x.fill();x.restore();});}
 /* ---------- panel: extras, shocks, place names, parameter export ---------- */
+/* ===================== 災情：與氣候暨災情工具相同的事件序列（地震、火山、龍捲風、洪水、山崩、暴潮、野火、乾旱） =====================
+   以下取自 LatoWeather（不改動）：同一種子與設定下，兩個工具看到的是同一批地震與火山事件。 */
+WX.opt={qAct:1,volMode:'typ',volBase:4005,names:{}};
+function dayParts(day){var y=Math.floor(day/365),doy=day-y*365,m=0;while(doy>=MD[m]){doy-=MD[m];m++;}return [y,m+1,doy+1];}
+function dateCode(day){var p=dayParts(day);return p[0]+('0'+p[1]).slice(-2)+('0'+p[2]).slice(-2);}
+function nm(code){return WX.opt.names[code]||'';}
+function optKey(){return 'latoWx:'+(WX.map?WX.map.P0.seed:'');}
+function saveOpts(){try{localStorage.setItem(optKey(),JSON.stringify(WX.opt));}catch(e){}}
+function loadOpts(){try{var s=localStorage.getItem(optKey());if(s){var o=JSON.parse(s);if(o&&o.names)WX.opt=Object.assign(WX.opt,o);}}catch(e){}}
+function tcLabel(T){var c=tcCode(T),n=nm(c),s=tcShortT(T);return n?s+'「'+n+'」（'+c+'）':s+' '+c;}
+/* ---------- earthquakes ---------- */
+function quakeSetup(){var m=WX.map,g=m.g,s=m.M.seis,cand=[],cw=[],tot=0;for(var i=0;i<g.N;i+=2){if(!g.cls[i]||s[i]<0.12)continue;tot+=Math.pow(s[i],2.5);cand.push(i);cw.push(tot);}WX.qc={cand:cand,cw:cw,tot:tot};WX.qCache={};}
+function qPick(r){var c=WX.qc,x=r()*c.tot,lo=0,hi=c.cw.length-1;while(lo<hi){var md=(lo+hi)>>1;if(c.cw[md]<x)lo=md+1;else hi=md;}return c.cand[lo];}
+function tect(i){var r=WX.map.M.res,cv=r.conv[i],sd=r.sdb[i],co=r.coll[i],sh=r.shear[i];if(cv>0.25&&co<0.5&&sd>-30)return 'sub';if(co>=0.5)return 'col';if(sh>0.4)return 'tr';if(cv<-0.2)return 'rift';return 'intra';}
+var MMAX={sub:9.3,col:8.5,tr:8.1,rift:7.3,intra:7.0},TECTN={sub:'隱沒帶',col:'碰撞帶',tr:'轉形斷層',rift:'張裂帶',intra:'板塊內部'};
+function poisson(r,l){var L=Math.exp(-l),k=0,p=1;do{k++;p*=r();}while(p>L&&k<300);return k-1;}
+function gIll(i){var g=WX.map.g;return [Math.atan2(g.py[i],g.px[i])/D2R,Math.asin(clamp(g.pz[i],-1,1))/D2R];}
+function mainshocks(day){if(WX.qCache[day])return WX.qCache[day];var r=mb32(hstr(WX.seed+'|Q|'+day)),n=poisson(r,3.5*WX.opt.qAct),out=[];
+  for(var k=0;k<n;k++){var i=qPick(r),ll=gIll(i),ty=tect(i),M=Math.min(MMAX[ty],5-Math.log(1-r()*0.99999)/Math.LN10),sd=WX.map.M.res.sdb[i],dep=ty==='sub'&&r()>0.3?Math.min(650,10+Math.max(0,sd)*0.45*(0.6+0.8*r())):5+r()*25;
+    out.push({id:'Q'+day+'_'+k,day:day,t:day+r(),lon:wrapLon(ll[0]+(r()-0.5)*0.6),lat:clamp(ll[1]+(r()-0.5)*0.6,-89,89),M:Math.round(M*10)/10,dep:Math.round(dep),ty:ty,i:i});}
+  WX.qCache[day]=out;return out;}
+function quakesOn(day){var ev=mainshocks(day).slice();for(var b=1;b<=60;b++){mainshocks(day-b).forEach(function(E){if(E.M<6.3)return;var dt=day+0.5-E.t,rate=Math.pow(10,E.M-6.3)*0.8*Math.pow(dt+0.3,-1.05),r=mb32(hstr(WX.seed+'|A|'+E.id+'|'+day)),n=poisson(r,rate),Lr=Math.pow(10,0.5*E.M-1.85);
+    for(var k=0;k<n;k++){var a=r()*2*PI,d=r()*Lr,M2=Math.min(E.M-1.1,5-Math.log(1-r()*0.99999)/Math.LN10);if(M2<5)continue;ev.push({id:E.id+'a'+day+'_'+k,day:day,t:day+r(),lon:wrapLon(E.lon+d*Math.cos(a)/(111*Math.cos(E.lat*D2R))),lat:clamp(E.lat+d*Math.sin(a)/111,-89,89),M:Math.round(M2*10)/10,dep:E.dep<70?Math.round(5+r()*25):E.dep,ty:E.ty,after:E.id,i:E.i});}});}
+  ev.sort(function(a,b){return a.t-b.t;});var L=0;ev.forEach(function(E){if(E.M>=6){E.code='EQ'+dateCode(day)+String.fromCharCode(65+L);L++;}});return ev;}
+function shindo(M,dk,dep){var R=Math.sqrt(dk*dk+dep*dep);return clamp(Math.round(1.5*M-3.2*Math.log(Math.max(5,R))/Math.LN10+1-2),0,7);}
+function eqLabel(E){var n=E.code?nm(E.code):'';return n?n+'（'+E.code+'）':(E.code||'');}
+/* ---------- volcanoes: renewal process from the last eruption, precursors, eruption size, ash plume ---------- */
+function gammaF(z){var g=7,c=[0.99999999999980993,676.5203681218851,-1259.1392167224028,771.32342877765313,-176.61502916214059,12.507343278686905,-0.13857109526572012,9.9843695780195716e-6,1.5056327351493116e-7];
+  if(z<0.5)return PI/(Math.sin(PI*z)*gammaF(1-z));z-=1;var x=c[0];for(var i=1;i<g+2;i++)x+=c[i]/(z+i);var t=z+g+0.5;return Math.sqrt(2*PI)*Math.pow(t,z+0.5)*Math.exp(-t)*x;}
+var VEIP={arc:[[1,0.25],[2,0.35],[3,0.22],[4,0.12],[5,0.045],[6,0.013],[7,0.002]],cal:[[4,0.2],[5,0.3],[6,0.3],[7,0.15],[8,0.05]],hot:[[0,0.4],[1,0.35],[2,0.2],[3,0.05]],rift:[[0,0.3],[1,0.35],[2,0.25],[3,0.08],[4,0.02]]},VTYN={arc:'成層火山',cal:'破火山口',hot:'盾狀火山（熱點）',rift:'裂隙火山'};
+function volSetup(){var m=WX.map,g=m.g;WX.vol=(m.M.vols||[]).map(function(v,k){var i=clamp(Math.floor(v.y)*g.W+Math.floor(v.x),0,g.N-1),ll=gIll(i),r=mb32(hstr(WX.seed+'|V|'+k)),cal=v.type==='arc'&&r()<0.03,ty=cal?'cal':v.type;
+  var mu=ty==='cal'?20000*Math.exp((r()-0.5)*1.2):ty==='hot'?12*Math.exp((r()-0.5)*1.6):ty==='rift'?150*Math.exp((r()-0.5)*1.8):200*Math.exp((r()-0.5)*1.8),kk=ty==='cal'?2.5:ty==='hot'?1.2:ty==='rift'?1.3:1.6;
+  return {id:'V'+('00'+(k+1)).slice(-3),k:k,lon:ll[0],lat:ll[1],type:ty,land:v.land,mu:mu,kk:kk,lam:mu/gammaF(1+1/kk),seq:null};});}
+function pickVEI(ty,r){var P=VEIP[ty]||VEIP.arc,x=r(),a=0;for(var i=0;i<P.length;i++){a+=P[i][1];if(x<=a)return P[i][0];}return P[P.length-1][0];}
+function durDays(v,r){return v<=1?10+r()*110:v===2?3+r()*37:v===3?2+r()*18:v===4?1+r()*6:1+r()*3;}
+function volSeq(v,upto){var key=WX.opt.volMode+'|'+WX.opt.volBase;if(v.seq&&v.seqKey===key&&v.seqTo>=upto)return v.seq;
+  var r=mb32(hstr(WX.seed+'|VS|'+v.k+'|'+key)),R0=+WX.opt.volBase,a=WX.opt.volMode==='100'?100*Math.exp((r()-0.5)*0.9):WX.opt.volMode==='1000'?1000*Math.exp((r()-0.5)*0.9):v.mu*(0.05+0.95*r()),last=R0-a,seq=[{y:last,vei:null,dur:0}];
+  var S0=Math.exp(-Math.pow(a/v.lam,v.kk)),U=Math.max(1e-300,r()*S0),y=last+v.lam*Math.pow(-Math.log(U),1/v.kk),lim=Math.max(upto+3,R0+3),guard=0;
+  while(y<lim&&guard++<20000){var vei=pickVEI(v.type,r),dur=durDays(vei,r),pre=vei>=2?5+r()*8*vei:0;seq.push({y:y,vei:vei,dur:dur,pre:pre,n:seq.length});y+=Math.max(0.05,v.lam*Math.pow(-Math.log(Math.max(1e-12,r())),1/v.kk));}
+  v.seq=seq;v.seqKey=key;v.seqTo=lim;return seq;}
+function volStatus(v,t){var Y=t/365,seq=volSeq(v,Y+1),cur=null,lastE=seq[0],next=null;for(var i=1;i<seq.length;i++){var e=seq[i];if(Y>=e.y&&Y<=e.y+e.dur/365){cur=e;break;}if(e.y<=Y)lastE=e;else{next=e;break;}}
+  var st={v:v,erupting:!!cur,e:cur,unrest:false,recent:false,p30:0,alert:1,next:next};if(cur){st.alert=4;st.day=Math.floor((Y-cur.y)*365)+1;return st;}
+  if(next&&next.pre&&(next.y-Y)*365<=next.pre){st.unrest=true;st.alert=3;}if(lastE.vei!==null&&(Y-lastE.y)*365-lastE.dur<30){st.recent=true;st.alert=Math.max(st.alert,2);}
+  var tau=Math.max(0,Y-lastE.y),H=function(x){return Math.pow(x/v.lam,v.kk);};st.p30=1-Math.exp(-(H(tau+30/365)-H(tau)));st.since=tau;st.lastE=lastE;if(st.p30>0.01&&st.alert<2)st.alert=2;return st;}
+function volName(v){var n=nm(v.id);return n?n+'（'+v.id+'）':v.id+' 火山';}
+function volCooling(t){var Y=t/365,c=0;(WX.vol||[]).forEach(function(v){if(v.type!=='cal'&&v.type!=='arc')return;volSeq(v,Y).forEach(function(e){if(e.vei===null||e.vei<6||e.y>Y)return;var dy=Y-e.y;if(dy<4)c-=[0.5,1.0,1.6][Math.min(2,e.vei-6)]*Math.exp(-dy/1.2)*sm(0,0.15,dy);});});return c;}
+var ASHL=[5,20,60,150,400,1000,2500,5000,8000];
+function ashOf(st,Fd){var v=st.v,u=bil(Fd.u,v.lon,v.lat),w=bil(Fd.v,v.lon,v.lat),e=st.e,sp=Math.hypot(u,w)||1;if(e.vei>=4){var la=Math.abs(v.lat);u=u*0.4+(la>25?12:-6);w*=0.4;sp=Math.hypot(u,w)||1;}var L=ASHL[e.vei]||5;return {lon:v.lon,lat:v.lat,dx:u/sp,dy:w/sp,L:L,W:Math.max(8,L*0.3)};}
+function inAsh(a,lo,la){var dx=wrapLon(lo-a.lon)*Math.cos(a.lat*D2R)*111,dy=(la-a.lat)*111,al=dx*a.dx+dy*a.dy,cr=-dx*a.dy+dy*a.dx;return al>-a.W*0.3&&al<a.L&&Math.abs(cr)<a.W*(0.3+0.7*Math.max(0,al)/a.L);}
+var EFP=[[0,0.4],[1,0.35],[2,0.17],[3,0.06],[4,0.018],[5,0.002]];
+function coastKmI(i){var r=WX.map.M.res;return r.dc?Math.abs(r.dc[i]):999;}
+function disText(D){var L=[],big=D.q.filter(function(E){return E.M>=5.5;});
+  L.push('【地震】'+(D.q.length?'今日規模 5 以上地震 '+D.q.length+' 起'+(D.q.some(function(E){return E.after;})?'（含餘震 '+D.q.filter(function(E){return E.after;}).length+' 起）':'')+'。':'今日無規模 5 以上地震。'));
+  big.forEach(function(E){var hh=Math.floor((E.t-E.day)*24),mm=Math.floor(((E.t-E.day)*24-hh)*60);L.push('・'+(E.code?eqLabel(E)+' ':'')+('0'+hh).slice(-2)+':'+('0'+mm).slice(-2)+'　規模 '+E.M.toFixed(1)+'，深度 '+E.dep+' km，震央'+(E.near?'於'+E.near.name+'附近':llTxt(E.lon,E.lat))+'（'+TECTN[E.ty]+(E.after?'，餘震':'')+'）'+(E.maxS?'，最大震度 '+E.maxS:'')+(E.tsu?'，⚠ 海嘯警報':'')+'。');});
+  L.push('','【火山】');var er=D.v.filter(function(s){return s.erupting;}),un=D.v.filter(function(s){return s.unrest;}),hi=D.v.filter(function(s){return !s.erupting&&!s.unrest;}).sort(function(a,b){return b.p30-a.p30;}).slice(0,5);
+  if(!er.length&&!un.length)L.push('・目前無火山噴發。');er.forEach(function(s){L.push('・'+volName(s.v)+'（'+VTYN[s.v.type]+'）噴發第 '+s.day+' 日，規模 VEI '+s.e.vei+(s.e.vei<=1?'，以熔岩流為主':s.ash?'，火山灰向'+DIRS[Math.round(((Math.atan2(s.ash.dx,s.ash.dy)/D2R+360)%360)/45)%8]+'方飄散約 '+fmt(s.ash.L)+' 公里':'')+'。');});
+  un.forEach(function(s){L.push('・'+volName(s.v)+' 火山活動升溫（地震群與地表變形增加），警戒等級 3。');});
+  hi.forEach(function(s){L.push('・'+volName(s.v)+'：未來 30 日噴發機率約 '+(s.p30*100).toFixed(s.p30<0.1?1:0)+'%（距上次噴發約 '+fmt(s.since)+' 年）。');});
+  if(D.tor.length){L.push('','【龍捲風】');D.tor.forEach(function(T){L.push('・EF'+T.ef+' 龍捲風：'+T.reg+'，路徑約 '+T.len+' 公里。');});}
+  if(D.oth.length){L.push('','【洪水、山崩、暴潮、野火、乾旱】');D.oth.forEach(function(x){L.push('・'+x[1]+'：'+x[2]);});}
+  return L;}
 /* ===================== LatoGlobe 地球儀：3D 地形、衛星雲圖、時間軸模擬 ===================== */
 var GS={nb:0.06,P0:null,M:null,disp:null,E:{W:2048,H:1024},map:null,hE:null,land:null,ice:null,cache:{},sat:[],t0:0,t:0,tReq:null,play:false,spd:1,sim:null,busy:false,rec:null,
   lam:0,phi:15,dist:3.2,drag:null,ex:30,lit:'real',rot:6,co:0.9,ch:0.012,atm:true,star:true,lights:true,glint:true,shad:true,layers:[],dirty:true,Fd:null,lastEval:-1e9,tilt:23.44,tzLon:0,enso:null};
@@ -2646,7 +2796,7 @@ var GLAY=[
  ['belts','氣壓帶與風帶','static',0,1],['nino','聖嬰現象（判讀）','static',0,1],['nina','反聖嬰現象（判讀）','static',0,1],['monsoon','季風','static',0,1],['upwell','湧升流','static',0,1],
  ['reeau','稀土與貴金屬','static',0,1],['metal','金屬礦產','static',0,1],['energy','能源礦產','static',0,1],['magic','魔晶與魔能殘存區','static',0,1],['gw','地下水','static',0,0.9],['food','糧食作物','static',0,0.85],['cash','經濟作物','static',0,0.85],
  ['fish','漁場','static',0,1],['marine','海底資源','static',0,1],['cyc','熱帶氣旋（氣候）','static',0,1],['sail','四季帆船航線','season',0,1],['air','浮空艦航線','static',0,1],['bird','候鳥遷徙','season',0,1],['fishrun','魚潮','season',0,1],
- ['x_slp','氣壓與鋒面','time',0,1],['x_wind','風場','time',0,0.9],['x_tc','熱帶氣旋與路徑','time',1,1],['x_grid','經緯網','static',0,0.6],['natl','國名與首都','static',0,1],['names','地名','static',0,1]];
+ ['x_slp','氣壓與鋒面','time',0,1],['x_wind','風場','time',0,0.9],['x_tc','熱帶氣旋與路徑','time',1,1],['x_dis','地震與災害熱點','ovl',1,1],['x_grid','經緯網','static',0,0.6],['natl','國名與首都','static',0,1],['names','地名','static',0,1]];
 var BLENDS=[['source-over','一般'],['multiply','色彩增值'],['screen','濾色'],['overlay','覆蓋'],['soft-light','柔光'],['hard-light','實光'],['lighten','變亮'],['darken','變暗'],['color','顏色'],['luminosity','明度']];
 var SPDS=[[1/24,'1 小時／秒'],[0.25,'6 小時／秒'],[1,'1 天／秒'],[5,'5 天／秒'],[15,'15 天／秒'],[30,'30 天／秒'],[91,'一季／秒'],[365,'一年／秒']];
 root.innerHTML='<div class="lato-tool lt-gb">'+
@@ -2659,12 +2809,14 @@ root.innerHTML='<div class="lato-tool lt-gb">'+
  '<label>每段模擬 <select data-k="gN"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="5">5</option><option value="10">10</option></select> 年</label><button type="button" class="lt-pri" data-k="gSim" disabled>重新模擬</button><button type="button" data-k="gNext" disabled>模擬下一段</button><label><input type="checkbox" data-k="gAuto" checked> 播放到尾端時自動模擬下一段</label></div>'+
  '<div class="lt-info" data-k="gSimInfo"></div><div class="lt-info lt-gnow" data-k="gNow"></div><div class="lt-gleg" data-k="gLeg"></div>'+
  '<details class="lt-grp" open><summary>地球儀顯示</summary><div class="row"><label>地形起伏誇大 <input type="range" data-k="gEx" min="0" max="80" step="1" value="30"> <span data-k="gExV">30×</span></label>'+
- '<label>光照 <select data-k="gLit"><option value="real">真實晝夜（依時間軸）</option><option value="fix">固定光源</option><option value="flat">全亮</option></select></label><label>自轉 <input type="range" data-k="gRot" min="-60" max="60" step="1" value="6"> <span data-k="gRotV">6°／秒</span></label></div>'+
+ '<label>光照 <select data-k="gLit"><option value="real">真實晝夜（依時間軸）</option><option value="fix">固定光源</option><option value="flat">全亮</option></select></label><label>自轉 <input type="range" data-k="gRot" min="-60" max="60" step="1" value="6"> <span data-k="gRotV">6°／秒</span></label><label title="停止自轉，畫面恆定對準同一區域；拖曳可微調，雙擊地球可改換觀察點"><input type="checkbox" data-k="gLock"> 恆定（鎖定觀察區域）</label></div>'+
+ '<div class="row"><span class="lt-info" style="margin:0">恆定中心</span><label>經度 <input type="number" data-k="gLkLo" min="-180" max="180" step="0.5" value="0" style="width:72px"></label><label>緯度 <input type="number" data-k="gLkLa" min="-89" max="89" step="0.5" value="15" style="width:64px"></label><button type="button" data-k="gLkGo">前往並恆定</button><span class="lt-info" style="margin:0" data-k="gLkTxt">雙擊地球可直接恆定觀察該點</span></div>'+
  '<div class="row"><label>夜面亮度 <input type="range" data-k="gNb" min="0" max="0.6" step="0.02" value="0.06"></label><label>雲層不透明度 <input type="range" data-k="gCo" min="0" max="1" step="0.05" value="0.9"></label><label>雲層高度 <input type="range" data-k="gCh" min="0.002" max="0.04" step="0.002" value="0.012"></label>'+
  '<label><input type="checkbox" data-k="gAtm" checked> 大氣光暈</label><label><input type="checkbox" data-k="gStar" checked> 星空</label><label><input type="checkbox" data-k="gLights" checked> 夜間燈光</label><label><input type="checkbox" data-k="gGlint" checked> 海面反光</label><label><input type="checkbox" data-k="gShad" checked> 雲影</label>'+
  '<label>貼圖解析度 <select data-k="gRes"><option value="2048">2048×1024</option><option value="4096">4096×2048（較慢）</option></select></label></div></details>'+
  '<details class="lt-grp" open><summary>圖層疊加（由下而上）</summary><div class="lt-info">勾選要疊加的圖層，可調整順序、不透明度與混合模式。「時間」圖層隨時間軸即時變化，「季節」圖層依時間軸的季節自動切換；衛星雲圖畫在獨立的雲層殼上（上方「雲層不透明度」）。氣象類圖層在夜面會變暗，可調高「夜面亮度」或把光照改為「全亮」。</div>'+
- '<div class="row"><span class="lt-info">快速組合：</span><button type="button" data-pre="sat">衛星真實色</button><button type="button" data-pre="ter">地形</button><button type="button" data-pre="pol">政治</button><button type="button" data-pre="wx">氣象</button><button type="button" data-pre="clim">氣候</button></div><div data-k="gLay"></div></details>'+
+ '<div class="row"><span class="lt-info">快速組合：</span><button type="button" data-pre="sat">衛星真實色</button><button type="button" data-pre="ter">地形</button><button type="button" data-pre="pol">政治</button><button type="button" data-pre="wx">氣象</button><button type="button" data-pre="clim">氣候</button><button type="button" data-pre="dis">災害</button></div><div data-k="gLay"></div></details>'+
+ '<details class="lt-grp" open><summary>災情熱點（目前日期）</summary><div class="lt-info">與氣候暨災情工具相同的事件序列：地震（規模 5 以上、餘震與海嘯）、火山（升溫、噴發與火山灰），以及模擬期間逐日判定的洪水、山崩、暴潮、野火、乾旱與龍捲風，以圖層「地震與災害熱點」畫在地球儀上（夜面也看得見）。地震活躍度、火山設定與事件命名沿用氣候暨災情工具在此瀏覽器保存的設定。</div><div class="lt-gdis" data-k="gDis">—</div></details>'+
  '<details class="lt-grp"><summary>錄影</summary><div class="lt-info">逐格離線渲染後編碼，畫面不受電腦效能影響。時間以時間軸上的「天」表示（0 為起始日）。</div>'+
  '<div class="row"><label>從 <input type="number" data-k="rT0" value="0" step="1" style="width:80px"> 到 <input type="number" data-k="rT1" value="30" step="1" style="width:80px"> 天</label><button type="button" data-k="rUse">使用目前可播放範圍</button>'+
  '<label>影片每秒 = <select data-k="rSpd">'+SPDS.map(function(s,k){return '<option value="'+s[0]+'"'+(k===3?' selected':'')+'>'+s[1].replace('／秒','')+'</option>';}).join('')+'</select></label></div>'+
@@ -2689,9 +2841,9 @@ async function gLoad(P0){var LIB=window.LatoTerrainLib;if(!LIB)throw new Error('
   if(P0.known){var kb=new Blob([b64bytes(P0.known.data)],{type:P0.known.type||'image/png'});kd=P0.known.h16?await PL.readH16(kb,prog):await PL.readBands(kb,P0.legend,[C.hex(P0.ui.csea),[255,255,255],C.hex(P0.ui.cice),[119,119,119]],prog);}
   var M=await PL.build(px,P0.W0,P0.H0,{ui:P0.ui,cfg:P0.cfg,legend:P0.legend,names:P0.names,knownData:kd,nations:P0.nations,places:P0.places,seasons:P0.seasons},function(l,f){return prog('重建地圖：'+l,0.05+0.7*f);});
   var disp=PL.display(M,GS.E.W),nms=PL.namesFrom(P0.names),tz=PL.tzRef(M,nms);disp.D.tzRef=tz;
-  WX.map={WD:WD,P0:P0,M:M,C:C,LY:LY,PL:PL,PH:PH,disp:disp,names:nms,tz:tz,W0:P0.W0,H0:P0.H0,kpx:Math.sqrt(+P0.ui.area/M.src.nIn),g:M.g};WX.seed='wx-'+P0.seed;WX.nz=null;
+  WX.map={WD:WD,P0:P0,M:M,C:C,LY:LY,PL:PL,PH:PH,disp:disp,names:nms,tz:tz,W0:P0.W0,H0:P0.H0,kpx:Math.sqrt(+P0.ui.area/M.src.nIn),g:M.g};WX.seed='wx-'+P0.seed;WX.nz=null;WX.tcEv={};WX.sup=null;WX.tcCand=null;
   WX.shock=(P0.shocks||[]).map(function(e){e.t0=shockT0(e);return e;});
-  await prog('整理氣候網格',0.78);grid1();GS.P0=P0;GS.M=M;GS.disp=disp;GS.tzLon=tz&&isFinite(tz.lon)?tz.lon:0;GS.tilt=P0.cfg&&P0.cfg.tilt!==undefined?+P0.cfg.tilt:23.44;
+  await prog('整理氣候網格',0.78);grid1();await prog('劃分地區與災情模型',0.8);regions();regStatic();WX.opt={qAct:1,volMode:'typ',volBase:4005,names:{}};loadOpts();quakeSetup();volSetup();GS.dq={};GS.dqN=0;GS.P0=P0;GS.M=M;GS.disp=disp;GS.tzLon=tz&&isFinite(tz.lon)?tz.lon:0;GS.tilt=P0.cfg&&P0.cfg.tilt!==undefined?+P0.cfg.tilt:23.44;
   GS.o={iceKeep:!!P0.ui.iceKeep,iceColor:C.hex(P0.ui.cice||'#E0E0E0'),shadeStr:P0.ui.shStr===undefined?1:+P0.ui.shStr,season:'ann',withSea:!!P0.ui.withSea,src:P0.ui.rsrc!==false,main:P0.ui.rmain!==false,trib:P0.ui.rtrib!==false,mouth:P0.ui.rmouth!==false,lake:P0.ui.rlake!==false,sea4:'all'};
   await prog('轉換為球面貼圖',0.82);prepER();ensoSetup();await prog('生成衛星真實色（四季）',0.88);GS.sat=[0,1,2,3].map(satCanvas);lightsTex();await prog('建立地球儀',0.95);}
 /* ---------- Equal Earth display → equirectangular texture ---------- */
@@ -2753,14 +2905,14 @@ function commaClouds(Fd,CL){var g=WX.g1,nzf=WX.nz;Fd.S.lows.forEach(function(L){
       var r=d/R*(1+0.12*nn),b=Math.atan2(dx,dy)/D2R+18*nn,bs=-135-wrap*clamp((1.25-r)/1.1,0,1),db=((b-bs)%360+540)%360-180,wd=32*(1+0.35*nn),slot=Math.exp(-db*db/(wd*wd))*sm(0.12,0.35,r)*sm(1.9,1.2,r),head=Math.exp(-(r*r)/1.3)*(1-slot)*(0.8+0.35*nn);CL[c]+=st*(0.55*head-0.7*slot);}}});}
 /* ---------- timeline simulation: snow cover and sea ice need memory, integrated day by day and stored ---------- */
 function newSim(t0){var g=WX.g1,n2=180*90,lf2=new Float32Array(n2);for(var j=0;j<90;j++)for(var i=0;i<180;i++){var s=0;for(var b=0;b<2;b++)for(var a=0;a<2;a++)s+=g.landF[(j*2+b)*360+i*2+a];lf2[j*180+i]=s/4;}
-  var S={id:(GS.simSeq=(GS.simSeq||0)+1),t0:t0,days:0,snow:[],ice:[],swe:new Float32Array(n2),ic:new Float32Array(n2),lf2:lf2};
+  var S={id:(GS.simSeq=(GS.simSeq||0)+1),t0:t0,days:0,snow:[],ice:[],dis:[],rr1:null,rr2:null,swe:new Float32Array(n2),ic:new Float32Array(n2),lf2:lf2};
   /* spin-up with the climatology over the preceding half year */
   for(var d=-180;d<0;d++){var cl=climAt(t0+d);stepSim(S,cl.T,null,cl.P,true,cl.SST);}return S;}
 function stepSim(S,T1,dT,P1,clim,SST1){var lf2=S.lf2;for(var j=0;j<90;j++)for(var i=0;i<180;i++){var k=j*180+i,T=0,P=0,sst=0;for(var b=0;b<2;b++)for(var a=0;a<2;a++){var c=(j*2+b)*360+i*2+a;T+=T1[c]+(dT?dT[c]:0);P+=clim?P1[c]/30:P1[c];sst+=SST1[c];}T/=4;P/=4;sst/=4;
     if(lf2[k]>0.3){if(T<-0.5)S.swe[k]+=P;var melt=Math.max(0,T+0.5)*3.2;S.swe[k]=Math.min(3000,Math.max(0,S.swe[k]-melt));}
     if(lf2[k]<0.8){var tg=sm(1.0,-1.6,sst)*sm(1,-10,T);S.ic[k]+=(tg-S.ic[k])*(tg>S.ic[k]?0.07:0.05);}}}
 async function simChunk(years){if(!GS.sim)GS.sim=newSim(GS.t0);var S=GS.sim,n=Math.round(years*365),t00=Date.now();GS.busy=true;sync();
-  try{for(var d=0;d<n;d++){if(GS.stopSim)break;var t=S.t0+S.days+0.5;evalGrids(t);stepSim(S,GS.Tg,null,GS.PR,false,GS.SST);var a=new Uint8Array(16200),b=new Uint8Array(16200);for(var k=0;k<16200;k++){a[k]=Math.round(clamp(S.swe[k]/35,0,1)*255);b[k]=Math.round(clamp(S.ic[k],0,1)*255);}
+  try{for(var d=0;d<n;d++){if(GS.stopSim)break;var t=S.t0+S.days+0.5;evalGrids(t);stepSim(S,GS.Tg,null,GS.PR,false,GS.SST);S.dis.push(disWx(S,t));var a=new Uint8Array(16200),b=new Uint8Array(16200);for(var k=0;k<16200;k++){a[k]=Math.round(clamp(S.swe[k]/35,0,1)*255);b[k]=Math.round(clamp(S.ic[k],0,1)*255);}
       S.snow.push(a);S.ice.push(b);S.days++;if(d%4===0){q('gSimInfo').textContent='模擬中：'+dateTxt(t).replace('（協和標準時）','')+'（'+(d+1)+' / '+n+' 天，已用 '+((Date.now()-t00)/1000).toFixed(0)+' 秒）';gbar('gBar',d/n);await tick();}}}
   finally{GS.busy=false;GS.stopSim=false;gbar('gBar',1);}
   q('gSimInfo').textContent='已模擬 '+(S.days/365).toFixed(S.days%365?1:0)+' 年（'+dateTxt(S.t0).slice(0,-11)+' 起，共 '+S.days+' 天）。積雪與海冰逐日累積；天氣系統、雲與降水依時刻即時計算。';
@@ -2788,7 +2940,7 @@ function compose(t){var E=GS.E,c=GS.comp||(GS.comp=mk(E.W,E.H)),cx=c.getContext(
   if(GS.prefKey!==key){var pc=GS.prefCv;if(!pc||pc.width!==E.W){pc=GS.prefCv=mk(E.W,E.H);}var px=pc.getContext('2d');px.globalCompositeOperation='source-over';px.globalAlpha=1;px.fillStyle='#16324f';px.fillRect(0,0,E.W,E.H);
     for(k=0;k<p;k++)drawLayer(px,L0[k],t,doy);px.globalCompositeOperation='source-over';px.globalAlpha=1;GS.prefKey=key;}
   cx.globalCompositeOperation='source-over';cx.globalAlpha=1;cx.drawImage(GS.prefCv,0,0);for(k=p;k<L0.length;k++)drawLayer(cx,L0[k],t,doy);cx.globalCompositeOperation='source-over';cx.globalAlpha=1;return c;}
-function drawLayer(cx,L,t,doy){if(!L.on)return;var E=GS.E;
+function drawLayer(cx,L,t,doy){if(!L.on||L.kind==='ovl')return;var E=GS.E;
   if(L.k==='sat'){var x=((doy-15+365)%365)/91.25,a=Math.floor(x)%4,b=(a+1)%4,f=x-Math.floor(x),mid=[3,0,1,2];cx.globalCompositeOperation=L.blend;cx.globalAlpha=L.op;cx.drawImage(GS.sat[mid[a]],0,0);cx.globalAlpha=L.op*f;cx.drawImage(GS.sat[mid[b]],0,0);return;}
   var cv=L.kind!=='time'?staticER(L.k,t):timeLayer(L.k,t);if(!cv)return;cx.globalCompositeOperation=L.blend;cx.globalAlpha=L.op;cx.imageSmoothingEnabled=true;cx.drawImage(cv,0,0,E.W,E.H);}
 function timeLayer(k,t){var E=GS.E,W2=E.W,H2=E.H,g=WX.g1,Fd=GS.Fd;if(!Fd)return null;
@@ -2807,9 +2959,12 @@ function timeLayer(k,t){var E=GS.E,W2=E.W,H2=E.H,g=WX.g1,Fd=GS.Fd;if(!Fd)return 
       cx.fillStyle='#FF5252';cx.fillText('低',X(L.lon),Y(L.lat));});Fd.S.highs.forEach(function(H){cx.fillStyle='#448AFF';cx.fillText('高',X(H.lon),Y(H.lat));});return cv;}
   if(k==='x_wind'){cx.strokeStyle='rgba(255,255,255,0.9)';cx.lineWidth=lw;for(var j2=3;j2<180;j2+=6)for(var i2=3;i2<360;i2+=6){var c4=j2*360+i2,u=Fd.u[c4],w=Fd.v[c4],s=Math.hypot(u,w);if(s<1)continue;var x0=(i2+0.5)*sx,y0=(j2+0.5)*sy,L2=Math.min(5.5,s/4)*sx,dx=u/s*L2/Math.max(0.2,Math.cos(g.lat[j2]*D2R))*Math.cos(g.lat[j2]*D2R),dy=-w/s*L2;
       cx.beginPath();cx.moveTo(x0,y0);cx.lineTo(x0+dx,y0+dy);var an=Math.atan2(dy,dx);cx.lineTo(x0+dx-Math.cos(an-0.5)*L2*0.3,y0+dy-Math.sin(an-0.5)*L2*0.3);cx.moveTo(x0+dx,y0+dy);cx.lineTo(x0+dx-Math.cos(an+0.5)*L2*0.3,y0+dy-Math.sin(an+0.5)*L2*0.3);cx.stroke();}return cv;}
-  if(k==='x_tc'){var fs2=Math.max(12,W2/110);cx.font='700 '+Math.round(fs2)+'px sans-serif';cx.textAlign='left';cx.textBaseline='middle';Fd.S.tcs.forEach(function(tc){var vis=tc.vis===undefined?1:tc.vis;if(vis<0.03)return;cx.save();cx.globalAlpha=vis;var col=tc.stage==='dist'||tc.stage==='rem'||tc.stage==='et'?'#B0BEC5':tc.kt>=96?'#D50000':tc.kt>=64?'#FF6D00':tc.kt>=34?'#FFD600':'#B0BEC5';
+  if(k==='x_tc'){var fs2=Math.max(12,W2/110);cx.font='700 '+Math.round(fs2)+'px sans-serif';cx.textAlign='left';cx.textBaseline='middle';Fd.S.tcs.forEach(function(tc){var vis=tc.vis===undefined?1:tc.vis;if(vis<0.03)return;cx.save();cx.globalAlpha=vis;var gray=tc.stage==='dist'||tc.stage==='rem'||tc.stage==='et',sup=tcIsSup(tc)&&!gray,col=gray?'#B0BEC5':sup?'#E040FB':tc.kt>=96?'#D50000':tc.kt>=64?'#FF6D00':tc.kt>=34?'#FFD600':'#B0BEC5';
       if(tc.stage!=='dist'&&tc.trk&&tc.trk.length>1){cx.strokeStyle=col;cx.lineWidth=lw*1.8;cx.setLineDash([lw*5,lw*3]);cx.beginPath();tc.trk.forEach(function(p,n){var x=X(p[0]),y=Y(p[1]);if(n&&Math.abs(x-X(tc.trk[n-1][0]))>W2/2)cx.moveTo(x,y);else if(n)cx.lineTo(x,y);else cx.moveTo(x,y);});cx.stroke();cx.setLineDash([]);}
-      var x=X(tc.lon),y=Y(tc.lat),r=Math.max(6,W2/300);cx.strokeStyle=col;cx.lineWidth=lw*2.5;if(tc.stage==='dist')cx.setLineDash([lw*3,lw*3]);cx.beginPath();cx.arc(x,y,r,0,2*PI);cx.stroke();cx.setLineDash([]);cx.restore();});return cv;}
+      var x=X(tc.lon),y=Y(tc.lat),r=Math.max(6,W2/300)*(0.75+0.9*sm(25,150,tc.kt)+(sup?0.5:0)),r34=tcR34(tc);
+      if(r34>0){var ry=r34/111.2*sy,rx=Math.min(W2/2,r34/(111.2*Math.max(0.12,Math.cos(tc.lat*D2R)))*sx);[-W2,0,W2].forEach(function(o){if(x+o+rx<0||x+o-rx>W2)return;cx.beginPath();cx.ellipse(x+o,y,rx,ry,0,0,2*PI);cx.fillStyle=col;cx.globalAlpha=vis*(sup?0.2:0.13);cx.fill();
+        cx.globalAlpha=vis*0.9;cx.strokeStyle=col;cx.lineWidth=lw*(sup?2.2:1.5);cx.setLineDash([lw*4,lw*3]);cx.stroke();cx.setLineDash([]);});cx.globalAlpha=vis;}
+      cx.strokeStyle=col;cx.lineWidth=lw*2.5;if(tc.stage==='dist')cx.setLineDash([lw*3,lw*3]);cx.beginPath();cx.arc(x,y,r,0,2*PI);cx.stroke();cx.setLineDash([]);if(sup){cx.lineWidth=lw*1.6;cx.beginPath();cx.arc(x,y,r*1.6,0,2*PI);cx.stroke();}cx.restore();});return cv;}
   return null;}
 function masked(src,mask){var E=GS.E,o=GS['mk_'+src.width]||(GS['mk_'+src.width]=mk(E.W,E.H)),ox=o.getContext('2d');ox.globalCompositeOperation='source-over';ox.clearRect(0,0,E.W,E.H);ox.imageSmoothingEnabled=true;ox.drawImage(src,0,0,E.W,E.H);ox.globalCompositeOperation='destination-in';ox.drawImage(mask,0,0);ox.globalCompositeOperation='source-over';return o;}
 /* 2° cover → 0.5° with a fixed noisy threshold: crisp, irregular snow lines and ice edges at the same covered fraction */
@@ -2818,11 +2973,11 @@ function sharp(src,key,col){var W=720,H=360,o=GS['sh_'+key]||(GS['sh_'+key]=mk(W
   for(var k=0;k<W*H;k++){var a=d[k*4+3]/255;if(a<=0.02){d[k*4+3]=0;continue;}var t=(a-(0.22+0.3*nz[k]))/0.14;t=t<0?0:t>1?1:t;d[k*4]=col[0];d[k*4+1]=col[1];d[k*4+2]=col[2];d[k*4+3]=Math.round(255*t*t*(3-2*t)*Math.min(1,0.55+a));}x.putImageData(id,0,0);return o;}
 /* tropical cyclone codes and names: identical to the weather tool (annual genesis order; names the user gave there are read from the same browser storage) */
 var TCC={};
-function tcCode(T){if(TCC[T.id])return TCC[T.id];var p=T.id.split('_'),h=+p[0].slice(1),k=+p[1],y=Math.floor(k/365),n=0,tr=WX.map.M.clim.cyc?WX.map.M.clim.cyc.tracks:[];
+function tcCode(T){if(TCC[T.id])return TCC[T.id];if(T.id.charAt(0)==='S')return (TCC[T.id]='ST'+Math.floor(+T.id.split('_')[1]/365));var p=T.id.split('_'),h=+p[0].slice(1),k=+p[1],y=Math.floor(k/365),n=0,tr=WX.map.M.clim.cyc?WX.map.M.clim.cyc.tracks:[];
   var hasN=tr.some(function(x){return x[0][1]>0;}),hasS=tr.some(function(x){return x[0][1]<0;});
   for(var d=y*365;d<=k;d++){[1,-1].forEach(function(hh){if(d===k&&hh===-1&&h===1)return;if(hh>0?!hasN:!hasS)return;var doy=((d%365)+365)%365,s=tcSeason(doy,hh),r=mb32(hstr(WX.seed+'|T|'+hh+'|'+d));if(r()<=0.4*s)n++;});}
   return (TCC[T.id]='T'+y+'-'+('0'+Math.max(1,n)).slice(-2));}
-function tcNames(){if(GS.tcN)return GS.tcN;var o={};try{var s=localStorage.getItem('latoWx:'+(GS.P0?GS.P0.seed:''));if(s){var j2=JSON.parse(s);if(j2&&j2.names)o=j2.names;}}catch(e){}return (GS.tcN=o);}
+function tcNames(){return WX.opt&&WX.opt.names||{};}
 function tcName(tc){var c=tcCode(tc),n=tcNames()[c];return n?n+'（'+c+'）':c;}
 /* ---------- WebGL ---------- */
 var GLS={};
@@ -2886,13 +3041,14 @@ function sunDir(t,vw){if(GS.lit==='fix'){var l=vw.toModel([-0.55,0.55,0.63]),n=M
   var o=dateOf(t),dec=GS.tilt*D2R*Math.sin(2*PI*(o.doy-80)/365),hr=(t-Math.floor(t))*24,ls=(GS.tzLon-(hr-12)*15)*D2R;return [Math.cos(dec)*Math.cos(ls),Math.cos(dec)*Math.sin(ls),Math.sin(dec)];}
 /* cyclone names drawn in screen space over the globe (front hemisphere only) */
 function tcLabels(cx,W,H,vw){if(!GS.Fd||!vw||!GS.layers.some(function(L){return L.on&&L.k==='x_tc';}))return;var M=vw.MVP,e=vw.eye,fs=Math.max(12,Math.round(H/40)),rr=1+GS.ch;cx.save();cx.font='700 '+fs+'px sans-serif';cx.textBaseline='middle';cx.textAlign='left';cx.lineJoin='round';
-  GS.Fd.S.tcs.forEach(function(tc){if(tc.stage==='dist'||(tc.vis!==undefined&&tc.vis<0.25))return;cx.globalAlpha=Math.min(1,(tc.vis===undefined?1:tc.vis)*1.25);var la=tc.lat*D2R,lo=tc.lon*D2R,p=[Math.cos(la)*Math.cos(lo)*rr,Math.cos(la)*Math.sin(lo)*rr,Math.sin(la)*rr];if((e[0]-p[0])*p[0]+(e[1]-p[1])*p[1]+(e[2]-p[2])*p[2]<=0.02)return;
-    var x=M[0]*p[0]+M[4]*p[1]+M[8]*p[2]+M[12],y=M[1]*p[0]+M[5]*p[1]+M[9]*p[2]+M[13],w=M[3]*p[0]+M[7]*p[1]+M[11]*p[2]+M[15];if(w<=0)return;var sx=(x/w+1)/2*W,sy=(1-y/w)/2*H,txt=tcName(tc)+' '+tcShortT(tc);
-    cx.lineWidth=Math.max(3,fs/4);cx.strokeStyle='rgba(0,0,0,0.75)';cx.strokeText(txt,sx+fs*0.8,sy);cx.fillStyle='#fff';cx.fillText(txt,sx+fs*0.8,sy);});cx.restore();}
+  var used=[];GS.Fd.S.tcs.slice().sort(function(a,b){return b.kt-a.kt;}).forEach(function(tc){if(tc.stage==='dist'||(tc.vis!==undefined&&tc.vis<0.25))return;cx.globalAlpha=Math.min(1,(tc.vis===undefined?1:tc.vis)*1.25);var la=tc.lat*D2R,lo=tc.lon*D2R,p=[Math.cos(la)*Math.cos(lo)*rr,Math.cos(la)*Math.sin(lo)*rr,Math.sin(la)*rr];if((e[0]-p[0])*p[0]+(e[1]-p[1])*p[1]+(e[2]-p[2])*p[2]<=0.02)return;
+    var x=M[0]*p[0]+M[4]*p[1]+M[8]*p[2]+M[12],y=M[1]*p[0]+M[5]*p[1]+M[9]*p[2]+M[13],w=M[3]*p[0]+M[7]*p[1]+M[11]*p[2]+M[15];if(w<=0)return;var sx=(x/w+1)/2*W,sy=(1-y/w)/2*H,txt=tcName(tc)+' '+tcShortT(tc)+(tc.inter?'（'+tcIntTxt(tc,'',true)+'）':'');
+    var bx=[sx+fs*0.8,sy-fs*0.62,sx+fs*0.8+cx.measureText(txt).width,sy+fs*0.62];if(used.some(function(o){return bx[0]<o[2]&&bx[2]>o[0]&&bx[1]<o[3]&&bx[3]>o[1];}))return;used.push(bx);
+    cx.lineWidth=Math.max(3,fs/4);cx.strokeStyle='rgba(0,0,0,0.75)';cx.strokeText(txt,sx+fs*0.8,sy);cx.fillStyle=tcIsSup(tc)?'#F1B8FF':'#fff';cx.fillText(txt,sx+fs*0.8,sy);});cx.restore();}
 /* ---------- draw one frame ---------- */
 function drawGL(W,H){var gl=GLS.gl,cv=q('gCv');if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H;}gl.viewport(0,0,W,H);gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
   var vw=views(W,H);GS.vw=vw;var S=sunDir(GS.t,vw),mode=GS.lit==='real'?0:GS.lit==='fix'?1:2,K=GS.ex/(1000*(GS.M.g.R||6371)),tcN=GLS.tcn||8,tcs=GS.Fd?GS.Fd.S.tcs.filter(function(x){return (x.vis===undefined?1:x.vis)>0.01;}).sort(function(a,b){return b.kt-a.kt;}).slice(0,tcN):[],TCU=new Float32Array(tcN*8);
-  tcs.forEach(function(tc,k){var o=k*8,h=tc.h||(tc.lat>=0?1:-1);TCU[o]=tc.lon*D2R;TCU[o+1]=tc.lat*D2R;TCU[o+2]=(tc.R||(230+2.6*tc.kt))/6371;TCU[o+3]=Math.max(0.001,tc.org===undefined?sm(16,55,tc.kt):tc.org)*h;TCU[o+4]=tc.eye===undefined?sm(62,100,tc.kt):tc.eye;TCU[o+5]=tc.et||0;TCU[o+6]=tc.vis===undefined?1:tc.vis;TCU[o+7]=((GS.t*3)%(2*PI)+2*PI)%(2*PI);});
+  tcs.forEach(function(tc,k){var o=k*8,h=tc.h||(tc.lat>=0?1:-1);TCU[o]=tc.lon*D2R;TCU[o+1]=tc.lat*D2R;TCU[o+2]=(tc.R||tcSz(tc))/6371;TCU[o+3]=Math.max(0.001,tc.org===undefined?sm(16,55,tc.kt):tc.org)*h;TCU[o+4]=tc.eye===undefined?sm(62,100,tc.kt):tc.eye;TCU[o+5]=tc.et||0;TCU[o+6]=tc.vis===undefined?1:tc.vis;TCU[o+7]=((GS.t*3)%(2*PI)+2*PI)%(2*PI);});
   function bindSphere(pr,hbuf){for(var a0=0;a0<8;a0++)gl.disableVertexAttribArray(a0);gl.useProgram(pr.p);gl.bindBuffer(gl.ARRAY_BUFFER,GLS.bP);gl.enableVertexAttribArray(pr.aP);gl.vertexAttribPointer(pr.aP,3,gl.FLOAT,false,0,0);
     if(pr.aT>=0){gl.bindBuffer(gl.ARRAY_BUFFER,GLS.bT);gl.enableVertexAttribArray(pr.aT);gl.vertexAttribPointer(pr.aT,2,gl.FLOAT,false,0,0);}if(pr.aH>=0){gl.bindBuffer(gl.ARRAY_BUFFER,hbuf);gl.enableVertexAttribArray(pr.aH);gl.vertexAttribPointer(pr.aH,1,gl.FLOAT,false,0,0);}gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,GLS.bI);}
   function tex(pr,nm,unit,t){if(pr.U[nm]===undefined||pr.U[nm]===null)return;gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,t);gl.uniform1i(pr.U[nm],unit);}
@@ -2908,24 +3064,115 @@ function drawGL(W,H){var gl=GLS.gl,cv=q('gCv');if(cv.width!==W||cv.height!==H){c
 /* ---------- time update: weather grids, cloud texture, composite ---------- */
 function setTime(t,force){GS.t=t;var gl=GLS.gl;if(!gl)return;if(GS.dirty)GS.prefKey=null;if(force||Math.abs(t-GS.lastEval)>=1/48){evalGrids(t);GS.lastEval=t;gl.bindTexture(gl.TEXTURE_2D,GLS.tV);gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,360,180,gl.RGBA,gl.UNSIGNED_BYTE,GS.cov);GS.compDirty=true;}
   var hasTime=GS.layers.some(function(L){return L.on&&(L.kind==='time'||L.kind==='season');}),sk=seaKey(t)+monKey(t)+Math.floor(t);if(GS.dirty||(GS.compDirty&&hasTime&&(GS.layers.some(function(L){return L.on&&L.kind==='time';})||sk!==GS.lastSk))){compose(t);texCanvas(gl,GLS.tC,GS.comp);GS.dirty=false;GS.lastSk=sk;}GS.compDirty=false;}
-function nowTxt(t){var Fd=GS.Fd,parts=[dateTxt(t),ensoTxt(t)];if(Fd){var tc=Fd.S.tcs.filter(function(x){return x.kt>=34;});parts.push(tc.length?'熱帶氣旋：'+tc.slice(0,5).map(function(x){return tcName(x)+'（'+tcShortT(x)+'，'+Math.abs(x.lon).toFixed(0)+'°'+(x.lon>=0?'E':'W')+' '+Math.abs(x.lat).toFixed(0)+'°'+(x.lat>=0?'N':'S')+'）';}).join('、'):'目前沒有熱帶風暴');
+function nowTxt(t){var Fd=GS.Fd,parts=[dateTxt(t),ensoTxt(t)];if(Fd){var tc=Fd.S.tcs.filter(function(x){return x.kt>=34;}).sort(function(a,b){return b.kt-a.kt;});parts.push(tc.length?'熱帶氣旋：'+tc.slice(0,5).map(function(x){return tcName(x)+'（'+tcShortT(x)+'，'+Math.abs(x.lon).toFixed(0)+'°'+(x.lon>=0?'E':'W')+' '+Math.abs(x.lat).toFixed(0)+'°'+(x.lat>=0?'N':'S')+(x.inter?'，'+tcIntTxt(x,'',true):'')+'）';}).join('、'):'目前沒有熱帶風暴');
+    var sn=supNote(t),ds=disSum(t);if(sn)parts.push(sn);if(ds)parts.push(ds);
     if(Fd.pk||WX.shock.length){var act=WX.shock.filter(function(e){return t>=e.t0;});if(act.length)parts.push('氣候衝擊 '+act.length+' 起生效中');}}
   var S=GS.sim;if(S&&S.days){var sn=simAt(S.snow,t),ic=simAt(S.ice,t),an=0,as=0,ia=0,g=WX.g1;for(var j=0;j<90;j++){var w=Math.cos((89-2*j)*D2R);for(var i=0;i<180;i++){var k=j*180+i;if(j<45)an+=sn[k]/255*w;else as+=sn[k]/255*w;ia+=ic[k]/255*w*(1-S.lf2[k]);}}var A=4*PI*6371*6371/(90*180*2/PI);parts.push('積雪（北／南半球）'+Math.round(an*A/1e6)+' / '+Math.round(as*A/1e6)+' 百萬 km²，海冰 '+Math.round(ia*A/1e6)+' 百萬 km²');}
   return parts;}
-function legend(){var on=function(k){return GS.layers.some(function(L){return L.on&&L.k===k;});},h='';if(on('x_temp'))h+='氣溫<span style="background:'+grad(RT,-40,40)+'"></span>−40～40 °C　';if(on('x_prec'))h+='降水<span style="background:'+grad(RP,0.3,90)+'"></span>0.3～90 mm/日　';if(on('x_sst'))h+='海溫距平<span style="background:'+grad(RS2,-3,3)+'"></span>−3～+3 °C';q('gLeg').innerHTML=h;}
+function legend(){var on=function(k){return GS.layers.some(function(L){return L.on&&L.k===k;});},h='';if(on('x_temp'))h+='氣溫<span style="background:'+grad(RT,-40,40)+'"></span>−40～40 °C　';if(on('x_prec'))h+='降水<span style="background:'+grad(RP,0.3,90)+'"></span>0.3～90 mm/日　';if(on('x_sst'))h+='海溫距平<span style="background:'+grad(RS2,-3,3)+'"></span>−3～+3 °C';if(on('x_tc'))h+='<div>熱帶氣旋：圓圈與虛線暴風圈（34 kt 風速範圍）隨強度變大；<b style="color:#E040FB">紫色</b>＝超級颱風</div>';if(on('x_dis'))h+='<div>'+disLegend()+'</div>';q('gLeg').innerHTML=h;}
+/* ---------- disaster hotspots (災情熱點) ---------- */
+/* fixed properties of each forecast region: share of steep slopes, of river and of coast sample points */
+function regStatic(){var P=WX.pts;WX.reg.forEach(function(R){var n=0,st=0,rv=0,co=0;for(var k=R.p0;k<R.p1;k++){n++;if(Math.hypot(P.gx[k],P.gy[k])>0.012)st++;if(P.riv[k])rv++;if(P.coast[k])co++;}R.steep=n?st/n:0;R.rivF=n?rv/n:0;R.coastF=n?co/n:0;});}
+/* weather hazards of one simulated day: every land region is sampled with the point forecast at noon (UTC) at about a dozen points, and
+   the rain of the two previous days is carried by the simulation; the rules are those of the weather tool's disaster bulletin */
+function disWx(S,t){var Fd=GS.Fd,P=WX.pts,regs=WX.reg,day=Math.floor(t),r=mb32(hstr(WX.seed+'|D|'+day)),rr=new Float32Array(regs.length),D={tor:[],oth:[]};if(!Fd||!P)return null;
+  function pc(a,p){a.sort(function(x,y){return x-y;});return a[Math.min(a.length-1,Math.floor(a.length*p))];}
+  regs.forEach(function(R,ri){if(R.kind!=='land'||R.p1<=R.p0)return;var st=Math.max(1,Math.floor((R.p1-R.p0)/12)),n=0,wet=0,sp=0,pm=0,th=0,slow=0,pop=0,cP=0,tx=[],ws=[];
+    for(var k=R.p0;k<R.p1;k+=st){var w=pointWx(Fd,P.lon[k],P.lat[k],P.z[k],12,P.gx[k],P.gy[k],1);n++;tx.push(w.Tx);ws.push(w.ws);slow+=w.slow;pop+=w.pop;cP+=bil(Fd.cl.P,P.lon[k],P.lat[k]);if(w.wet){wet++;sp+=w.pr;if(w.pr>pm)pm=w.pr;if(w.thunder)th++;}}
+    /* heavy rain somewhere: look closer (up to ~100 points) for the local peak, as the full regional report would */
+    if(pm>=25&&R.p1-R.p0>n)for(var k3=R.p0+(st>>1),st3=Math.max(1,Math.floor((R.p1-R.p0)/100));k3<R.p1;k3+=st3){var w3=pointWx(Fd,P.lon[k3],P.lat[k3],P.z[k3],12,P.gx[k3],P.gy[k3],1);if(w3.wet&&w3.pr>pm)pm=w3.pr;}
+    var cov=wet/n,Tx=pc(tx,0.5),w85=pc(ws,0.85),slw=slow/n,po=pop/n,climP=cP/n,thF=wet?th/wet:0;rr[ri]=sp/n;var r3=rr[ri]+(S.rr1?S.rr1[ri]:0)+(S.rr2?S.rr2[ri]:0);
+    if(R.rivF>0.02&&(r3>150||pm>100))D.oth.push(['洪',ri,'河川氾濫']);else if(pm>90&&cov>0.2)D.oth.push(['洪',ri,'局部淹水']);
+    if(R.steep>0.1&&(pm>80||r3>200))D.oth.push(['崩',ri,'山崩與土石流']);
+    if(R.coastF>0.05)Fd.S.tcs.forEach(function(T){if(T.kt>=64&&hav(T.lon,T.lat,R.c[0],R.c[1])<Math.max(250,Math.sqrt(R.area)*0.6)*Math.max(1,(T.R||400)/560))D.oth.push(['潮',ri,'暴潮（'+tcLabel(T)+'）']);});
+    if(Tx>=30&&slw<-0.2&&po<0.25&&w85>6&&climP>25&&climP<140){var fi=clamp((Tx-28)/10,0,1)*clamp(-slw,0,1);if(fi>0.25)D.oth.push(['火',ri,'野火'+(fi>0.6?'（大範圍）':'')]);}
+    if(slw<-0.45&&climP>30)D.oth.push(['旱',ri,'乾旱'+(slw<-0.65?'（嚴重）':'')]);
+    /* tornadoes: warm, showery land near the cold front of a deep mid-latitude low */
+    if(Tx>=24&&cov>=0.15&&thF>0.1&&Fd.S.lows.some(function(L){return L.fr&&Math.abs(L.lat)<=50&&Math.abs(L.lat)>=25&&L.D<=-14&&hav(L.lon,L.lat,R.c[0],R.c[1])<L.R*1.5;})){
+      for(var j=0,nT=1+poisson(r,1.2);j<nT;j++){var x=r(),a=0,ef=0;for(var e=0;e<EFP.length;e++){a+=EFP[e][1];if(x<=a){ef=EFP[e][0];break;}}var pk=R.p0+Math.floor(r()*(R.p1-R.p0));D.tor.push({ef:ef,lon:P.lon[pk],lat:P.lat[pk],ri:ri,len:Math.round([1,3,8,20,40,80][ef]*(0.5+r()))});}}});
+  S.rr2=S.rr1;S.rr1=rr;return D.oth.length||D.tor.length?D:null;}
+/* earthquakes of magnitude 5 and above (aftershocks included) and volcanoes on watch or worse, for one day; cached */
+function disQV(day){var c=GS.dq||(GS.dq={});if(c[day])return c[day];if((GS.dqN=(GS.dqN||0)+1)>900){c=GS.dq={};GS.dqN=1;}var regs=WX.reg,P=WX.pts,g=WX.map.g,o={q:[],v:[]};
+  quakesOn(day).forEach(function(E){if(E.M<5)return;var bd=1e9;E.maxS=0;E.near=null;
+    regs.forEach(function(R){if(R.p1<=R.p0)return;var d;if(E.M>=5.5){d=1e9;for(var k=R.p0,st=Math.max(1,Math.floor((R.p1-R.p0)/20));k<R.p1;k+=st){var e=hav(E.lon,E.lat,P.lon[k],P.lat[k]);if(e<d)d=e;}var s=shindo(E.M,d,E.dep);if(s>=3&&s>E.maxS)E.maxS=s;}else d=hav(E.lon,E.lat,R.c[0],R.c[1]);if(d<bd){bd=d;E.near=R;}});
+    E.tsu=E.M>=7.2&&E.dep<70&&(g.cls[E.i]===1||coastKmI(E.i)<40);o.q.push(E);});
+  (WX.vol||[]).forEach(function(v){var st=volStatus(v,day+0.5);if(st.alert>=2)o.v.push(st);});
+  return (c[day]=o);}
+function disSimDay(day){var S=GS.sim;return S&&S.dis&&day>=S.t0&&day<S.t0+S.days?S.dis[day-S.t0]:null;}
+/* the day's record in the weather tool's format, for its bulletin text */
+function disDayRec(day){var Q=disQV(day),W=disSimDay(day),D={q:Q.q,v:Q.v,tor:[],oth:[]};Q.v.forEach(function(st){if(st.erupting&&GS.Fd)st.ash=ashOf(st,GS.Fd);});
+  if(W){W.tor.forEach(function(T){D.tor.push({ef:T.ef,reg:WX.reg[T.ri].name,len:T.len});});W.oth.forEach(function(x){D.oth.push([x[0],WX.reg[x[1]].name,x[2],x[1]]);});}return D;}
+function disReady(){return !!(GS.M&&!GS.loading&&WX.reg.length&&WX.qc);}
+function disPanel(){var e=q('gDis');if(!e||!disReady())return;var day=Math.floor(GS.t),o=dateOf(day+0.5),S=GS.sim;GS.disShown=day;
+  e.innerHTML='<div><b>'+o.y+' 年 '+o.m+' 月 '+o.d+' 日</b>'+(S&&S.days&&!disSimDay(day)&&(day<S.t0||day>=S.t0+S.days)?'（此日尚未模擬，只列地震與火山）':'')+'</div>'+disText(disDayRec(day)).map(function(s){return s?'<div>'+esc(s)+'</div>':'<div style="height:6px"></div>';}).join('');}
+function disSum(t){if(!disReady())return '';var day=Math.floor(t),Q=disQV(day),W=disSimDay(day),a=[],qs=Q.q,er=Q.v.filter(function(s){return s.erupting;}).length,cnt={};
+  if(qs.length)a.push('M5+ 地震 '+qs.length+' 起（最大 M'+qs.reduce(function(m,E){return Math.max(m,E.M);},0).toFixed(1)+'）');if(er)a.push('火山噴發 '+er+' 座');
+  if(W){if(W.tor.length)a.push('龍捲風 '+W.tor.length+' 起');W.oth.forEach(function(x){var k=x[2].replace(/（.*$/,'');cnt[k]=(cnt[k]||0)+1;});Object.keys(cnt).forEach(function(k){a.push(k+' '+cnt[k]+' 區');});}
+  return '今日災情：'+(a.length?a.join('、'):'無重大災害');}
+function disLegend(){var b=function(c,ch){return '<b style="display:inline-block;width:15px;height:15px;line-height:15px;border-radius:50%;background:'+c+';color:#fff;font-size:10px;text-align:center;margin:0 2px">'+ch+'</b>';};
+  return '災情熱點：<b style="color:#D32F2F">●</b>淺源 <b style="color:#F57C00">●</b>中源 <b style="color:#388E3C">●</b>深源地震（光暈越大規模越大，兩日內閃動；<b style="color:#29B6F6">藍色虛線</b>＝海嘯前緣）　<b style="color:#C62828">▲</b>噴發 <b style="color:#EF6C00">▲</b>升溫 <b style="color:#FBC02D">▲</b>注意　'+
+    b('#1565C0','洪')+'洪水 '+b('#6D4C41','崩')+'山崩 '+b('#00838F','潮')+'暴潮 '+b('#E65100','火')+'野火 '+b('#A1887F','旱')+'乾旱 <b style="color:#5D4037">▼</b>龍捲風（EF 等級）';}
+/* screen position of a point on the globe (front hemisphere only), and the local km → pixel frame there (east, north) */
+function gProj(vw,W,H,lo,la){var a=la*D2R,b=lo*D2R,p=[Math.cos(a)*Math.cos(b),Math.cos(a)*Math.sin(b),Math.sin(a)],e=vw.eye,M=vw.MVP;if((e[0]-p[0])*p[0]+(e[1]-p[1])*p[1]+(e[2]-p[2])*p[2]<=0.01)return null;
+  var x=M[0]*p[0]+M[4]*p[1]+M[8]*p[2]+M[12],y=M[1]*p[0]+M[5]*p[1]+M[9]*p[2]+M[13],w=M[3]*p[0]+M[7]*p[1]+M[11]*p[2]+M[15];return w>0?[(x/w+1)/2*W,(1-y/w)/2*H]:null;}
+function gJac(vw,W,H,lo,la){var p=gProj(vw,W,H,lo,la);if(!p)return null;var e=tcMoveLL(lo,la,90,40),n=tcMoveLL(lo,la,0,40),pe=gProj(vw,W,H,e[0],e[1]),pn=gProj(vw,W,H,n[0],n[1]);if(!pe||!pn)return [p[0],p[1],0,0,0,0];
+  return [p[0],p[1],(pe[0]-p[0])/40,(pe[1]-p[1])/40,(pn[0]-p[0])/40,(pn[1]-p[1])/40];}
+/* a glow of radius rk km lying on the surface (an ellipse near the limb) */
+function gBlob(cx,J,rk,rgb,al){if(!J||al<=0.01||!(J[2]||J[3]))return;cx.save();cx.transform(J[2],J[3],J[4],J[5],J[0],J[1]);var g=cx.createRadialGradient(0,0,0,0,0,rk);g.addColorStop(0,'rgba('+rgb+','+al.toFixed(3)+')');
+  g.addColorStop(0.45,'rgba('+rgb+','+(al*0.5).toFixed(3)+')');g.addColorStop(1,'rgba('+rgb+',0)');cx.fillStyle=g;cx.beginPath();cx.arc(0,0,rk,0,2*PI);cx.fill();cx.restore();}
+function gRing(cx,J,rk,css,lw){if(!J||!(J[2]||J[3]))return;cx.save();cx.transform(J[2],J[3],J[4],J[5],J[0],J[1]);cx.beginPath();cx.arc(0,0,rk,0,2*PI);cx.restore();cx.strokeStyle=css;cx.lineWidth=lw;cx.stroke();}
+/* a large circle on the sphere (radius in km), front part only; returns whether anything is visible */
+function gCircle(cx,vw,W,H,lo,la,rk,n){var pv=null,any=false;cx.beginPath();for(var i=0;i<=n;i++){var q2=tcMoveLL(lo,la,i/n*360,rk),p=gProj(vw,W,H,q2[0],q2[1]);if(p){if(pv)cx.lineTo(p[0],p[1]);else cx.moveTo(p[0],p[1]);any=true;}pv=p;}return any;}
+function gAsh(cx,vw,W,H,a){var pts=[],s,ok=0;for(s=0;s<=10;s++){var al=a.L*s/10,wd=a.W*(0.3+0.7*s/10);pts.push([a.dx*al-a.dy*wd,a.dy*al+a.dx*wd]);}for(s=10;s>=0;s--){var al2=a.L*s/10,wd2=a.W*(0.3+0.7*s/10);pts.push([a.dx*al2+a.dy*wd2,a.dy*al2-a.dx*wd2]);}
+  cx.beginPath();pts.forEach(function(p2){var ll=offLL(a.lon,a.lat,p2[0],p2[1]),q2=gProj(vw,W,H,ll[0],ll[1]);if(!q2)return;if(ok)cx.lineTo(q2[0],q2[1]);else cx.moveTo(q2[0],q2[1]);ok++;});if(ok>2){cx.closePath();cx.fillStyle='rgba(120,120,120,0.5)';cx.fill();}}
+function gBadge(cx,x,y,r,col,ch){cx.beginPath();cx.arc(x,y,r,0,2*PI);cx.fillStyle=col;cx.fill();cx.lineWidth=1.2;cx.strokeStyle='#fff';cx.stroke();cx.fillStyle='#fff';cx.font='700 '+Math.round(r*1.25)+'px sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillText(ch,x,y+0.5);}
+function gTri(cx,x,y,s,col){cx.beginPath();cx.moveTo(x,y-s);cx.lineTo(x+s*0.9,y+s*0.7);cx.lineTo(x-s*0.9,y+s*0.7);cx.closePath();cx.fillStyle=col;cx.fill();cx.lineWidth=1;cx.strokeStyle='#fff';cx.stroke();}
+function gTor(cx,x,y,s,ef){cx.beginPath();cx.moveTo(x-s*0.85,y-s);cx.lineTo(x+s*0.85,y-s);cx.lineTo(x,y+s);cx.closePath();cx.fillStyle='#5D4037';cx.fill();cx.lineWidth=1;cx.strokeStyle='#fff';cx.stroke();cx.fillStyle='#fff';cx.font='700 '+Math.round(s*0.95)+'px sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillText(String(ef),x,y-s*0.3);}
+var DISC={'洪':['#1565C0','21,101,192'],'崩':['#6D4C41','109,76,65'],'潮':['#00838F','0,131,143'],'火':['#E65100','230,81,0'],'旱':['#A1887F','161,136,127']};
+/* hotspots are drawn over the globe in screen space, so they stay visible on the night side; ms (real time) drives the pulsing */
+function disDraw(cx,W,H,vw,t,ms){var L=null;GS.layers.forEach(function(l){if(l.on&&l.k==='x_dis')L=l;});if(!L||!vw||!disReady())return;
+  var day=Math.floor(t),fs=Math.max(11,Math.round(H/50)),pulse=((ms||0)/1400)%1,lab=[],Wd=disSimDay(day);cx.save();cx.globalAlpha=L.op;cx.lineJoin='round';
+  /* weather hazards of the simulated day: a glow over the region and a badge at its centre */
+  if(Wd){var seen={};Wd.oth.forEach(function(x){var R=WX.reg[x[1]],key=x[0]+x[1];if(!R||seen[key])return;seen[key]=1;var J=gJac(vw,W,H,R.c[0],R.c[1]);if(!J)return;var n=0;for(var k2 in seen)if(k2.slice(1)===String(x[1]))n++;
+      gBlob(cx,J,clamp(Math.sqrt(R.area)*0.45,150,900),DISC[x[0]][1],0.42);gBadge(cx,J[0]+(n-1)*fs*1.5,J[1]+fs*0.9,fs*0.62,DISC[x[0]][0],x[0]);});
+    Wd.tor.forEach(function(T){var p=gProj(vw,W,H,T.lon,T.lat);if(p)gTor(cx,p[0],p[1],fs*0.6,T.ef);});}
+  /* volcanoes: watch (yellow), unrest (orange, pulsing), eruption (red, glowing, with its ash plume downwind) */
+  disQV(day).v.forEach(function(st){var v=st.v,J=gJac(vw,W,H,v.lon,v.lat);if(!J)return;var lv=st.alert,sz=fs*(lv>=4?0.8:lv===3?0.65:0.45);
+    if(st.erupting){if(GS.Fd)gAsh(cx,vw,W,H,ashOf(st,GS.Fd));gBlob(cx,J,70+45*(st.e.vei||1),'255,87,34',0.85);}
+    else if(lv===3){var ph=(pulse+0.37)%1;gRing(cx,J,60+140*ph,'rgba(239,108,0,'+(0.9*(1-ph)).toFixed(3)+')',Math.max(1.2,fs/10));}
+    gTri(cx,J[0],J[1],sz,['#9E9E9E','#9E9E9E','#FBC02D','#EF6C00','#C62828'][lv]);if(lv>=3)lab.push([J[0],J[1],volName(v)+(lv>=4?' 噴發中 VEI '+st.e.vei:' 活動升溫'),'#FFE0B2',sz,lv>=4?95:60]);});
+  /* earthquakes: a hotspot that fades (about 2.5 days for M5, 10 days for M6, 45 days from M7), pulsing for two days; the tsunami front spreads at 720 km/h */
+  for(var d0=day-45;d0<=day;d0++)disQV(d0).q.forEach(function(E){var age=t-E.t;if(age<0)return;var Tv=E.M>=7?45:E.M>=6?10:2.5;if(age>Tv)return;
+    if(E.tsu&&age<1){var rkm=720*24*age;if(rkm>40&&gCircle(cx,vw,W,H,E.lon,E.lat,Math.min(rkm,16000),120)){cx.setLineDash([fs*0.6,fs*0.4]);cx.strokeStyle='rgba(41,182,246,'+(0.95*(1-age)).toFixed(3)+')';cx.lineWidth=Math.max(1.5,fs/6);cx.stroke();cx.setLineDash([]);}}
+    var J=gJac(vw,W,H,E.lon,E.lat);if(!J)return;var al=Math.pow(1-age/Tv,0.7),rk=55*Math.pow(2,E.M-5),rgb=E.dep<70?'211,47,47':E.dep<300?'245,124,0':'56,142,60',rd=Math.max(2,fs*0.16*(E.M-4));gBlob(cx,J,rk,rgb,0.85*al);
+    if(age<2){var ph=(pulse+E.M*0.137)%1;gRing(cx,J,rk*(0.25+1.1*ph),'rgba('+rgb+','+((1-ph)*al).toFixed(3)+')',Math.max(1.2,fs/9));}
+    cx.beginPath();cx.arc(J[0],J[1],rd,0,2*PI);cx.fillStyle='rgba('+rgb+','+al.toFixed(3)+')';cx.fill();cx.lineWidth=1;cx.strokeStyle='rgba(255,255,255,'+al.toFixed(3)+')';cx.stroke();
+    if(E.M>=6&&age<2)lab.push([J[0],J[1],'M'+E.M.toFixed(1)+(E.code?' '+eqLabel(E):'')+(E.tsu?' ⚠海嘯':''),'#FFCDD2',rd,E.M*10-age*3]);});
+  /* labels, most important first; one that would overlap a label already drawn is left out */
+  cx.font='700 '+fs+'px sans-serif';cx.textBaseline='middle';cx.textAlign='left';var used=[];lab.sort(function(a,b){return b[5]-a[5];}).forEach(function(l){var x=l[0]+l[4]+fs*0.45,b=[x,l[1]-fs*0.62,x+cx.measureText(l[2]).width,l[1]+fs*0.62];
+    if(used.some(function(o){return b[0]<o[2]&&b[2]>o[0]&&b[1]<o[3]&&b[3]>o[1];}))return;used.push(b);cx.lineWidth=Math.max(3,fs/4);cx.strokeStyle='rgba(0,0,0,0.75)';cx.strokeText(l[2],x,l[1]);cx.fillStyle=l[3];cx.fillText(l[2],x,l[1]);});
+  cx.restore();}
+/* ---------- constant view (恆定): stop the spin and keep watching one region ---------- */
+function lockTxt(){var e=q('gLkTxt');if(!e)return;e.textContent=GS.lock?'恆定觀察：'+llTxt(GS.lam,GS.phi)+'（拖曳可微調，雙擊地球改換觀察點）':'雙擊地球可直接恆定觀察該點';if(!GS.fly){q('gLkLo').value=(+GS.lam).toFixed(1);q('gLkLa').value=(+GS.phi).toFixed(1);}q('gRot').disabled=GS.lock;q('rRot').disabled=GS.lock;}
+function setLock(on){GS.lock=!!on;q('gLock').checked=GS.lock;lockTxt();}
+function flyTo(lo,la){GS.fly={l0:GS.lam,p0:GS.phi,l1:wrapLon(lo),p1:clamp(la,-89,89),t0:performance.now(),dur:800};}
+/* the point of the globe under a position in the view (CSS pixels), or null off the globe */
+function pickLL(sx,sy){var vw=GS.vw,r=q('gCv').getBoundingClientRect();if(!vw||!r.width||!r.height)return null;var tf=Math.tan(16*D2R),dx=(sx/r.width*2-1)*tf*r.width/r.height,dy=(1-sy/r.height*2)*tf,n=Math.hypot(dx,dy,1),d=[dx/n,dy/n,-1/n],b=-d[2]*GS.dist,disc=b*b-(GS.dist*GS.dist-1);
+  if(disc<0)return null;var s=b-Math.sqrt(disc),m=vw.toModel([d[0]*s,d[1]*s,d[2]*s+GS.dist]);return [Math.atan2(m[1],m[0])/D2R,Math.asin(clamp(m[2],-1,1))/D2R];}
 /* ---------- main loop ---------- */
 var LAST=0,NOWT=0;
 function loop(ts){requestAnimationFrame(loop);if(!GLS.gl||!GS.M||GS.rec)return;var dt=LAST?Math.min(0.1,(ts-LAST)/1000):0;LAST=ts;var S=GS.sim;
   if(GS.play&&S&&S.days&&!GS.busy){var nt=GS.t+GS.spd*dt,end=S.t0+S.days-0.01;if(nt>=end){nt=end;if(q('gAuto').checked){GS.play=false;simChunk(+q('gN').value).then(function(){GS.play=true;sync();});}else{GS.play=false;sync();}}GS.tReq=nt;}
-  if(GS.drag===null)GS.lam=((GS.lam+GS.rot*dt+540)%360)-180;
+  if(GS.fly){var fe=clamp((ts-GS.fly.t0)/GS.fly.dur,0,1),fq=fe*fe*(3-2*fe);GS.lam=wrapLon(GS.fly.l0+wrapLon(GS.fly.l1-GS.fly.l0)*fq);GS.phi=GS.fly.p0+(GS.fly.p1-GS.fly.p0)*fq;if(fe>=1){GS.fly=null;lockTxt();}}
+  else if(GS.drag===null&&!GS.lock)GS.lam=((GS.lam+GS.rot*dt+540)%360)-180;
   if(GS.tReq!==null){setTime(GS.tReq);GS.tReq=null;if(S)q('gT').value=GS.t-S.t0;}
-  var cv=q('gCv'),dpr=Math.min(2,window.devicePixelRatio||1),W=Math.max(64,Math.round(cv.clientWidth*dpr)),H=Math.max(64,Math.round(cv.clientHeight*dpr));drawGL(W,H);var ov=q('gOv');if(ov.width!==W||ov.height!==H){ov.width=W;ov.height=H;}var ox=ov.getContext('2d');ox.clearRect(0,0,W,H);tcLabels(ox,W,H,GS.vw);
-  if(ts-NOWT>250){NOWT=ts;var p=nowTxt(GS.t);q('gTtl').textContent=p[0]+'\n'+p[1];q('gTtxt').textContent=S?'第 '+(GS.t-S.t0).toFixed(1)+' 天 / '+S.days:'';q('gNow').textContent=p.slice(2).join('　｜　');}}
+  var cv=q('gCv'),dpr=Math.min(2,window.devicePixelRatio||1),W=Math.max(64,Math.round(cv.clientWidth*dpr)),H=Math.max(64,Math.round(cv.clientHeight*dpr));drawGL(W,H);var ov=q('gOv');if(ov.width!==W||ov.height!==H){ov.width=W;ov.height=H;}var ox=ov.getContext('2d');ox.clearRect(0,0,W,H);tcLabels(ox,W,H,GS.vw);disDraw(ox,W,H,GS.vw,GS.t,ts);
+  if(ts-NOWT>250){NOWT=ts;var p=nowTxt(GS.t);q('gTtl').textContent=p[0]+'\n'+p[1];q('gTtxt').textContent=S?'第 '+(GS.t-S.t0).toFixed(1)+' 天 / '+S.days:'';q('gNow').textContent=p.slice(2).join('　｜　');if(Math.floor(GS.t)!==GS.disShown)disPanel();}}
 /* ---------- layers UI ---------- */
 function initLayers(){GS.layers=GLAY.map(function(e){return {k:e[0],name:e[1],kind:e[2],on:!!e[3],op:e[4],blend:'source-over'};});renderLay();}
-function renderLay(){q('gLay').innerHTML=GS.layers.map(function(L,k){var tag=L.kind==='time'?'<span class="lt-tag">時間</span>':L.kind==='season'?'<span class="lt-tag" style="background:#2E7D32">季節</span>':'';
+function renderLay(){q('gLay').innerHTML=GS.layers.map(function(L,k){var tag=L.kind==='time'||L.kind==='ovl'?'<span class="lt-tag">時間</span>':L.kind==='season'?'<span class="lt-tag" style="background:#2E7D32">季節</span>':'';
     return '<div class="lt-lrow"><input type="checkbox" data-li="'+k+'" data-lf="on"'+(L.on?' checked':'')+'><span class="nm">'+esc(L.name)+tag+'</span><input type="range" min="0" max="1" step="0.05" value="'+L.op+'" data-li="'+k+'" data-lf="op" style="width:90px"><select data-li="'+k+'" data-lf="blend">'+BLENDS.map(function(b){return '<option value="'+b[0]+'"'+(b[0]===L.blend?' selected':'')+'>'+b[1]+'</option>';}).join('')+'</select><button type="button" data-lu="'+k+'">▲</button><button type="button" data-ld="'+k+'">▼</button></div>';}).join('');legend();}
-var PRE={sat:['sat','river','x_snow','x_tc'],ter:['land','sea','river','x_snow'],pol:['sat','pol','river','natl','names'],wx:['sat','x_snow','x_temp','x_slp','x_tc'],clim:['sat','koppen','x_grid']};
+var PRE={sat:['sat','river','x_snow','x_tc','x_dis'],ter:['land','sea','river','x_snow'],pol:['sat','pol','river','natl','names'],wx:['sat','x_snow','x_temp','x_slp','x_tc','x_dis'],clim:['sat','koppen','x_grid'],dis:['sat','seis','river','x_tc','x_dis']};
 root.addEventListener('click',function(e){var t=e.target,k;if((k=t.getAttribute('data-pre'))){var set=PRE[k];GS.layers.forEach(function(L){L.on=set.indexOf(L.k)>=0;});if(k==='wx')GS.layers.forEach(function(L){if(L.k==='x_temp')L.op=0.55;});renderLay();GS.dirty=true;GS.tReq=GS.t;return;}
   if((k=t.getAttribute('data-lu'))!==null&&+k>0){var a=GS.layers.splice(+k,1)[0];GS.layers.splice(+k-1,0,a);renderLay();GS.dirty=true;GS.tReq=GS.t;}
   if((k=t.getAttribute('data-ld'))!==null&&+k<GS.layers.length-1){var b=GS.layers.splice(+k,1)[0];GS.layers.splice(+k+1,0,b);renderLay();GS.dirty=true;GS.tReq=GS.t;}});
@@ -2935,9 +3182,9 @@ q('gLay').addEventListener('change',function(e){var t=e.target;if(t.getAttribute
 function sync(){var ok=!!GS.M&&!GS.busy&&!GS.rec;q('gPlay').disabled=!GS.sim||!GS.sim.days||!!GS.rec;q('gPlay').textContent=GS.play?'❚❚ 暫停':'▶ 播放';q('gSim').disabled=q('gNext').disabled=!ok;q('rGo').disabled=!ok||!GS.sim||!GS.sim.days;q('rStop').disabled=!GS.rec;}
 function startSim(){GS.play=false;var y=+q('gY0').value||0,m=+q('gM0').value||1;GS.t0=tOf2(y,m,1);GS.sim=null;GS.cache={};GS.dirty=true;setTime(GS.t0+0.5,true);return simChunk(+q('gN').value).then(function(){q('rT1').value=Math.min(GS.sim.days-1,30);});}
 q('gFile').addEventListener('change',function(e){var f=e.target.files[0];if(!f||GS.busy)return;GS.busy=true;sync();(async function(){try{var P0=JSON.parse(await f.text());if(!P0.input||!P0.input.data)throw new Error('這不是地圖參數檔（缺少底圖資料）');
-      GS.sim=null;GS.cache={};TCC={};GS.tcN=null;GS.shN=null;GS.prefKey=null;GS.snowKey=null;await gLoad(P0);if(!GLS.gl)glInit();else{var gl=GLS.gl;gl.bindTexture(gl.TEXTURE_2D,GLS.tR);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,GS.E.W,GS.E.H,0,gl.RGBA,gl.UNSIGNED_BYTE,GS.rel);gl.bindBuffer(gl.ARRAY_BUFFER,GLS.bH);gl.bufferData(gl.ARRAY_BUFFER,GS.mh,gl.STATIC_DRAW);texCanvas(gl,GLS.tL,GS.lightsCv);}
+      GS.sim=null;GS.cache={};TCC={};GS.tcN=null;GS.shN=null;GS.prefKey=null;GS.snowKey=null;GS.dq={};GS.dqN=0;GS.disShown=null;GS.loading=true;await gLoad(P0);GS.loading=false;if(!GLS.gl)glInit();else{var gl=GLS.gl;gl.bindTexture(gl.TEXTURE_2D,GLS.tR);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,GS.E.W,GS.E.H,0,gl.RGBA,gl.UNSIGNED_BYTE,GS.rel);gl.bindBuffer(gl.ARRAY_BUFFER,GLS.bH);gl.bufferData(gl.ARRAY_BUFFER,GS.mh,gl.STATIC_DRAW);texCanvas(gl,GLS.tL,GS.lightsCv);}
       if(!GS.layers.length)initLayers();var ry=P0.wxDate&&P0.wxDate.y;if(ry)q('gY0').value=ry;gstat('地圖已重建：'+P0.W0+'×'+P0.H0+'（種子 '+P0.seed+'）。'+ensoTxt(0).replace(/^聖嬰指數.*$/,'此世界可發生聖嬰／反聖嬰現象。'));
-      GS.busy=false;await startSim();}catch(err){GS.busy=false;gstat('錯誤：'+(err&&err.message||err),true);console.error(err);}sync();})();});
+      GS.busy=false;await startSim();}catch(err){GS.busy=false;GS.loading=false;gstat('錯誤：'+(err&&err.message||err),true);console.error(err);}sync();})();});
 q('gPlay').addEventListener('click',function(){GS.play=!GS.play;sync();});
 q('gT').addEventListener('input',function(){if(!GS.sim)return;GS.play=false;GS.tReq=GS.sim.t0+(+q('gT').value);sync();});
 q('gSpd').addEventListener('change',function(){GS.spd=+q('gSpd').value;});GS.spd=+q('gSpd').value;
@@ -2945,14 +3192,17 @@ q('gBk').addEventListener('click',function(){if(GS.sim)GS.tReq=Math.max(GS.sim.t
 q('gSim').addEventListener('click',function(){if(!GS.busy)startSim();});q('gNext').addEventListener('click',function(){if(!GS.busy&&GS.sim)simChunk(+q('gN').value);});
 q('gEx').addEventListener('input',function(){GS.ex=+q('gEx').value;q('gExV').textContent=GS.ex+'×';});
 q('gRot').addEventListener('input',function(){GS.rot=+q('gRot').value;q('gRotV').textContent=GS.rot+'°／秒';});
+q('gLock').addEventListener('change',function(){setLock(this.checked);});
+q('gLkGo').addEventListener('click',function(){var lo=+q('gLkLo').value,la=+q('gLkLa').value;if(!isFinite(lo)||!isFinite(la)||q('gLkLo').value===''||q('gLkLa').value==='')return;flyTo(lo,la);setLock(true);});lockTxt();
 q('gLit').addEventListener('change',function(){GS.lit=q('gLit').value;});q('gCo').addEventListener('input',function(){GS.co=+q('gCo').value;});q('gNb').addEventListener('input',function(){GS.nb=+q('gNb').value;});q('gCh').addEventListener('input',function(){GS.ch=+q('gCh').value;});
 ['gAtm:atm','gStar:star','gLights:lights','gGlint:glint','gShad:shad'].forEach(function(s){var p=s.split(':');q(p[0]).addEventListener('change',function(){GS[p[1]]=q(p[0]).checked;});});
 q('gRes').addEventListener('change',function(){if(!GS.M||GS.busy)return;var w=+q('gRes').value;GS.busy=true;sync();gstat('重新建立 '+w+'×'+(w/2)+' 貼圖…');setTimeout(function(){try{GS.E={W:w,H:w/2};GS.disp=WX.map.PL.display(GS.M,w);GS.disp.D.tzRef=WX.map.tz;prepER();GS.sat=[0,1,2,3].map(satCanvas);lightsTex();GS.comp=null;GS.vcv=null;GS.snowOut=null;GS.snowKey=null;GS.prefCv=null;GS.prefKey=null;GS.mk_360=GS.mk_180=GS.mk_720=null;GS.sh_sn=GS.sh_ic=null;
     var gl=GLS.gl;gl.bindTexture(gl.TEXTURE_2D,GLS.tR);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,w,w/2,0,gl.RGBA,gl.UNSIGNED_BYTE,GS.rel);texCanvas(gl,GLS.tL,GS.lightsCv);GS.dirty=true;GS.tReq=GS.t;gstat('貼圖解析度：'+w+'×'+(w/2));}catch(err){gstat('錯誤：'+err.message,true);}GS.busy=false;sync();},30);});
-q('gZi').addEventListener('click',function(){GS.dist=Math.max(1.3,GS.dist*0.85);});q('gZo').addEventListener('click',function(){GS.dist=Math.min(8,GS.dist/0.85);});q('gHome').addEventListener('click',function(){GS.dist=3.2;GS.phi=15;GS.lam=GS.tzLon;});
+q('gZi').addEventListener('click',function(){GS.dist=Math.max(1.3,GS.dist*0.85);});q('gZo').addEventListener('click',function(){GS.dist=Math.min(8,GS.dist/0.85);});q('gHome').addEventListener('click',function(){GS.dist=3.2;if(GS.lock)return;GS.fly=null;GS.phi=15;GS.lam=GS.tzLon;});
 q('gShot').addEventListener('click',function(){var g0=q('gCv');if(!GS.M)return;var cv=mk(g0.width,g0.height),x=cv.getContext('2d');x.drawImage(g0,0,0);x.drawImage(q('gOv'),0,0);cv.toBlob(function(b){if(b)dlB(b,'地球儀_'+dateTxt(GS.t).replace(/[^0-9]+/g,'-').replace(/-+$/,'')+'.png');},'image/png');});
-(function(){var vp=q('gCv');vp.addEventListener('pointerdown',function(e){GS.drag={x:e.clientX,y:e.clientY};vp.setPointerCapture(e.pointerId);});vp.addEventListener('pointermove',function(e){if(!GS.drag)return;var k=0.25*GS.dist/3.2;GS.lam=((GS.lam-(e.clientX-GS.drag.x)*k+540)%360)-180;GS.phi=clamp(GS.phi+(e.clientY-GS.drag.y)*k,-89,89);GS.drag={x:e.clientX,y:e.clientY};});
-  function up(){GS.drag=null;}vp.addEventListener('pointerup',up);vp.addEventListener('pointercancel',up);vp.addEventListener('wheel',function(e){e.preventDefault();GS.dist=clamp(GS.dist*(e.deltaY>0?1.08:0.925),1.3,8);},{passive:false});})();
+(function(){var vp=q('gCv');vp.addEventListener('pointerdown',function(e){GS.fly=null;GS.drag={x:e.clientX,y:e.clientY};vp.setPointerCapture(e.pointerId);});vp.addEventListener('pointermove',function(e){if(!GS.drag)return;var k=0.25*GS.dist/3.2;GS.lam=((GS.lam-(e.clientX-GS.drag.x)*k+540)%360)-180;GS.phi=clamp(GS.phi+(e.clientY-GS.drag.y)*k,-89,89);GS.drag={x:e.clientX,y:e.clientY};});
+  function up(){if(GS.drag&&GS.lock)lockTxt();GS.drag=null;}vp.addEventListener('pointerup',up);vp.addEventListener('pointercancel',up);
+  vp.addEventListener('dblclick',function(e){var r=vp.getBoundingClientRect(),ll=pickLL(e.clientX-r.left,e.clientY-r.top);if(!ll)return;flyTo(ll[0],ll[1]);setLock(true);});vp.addEventListener('wheel',function(e){e.preventDefault();GS.dist=clamp(GS.dist*(e.deltaY>0?1.08:0.925),1.3,8);},{passive:false});})();
 /* ---------- recording: offline frames → MP4 / MOV ---------- */
 q('rUse').addEventListener('click',function(){if(!GS.sim)return;q('rT0').value=0;q('rT1').value=Math.floor(GS.sim.days-1);});
 q('rStop').addEventListener('click',function(){if(GS.rec)GS.rec.stop=true;});
@@ -2960,7 +3210,7 @@ q('rGo').addEventListener('click',function(){if(!GS.sim||GS.rec)return;var sz=q(
   if(!(b>a)){q('rInfo').textContent='結束時間必須晚於開始時間。';return;}var n=Math.max(2,Math.round((b-a)/dps*fps));if(n>36000){q('rInfo').textContent='影格過多（'+n+'）：請縮短時間範圍或加快每秒天數。';return;}
   GS.rec={stop:false};GS.play=false;sync();var fmt=q('rFmt').value,cap=q('rCap').checked,title=q('rTitle').value.trim(),c2=mk(W,H),x2=c2.getContext('2d'),t00=Date.now(),lam0=GS.lam;
   (async function(){var enc=null;try{if(fmt==='mp4'){var cod=await Mp4H.codec(W,H,fps);if(cod){enc=new Mp4H(W,H,fps,1.2);enc.init(cod);}else{fmt='mov';q('rInfo').textContent='此瀏覽器沒有 H.264 編碼器，改輸出 MOV。';}}if(fmt==='mov')enc=new MovJ(W,H,fps,0.9);
-      for(var f=0;f<n;f++){if(GS.rec.stop)throw new Error('已取消。');var t=S.t0+a+f*(b-a)/(n-1);GS.lam=((lam0+rot*f/fps+540)%360)-180;setTime(t,true);drawGL(W,H);x2.drawImage(q('gCv'),0,0);tcLabels(x2,W,H,GS.vw);
+      for(var f=0;f<n;f++){if(GS.rec.stop)throw new Error('已取消。');var t=S.t0+a+f*(b-a)/(n-1);if(!GS.lock)GS.lam=((lam0+rot*f/fps+540)%360)-180;setTime(t,true);drawGL(W,H);x2.drawImage(q('gCv'),0,0);tcLabels(x2,W,H,GS.vw);disDraw(x2,W,H,GS.vw,t,f*1000/fps);
         if(cap){var fs=Math.round(H/32),p=nowTxt(t);x2.font='600 '+fs+'px sans-serif';x2.textBaseline='top';x2.fillStyle='rgba(0,0,0,0.45)';var lines=(title?[title]:[]).concat([p[0],p[1]].concat(p.length>2?[p[2]]:[]));var wmax=0;lines.forEach(function(s){wmax=Math.max(wmax,x2.measureText(s).width);});x2.fillRect(fs*0.6,fs*0.5,wmax+fs,lines.length*fs*1.35+fs*0.5);
           x2.fillStyle='#fff';lines.forEach(function(s,k){x2.font=(k===0&&title?'700 ':'500 ')+(k===0&&title?Math.round(fs*1.15):fs)+'px sans-serif';x2.fillText(s,fs*1.1,fs*0.75+k*fs*1.35);});}
         await enc.add(c2);if(f%3===0){gbar('rBar',f/n);var el=(Date.now()-t00)/1000;q('rInfo').textContent='錄製中：第 '+(f+1)+' / '+n+' 格，已用 '+el.toFixed(0)+' 秒，預估剩餘 '+Math.round(el/(f+1)*(n-f-1))+' 秒';await tick();}}
