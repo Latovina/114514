@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>裝甲與彈藥模擬計價（LatoArmory）</title>
+<style>
+/* ===== LatoTools 共用樣式（MediaWiki:Gadget-LatoTools.css 已有，不必重貼） ===== */
+.lato-tool{font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif;font-size:14px;color:#222;}
+.lato-tool .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;font-size:13px;color:#555;margin:0 0 10px;}
+.lato-tool input[type=number]{width:74px;}
+.lato-tool input[type=color]{width:34px;height:26px;padding:0;border:1px solid #ccc;border-radius:4px;vertical-align:middle;}
+.lato-tool input[type=range]{width:90px;vertical-align:middle;}
+.lato-tool button{padding:4px 12px;border:1px solid #aaa;border-radius:6px;background:#fff;color:#222;cursor:pointer;font-size:13px;}
+.lato-tool button:hover{background:#f0f0f0;}
+.lato-tool .lt-cv{width:100%;min-height:120px;display:block;border:1px solid #ccc;border-radius:8px;background:#f6f6f6;}
+.lato-tool .lt-err{color:#b3261e;font-size:13px;margin:0 0 8px;min-height:1em;}
+.lato-tool .lt-info{font-size:13px;color:#555;margin:0 0 8px;line-height:1.7;}
+/* ===== LatoArmory 新增：以下附加到 MediaWiki:Gadget-LatoTools.css 末尾 ===== */
+.lt-arm input[type=text],.lt-arm input[type=number],.lt-arm select{font-size:13px;padding:2px 5px;border:1px solid #aaa;border-radius:6px;background:#fff;color:#222;max-width:100%;}
+.lt-arm select{max-width:min(100%,360px);}
+.lt-arm .lt-grp{border:1px solid #ddd;border-radius:8px;padding:6px 10px;margin:0 0 10px;background:#fff;}
+.lt-arm .lt-grp summary{cursor:pointer;font-size:13px;font-weight:600;color:#37474F;}
+.lt-arm .lt-grp[open] summary{margin-bottom:8px;}
+.lt-arm button.lt-pri{background:#37474F;color:#fff;border-color:#37474F;}
+.lt-arm button.lt-pri:hover{background:#263238;}
+.lt-arm .lt-tabs{display:flex;flex-wrap:wrap;gap:4px;margin:10px 0 8px;border-bottom:1px solid #ddd;padding-bottom:4px;}
+.lt-arm .lt-tabs button.on{background:#37474F;color:#fff;border-color:#37474F;}
+.lt-arm .lt-pane{display:none;}
+.lt-arm .lt-pane.on{display:block;}
+.lt-arm .lt-sc{overflow:auto;max-width:100%;max-height:520px;margin:0 0 8px;}
+.lt-arm table.lt-dt{border-collapse:collapse;font-size:12.5px;}
+.lt-arm table.lt-dt th,.lt-arm table.lt-dt td{border-bottom:1px solid #eee;padding:3px 7px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.lt-arm table.lt-dt th{background:#eceff1;position:sticky;top:0;color:#37474F;font-weight:600;z-index:1;}
+.lt-arm table.lt-dt .l{text-align:left;}
+.lt-arm table.lt-dt tr.ck{cursor:pointer;}
+.lt-arm table.lt-dt tr.ck:hover td{background:#f5f7f8;}
+.lt-arm table.lt-dt tr.sum td{font-weight:600;border-top:1px solid #bbb;}
+.lt-arm table.lt-lay input[type=number]{width:64px;}
+.lt-arm table.lt-lay select{max-width:240px;}
+.lt-arm table.lt-lay button{padding:1px 6px;margin-left:2px;}
+.lt-arm table.lt-mx td{text-align:center;}
+.lt-arm table.lt-mx td.good{background:#E8F5E9;color:#1B5E20;}
+.lt-arm table.lt-mx td.warn{background:#FFF3E0;color:#E65100;}
+.lt-arm table.lt-mx td.bad{background:#FFEBEE;color:#B71C1C;}
+.lt-arm table.lt-mx td.ric{background:#ECEFF1;color:#455A64;}
+.lt-arm .lt-cells{white-space:normal!important;min-width:280px;}
+.lt-arm .lt-cells .ok{color:#1B5E20;}
+.lt-arm .lt-cells .ng{color:#B71C1C;}
+.lt-arm .lt-res{border-radius:8px;padding:7px 10px;margin:6px 0 8px;font-size:13.5px;line-height:1.6;border:1px solid;}
+.lt-arm .lt-res.good{background:#E8F5E9;border-color:#A5D6A7;color:#1B5E20;}
+.lt-arm .lt-res.bad{background:#FFEBEE;border-color:#EF9A9A;color:#B71C1C;}
+.lt-arm .lt-res.warn{background:#FFF8E1;border-color:#FFE082;color:#6D4C00;}
+.lt-arm h4{margin:12px 0 6px;font-size:14px;color:#263238;border-left:4px solid #607D8B;padding-left:6px;}
+.lt-arm .lt-kv{display:grid;grid-template-columns:max-content 1fr;gap:3px 12px;font-size:13px;line-height:1.55;margin:0 0 8px;}
+.lt-arm .lt-kv>b{color:#455A64;font-weight:600;}
+.lt-arm .lt-note{font-size:12px;color:#777;}
+.lt-arm .lt-small{font-size:12px;}
+.lt-arm .lt-chart{width:100%;height:240px;display:block;border:1px solid #ddd;border-radius:6px;background:#fff;margin:4px 0 10px;}
+.lt-arm .lt-form{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:#555;}
+.lt-arm .lt-form label{white-space:nowrap;}
+.lt-arm .lt-form input[type=number]{width:72px;}
+.lt-arm .lt-chk{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:12.5px;}
+@media (max-width:560px){.lt-arm .lt-kv{grid-template-columns:1fr;gap:0 0;}.lt-arm .lt-kv>b{margin-top:5px;}.lt-arm .lt-form label{white-space:normal;}}
+body{margin:0;padding:12px;font-family:system-ui,-apple-system,"Noto Sans TC","Microsoft JhengHei",sans-serif;background:#fafafa;color:#222;}
+</style></head><body>
+<div id="lato-armory"></div>
+<script>
+/* ===== 彈道與裝甲運算庫：在 wiki 上由 MediaWiki:Gadget-LatoArmoryLib.js 提供，與介面分開貼上 ===== */
+/* ===== LatoArmory engine: materials, projectiles, exterior & terminal ballistics, wound ballistics, blast, cost ===== */
+(function(){
+"use strict";
+if(window.LatoArmoryLib)return;
+var PI=Math.PI,D2R=PI/180;
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+function lerp(a,b,t){return a+(b-a)*t;}
+function cloneObj(o){return JSON.parse(JSON.stringify(o));}
+function mb32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};}
+function hstr(s){s=String(s);var h=1779033703^s.length;for(var i=0;i<s.length;i++){h=Math.imul(h^s.charCodeAt(i),3432918353);h=h<<13|h>>>19;}return h>>>0;}
+function gauss(r){var u=r()||1e-9,v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*PI*v);}
+function ncdf(x){var t=1/(1+0.2316419*Math.abs(x)),d=0.3989423*Math.exp(-x*x/2),p=d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));return x>0?1-p:p;}
+
+/* ---------- elements of the magic system (架空): armour magic is multiplied by EL[warhead][armour] ---------- */
+var ELEM=['無','火','冰','雷','光','暗'];
+var ELM=[ /* rows: warhead element, cols: armour element */
+ [1,1,1,1,1,1],
+ [1,1.5,0.6,1.25,1,1],
+ [1,1.25,1.5,0.6,1,1],
+ [1,0.6,1.25,1.5,1,1],
+ [1,1,1,1,1.5,0.6],
+ [1,1,1,1,0.6,1.5]];
+
+/* ---------- materials ----------
+   cat: metal | ceramic | fiber (flexible / pressed textile) | poly (glassy polymer) | glass | conc | soil | wood | liquid | tissue | comp (composite block given as RHA efficiency) | era (reactive / non-energetic / slat) | magic tag via mg
+   rho g/cm3, bhn Brinell, ys / uts MPa, E GPa, el elongation %, hv Vickers (ceramics), rt target resistance GPa (if not derived), fs/fe/fE fibre strength GPa, failure strain, modulus GPa, mx textile efficiency in the ply,
+   yp dynamic flow stress of the material when used as a penetrator (GPa), brit brittle core, ss self-sharpening factor, lo Lanz-Odermatt class W or S,
+   usd price USD/kg (raw), fab fabrication multiplier for armour products, proc processing multiplier as projectile part, ce / ke extra efficiency vs shaped charges / kinetic, bfd backface coefficient, mh multi-hit damage radius (calibres) and residual fraction */
+var MATS=[
+ /* steels */
+ {id:'rha',n:'均質軋延裝甲鋼 RHA',cat:'metal',rho:7.85,bhn:270,ys:900,uts:1000,E:207,el:15,usd:4.5,fab:1.6,bfd:0.010,mh:[1.2,0.85],note:'MIL-A-12560；以此為裝甲等效基準'},
+ {id:'hha',n:'高硬度裝甲鋼 HHA（500 HB）',cat:'metal',rho:7.85,bhn:500,ys:1300,uts:1650,E:207,el:9,usd:5.5,fab:1.8,bfd:0.009,mh:[1.4,0.8],note:'MIL-A-46100；較脆，背面剝落較多'},
+ {id:'uhha',n:'超高硬度鋼 UHHA（600 HB）',cat:'metal',rho:7.85,bhn:600,ys:1650,uts:2050,E:207,el:7,usd:7,fab:2.2,bfd:0.009,mh:[1.6,0.75],note:'MIL-DTL-32332'},
+ {id:'ar500',n:'AR500 耐磨鋼（防彈插板）',cat:'metal',rho:7.85,bhn:500,ys:1250,uts:1600,E:207,el:10,usd:5,fab:3,bfd:0.008,mh:[1.2,0.85],note:'常見鋼製 III 級插板材料；需防碎噴塗'},
+ {id:'ar600',n:'AR600／AR650 鋼',cat:'metal',rho:7.85,bhn:600,ys:1600,uts:2000,E:207,el:7,usd:6.5,fab:3.2,bfd:0.008,mh:[1.3,0.8]},
+ {id:'mild',n:'低碳結構鋼 A36',cat:'metal',rho:7.85,bhn:130,ys:250,uts:420,E:200,el:23,usd:1.0,fab:1.3,bfd:0.012,mh:[1,0.9],note:'一般鋼板、車身、門'},
+ {id:'cast',n:'鑄造裝甲鋼',cat:'metal',rho:7.85,bhn:250,ys:760,uts:900,E:205,el:10,usd:3.5,fab:1.5,bfd:0.010,mh:[1.2,0.85],note:'約 RHA 的 0.9–0.95 倍'},
+ {id:'fhs',n:'表面硬化裝甲（克虜伯滲碳）',cat:'metal',rho:7.85,bhn:420,ys:1150,uts:1350,E:207,el:8,usd:6,fab:2.5,fh:1,bfd:0.010,mh:[1.4,0.75],note:'硬面使無被帽穿甲彈碎裂'},
+ {id:'hadf',n:'哈德菲錳鋼（鋼盔）',cat:'metal',rho:7.85,bhn:220,ys:450,uts:950,E:200,el:40,usd:3,fab:3,bfd:0.012,mh:[1,0.9],note:'M1 鋼盔 1.0 mm'},
+ /* light metals */
+ {id:'al5083',n:'鋁合金 5083-H131',cat:'metal',rho:2.66,bhn:85,ys:250,uts:315,E:70,el:12,usd:7,fab:1.6,bfd:0.012,mh:[1.2,0.85],note:'M113 等裝甲運兵車'},
+ {id:'al7039',n:'鋁合金 7039-T64',cat:'metal',rho:2.78,bhn:135,ys:380,uts:435,E:70,el:12,usd:9,fab:1.7,bfd:0.012,mh:[1.2,0.85],note:'M2 布萊德雷'},
+ {id:'ti64',n:'鈦合金 Ti-6Al-4V',cat:'metal',rho:4.43,bhn:330,ys:900,uts:1000,E:114,el:12,usd:45,fab:2,bfd:0.011,mh:[1.2,0.85]},
+ {id:'mg',n:'鎂合金 AZ31',cat:'metal',rho:1.77,bhn:55,ys:200,uts:260,E:45,el:12,usd:5,fab:1.6,bfd:0.012,mh:[1,0.9]},
+ {id:'cu',n:'銅',cat:'metal',rho:8.96,bhn:50,ys:250,uts:300,E:120,el:30,usd:10,fab:1.4,yp:0.45,proc:4,mh:[1,0.9]},
+ /* penetrator materials (also usable as armour) */
+ {id:'lead',n:'鉛（鉛銻合金彈芯）',cat:'metal',rho:11.2,bhn:8,ys:25,uts:30,E:16,el:40,usd:2.3,fab:1.3,yp:0.06,proc:2.5,mh:[1,0.9]},
+ {id:'jlead',n:'被甲鉛彈（含被甲）',cat:'metal',rho:10.6,bhn:30,ys:120,uts:200,E:40,el:30,usd:5,fab:1.3,yp:0.13,proc:3.2,mh:[1,0.9],note:'披覆銅被甲的鉛心，視為整體'},
+ {id:'gm',n:'被甲銅（95/5 銅鋅）',cat:'metal',rho:8.86,bhn:70,ys:280,uts:330,E:115,el:30,usd:10,fab:1.4,yp:0.45,proc:4.5},
+ {id:'brass',n:'黃銅（彈殼）',cat:'metal',rho:8.5,bhn:90,ys:350,uts:450,E:110,el:30,usd:8.5,fab:1.4,yp:0.5,proc:3},
+ {id:'msteel',n:'軟鋼彈芯',cat:'metal',rho:7.8,bhn:180,ys:450,uts:600,E:200,el:20,usd:1.2,fab:1.3,yp:0.75,proc:5},
+ {id:'mtip',n:'中碳鋼穿透尖（SS109 類）',cat:'metal',rho:7.8,bhn:560,ys:1500,uts:1800,E:205,el:8,usd:1.8,fab:1.4,yp:1.9,proc:9},
+ {id:'hsteel',n:'淬火工具鋼穿甲彈芯（HRC 60）',cat:'metal',rho:7.85,bhn:620,ys:1900,uts:2200,E:207,el:2,usd:3,fab:1.5,yp:2.3,brit:1,proc:20,lo:'S'},
+ {id:'maraging',n:'麻時效鋼長桿',cat:'metal',rho:8.0,bhn:500,ys:1800,uts:1900,E:190,el:8,usd:25,fab:2,yp:2.0,proc:6,lo:'S'},
+ {id:'wc',n:'碳化鎢（WC-Co）',cat:'ceramic',rho:14.9,hv:1600,rt:9,yp:4.8,brit:1,usd:70,fab:2,proc:8,ce:1,note:'M993／M995 彈芯'},
+ {id:'wha',n:'鎢重合金（93W）',cat:'metal',rho:17.6,bhn:330,ys:1100,uts:1200,E:350,el:10,usd:90,fab:2,yp:1.6,proc:6,lo:'W',ss:1},
+ {id:'du',n:'貧鈾合金（U-0.75Ti）',cat:'metal',rho:18.6,bhn:330,ys:900,uts:1500,E:170,el:15,usd:30,fab:3,yp:1.5,proc:10,lo:'W',ss:1.1,note:'絕熱剪切帶來自銳效應'},
+ /* ceramics */
+ {id:'al2o3',n:'氧化鋁陶瓷（99.5%）',cat:'ceramic',rho:3.9,hv:1500,rt:6.0,usd:25,fab:2.2,ce:1.25,bfd:0.010,mh:[2.6,0.35]},
+ {id:'sic',n:'碳化矽陶瓷',cat:'ceramic',rho:3.15,hv:2500,rt:8.0,usd:100,fab:2.2,ce:1.25,bfd:0.010,mh:[2.4,0.35]},
+ {id:'b4c',n:'碳化硼陶瓷',cat:'ceramic',rho:2.5,hv:3000,rt:8.6,usd:300,fab:2.2,ce:1.2,bfd:0.010,mh:[2.4,0.3],note:'超過約 1000 m/s 的硬芯撞擊會非晶化而效能下滑'},
+ {id:'tib2',n:'二硼化鈦陶瓷',cat:'ceramic',rho:4.5,hv:2700,rt:10,usd:400,fab:2.2,ce:1.3,bfd:0.010,mh:[2.4,0.35]},
+ /* textiles and polymers */
+ {id:'k29',n:'芳綸織物 Kevlar 29',cat:'fiber',rho:1.44,fs:2.92,fe:0.036,fE:70.5,mx:1,rt:0.6,usd:40,fab:2.5,bfd:0.06,mh:[1,0.9],note:'舊式軟甲；受潮效能約降 20%'},
+ {id:'km2',n:'芳綸 KM2／Kevlar 129',cat:'fiber',rho:1.44,fs:3.4,fe:0.04,fE:82.6,mx:1,rt:0.6,usd:55,fab:2.5,bfd:0.06,mh:[1,0.9]},
+ {id:'peud',n:'超高分子量聚乙烯 UD 軟片',cat:'fiber',rho:0.97,fs:3.6,fe:0.037,fE:116,mx:0.92,rt:0.35,usd:90,fab:2.2,bfd:0.06,mh:[1,0.9],note:'Dyneema SB／Spectra Shield；80°C 以上開始軟化'},
+ {id:'pehb',n:'超高分子量聚乙烯熱壓板',cat:'fiber',rho:0.98,fs:3.6,fe:0.037,fE:116,mx:0.92,rt:0.35,usd:85,fab:2.6,bfd:0.022,hard:1,mh:[1.4,0.8],note:'獨立式 PE 插板、頭盔'},
+ {id:'aramc',n:'芳綸／酚醛複合（頭盔）',cat:'fiber',rho:1.35,fs:2.92,fe:0.036,fE:70.5,mx:0.82,rt:0.7,usd:45,fab:3,bfd:0.03,hard:1,mh:[1.2,0.85],note:'PASGT 頭盔'},
+ {id:'pbo',n:'PBO（Zylon）',cat:'fiber',rho:1.56,fs:5.8,fe:0.035,fE:180,mx:1,rt:0.6,usd:150,fab:2.5,bfd:0.06,mh:[1,0.9],note:'高溫高濕下嚴重劣化'},
+ {id:'nylon',n:'彈道尼龍',cat:'fiber',rho:1.14,fs:0.9,fe:0.18,fE:5.5,mx:1,rt:0.3,usd:12,fab:2,bfd:0.08,mh:[1,0.9],note:'韓戰 M1952 防破片背心'},
+ {id:'silk',n:'多層絲綢（歷史）',cat:'fiber',rho:1.34,fs:0.6,fe:0.18,fE:10,mx:1,rt:0.25,usd:60,fab:2,bfd:0.08,mh:[1,0.9],note:'19 世紀末的絲質防彈衣'},
+ {id:'s2g',n:'S2 玻璃纖維複材',cat:'fiber',rho:1.95,fs:2.2,fe:0.026,fE:72,mx:0.75,rt:1.0,usd:18,fab:2,bfd:0.03,hard:1,mh:[1.4,0.8]},
+ {id:'pc',n:'聚碳酸酯',cat:'poly',rho:1.2,ys:65,uts:70,E:2.4,el:100,rt:0.3,usd:6,fab:1.8,mh:[1.2,0.85]},
+ {id:'glass',n:'防彈玻璃（夾層）',cat:'glass',rho:2.5,rt:1.6,usd:6,fab:4,ce:1.35,mh:[3,0.4]},
+ {id:'aglass',n:'汽車擋風玻璃',cat:'glass',rho:2.5,rt:1.2,usd:4,fab:3,ce:1.2,mh:[3,0.4]},
+ /* civil & natural */
+ {id:'conc',n:'混凝土（30 MPa）',cat:'conc',rho:2.4,rt:0.32,usd:0.12,fab:2,ce:1.0,mh:[3,0.6]},
+ {id:'rconc',n:'鋼筋混凝土（40 MPa）',cat:'conc',rho:2.5,rt:0.45,usd:0.25,fab:2.5,ce:1.0,mh:[3,0.65]},
+ {id:'brick',n:'紅磚牆',cat:'conc',rho:1.9,rt:0.18,usd:0.2,fab:2,ce:1.0,mh:[3,0.5]},
+ {id:'sand',n:'沙包（乾沙）',cat:'soil',rho:1.6,rt:0.07,usd:0.03,fab:3,ce:1.1,mh:[2,0.9]},
+ {id:'soil',n:'夯實泥土',cat:'soil',rho:1.8,rt:0.05,usd:0.01,fab:2,ce:1.0,mh:[2,0.9]},
+ {id:'pine',n:'松木',cat:'wood',rho:0.5,rt:0.035,usd:0.8,fab:1.5,ce:1.0,mh:[1,0.9]},
+ {id:'oak',n:'橡木',cat:'wood',rho:0.75,rt:0.06,usd:2,fab:1.5,ce:1.0,mh:[1,0.9]},
+ {id:'gyp',n:'石膏板',cat:'wood',rho:0.7,rt:0.012,usd:0.4,fab:1.2,ce:1.0,mh:[1,0.9]},
+ {id:'water',n:'水',cat:'liquid',rho:1.0,rt:0.0,usd:0.001,fab:1,ce:1.0},
+ {id:'bone',n:'骨骼（皮質骨）',cat:'tissue',rho:1.9,rt:0.25,usd:0,fab:1,ce:1},
+ {id:'flesh',n:'肌肉組織／10% 明膠',cat:'tissue',rho:1.04,rt:0.004,usd:0,fab:1,ce:1},
+ /* composite blocks and reactive armour */
+ {id:'chob',n:'喬巴姆型複合裝甲（等效塊）',cat:'comp',rho:3.9,tek:0.62,tec:1.25,usd:60,fab:2.5,mh:[4,0.6],note:'以「對動能／對化學能 RHA 厚度效率」描述的黑盒子'},
+ {id:'dumesh',n:'貧鈾網複合裝甲（等效塊）',cat:'comp',rho:5.6,tek:0.88,tec:1.4,usd:120,fab:3,mh:[4,0.6]},
+ {id:'nera',n:'非爆炸反應裝甲 NERA',cat:'era',rho:3.2,era:{ke:0.08,ce:0.35,st:0.30,min:30,trig:0},usd:20,fab:3,mh:[3,0.75],note:'鋼—橡膠夾層，可多次承受'},
+ {id:'k1',n:'接觸-1 爆炸反應裝甲',cat:'era',rho:1.5,era:{ke:0.05,ce:0.60,st:0.10,min:40,trig:1},usd:25,fab:4,mh:[6,0],note:'只對聚能射流有效'},
+ {id:'k5',n:'接觸-5 重型爆炸反應裝甲',cat:'era',rho:2.6,era:{ke:0.28,ce:0.65,st:0.35,min:40,trig:1},usd:35,fab:4,mh:[6,0],note:'15 mm 鋼面板同時削弱長桿彈'},
+ {id:'relikt',n:'仙人掌／遺物 新型反應裝甲',cat:'era',rho:2.8,era:{ke:0.38,ce:0.75,st:0.35,min:35,trig:1},usd:50,fab:4,mh:[6,0]},
+ {id:'slat',n:'柵欄裝甲（籠式）',cat:'era',rho:0.25,era:{ke:0,ce:0,st:0.02,min:0,trig:0,slat:0.55},usd:6,fab:2,mh:[0,1],note:'約五到六成機率使火箭彈引信短路'},
+ /* 架空材料 (fictional) */
+ {id:'mana',n:'魔能素合金',cat:'metal',rho:5.2,bhn:460,ys:1400,uts:1700,E:150,el:12,usd:600,fab:2.5,bfd:0.009,mh:[1.2,0.85],yp:2.2,lo:'S',
+   mg:{sh:4,hd:0.8,ke:1,ce:1.1,df:5,el:0,rg:3,cap:60},note:'魔能護盾吸收衝擊能量，充能越高越硬'},
+ {id:'manacer',n:'魔晶陶瓷',cat:'ceramic',rho:2.9,hv:2800,rt:9.5,usd:900,fab:2.5,ce:1.4,bfd:0.010,mh:[2,0.45],mg:{sh:2,hd:0.5,ke:1,ce:1.2,df:0,el:4,rg:1,cap:30}},
+ {id:'mithril',n:'秘銀',cat:'metal',rho:4.6,bhn:520,ys:1800,uts:2100,E:160,el:18,usd:2500,fab:2.5,bfd:0.008,mh:[1,0.92],yp:2.4,lo:'S',mg:{sh:0,hd:0.25,ke:1,ce:1.15,df:0,el:4,rg:0,cap:0},note:'輕而韌；對暗屬性有抗性'},
+ {id:'adam',n:'精金',cat:'metal',rho:12.5,bhn:900,ys:3500,uts:4000,E:400,el:6,usd:9000,fab:3,bfd:0.007,mh:[1,0.95],yp:4.6,lo:'W',ss:1.15,note:'極硬的架空金屬，可做裝甲也可做穿甲彈芯'},
+ {id:'dragon',n:'龍鱗',cat:'ceramic',rho:2.2,hv:2300,rt:7.5,usd:5000,fab:2,ce:1.5,bfd:0.012,mh:[1.5,0.7],mg:{sh:1,hd:0.3,ke:1,ce:1.3,df:8,el:1,rg:5,cap:20},note:'鱗片重疊、帶火屬性，會再生'},
+ {id:'rune',n:'符文織物',cat:'fiber',rho:1.2,fs:6.0,fe:0.04,fE:200,mx:1,rt:0.6,usd:1500,fab:3,bfd:0.05,mh:[1,0.9],mg:{sh:0.6,hd:0.2,ke:1,ce:1,df:0,el:0,rg:10,cap:8}},
+ {id:'manacore',n:'魔能素彈芯合金',cat:'metal',rho:21,bhn:700,ys:2600,uts:3000,E:420,el:8,usd:4000,fab:3,yp:3.0,proc:6,lo:'W',ss:1.2,mh:[1,0.9],note:'架空：比鎢更重更硬的穿甲材料'}
+];
+var MI={};MATS.forEach(function(m,i){MI[m.id]=i;});
+function mat(id,lib){lib=lib||MATS;for(var i=0;i<lib.length;i++)if(lib[i].id===id)return lib[i];return MATS[MI[id]]||MATS[0];}
+
+/* target resistance (Pa) of a material for eroding / rigid penetration (Tate–Alekseevskii R_t) */
+function rtOf(m){if(m.rt!==undefined&&m.cat!=='metal')return m.rt*1e9;if(m.rt!==undefined&&m.rtFix)return m.rt*1e9;
+  if(m.cat==='metal'||m.cat==='poly'){var Y=((m.ys||300)+120)*1e6,E=(m.E||200)*1e9;return 1.2*(2/3)*Y*(1+Math.log(Math.max(2,2*E/(3*Y))));}
+  return (m.rt||0.5)*1e9;}
+function hardOf(m){return m.bhn||(m.hv?m.hv*0.95:(m.cat==='glass'?550:60));}
+/* dynamic flow stress (Pa) of a material used as penetrator */
+function ypOf(m){if(m.yp!==undefined)return m.yp*1e9;if(m.cat==='metal')return ((m.ys||300)*1.3)*1e6;if(m.cat==='ceramic')return 3e9;return 0.1e9;}
+/* Cunniff fibre velocity U*^(1/3) (m/s) */
+function cunniffU(m){var s=(m.fs||1)*1e9,e=m.fe||0.03,E=(m.fE||50)*1e9,r=(m.rho||1)*1000;return Math.pow(s*e/(2*r)*Math.sqrt(E/r),1/3);}
+
+/* ---------- explosives: relative effectiveness (TNT=1), Gurney sqrt(2E) km/s, USD/kg ---------- */
+var EXPL={tnt:['TNT',1.0,2.44,10],compb:['B 炸藥（RDX/TNT）',1.33,2.70,15],rdx:['黑索今 RDX',1.6,2.83,20],hmx:['奧克托今 HMX',1.7,2.97,90],petn:['太安 PETN',1.66,2.93,25],
+  octol:['奧克托爾',1.54,2.80,60],pbx:['PBX 塑膠黏結炸藥',1.65,2.90,45],anfo:['硝銨油 ANFO',0.74,1.80,1.2],a3:['A-3 鈍化黑索今',1.5,2.75,22],bp:['黑火藥',0.55,0.9,8],
+  inc:['燃燒劑（鋯／鋁熱）',0.3,0.8,30],mana:['魔晶爆藥（架空）',4,3.6,0]};
+
+/* ---------- standard drag functions (Mach, Cd) ---------- */
+var G1=[[0,.2629],[.05,.2558],[.1,.2487],[.15,.2413],[.2,.2344],[.25,.2278],[.3,.2214],[.35,.2155],[.4,.2104],[.45,.2061],[.5,.2032],[.55,.2020],[.6,.2034],[.7,.2165],[.725,.2230],[.75,.2313],[.775,.2417],[.8,.2546],[.825,.2706],[.85,.2901],[.875,.3136],[.9,.3415],[.925,.3734],[.95,.4084],[.975,.4448],[1,.4805],[1.025,.5136],[1.05,.5427],[1.075,.5677],[1.1,.5883],[1.125,.6053],[1.15,.6191],[1.2,.6393],[1.25,.6518],[1.3,.6589],[1.35,.6621],[1.4,.6625],[1.45,.6607],[1.5,.6573],[1.6,.6474],[1.7,.6347],[1.8,.6210],[1.9,.6072],[2,.5934],[2.2,.5685],[2.4,.5481],[2.6,.5325],[2.8,.5211],[3,.5133],[3.5,.5040],[4,.5006],[5,.4988],[10,.4980]];
+var G7=[[0,.1198],[.3,.1194],[.5,.1194],[.6,.1194],[.65,.1197],[.7,.1202],[.75,.1215],[.8,.1242],[.825,.1266],[.85,.1306],[.875,.1368],[.9,.1464],[.925,.1660],[.95,.2054],[.975,.2993],[1,.3803],[1.025,.4015],[1.05,.4043],[1.075,.4034],[1.1,.4014],[1.15,.3955],[1.2,.3884],[1.3,.3732],[1.4,.3580],[1.5,.3440],[1.6,.3315],[1.7,.3209],[1.8,.3117],[1.9,.3042],[2,.2980],[2.2,.2864],[2.4,.2752],[2.6,.2643],[2.8,.2533],[3,.2424],[3.5,.2154],[4,.1935],[4.5,.1765],[5,.1618],[6,.1400],[10,.1200]];
+function cdStd(tab,M){if(M<=tab[0][0])return tab[0][1];for(var i=1;i<tab.length;i++)if(M<=tab[i][0]){var a=tab[i-1],b=tab[i];return lerp(a[1],b[1],(M-a[0])/(b[0]-a[0]));}return tab[tab.length-1][1];}
+
+/* ---------- environment ---------- */
+function envOf(e){e=e||{};var alt=e.alt||0,T=e.T===undefined?15:e.T,p=101325*Math.pow(Math.max(0.05,1-2.25577e-5*alt),5.25588)*(e.pMul||1);
+  return {rho:p/(287.05*(T+273.15)),a:20.0468*Math.sqrt(T+273.15),g:e.g===undefined?9.80665:e.g,wind:e.wind||0,T:T,alt:alt};}
+
+/* ---------- exterior ballistics: flat-fire point mass with a G1 / G7 ballistic coefficient ----------
+   returns rows every `step` metres to maxR: [range m, velocity m/s, time s, drop m (below bore line), wind drift m] */
+function flyTable(P,maxR,step,env){var E=envOf(env),rows=[],v0=P.v0*(P.vMul||1),bc=P.bc||0;
+  if(!(bc>0)||P.guided){for(var r=0;r<=maxR+1e-9;r+=step){var vv=P.cruise||v0;rows.push([r,v0,r/Math.max(1,vv),0,0]);}return rows;}
+  var tab=P.dm==='G7'?G7:G1,BC=bc*703.0696,x=0,y=0,vx=v0,vy=0,t=0,next=0;
+  while(next<=maxR+1e-9){var v=Math.sqrt(vx*vx+vy*vy);
+    if(x>=next){rows.push([next,v,t,-y,E.wind*(t-next/v0)]);next+=step;continue;}
+    if(v<20||t>200){while(next<=maxR+1e-9){rows.push([next,0,t,-y,0]);next+=step;}break;}
+    var dt=Math.min(0.002,0.5*step/Math.max(v,1)),cd=cdStd(tab,v/E.a),k=E.rho*cd*PI/(8*BC);
+    var ax=-k*v*vx,ay=-k*v*vy-E.g;var hx=vx+ax*dt/2,hy=vy+ay*dt/2,hv=Math.sqrt(hx*hx+hy*hy),cd2=cdStd(tab,hv/E.a),k2=E.rho*cd2*PI/(8*BC);
+    ax=-k2*hv*hx;ay=-k2*hv*hy-E.g;
+    var nx=x+hx*dt;if(nx>next&&x<next){var f=(next-x)/(nx-x);dt*=f;nx=next;}
+    x=nx;y+=hy*dt;vx+=ax*dt;vy+=ay*dt;t+=dt;}
+  return rows;}
+function velAt(P,R,env){if(R<=0)return P.v0*(P.vMul||1);var rows=flyTable(P,R,R,env);return rows[rows.length-1][1];}
+
+/* ---------- projectile helpers ---------- */
+function coreOf(P,lib){/* the working penetrator: mass kg, diameter m, length m, density kg/m3, flow stress Pa, nose factor, brittle */
+  var c=P.core||{},M=mat(c.mat||P.mat||'jlead',lib),d=(c.d||P.d)/1000,m=(c.m||P.m)/1000,rho=M.rho*1000,A=PI*d*d/4;
+  var L=c.L?c.L/1000:m/(rho*A);
+  return {mat:M,m:m,d:d,L:L,rho:rho,Yp:ypOf(M),N:c.N!==undefined?c.N:(P.N!==undefined?P.N:0.25),brit:!!M.brit,ss:M.ss||1,lo:M.lo};}
+function noseN(crh){if(!(crh>0))return 1;return (8*crh-1)/(24*crh*crh);}
+
+/* ---------- Lanz–Odermatt perforation limit (LOS mm) for long rods ---------- */
+function loPerf(rod,v,thDeg,tgtRho,tgtBhn){/* rod: L,d in m, rho kg/m3, lo class, ss, bhnP */
+  var LD=rod.L/rod.d,th=Math.min(80,Math.max(0,thDeg))*D2R,B=Math.min(tgtBhn||270,600),a,c;
+  if(rod.lo==='S'){a=1.104;c=9874*Math.pow(B,0.3598)*Math.pow(rod.bhn||500,-0.2342);}else{a=0.994;c=(134.5-0.148*B)*B;}
+  a*=rod.ss||1;var x=0.283+0.0656*LD,coth=1/Math.tanh(x);
+  return rod.L*1000*a*coth*Math.pow(Math.cos(th),-0.224)*Math.sqrt(rod.rho/(tgtRho*1000))*Math.exp(-c*1e6/(rod.rho*v*v));}
+
+/* ---------- Tate–Alekseevskii integrator with rigid-body regime and back-face weakening ----------
+   s: {m,d,L,rho,Yp,N,brit,v}  t: {h (m, effective path), Rt Pa, rho kg/m3, lam m}
+   returns {perf, P (m), v, m, L, d, N, shat, eroded} */
+function taRun(s0,t){var s={hb:s0.hb,m:s0.m,d:s0.d,L:s0.L,rho:s0.rho,Yp:s0.Yp,N:s0.N,brit:s0.brit,v:s0.v,shat:!!s0.shat,ero:!!s0.ero};
+  var A=PI*s.d*s.d/4,P=0,h=t.h,lam=Math.max(1e-5,t.lam),rt=t.rho,steps=0,ds=Math.max(2e-6,Math.min(h/240,s.d/30));
+  if(h<=0)return {perf:true,P:0,v:s.v,m:s.m,L:s.L,d:s.d,N:s.N,shat:s.shat,ero:s.ero};
+  while(steps++<60000){var rem=h-P;if(rem<=0)break;
+    var R=t.Rt*Math.min(1,rem/lam);if(t.front)R*=Math.min(1,0.55+0.45*P/(0.5*s.d));
+    var v=s.v;if(v<=0.5||s.L<=s.d*0.02)break;
+    var pr=R+s.N*rt*v*v,yEff=s.ero?s.Yp:s.Yp*(1+Math.max(0,0.5-s.N)*K.noseY),hr=(s.hb||0)/Math.max(1,t.hb||1);
+    if(s.brit&&!s.shat&&hr<K.shatH&&pr>yEff){s.shat=true;s.m*=0.55;s.L*=0.55;s.N=Math.max(s.N,0.9);s.Yp*=0.5;yEff=s.Yp;}
+    if(!s.ero&&!s.shat&&hr>=K.rigH&&v<K.rigV)yEff=Infinity;
+    if(pr<=yEff){/* rigid */var dt=ds/v,a=pr*A/s.m;s.v=v-a*dt;if(s.v<0){P+=v*v/(2*a);s.v=0;break;}P+=ds;}
+    else{/* eroding: hydrodynamic interface with blunted nose */if(!s.ero){s.ero=true;s.N=Math.max(s.N,0.5);}
+      var rp=s.rho,A2=0.5*(rp-rt),B=-rp*v,C=0.5*rp*v*v+s.Yp-R,u;
+      if(C<=0)u=0;else if(Math.abs(A2)<1e-6)u=C/(rp*v);else{var disc=B*B-4*A2*C;u=disc<0?v:(-B-Math.sqrt(disc))/(2*A2);}
+      u=clamp(u,0,v);var dt2=ds/Math.max(u,0.25*v,1);
+      s.v=v-s.Yp/(rp*s.L)*dt2;s.L-=(v-u)*dt2;P+=u*dt2;if(s.L<0)s.L=0;s.m=rp*A*s.L;}
+  }
+  var perf=P>=h-1e-9&&s.v>0.5&&s.L>s.d*0.02;
+  return {perf:perf,P:Math.min(P,h),v:perf?s.v:0,m:s.m,L:s.L,d:s.d,N:s.N,shat:s.shat,ero:s.ero};}
+
+/* ---------- model constants (calibrated against public reference data, see lato-armory notes) ---------- */
+var K={coreAdd:0.25,shatH:1.05,rigH:1.1,rigV:1100,sizeD:20,sizeE:0.2,softLam:1.0,noseY:4,shatK:1.3,rtC:1.25,lamM:1.0,lamMh:0.7,lamCer:2.6,lamCerS:0.6,soft:1.0,cunF:1.62,cunB:0.3333,florE:1.0,bfdSig:327e3,
+  ricoLR:76,ricoAP:66,ricoBul:62,ricoSC:78,gelR:1.6e6,gelBase:0.95,gelRho:1040,gelPc:2.0e6,gelD0:800};
+
+/* projectile kinds: soft (deforming bullet), core (hard-core / full-calibre AP / steel core ball), lr (long rod / APDS core, Lanz–Odermatt), frag (fragment / FSP), shot (pellets),
+   sc (shaped charge), hesh, he (high explosive / HEI, blast & fragments) */
+var KINDN={soft:'鉛心彈／擴張彈',core:'硬芯穿甲彈',lr:'長桿穿甲彈（尾翼穩定脫殼／脫殼）',frag:'破片／破片模擬彈',shot:'霰彈丸',sc:'聚能裝藥（反坦克高爆）',hesh:'碎甲彈（高爆塑性）',he:'高爆彈／高爆燃燒彈'};
+
+/* ---------- ricochet: critical obliquity and probability ---------- */
+function ricochet(kind,st,lay,th,M){if(th<=0)return {p:0,tc:90};
+  var d=st.d*1000,t=lay.t,om=Math.max(0.05,t/Math.max(0.5,d)),base;
+  if(kind==='lr')base=K.ricoLR+6*clamp((st.v-1500)/500,-1,1)-4*Math.log(om/2.5);
+  else if(kind==='sc')base=K.ricoSC;
+  else if(kind==='core'||kind==='frag')base=K.ricoAP+5*clamp((st.v-800)/400,-1,1)-6*Math.log(om)-(st.cap?-6:0);
+  else if(kind==='hesh'||kind==='he')base=72;
+  else base=K.ricoBul+4*clamp((st.v-700)/400,-1,1)-6*Math.log(om);
+  var hard=(M.bhn||(M.hv?M.hv*0.95:100));base-=clamp((hard-300)/100,-3,4);
+  if(M.cat==='fiber'||M.cat==='soil'||M.cat==='wood'||M.cat==='liquid'||M.cat==='tissue')base+=12;
+  base=clamp(base,45,88);var p=1/(1+Math.exp(-(th-base)/2.2));return {p:p,tc:base};}
+
+/* ---------- magic state for a layer ---------- */
+function magicOf(M,P,opt,lay){var g=M.mg;if(!g)return null;var ch=clamp(opt.charge===undefined?1:opt.charge,0,1.5),pm=P.mg||{},el=ELM[pm.el||0][g.el||0];
+  var disp=clamp(pm.dp||0,0,1),k=ch*(1-disp)*el*(lay&&lay.mgk!==undefined?lay.mgk:1);
+  return {k:k,sh:(g.sh||0)*1000*k,hd:1+(g.hd||0)*k,ke:1+((g.ke||1)-1)*k,ce:1+((g.ce||1)-1)*k,df:(g.df||0)*k,el:el};}
+
+/* ---------- armour stack evaluation for kinetic projectiles ----------
+   P projectile, v impact velocity, layers [{mat, t mm, ang deg (NATO obliquity), gap mm after}], opt {lib, charge, range}
+   returns {perf, ric, layers:[...], vRes, mRes, dop, note} */
+function kinState(P,v,lib){var c=coreOf(P,lib),bm=(P.m||0)/1000,st={hb:hardOf(c.mat),v:v,m:c.m,d:c.d,L:c.L,rho:c.rho,Yp:c.Yp,N:c.N,brit:c.brit,ss:c.ss,lo:c.lo,bhnP:c.mat.bhn,
+    mTot:bm||c.m,dTot:(P.d||c.d*1000)/1000,dfm:P.dfm||0,def:1,yaw:0,cap:!!P.cap,shat:false,ero:false,kind:P.k};
+  if(P.k==='core'&&bm>c.m){st.m=c.m+K.coreAdd*(bm-c.m);}
+  return st;}
+function soft2(st){return st.kind==='soft'||st.kind==='shot';}
+/* Cunniff ballistic limit (m/s) for a textile system of areal density ad (kg/m2) */
+function cunV50(U,ad,Ap,m){var phi=ad*Ap/m;return U*K.cunF*Math.pow(phi,K.cunB)/(1+0.15*Math.pow(phi,0.8));}
+function defDia(st,hardFace){var f=1+st.dfm*Math.min(1,st.v/650)*(hardFace?1.25:1);return st.dTot*f*Math.max(1,st.def);}
+
+function stackKE(P,v,layers,opt){opt=opt||{};var lib=opt.lib,st=kinState(P,v,lib),out=[],kind=P.k,i,res={perf:true,ric:false,layers:out,note:[]};
+  var pm=P.mg||{};if(pm.bo)st.v*=Math.sqrt(1+pm.bo);
+  var pierce=pm.pi||1,lrCal=null,cone=null,E0=0.5*st.mTot*v*v;
+  for(i=0;i<layers.length;i++){var Ly=layers[i],M=mat(Ly.mat,lib),th=clamp(+Ly.ang||0,0,89),t=Math.max(0,+Ly.t||0),row={i:i,mat:M,t:t,ang:th,vIn:st.v,mIn:st.m};
+    out.push(row);if(t<=0){row.res='略過';continue;}
+    var mg=magicOf(M,P,opt,Ly);
+    if(mg){row.mg=mg;th=clamp(th+mg.df,0,89);if(mg.sh>0){var mm=st.kind==='core'||st.kind==='lr'?st.m:st.mTot,ek=0.5*mm*st.v*st.v,ab=Math.min(ek,mg.sh);row.shield=ab;st.v=Math.sqrt(Math.max(0,(ek-ab)*2/mm));
+      if(st.v<=1){row.res='被魔能護盾吸收';row.stop=true;res.perf=false;break;}}}
+    var norm=(kind==='core'||kind==='frag')?(st.cap?6:3):0;var thE=Math.max(0,th-(th>norm?norm:th));row.angE=thE;
+    var rc=ricochet(kind,st,{t:t},thE,M);row.rico=rc.p;row.tc=rc.tc;
+    if(rc.p>=0.5&&M.cat!=='era'){row.res='跳彈';row.stop=true;res.perf=false;res.ric=true;break;}
+    var cos=Math.cos(thE*D2R),hLos=t/1000/cos,Rt=rtOf(M)*K.rtC*(mg?mg.hd:1)/pierce*(kind==='lr'?1:clamp(Math.pow(K.sizeD/(st.d*1000),K.sizeE),0.7,1.6)),rhoT=M.rho*1000;
+    row.los=hLos*1000;
+    /* reactive / slat */
+    if(M.cat==='era'){var e=M.era,big=kind==='lr'||(kind==='core'&&st.m>0.02);
+      var eff=thE<e.min?Math.max(0,(thE-10)/(e.min-10)):1;eff=clamp(eff*Math.sin(Math.max(thE,10)*D2R)/Math.sin(60*D2R),0,1.1);
+      if(kind==='lr'&&e.ke>0){var red=e.ke*eff;st.L*=(1-red);st.yaw+=red*0.5;row.res='反應裝甲削弱長桿 '+Math.round(red*100)+'%';}
+      else row.res=e.slat?'柵欄（對動能彈無效）':'未觸發';
+      var stEq=e.st*t/1000;if(stEq>0){var r0=taRun(st,{h:stEq/cos,Rt:rtOf(mat('rha'))*K.rtC,rho:7850,lam:st.d*K.lamM});
+        if(!r0.perf){row.res+='；彈體被反應裝甲鋼板擋下';row.stop=true;res.perf=false;row.dop=r0.P*1000;break;}upd(st,r0);}
+      row.vOut=st.v;row.mOut=st.m;continue;}
+    /* composite block: equivalent RHA */
+    if(M.cat==='comp'){var hE=hLos*(M.tek||0.6)*(mg?mg.ke:1);
+      if(kind==='lr'){var rr=rodLayer(st,hE*1000,0,mat('rha'),lrCal,thE,true);lrCal=rr.cal;if(!rr.perf){row.res='擋下';row.stop=true;res.perf=false;row.dop=rr.dop/(M.tek||0.6);break;}row.res='貫穿';row.vOut=st.v;row.mOut=st.m;continue;}
+      var r1=taRun(st,{h:hE,Rt:rtOf(mat('rha'))*K.rtC,rho:7850,lam:st.d*K.lamM});row.dop=r1.P*1000/(M.tek||0.6);
+      if(!r1.perf){row.res='擋下';row.stop=true;res.perf=false;break;}upd(st,r1);row.res='貫穿';row.vOut=st.v;row.mOut=st.m;continue;}
+    /* textiles: Cunniff, group consecutive fibre plies of the same flexibility */
+    if(M.cat==='fiber'&&kind!=='lr'){var ad=t/1000*rhoT*(mg?mg.ke:1),Ap,mEff,vIn=st.v,U=cunniffU(M)*(M.mx||1),j=i;
+      while(j+1<layers.length&&mat(layers[j+1].mat,lib).cat==='fiber'&&!(layers[j+1].gap>0)&&!(layers[j].gap>0)){j++;var M2=mat(layers[j].mat,lib),t2=+layers[j].t||0;ad+=t2/1000*M2.rho*1000;U=Math.max(U,cunniffU(M2)*(M2.mx||1));
+        out.push({i:j,mat:M2,t:t2,ang:th,vIn:st.v,mIn:st.m,res:'（併入上層計算）',los:t2/cos});}
+      ad/=cos;
+      if(cone){Ap=PI*cone.a*cone.a;mEff=st.mTot+cone.m;vIn=st.v*st.mTot/mEff;}else{var dd=defDia(st,M.hard);Ap=PI*dd*dd/4*(1+st.yaw*2);mEff=st.mTot;}
+      var V50=cunV50(U,ad,Ap,mEff);if(cone&&cone.flor)V50=Math.max(V50,cone.flor);
+      row.v50=V50;row.vEff=vIn;row.ad=ad;
+      if(vIn<=V50){row.res='擋下';row.stop=true;res.perf=false;row.catchE=0.5*st.mTot*st.v*st.v;res.catcher=M;res.catchAD=ad;break;}
+      var vr=Math.sqrt(vIn*vIn-V50*V50);st.v=cone?vr*mEff/st.mTot*0.6:vr;st.def=Math.max(st.def,1.2);cone=null;row.res='貫穿';row.vOut=st.v;row.mOut=st.m;
+      if(Ly.gap>0)st.yaw+=0.1;i=j;continue;}
+    /* long rods: Lanz–Odermatt calibrated Tate model */
+    if(kind==='lr'){var rl=rodLayer(st,hLos*1000*(mg?1/mg.ke:1),Ly.gap||0,M,lrCal,thE,false,Rt/K.rtC*pierce/(rtOf(M)*(mg?mg.hd:1)));lrCal=rl.cal;row.dop=rl.dop;
+      if(!rl.perf){row.res='擋下';row.stop=true;res.perf=false;break;}
+      row.res='貫穿';if(thE>45&&t/1000<2.5*st.d){var yw=0.05*(thE-45)/45;st.yaw+=yw;}row.vOut=st.v;row.mOut=st.m;continue;}
+    /* compact projectiles: ceramics, metals and everything else through the eroding / rigid integrator */
+    var nextBack=i+1<layers.length&&!(Ly.gap>0)&&['fiber','metal','poly'].indexOf(mat(layers[i+1].mat,lib).cat)>=0;
+    var lam=M.cat==='ceramic'?(nextBack?K.lamCerS:K.lamCer)*st.d:(M.cat==='metal'?((M.bhn||200)>420?K.lamMh:K.lamM)*st.d:1.2*st.d);
+    if(soft2(st))lam*=K.softLam;
+    var hEff=hLos*(mg?1/mg.ke:1);
+    var sIn={hb:st.hb,m:st.m,d:st.d*(soft2(st)?Math.max(1,st.def):1),L:st.L,rho:st.rho,Yp:st.Yp,N:st.N,brit:st.brit,v:st.v,shat:st.shat,ero:st.ero};
+    if(st.yaw>0){sIn.d*=1+st.yaw;sIn.L/=(1+st.yaw)*(1+st.yaw);}
+    if(M.fh&&!st.cap&&st.brit)sIn.Yp*=0.8;
+    if(M.id==='b4c'&&st.v>950&&(st.Yp>2e9))Rt*=0.85;
+    var r2=taRun(sIn,{h:hEff,Rt:Rt,rho:rhoT,lam:lam,front:true,hb:hardOf(M)});row.dop=r2.P*1000;
+    if(r2.shat&&!st.shat)row.shat=true;
+    if(M.cat==='ceramic'&&nextBack){var hc=hEff*Math.pow((M.hv||1500)/1500,0.35),a=st.dTot/2+2*hc,Lb=layers[i+1],Mb=mat(Lb.mat,lib),hb=(+Lb.t||0)/1000/cos;
+      var mr=r2.perf?r2.m:Math.max(r2.m,0)+0.0*st.m,ring=(hc*rhoT+hb*Mb.rho*1000)*PI*a*a;
+      var mp=soft2(st)?0.5*st.mTot:(r2.perf?Math.max(r2.m,0.5*st.m):st.m*(r2.shat?0.85:1))+0.1*(st.mTot-st.m),fa=mp/((mp+ring)*PI*a*a);
+      var eb=Mb.cat==='fiber'?(Mb.fe||0.03):(Math.max(0.03,(Mb.el||10)/100*0.5)),sb=Mb.cat==='fiber'?(Mb.fs||2)*1e9*0.35*(Mb.mx||1):(Mb.uts||400)*1e6;
+      var flor=Math.sqrt(eb*sb*hb*K.florE/(0.91*mp*fa));
+      cone={a:a,m:0.5*hc*rhoT*PI*a*a,flor:flor,vC:r2.perf?r2.v:0};
+      row.res=r2.perf?'彈芯穿過陶瓷，由背板承接':'陶瓷碎裂成錐，彈芯侵蝕';row.cone=a*1000;
+      var vCer=st.v;st.m=Math.max(r2.m,mp*0.5);st.L=Math.max(r2.L,st.d*0.5);st.N=Math.max(r2.N,0.5);st.shat=r2.shat;st.ero=true;st.v=r2.perf?Math.max(r2.v,vCer*0.8):vCer*0.8;
+      /* the backing decides: Florence limit on the remaining projectile */
+      var vb=vCer,Mb2=Mb;i++;var row2={i:i,mat:Mb2,t:+Lb.t||0,ang:th,vIn:vb,mIn:st.m,los:hb*1000};out.push(row2);row2.v50=flor;
+      if(vb<=flor){row2.res='背板承接（Florence 判據）';row2.stop=true;res.perf=false;res.catcher=Mb2;res.catchAD=ring/(PI*a*a);row2.catchE=E0;break;}
+      var vr2=Math.sqrt(vb*vb-flor*flor)*mp/(mp+0.3*ring);st.v=vr2;st.m=mp;st.mTot=mp;st.def=1.5;row2.res='貫穿背板';row2.vOut=st.v;row2.mOut=st.m;cone=null;continue;}
+    if(!r2.perf){row.res=r2.ero&&r2.L<=st.d*0.05?'彈體侵蝕殆盡':'擋下';row.stop=true;res.perf=false;res.catcher=M;res.catchAD=hEff*rhoT;row.catchE=0.5*st.mTot*st.v*st.v;break;}
+    /* plug momentum for blunt / deformed projectiles on thin plates */
+    var hb2=hEff;if((r2.ero||st.N>=0.5)&&hb2<1.5*st.d&&M.cat==='metal'){var plug=rhoT*PI*st.d*st.d/4*hb2,mm2=r2.m+(soft2(st)?0:0.2*(st.mTot-st.m));r2.v*=mm2/(mm2+plug);}
+    upd(st,r2);if(soft2(st))st.def=Math.max(st.def,M.cat==='metal'||M.cat==='ceramic'||M.cat==='glass'?1.6:1.15);
+    if(M.cat==='ceramic'&&!nextBack){row.res='貫穿（無背板，陶瓷碎裂）';}else row.res='貫穿';
+    if(Ly.gap>0&&kind!=='lr'){st.yaw+=clamp(0.15+0.4*thE/60,0,0.8)*(soft2(st)?1.3:0.7);}
+    row.vOut=st.v;row.mOut=st.m;}
+  res.vRes=res.perf?st.v:0;res.mRes=res.perf?st.m:0;res.st=st;res.E0=E0;return res;
+  function upd(s,r){s.v=r.v;s.m=r.m;s.L=r.L;s.N=r.N;s.shat=r.shat;s.ero=r.ero;if(s.kind!=='core'&&s.kind!=='lr'&&s.kind!=='frag')s.mTot=Math.max(r.m,s.mTot*0.6);else if(r.m<s.m)s.mTot=Math.max(r.m,s.mTot-(s.m-r.m));}
+  function rodLayer(s,hmm,gap,M,cal,thE,isComp,rtScale){
+    /* calibration: Tate resistance scale so that the Tate perforation of RHA equals Lanz–Odermatt at this state (normal incidence) */
+    if(!cal){var rod={L:s.L,d:s.d,rho:s.rho,lo:s.lo,ss:s.ss,bhn:s.bhnP},want=loPerf(rod,s.v,0,7.85,270)/1000*(pierce),lo=0.05,hi=8,rRHA=rtOf(mat('rha'));
+      for(var it=0;it<40;it++){var mid=Math.sqrt(lo*hi),rr=taRun(s,{h:want,Rt:rRHA*mid,rho:7850,lam:s.d});if(rr.perf)lo=mid;else hi=mid;}
+      cal={k:Math.sqrt(lo*hi)};}
+    var Rt2=rtOf(M)*cal.k*(rtScale||1),obl=Math.pow(Math.cos(thE*D2R),0.224),h=hmm/1000*obl;
+    if(M.cat==='ceramic'||M.cat==='glass')Rt2*=1.0;
+    if(s.yaw>0){h*=1+s.yaw*1.5;}
+    var r=taRun(s,{h:h,Rt:Rt2,rho:M.rho*1000,lam:s.d});
+    if(!r.perf)return {perf:false,dop:r.P*1000/obl,cal:cal};
+    s.v=r.v;s.m=r.m;s.L=r.L;s.mTot=r.m;
+    if(gap>0&&s.yaw>0)s.L*=Math.max(0.5,1-s.yaw*0.5);
+    return {perf:true,dop:r.P*1000/obl,cal:cal};}
+}
+
+/* ---------- shaped charges ---------- */
+function scStandoff(sd,prec){/* penetration fraction vs standoff in charge diameters; prec 1 (crude) .. 5 (precision) */
+  var opt=1.5+1.1*prec,w=4+5*prec;var rise=Math.pow((sd+0.6)/(opt+0.6),0.45);if(sd<=opt)return Math.min(1,rise);var x=(sd-opt)/w;return Math.exp(-x*x*0.7)*0.85+0.15/(1+x);}
+function scCapacity(P,sdExtra){var s=P.sc,cd=s.cd,k=s.k||5,prec=s.pr||3,liner=s.ln||'cu',lf={cu:1,ta:1.12,mo:1.08,fe:0.82,al:0.55,mana:1.3}[liner]||1;
+  var so=(s.so===undefined?2.5:s.so)+(sdExtra||0)/cd,f=scStandoff(so,prec)/scStandoff(s.so===undefined?2.5:s.so,prec);
+  var spin=P.spin?0.65:1;return cd*k*lf*f*spin*((P.mg&&P.mg.pi)||1);}
+function teCE(M,mg){if(M.cat==='comp')return (M.tec||1)*(mg?mg.ce:1);if(M.cat==='era')return 0.3;
+  var rr=Math.max(0.005,rtOf(M)/1e9),rh=4.4;return Math.sqrt(M.rho/7.85)*Math.pow(rr/rh,0.15)*(M.ce||1)*(mg?mg.ce:1);}
+function stackSC(P,layers,opt){opt=opt||{};var lib=opt.lib,cap=scCapacity(P,0),out=[],res={perf:true,layers:out,note:[]},prec=0,i,gapSum=0,tandem=P.sc.tan||0;
+  if(P.mg&&P.mg.bo)cap*=1+0.5*P.mg.bo;res.cap0=cap;
+  for(i=0;i<layers.length;i++){var Ly=layers[i],M=mat(Ly.mat,lib),th=clamp(+Ly.ang||0,0,89),t=+Ly.t||0,row={i:i,mat:M,t:t,ang:th,capIn:cap};out.push(row);if(t<=0){row.res='略過';continue;}
+    var mg=magicOf(M,P,opt,Ly);if(mg){row.mg=mg;th=clamp(th+mg.df,0,89);if(mg.sh>0){var red=mg.sh/(mg.sh+40000);cap*=1-red;row.shield=red;}}
+    if(i===0&&th>=K.ricoSC){var pg=1/(1+Math.exp(-(th-K.ricoSC-2)/2));if(pg>0.5){row.res='掠射：引信未作用或跳飛';row.stop=true;res.perf=false;res.ric=true;break;}}
+    var los=t/Math.cos(th*D2R);row.los=los;
+    if(M.cat==='era'){var e=M.era;
+      if(e.slat){var rng=mb32(hstr((opt.seed||'s')+'|'+i))(),pd=P.rocket?e.slat:0;row.res=pd>0?'柵欄：短路機率 '+Math.round(pd*100)+'%':'柵欄：無效';if(pd>=0.5&&!opt.noSlatStop){row.res+='（判定為攔截）';row.stop=true;res.perf=false;break;}continue;}
+      var eff=th<e.min?Math.max(0,(th-10)/(e.min-10)):1;eff=clamp(eff*Math.sin(Math.max(th,10)*D2R)/Math.sin(60*D2R),0,1.1);
+      if(e.trig&&tandem){row.res='串聯前驅裝藥引爆反應裝甲';tandem=0;cap-=e.st*los;continue;}
+      var r=e.ce*eff;cap=cap*(1-r)-e.st*los;row.res='反應裝甲削弱射流 '+Math.round(r*100)+'%';row.capOut=cap;if(cap<=0){row.stop=true;res.perf=false;row.res+='，射流耗盡';break;}continue;}
+    var te=teCE(M,mg),need=los*te;row.te=te;
+    if(gapSum>0){cap*=scStandoff((P.sc.so||2.5)+gapSum/P.sc.cd,P.sc.pr||3)/scStandoff(P.sc.so||2.5,P.sc.pr||3);}
+    if(need>=cap){row.dop=cap/te;row.res='擋下';row.stop=true;res.perf=false;cap=0;break;}
+    cap-=need;row.res='貫穿';row.capOut=cap;gapSum+=(+Ly.gap||0);}
+  res.capRes=Math.max(0,cap);return res;}
+
+/* ---------- HESH and HE against plates ---------- */
+function heEq(P){var h=P.he||{};var x=EXPL[h.x||'tnt']||EXPL.tnt;var w=(h.g||0)/1000*x[1];if(P.mg&&P.mg.bu)w+=P.mg.bu;return w;}
+function stackHE(P,layers,opt){opt=opt||{};var lib=opt.lib,w=heEq(P),out=[],res={perf:false,layers:out,note:[]};
+  if(!layers.length)return res;var L0=layers[0],M=mat(L0.mat,lib),t=+L0.t||0,th=clamp(+L0.ang||0,0,89);
+  var spaced=layers.length>1&&(L0.gap>0);
+  if(P.k==='hesh'){var lim=1.15*P.d*Math.pow(w/Math.max(0.05,Math.pow(P.d/100,3)*2.4),1/3)*Math.sqrt(7.85/M.rho)*Math.pow(4.4e9/Math.max(1e8,rtOf(M)),0.35);
+    if(M.cat!=='metal')lim*=0.35;if(spaced)lim*=0.25;var tN=t;out.push({i:0,mat:M,t:t,ang:th,res:'',lim:lim});
+    if(tN<=lim){out[0].res='背面剝落（碎甲）：崩落片約 '+Math.round(Math.max(0.2,(lim-tN)/lim)*100+30)+'% 面積的鋼片高速飛出';res.perf=true;res.spall=true;}
+    else out[0].res='未能產生背面剝落';
+    res.lim=lim;return res;}
+  var br=15*Math.pow(w,1/3)*Math.sqrt(7.85/M.rho)*Math.pow(4.4e9/Math.max(1e8,rtOf(M)),0.4),los=t/Math.cos(th*D2R);
+  out.push({i:0,mat:M,t:t,ang:th,los:los,lim:br,res:los<=br?'炸開破口':'未擊穿（僅爆壓與破片）'});res.perf=los<=br;res.lim=br;return res;}
+
+/* ---------- top-level: evaluate a projectile against a stack at a range ---------- */
+function evaluate(P,layers,o){o=o||{};var env=o.env,v=o.v!==undefined?o.v:velAt(P,o.range||0,env),r;
+  if(P.k==='sc')r=stackSC(P,layers,o);else if(P.k==='hesh'||P.k==='he')r=stackHE(P,layers,o);else r=stackKE(P,v,layers,o);
+  r.v=v;r.kind=P.k;
+  if(P.mg&&P.mg.bu&&P.k!=='he'&&P.k!=='hesh'){r.burst=P.mg.bu;}
+  if(!r.perf&&r.catcher&&r.catchAD){var M=r.catcher,E=r.E0||0,coef=M.bfd||0.012,ad=r.catchAD;
+    if(M.cat==='fiber'&&!M.hard)coef*=Math.sqrt(5.2/Math.max(0.5,ad));else if(M.cat==='fiber')coef*=Math.sqrt(20/Math.max(2,ad));
+    var R=M.cat==='fiber'&&!M.hard?0.045:0.06,Ec=E*coef;r.bfd=Math.sqrt(Ec/(K.bfdSig*PI*R))*1000;r.bfdE=Ec;}
+  return r;}
+
+/* perforation limit thickness (mm, plate thickness at obliquity th) of material id for a projectile at velocity v */
+function perfLimit(P,v,matId,th,o){o=o||{};var lo=0,hi=8,lay=function(t){return [{mat:matId,t:t,ang:th||0}];};
+  var probe=function(t){var r=P.k==='sc'?stackSC(P,lay(t),o):stackKE(P,v,lay(t),o);return r.perf&&!r.ric;};
+  if(P.k==='sc'){var c=scCapacity(P,0);var M=mat(matId,o.lib);return c/teCE(M)*Math.cos((th||0)*D2R);}
+  if(P.k==='hesh'||P.k==='he'){return stackHE(P,lay(1),o).lim*Math.cos((th||0)*D2R);}
+  while(probe(hi)&&hi<4000)hi*=2;if(!probe(lo+0.01)&&!probe(0.3))return 0;
+  for(var i=0;i<30;i++){var m=(lo+hi)/2;if(probe(m))lo=m;else hi=m;if(hi-lo<0.05)break;}return (lo+hi)/2;}
+/* ballistic limit velocity V50 of a stack (m/s) */
+function v50Stack(P,layers,o){o=o||{};if(P.k==='sc'||P.k==='hesh'||P.k==='he')return null;var lo=30,hi=Math.max(400,(P.v0||800)*1.5);
+  var ok=function(v){var r=stackKE(P,v,layers,o);return r.perf&&!r.ric;};var n=0;while(!ok(hi)&&n++<8)hi*=1.6;if(!ok(hi))return Infinity;if(ok(lo))return lo;
+  for(var i=0;i<34;i++){var m=(lo+hi)/2;if(ok(m))hi=m;else lo=m;if(hi-lo<0.5)break;}return (lo+hi)/2;}
+function pPerf(v,v50,spread){if(v50===null)return null;if(!isFinite(v50))return 0;var s=(spread||0.035)*v50;return ncdf((v-v50)/s);}
+
+/* ---------- armour bookkeeping: areal density, cost per m2 ---------- */
+function stackAD(layers,lib){var ad=0;layers.forEach(function(L){var M=mat(L.mat,lib);ad+=(+L.t||0)/1000*M.rho*1000;});return ad;}
+function stackThick(layers){var t=0;layers.forEach(function(L){t+=(+L.t||0)+(+L.gap||0);});return t;}
+function stackCostM2(layers,lib,kindAssy){var c=0,parts=[];layers.forEach(function(L){var M=mat(L.mat,lib),ad=(+L.t||0)/1000*M.rho*1000,x=ad*(M.usd||1)*(M.fab||1);c+=x;parts.push([M.n,ad,x]);});
+  var assy=kindAssy==='body'?380:kindAssy==='veh'?260:120;return {usd:(c+assy)*1.3,parts:parts,assy:assy};}
+
+/* ---------- ammunition cost & weight ---------- */
+var GROUPS={pistol:['手槍彈',1e7,0.02],rifle:['步槍彈',1e7,0.03],hmg:['重機槍彈',1e6,0.3],auto:['機砲彈',2e5,3],tank:['戰車砲彈',2e4,250],art:['火砲／迫擊砲彈',5e4,120],
+  rkt:['火箭與飛彈',2e3,400],shot:['霰彈',5e6,0.05],gren:['榴彈／手榴彈',2e5,4],frag:['破片模擬彈',1e5,0.1],magic:['架空彈藥',1e4,5]};
+var MARKET={mil:['軍方合約',1],own:['自產成本價',0.72],civ:['民間零售',1.65],war:['戰時黑市',4]};
+function caseOf(P){return P.cs||{};}
+function roundMass(P){var c=caseOf(P);if(P.rw)return P.rw;return (P.m||0)+(c.g||0)+(P.prop||0)+(P.pr||0.3);}
+function rawCost(P,lib){var parts=[],add=function(n,u){if(u>0)parts.push([n,u]);};
+  (P.bom||[]).forEach(function(b){var M=mat(b[0],lib);add(M.n+' '+b[1]+' g',b[1]/1000*(M.usd||1)*(M.proc||3));});
+  var c=caseOf(P);if(c.g){var CM=mat(c.mat||'brass',lib);add('彈殼（'+CM.n+'）',c.g/1000*(CM.usd||1)*(c.mat==='steel'||c.mat==='msteel'?3.5:(CM.proc||3)));}
+  if(P.prop)add('發射藥 '+P.prop+' g',P.prop/1000*22);
+  if(P.he&&P.he.g){var X=EXPL[P.he.x||'tnt']||EXPL.tnt;add(X[0]+' '+P.he.g+' g',P.he.g/1000*X[3]*1.6);}
+  if(P.sc)add('聚能藥型罩與裝藥',Math.pow(P.sc.cd/10,2.2)*0.9);
+  if(P.x)Object.keys(P.x).forEach(function(k){add(k,P.x[k]);});
+  if(P.mg&&P.mg.mc)add('魔晶 '+P.mg.mc+' g',P.mg.mc/1000*(P.mg.mcp===undefined?100:P.mg.mcp));
+  var G=GROUPS[P.g]||GROUPS.rifle;add('裝配與檢驗',G[2]);
+  var s=0;parts.forEach(function(p){s+=p[1];});return {sum:s,parts:parts};}
+function costOf(P,o){o=o||{};var raw=rawCost(P,o.lib),G=GROUPS[P.g]||GROUPS.rifle,lot=o.lot||G[1],learn=Math.pow(lot/G[1],-0.152),mk=(MARKET[o.market||'mil']||MARKET.mil)[1];
+  var cx=P.cx||1.3;return {usd:raw.sum*cx*learn*mk,raw:raw,cx:cx,learn:learn,mk:mk};}
+/* complexity factor so that a preset reproduces its reference contract price */
+function calibrateCost(P,lib){if(P.ref){var raw=rawCost(P,lib);P.cx=Math.round(Math.max(0.3,P.ref/raw.sum)*1000)/1000;}else if(!P.cx)P.cx=1.3;return P.cx;}
+
+/* ---------- wound ballistics in 10% ordnance gelatin ----------
+   returns profile rows [depth cm, presented diameter mm, temporary cavity diameter mm, velocity m/s, yaw deg, mass g] and summary */
+function gelRun(P,v,o){o=o||{};var depth=(o.depth||80)/100,dx=0.002,rho=K.gelRho*(o.rhoMul||1),R=K.gelR*(o.rMul||1),g=P.gel||{},m=(P.m||8)/1000,d0=(P.d||9)/1000,L=(P.L||P.d*2)/1000;
+  var pel=P.k==='shot'?(P.pel||1):1;if(P.k==='shot'){m=(P.pm||3.5)/1000;d0=(P.pd||8.4)/1000;L=d0;}
+  var cdN=g.cd||0.3,neck=(g.nk===undefined?20:g.nk)/100,ex=g.ex||1,vx=g.vx||300,vf=g.vf||0,ff=g.ff||0,a0=(g.a0||3)*D2R,plugged=!!o.plug;
+  if(plugged){ex=1+(ex-1)*0.15;}
+  if(o.preDef)ex=Math.max(ex,o.preDef);
+  var rows=[],x=0,vv=v,mm=m,yaw=a0,dE=[],frag=0,fragM=0,crush=0,stretch=0,E0=0.5*m*v*v*pel,expD=d0,expanded=false,tumbled=false,maxTC=0,maxTCx=0,xYaw=null,fragDone=false,fragList=[];
+  var exMax=ex>1?Math.min(ex,1+(ex-1)*clamp((v-vx*0.8)/(vx*0.9),0,1.25)):1;if(ex>1&&v>2.2*vx)exMax=Math.max(1.15,exMax*0.92);
+  var eLen=0.025;
+  while(x<depth&&vv>8){
+    /* expansion over the first ~2.5 cm */
+    var dcur=d0;if(exMax>1){var f=Math.min(1,x/eLen);dcur=d0*(1+(exMax-1)*f);expanded=f>=1;}
+    /* yaw growth: stable nose-forward until neck, then exponential growth to 90 deg; expanded bullets stay nose-forward */
+    if(exMax<=1.08&&P.k!=='shot'){if(x>neck*0.7){var gr=Math.log(90/(a0/D2R))/(neck*0.3+1e-3);yaw=Math.min(PI-0.05,a0*Math.exp(gr*(x-neck*0.7)));if(yaw>PI/2-0.05&&xYaw===null)xYaw=x;}}
+    var sy=Math.abs(Math.sin(Math.min(yaw,PI/2))),cy=Math.abs(Math.cos(Math.min(yaw,PI/2)));
+    var baseF=false;if(yaw>PI/2){var y2=PI-yaw;sy=Math.sin(y2)*0.85;cy=Math.cos(y2);baseF=true;}
+    var Ln=Math.max(dcur,L*(mm/m)),A=PI*dcur*dcur/4*cy+Ln*dcur*sy*0.92,cd=(baseF?K.gelBase:cdN)*cy+1.15*sy;if(exMax>1.08)cd=Math.max(cdN,0.25+0.42*(dcur/d0-1)/Math.max(0.01,exMax-1));
+    if(P.k==='shot'){cd=0.5;A=PI*dcur*dcur/4*1.1;}
+    /* fragmentation of the yawing jacketed bullet */
+    if(!fragDone&&vf>0&&v>=vf&&yaw>50*D2R){fragDone=true;var fm=mm*ff*clamp((v-vf)/350+0.75,0.5,1.2);if(fm>mm*0.8)fm=mm*0.8;fragM=fm;mm-=fm;frag=Math.round(6+fm*1000*5);
+      for(var k=0;k<frag;k++){var r=mb32(hstr(P.id+'|'+k)),fd=Math.min(0.12,0.02+r()*0.10*(vv/900));fragList.push(x+fd);}A*=1.35;}
+    else if(!fragDone&&vf>0&&v<vf&&yaw>50*D2R){fragDone=true;}
+    var F=0.5*rho*cd*A*vv*vv+R*A,ek=0.5*mm*vv*vv,dEk=F*dx;if(dEk>ek){dEk=ek;}
+    var vn=Math.sqrt(Math.max(0,2*(ek-dEk)/mm));
+    var Edx=dEk*pel;var fragE=0;
+    if(fragM>0){fragList.forEach(function(fx){if(fx>x&&fx<=x+dx)fragE+=0.5*(fragM/frag)*Math.pow(vv*0.7,2);});}
+    var dep=(Edx+fragE)/dx,tc=Math.sqrt(4/PI*dep/(K.gelPc*(o.pcMul||1)))*dep/(dep+K.gelD0);if(pel>1)tc*=0.85;
+    if(tc*1000>maxTC){maxTC=tc*1000;maxTCx=x;}
+    crush+=A*dx*pel*(tumbled?1:1);stretch+=Math.max(0,PI*tc*tc/4-A)*dx;
+    rows.push([x*100,dcur*1000*(1+sy*(Ln/dcur-1)),tc*1000,vv,yaw/D2R,mm*1000]);
+    dE.push(Edx+fragE);vv=vn;x+=dx;}
+  var fragCrush=0;fragList.forEach(function(fx){fragCrush+=PI*Math.pow(0.0012,2)*(fx*0.6);});
+  var depthCm=x*100,eIn=function(cm){var s=0;for(var i=0;i<dE.length&&i*dx*100<cm;i++)s+=dE[i];return s;};
+  var torso=o.torso||30,e30=eIn(torso),exitV=depthCm>torso?(function(){var i=Math.min(rows.length-1,Math.round(torso/(dx*100)));return rows[i]?rows[i][3]:0;})():0;
+  var pcm3=(crush+fragCrush)*1e6,stcm3=stretch*1e6,pcEff=0;(function(){var c=0,s=0;for(var i=0;i<rows.length&&rows[i][0]<=torso;i++){var dd=rows[i][1]/1000,tc=rows[i][2]/1000;c+=PI*dd*dd/4*dx*pel;s+=Math.max(0,PI*tc*tc/4-PI*dd*dd/4)*dx;}pcEff=c*1e6+0.1*s*1e6*(o.tissueK||1)+fragCrush*1e6*0.8;})();
+  var pInc=1-Math.exp(-Math.pow(pcEff/55,0.85));
+  return {rows:rows,pen:depthCm,neck:xYaw===null?null:xYaw*100,maxTC:maxTC,maxTCx:maxTCx*100,exp:exMax,expanded:exMax>1.08,frag:frag,fragM:fragM*1000,retained:mm*1000,E0:E0,eTorso:e30,exitV:exitV,crush:pcm3,stretch:stcm3,pcEff:pcEff,pInc:pInc,pel:pel,torso:torso};}
+
+/* ---------- body armour behind-armour blunt trauma from backface deformation ---------- */
+function babt(bfd){if(bfd===undefined||bfd===null)return '';if(bfd<25)return '瘀傷';if(bfd<44)return '挫傷，符合 NIJ 44 mm 上限';if(bfd<55)return '超過 NIJ 上限：可能肋骨骨折';if(bfd<70)return '肋骨骨折、肺挫傷風險高';return '嚴重鈍傷：可能致命的胸腔損傷';}
+
+/* ---------- NIJ test threats (0101.06 / 0101.07): [label, projectile id, velocity m/s] ---------- */
+var NIJ=[
+ ['IIA（0101.06）',[['p9fmj',373],['p40',352]]],
+ ['II（0101.06）',[['p9fmj',398],['p357',436]]],
+ ['IIIA（0101.06）',[['p357sig',448],['p44',436]]],
+ ['III（0101.06）',[['r762m80',847]]],
+ ['IV（0101.06）',[['r3006ap',878]]],
+ ['HG1（0101.07）',[['p9fmj',398],['p357',436]]],
+ ['HG2（0101.07）',[['p9fmj',448],['p44',436]]],
+ ['RF1（0101.07）',[['r762m80',847],['r762msc',732],['r556m193',990]]],
+ ['RF2（0101.07）',[['r762m80',847],['r762msc',732],['r556m193',990],['r556m855',950]]],
+ ['RF3（0101.07）',[['r3006ap',878]]]];
+
+/* ---------- blast and fragmentation ---------- */
+function kinneyGraham(Z){/* peak overpressure ratio dP/P0 for a free-air TNT burst at scaled distance Z m/kg^(1/3) */
+  var a=808*(1+Math.pow(Z/4.5,2)),b=Math.sqrt((1+Math.pow(Z/0.048,2))*(1+Math.pow(Z/0.32,2))*(1+Math.pow(Z/1.35,2)));return a/b;}
+function blastRadius(w,kPa,ground){var W=w*(ground?1.8:1),lo=0.05,hi=5000;if(W<=0)return 0;for(var i=0;i<60;i++){var m=Math.sqrt(lo*hi),p=kinneyGraham(m/Math.pow(W,1/3))*101.325;if(p>kPa)lo=m;else hi=m;}return Math.sqrt(lo*hi);}
+function fragments(P,o){o=o||{};var h=P.he||{};if(!h.g)return null;var X=EXPL[h.x||'tnt']||EXPL.tnt,C=h.g/1000,Mc=Math.max(0.001,(P.m||0)/1000-C-(h.fz||0)/1000)*(h.cf===undefined?0.85:h.cf);
+  var gur=X[2]*1000,CM=C/Mc,v0=gur*Math.sqrt(CM/(1+0.5*CM));if(P.mg&&P.mg.bu){v0*=1.15;}
+  var tw=(h.tw||Math.max(1.5,P.d*0.12))/25.4,di=Math.max(5,P.d-2*(h.tw||P.d*0.12))/25.4,B=h.B||(X[1]>1.5?0.0451:X[1]>1.2?0.0443:0.0554);
+  var MA=B*B*Math.pow(tw,5/3)*Math.pow(di,2/3)*Math.pow(1+tw/di,2)*0.4536;/* Mott average mass kg */
+  if(h.pre){MA=h.pre/1000;}
+  var N0=Mc/(2*MA);if(h.pre)N0=Mc/MA;
+  var E=envOf(o.env),k=0.0038,rows=[];
+  function fragV(m,R){return v0*Math.exp(-E.rho*1.2*k*Math.pow(m,2/3)/(2*m)*R);}
+  /* lethal: fragments over 79 J; expected hits on a 0.5 m2 standing person */
+  function hitsAt(R){var sum=0,steps=60;for(var i=0;i<steps;i++){var q1=i/steps,q2=(i+1)/steps;var m=MA*Math.pow(Math.log(1/(1-(q1+q2)/2+1e-9)),2)*(h.pre?0.25:1);if(h.pre)m=MA;var v=fragV(m,R);if(0.5*m*v*v>=79)sum+=1/steps;}
+    var n=N0*sum,area=(o.ground===false?4:2)*PI*R*R;return n/area*0.5*0.75;}
+  var r50=0.5,lo=0.3,hi=2000;for(var i=0;i<60;i++){var mid=Math.sqrt(lo*hi);if(hitsAt(mid)>0.69)lo=mid;else hi=mid;}r50=Math.sqrt(lo*hi);
+  var r10=0.5;lo=0.3;hi=3000;for(i=0;i<60;i++){mid=Math.sqrt(lo*hi);if(hitsAt(mid)>0.105)lo=mid;else hi=mid;}r10=Math.sqrt(lo*hi);
+  var mx=0;lo=1;hi=5000;for(i=0;i<60;i++){mid=Math.sqrt(lo*hi);if(fragV(MA*9,mid)>60)lo=mid;else hi=mid;}mx=Math.sqrt(lo*hi);
+  return {v0:v0,CM:CM,MA:MA*1000,N0:N0,r50:r50,r10:r10,danger:mx,caseKg:Mc,hitsAt:hitsAt,fragV:fragV};}
+
+/* ---------- multi-hit Monte Carlo on a plate ---------- */
+function multiHit(P,layers,o){o=o||{};var n=o.n||6,W=(o.w||25)/100,H=(o.h||30)/100,sp=(o.spread||6)/100,trials=o.trials||300,rnd=mb32(hstr(o.seed||'mh')),v=o.v,lib=o.lib;
+  var perShot=[],totals=0,i,j,k;for(i=0;i<n;i++)perShot.push(0);
+  var shotDt=o.dt||0.15;
+  for(var tr=0;tr<trials;tr++){var hits=[],shield=null;
+    for(i=0;i<n;i++){var x=clamp(W/2+gauss(rnd)*sp,0.01,W-0.01),y=clamp(H/2+gauss(rnd)*sp,0.01,H-0.01);
+      var lay=layers.map(function(L){var M=mat(L.mat,lib),f=1,mh=M.mh||[1.2,0.85],R=(mh[0]*((P.d||8)/1000)+(M.cat==='ceramic'?2*(+L.t||0)/1000:0));
+        hits.forEach(function(h){var dd=Math.sqrt((h[0]-x)*(h[0]-x)+(h[1]-y)*(h[1]-y));if(dd<R)f*=lerp(mh[1],1,dd/R);else if(dd<R*2&&M.cat==='ceramic')f*=0.92;});
+        var o2={mat:L.mat,t:(+L.t||0)*Math.max(0.05,f),ang:L.ang,gap:L.gap};if(M.mg)o2.mgk=Math.max(0,1-(hits.length*(M.mg.sh||0))/Math.max(0.1,M.mg.cap||1)+(M.mg.rg||0)/100*shotDt*hits.length);return o2;});
+      var r=P.k==='sc'?stackSC(P,lay,{lib:lib,charge:o.charge}):stackKE(P,v,lay,{lib:lib,charge:o.charge});if(r.perf&&!r.ric){perShot[i]++;totals++;}hits.push([x,y]);}}
+  return {perShot:perShot.map(function(c){return c/trials;}),mean:totals/trials,trials:trials};}
+
+/* ---------- projectile library ----------
+   d, L mm; m projectile g; v0 m/s; bc ballistic coefficient (lb/in2) for drag model dm; core working penetrator {mat, m g, d mm, L mm, N nose factor};
+   dfm deformability on textiles; cs case {mat, g}; prop propellant g; rw complete round g (overrides the sum); ref reference contract price USD; bom projectile parts [[mat, g]];
+   x other cost items {label: USD}; gel {cd nose-forward drag, nk neck cm, vf fragmentation threshold m/s, ff fragmenting share, ex expansion ratio, vx expansion velocity};
+   sc shaped charge {cd mm, k RHA calibres at the built-in standoff, pr precision 1-5, so standoff in calibres, ln liner, tan tandem}; he {x explosive, g, tw wall mm, pre preformed fragment g}; mg 架空 magic */
+var PROJ=[
+ /* pistol */
+ {id:'p9fmj',n:'9×19 mm 124 gr 全被甲',g:'pistol',k:'soft',d:9.02,L:15.5,m:8.0,v0:360,bc:0.15,dm:'G1',dfm:0.55,N:0.35,cs:{mat:'brass',g:4.0},prop:0.36,ref:0.22,bom:[['lead',6.6],['gm',1.4]],gel:{cd:0.27,nk:50}},
+ {id:'p9jhp',n:'9×19 mm 124 gr 空尖彈（被甲擴張）',g:'pistol',k:'soft',d:9.02,L:15.5,m:8.0,v0:360,bc:0.14,dm:'G1',dfm:0.8,N:0.6,cs:{mat:'brass',g:4.0},prop:0.36,ref:0.45,bom:[['lead',6.6],['gm',1.4]],gel:{cd:0.3,ex:1.65,vx:270}},
+ {id:'p45',n:'.45 ACP 230 gr 全被甲',g:'pistol',k:'soft',d:11.48,L:17,m:14.9,v0:255,bc:0.195,dm:'G1',dfm:0.55,N:0.35,cs:{mat:'brass',g:6.2},prop:0.35,ref:0.35,bom:[['lead',12.9],['gm',2.0]],gel:{cd:0.3,nk:62}},
+ {id:'p357',n:'.357 Magnum 158 gr 半被甲軟尖',g:'pistol',k:'soft',d:9.07,L:17,m:10.2,v0:436,bc:0.16,dm:'G1',dfm:0.7,N:0.5,cs:{mat:'brass',g:5.5},prop:0.9,ref:0.6,bom:[['lead',9.0],['gm',1.2]],gel:{cd:0.32,ex:1.5,vx:300}},
+ {id:'p44',n:'.44 Magnum 240 gr 半被甲空尖',g:'pistol',k:'soft',d:10.9,L:18,m:15.55,v0:436,bc:0.17,dm:'G1',dfm:0.75,N:0.55,cs:{mat:'brass',g:7.5},prop:1.2,ref:0.9,bom:[['lead',13.8],['gm',1.75]],gel:{cd:0.32,ex:1.7,vx:300}},
+ {id:'p357sig',n:'.357 SIG 125 gr 全被甲平頭',g:'pistol',k:'soft',d:9.02,L:15,m:8.1,v0:448,bc:0.14,dm:'G1',dfm:0.5,N:0.6,cs:{mat:'brass',g:5.4},prop:0.6,ref:0.48,bom:[['lead',6.7],['gm',1.4]],gel:{cd:0.42,nk:45}},
+ {id:'p40',n:'.40 S&W 180 gr 全被甲',g:'pistol',k:'soft',d:10.16,L:15.8,m:11.66,v0:352,bc:0.16,dm:'G1',dfm:0.55,N:0.45,cs:{mat:'brass',g:5.6},prop:0.4,ref:0.3,bom:[['lead',9.9],['gm',1.76]],gel:{cd:0.33,nk:48}},
+ {id:'p762tok',n:'7.62×25 mm 托卡列夫 鋼被甲',g:'pistol',k:'soft',d:7.85,L:14,m:5.5,v0:470,bc:0.15,dm:'G1',dfm:0.3,N:0.35,cs:{mat:'brass',g:3.8},prop:0.5,ref:0.22,bom:[['lead',4.3],['msteel',1.2]],gel:{cd:0.26,nk:30}},
+ {id:'p57',n:'5.7×28 mm SS190 穿甲彈',g:'pistol',k:'core',d:5.7,L:21.6,m:2.0,v0:716,bc:0.162,dm:'G1',dfm:0.05,core:{mat:'mtip',m:0.75,d:4.0,N:0.12},cs:{mat:'brass',g:2.1},prop:0.42,ref:1.1,bom:[['mtip',0.75],['al5083',0.65],['gm',0.6]],gel:{cd:0.24,nk:10}},
+ /* rifle */
+ {id:'r556m193',n:'5.56×45 mm M193 球形彈',g:'rifle',k:'soft',d:5.70,L:18.9,m:3.56,v0:990,bc:0.125,dm:'G7',dfm:0.85,N:0.15,cs:{mat:'brass',g:6.2},prop:1.68,ref:0.38,bom:[['lead',2.5],['gm',1.06]],gel:{cd:0.24,nk:12,vf:820,ff:0.5}},
+ {id:'r556m855',n:'5.56×45 mm M855（SS109 鋼尖）',g:'rifle',k:'core',d:5.70,L:23,m:4.02,v0:950,bc:0.151,dm:'G7',dfm:0.3,core:{mat:'mtip',m:0.66,d:4.0,N:0.12},cs:{mat:'brass',g:6.2},prop:1.62,ref:0.42,bom:[['lead',2.3],['mtip',0.66],['gm',1.06]],gel:{cd:0.23,nk:13,vf:820,ff:0.33}},
+ {id:'r556a1',n:'5.56×45 mm M855A1 增強彈',g:'rifle',k:'core',d:5.70,L:24,m:4.0,v0:961,bc:0.152,dm:'G7',dfm:0.25,core:{mat:'hsteel',m:1.25,d:4.9,N:0.1},cs:{mat:'brass',g:6.2},prop:1.7,ref:0.55,bom:[['hsteel',1.25],['cu',1.95],['gm',0.8]],gel:{cd:0.23,nk:9,vf:700,ff:0.3}},
+ {id:'r556m995',n:'5.56×45 mm M995 碳化鎢穿甲彈',g:'rifle',k:'core',d:5.70,L:24,m:3.4,v0:1013,bc:0.15,dm:'G7',dfm:0.02,core:{mat:'wc',m:1.9,d:4.0,N:0.12},cs:{mat:'brass',g:6.2},prop:1.7,ref:2.6,bom:[['wc',1.9],['al5083',0.5],['gm',1.0]],gel:{cd:0.23,nk:15}},
+ {id:'r762msc',n:'7.62×39 mm 軟鋼芯（PS／57-N-231）',g:'rifle',k:'core',d:7.92,L:26.8,m:7.9,v0:718,bc:0.275,dm:'G1',dfm:0.35,core:{mat:'msteel',m:3.6,d:5.9,N:0.18},cs:{mat:'msteel',g:6.6},prop:1.6,ref:0.28,bom:[['msteel',3.6],['lead',2.4],['msteel',1.9]],gel:{cd:0.24,nk:26}},
+ {id:'r762bz',n:'7.62×39 mm BZ 穿甲燃燒彈',g:'rifle',k:'core',d:7.92,L:28,m:7.7,v0:740,bc:0.27,dm:'G1',dfm:0.05,core:{mat:'hsteel',m:3.6,d:6.0,N:0.12},cs:{mat:'msteel',g:6.6},prop:1.6,ref:0.7,bom:[['hsteel',3.6],['lead',1.6],['msteel',2.0]],he:{x:'inc',g:0.4},gel:{cd:0.24,nk:25}},
+ {id:'r545',n:'5.45×39 mm 7N6',g:'rifle',k:'core',d:5.6,L:25.5,m:3.42,v0:880,bc:0.168,dm:'G7',dfm:0.25,core:{mat:'msteel',m:1.45,d:4.0,N:0.15},cs:{mat:'msteel',g:5.0},prop:1.45,ref:0.23,bom:[['msteel',1.45],['lead',0.6],['msteel',1.37]],gel:{cd:0.23,nk:7}},
+ {id:'r545ap',n:'5.45×39 mm 7N22 穿甲彈',g:'rifle',k:'core',d:5.6,L:25.5,m:3.7,v0:890,bc:0.17,dm:'G7',dfm:0.05,core:{mat:'hsteel',m:1.6,d:4.0,N:0.12},cs:{mat:'msteel',g:5.0},prop:1.45,ref:0.55,bom:[['hsteel',1.6],['lead',0.7],['msteel',1.4]],gel:{cd:0.23,nk:8}},
+ {id:'r762m80',n:'7.62×51 mm M80 球形彈',g:'rifle',k:'soft',d:7.82,L:28.9,m:9.53,v0:847,bc:0.200,dm:'G7',dfm:0.85,N:0.15,cs:{mat:'brass',g:12.0},prop:2.85,ref:0.75,bom:[['lead',7.8],['gm',1.73]],gel:{cd:0.24,nk:16,vf:790,ff:0.3}},
+ {id:'r762m61',n:'7.62×51 mm M61 穿甲彈',g:'rifle',k:'core',d:7.82,L:31,m:9.75,v0:838,bc:0.205,dm:'G7',dfm:0.05,core:{mat:'hsteel',m:3.7,d:6.2,N:0.12},cs:{mat:'brass',g:12.0},prop:2.9,ref:1.6,bom:[['hsteel',3.7],['lead',4.2],['gm',1.85]],gel:{cd:0.24,nk:18}},
+ {id:'r762m993',n:'7.62×51 mm M993 碳化鎢穿甲彈',g:'rifle',k:'core',d:7.82,L:31,m:8.2,v0:910,bc:0.19,dm:'G7',dfm:0.02,core:{mat:'wc',m:4.2,d:5.6,N:0.08},cs:{mat:'brass',g:12.0},prop:3.1,ref:5.0,bom:[['wc',4.0],['al5083',1.6],['gm',2.6]],gel:{cd:0.24,nk:20}},
+ {id:'r54lps',n:'7.62×54R LPS 軟鋼芯',g:'rifle',k:'core',d:7.92,L:32.5,m:9.6,v0:828,bc:0.21,dm:'G7',dfm:0.3,core:{mat:'msteel',m:4.0,d:6.0,N:0.15},cs:{mat:'msteel',g:9.5},prop:3.1,ref:0.38,bom:[['msteel',4.0],['lead',3.2],['msteel',2.4]],gel:{cd:0.24,nk:20}},
+ {id:'r54b32',n:'7.62×54R B-32 穿甲燃燒彈',g:'rifle',k:'core',d:7.92,L:35,m:10.0,v0:854,bc:0.2,dm:'G7',dfm:0.04,core:{mat:'hsteel',m:4.6,d:6.2,N:0.12},cs:{mat:'msteel',g:9.5},prop:3.1,ref:0.9,bom:[['hsteel',4.6],['lead',2.8],['msteel',2.6]],he:{x:'inc',g:0.6},gel:{cd:0.24,nk:22}},
+ {id:'r3006ap',n:'.30-06 M2 穿甲彈',g:'rifle',k:'core',d:7.82,L:34,m:10.8,v0:878,bc:0.36,dm:'G1',dfm:0.04,core:{mat:'hsteel',m:5.25,d:6.2,N:0.1},cs:{mat:'brass',g:12.8},prop:3.4,ref:1.6,bom:[['hsteel',5.25],['lead',3.4],['gm',2.15]],gel:{cd:0.24,nk:22}},
+ {id:'r338',n:'.338 Lapua Magnum 250 gr 競賽空尖',g:'rifle',k:'soft',d:8.61,L:38,m:16.2,v0:905,bc:0.322,dm:'G7',dfm:0.75,N:0.12,cs:{mat:'brass',g:20.5},prop:5.8,ref:4.5,bom:[['lead',13.5],['gm',2.7]],gel:{cd:0.23,nk:9,vf:650,ff:0.25}},
+ {id:'r308sp',n:'.308 Win 165 gr 軟尖獵彈',g:'rifle',k:'soft',d:7.82,L:28,m:10.7,v0:820,bc:0.21,dm:'G7',dfm:0.95,N:0.5,cs:{mat:'brass',g:11.5},prop:2.9,ref:1.4,bom:[['lead',8.6],['gm',2.1]],gel:{cd:0.3,ex:1.9,vx:450}},
+ /* heavy machine gun */
+ {id:'h50m33',n:'.50 BMG M33 球形彈（軟鋼芯）',g:'hmg',k:'core',d:12.95,L:58,m:42.9,v0:887,bc:0.67,dm:'G1',dfm:0.25,core:{mat:'msteel',m:27,d:10.4,N:0.15},cs:{mat:'brass',g:57},prop:15,ref:2.8,bom:[['msteel',27],['lead',3],['gm',12.9]],gel:{cd:0.24,nk:30}},
+ {id:'h50ap',n:'.50 BMG M2 穿甲彈',g:'hmg',k:'core',d:12.95,L:58,m:45.9,v0:887,bc:0.67,dm:'G1',dfm:0.04,core:{mat:'hsteel',m:27.5,d:10.9,N:0.1},cs:{mat:'brass',g:57},prop:15,ref:3.4,bom:[['hsteel',27.5],['lead',4],['gm',14.4]],gel:{cd:0.24,nk:32}},
+ {id:'h50api',n:'.50 BMG M8 穿甲燃燒彈',g:'hmg',k:'core',d:12.95,L:58,m:40.4,v0:910,bc:0.62,dm:'G1',dfm:0.04,core:{mat:'hsteel',m:26,d:10.9,N:0.1},cs:{mat:'brass',g:57},prop:15,ref:4.0,bom:[['hsteel',26],['gm',13.4]],he:{x:'inc',g:1.0},gel:{cd:0.24,nk:32}},
+ {id:'h50slap',n:'.50 BMG M903 脫殼輕型穿甲彈（鎢）',g:'hmg',k:'lr',d:7.62,L:28,m:23.7,v0:1220,bc:0.45,dm:'G1',dfm:0,core:{mat:'wha',d:7.62,L:28},cs:{mat:'brass',g:57},prop:16,ref:25,bom:[['wha',21.5],['pc',2.2]],gel:{cd:0.24,nk:20}},
+ {id:'h50raufoss',n:'.50 BMG Mk 211 Raufoss 多用途彈',g:'hmg',k:'core',d:12.95,L:58,m:42.0,v0:915,bc:0.62,dm:'G1',dfm:0.04,core:{mat:'wc',m:9.5,d:8.0,N:0.15},cs:{mat:'brass',g:57},prop:15,ref:42,bom:[['wc',9.5],['msteel',20],['gm',11]],he:{x:'rdx',g:1.0},x:{'鋯燃燒劑與引信機構':4},gel:{cd:0.24,nk:15}},
+ {id:'h127b32',n:'12.7×108 mm B-32 穿甲燃燒彈',g:'hmg',k:'core',d:12.98,L:64,m:48.2,v0:830,bc:0.68,dm:'G1',dfm:0.04,core:{mat:'hsteel',m:30,d:10.9,N:0.1},cs:{mat:'msteel',g:63},prop:17,ref:3.0,bom:[['hsteel',30],['lead',2],['msteel',16.2]],he:{x:'inc',g:1.0},gel:{cd:0.24,nk:32}},
+ {id:'h145b32',n:'14.5×114 mm B-32 穿甲燃燒彈',g:'hmg',k:'core',d:14.88,L:66,m:64,v0:1000,bc:0.75,dm:'G1',dfm:0.04,core:{mat:'hsteel',m:41,d:12.4,N:0.08},cs:{mat:'msteel',g:94},prop:30,ref:6.0,bom:[['hsteel',39],['lead',4],['msteel',21]],he:{x:'inc',g:2.0},gel:{cd:0.24,nk:35}},
+ {id:'h145bs41',n:'14.5×114 mm BS-41 碳化鎢穿甲燃燒彈',g:'hmg',k:'core',d:14.88,L:66,m:64.4,v0:1000,bc:0.74,dm:'G1',dfm:0.02,core:{mat:'wc',m:40,d:10.8,N:0.12},cs:{mat:'msteel',g:94},prop:30,ref:9.0,bom:[['wc',40],['msteel',24.4]],he:{x:'inc',g:1.5},gel:{cd:0.24,nk:35}},
+ /* autocannon */
+ {id:'a20hei',n:'20×102 mm M56A3 高爆燃燒彈',g:'auto',k:'he',d:20,L:80,m:102,v0:1030,bc:0.32,dm:'G1',cs:{mat:'brass',g:118},prop:38,ref:16,bom:[['msteel',85]],he:{x:'rdx',g:10.6,tw:4},x:{'M505 引信':4},gel:{cd:0.3,nk:20}},
+ {id:'a20sap',n:'20×102 mm PGU-28 半穿甲高爆燃燒彈',g:'auto',k:'core',d:20,L:84,m:102,v0:1050,bc:0.34,dm:'G1',dfm:0,core:{mat:'hsteel',m:70,d:17,N:0.2},cs:{mat:'brass',g:118},prop:38,ref:45,bom:[['hsteel',85]],he:{x:'pbx',g:8},x:{'延時引信':8},gel:{cd:0.3,nk:20}},
+ {id:'a25apds',n:'25×137 mm M791 脫殼穿甲彈',g:'auto',k:'lr',d:25,L:60,m:134,v0:1345,bc:0.9,dm:'G7',core:{mat:'wha',d:14,L:57},cs:{mat:'msteel',g:180},prop:98,rw:458,ref:110,bom:[['wha',115],['al7039',90]],gel:{cd:0.3,nk:15}},
+ {id:'a25apfs',n:'25×137 mm M919 尾翼穩定脫殼穿甲彈（貧鈾）',g:'auto',k:'lr',d:25,L:110,m:96,v0:1385,bc:1.5,dm:'G7',core:{mat:'du',d:8.8,L:88},cs:{mat:'msteel',g:180},prop:100,rw:458,ref:140,bom:[['du',99],['al7039',70]],gel:{cd:0.3,nk:10}},
+ {id:'a30api',n:'30×173 mm PGU-14/B 穿甲燃燒彈（貧鈾芯）',g:'auto',k:'core',d:30,L:110,m:425,v0:1013,bc:0.9,dm:'G1',dfm:0,core:{mat:'du',m:298,d:19,N:0.15},cs:{mat:'al5083',g:160},prop:142,rw:727,ref:95,bom:[['du',298],['al5083',127]],he:{x:'inc',g:4},gel:{cd:0.3,nk:25}},
+ {id:'a30fs',n:'30×173 mm Mk 258 尾翼穩定脫殼穿甲彈（鎢）',g:'auto',k:'lr',d:30,L:140,m:235,v0:1405,bc:1.8,dm:'G7',core:{mat:'wha',d:10.5,L:125},cs:{mat:'msteel',g:270},prop:150,rw:650,ref:230,bom:[['wha',190],['al7039',120]],gel:{cd:0.3,nk:10}},
+ {id:'a30br6',n:'30×165 mm 3UBR6 被帽穿甲彈（鋼）',g:'auto',k:'core',d:30,L:110,m:400,v0:970,bc:0.42,dm:'G1',dfm:0,cap:1,core:{mat:'hsteel',m:330,d:26,N:0.25},cs:{mat:'msteel',g:330},prop:117,rw:850,ref:45,bom:[['hsteel',380]],he:{x:'inc',g:3},gel:{cd:0.3,nk:25}},
+ {id:'g40hedp',n:'40×46 mm M433 高爆兩用榴彈',g:'gren',k:'sc',d:40,L:80,m:177,v0:76,bc:0.08,dm:'G1',rocket:0,cs:{mat:'al5083',g:40},prop:0.3,rw:230,ref:45,bom:[['al5083',70],['cu',20]],sc:{cd:38,k:2.0,pr:2,so:1.5},he:{x:'compb',g:45,tw:2,pre:0.12},x:{'M550 引信':12},gel:{cd:0.6,nk:5}},
+ /* tank guns */
+ {id:'t105m833',n:'105 mm M833 尾翼穩定脫殼穿甲彈（貧鈾）',g:'tank',k:'lr',d:105,L:540,m:3900,v0:1490,bc:2.6,dm:'G7',core:{mat:'du',d:27,L:450},rw:17500,ref:2500,bom:[['du',3890],['al7039',2300]],x:{'可燃藥筒與發射藥':600},gel:{cd:0.3,nk:10}},
+ {id:'t120m829a1',n:'120 mm M829A1 尾翼穩定脫殼穿甲彈（貧鈾）',g:'tank',k:'lr',d:120,L:780,m:5000,v0:1575,bc:3.0,dm:'G7',core:{mat:'du',d:22,L:684},rw:20900,ref:3500,bom:[['du',4840],['al7039',3200]],x:{'可燃藥筒與發射藥':900},gel:{cd:0.3,nk:10}},
+ {id:'t120m829a3',n:'120 mm M829A3 尾翼穩定脫殼穿甲彈（貧鈾）',g:'tank',k:'lr',d:120,L:924,m:6500,v0:1555,bc:3.4,dm:'G7',core:{mat:'du',d:25,L:790},rw:22300,ref:9000,bom:[['du',6940],['maraging',500],['al7039',3500]],x:{'可燃藥筒與發射藥':1100},gel:{cd:0.3,nk:10}},
+ {id:'t120dm53',n:'120 mm DM53 尾翼穩定脫殼穿甲彈（鎢）',g:'tank',k:'lr',d:120,L:840,m:5000,v0:1670,bc:3.2,dm:'G7',core:{mat:'wha',d:22,L:745},rw:21400,ref:6500,bom:[['wha',4980],['al7039',3300]],x:{'可燃藥筒與發射藥':1000},gel:{cd:0.3,nk:10}},
+ {id:'t125m42',n:'125 mm 3BM42 芒果 尾翼穩定脫殼穿甲彈',g:'tank',k:'lr',d:125,L:574,m:4850,v0:1715,bc:2.8,dm:'G7',core:{mat:'wha',d:24,L:570},rw:20400,ref:2500,bom:[['wha',4520],['al7039',2500]],x:{'半可燃藥筒與發射藥':600},gel:{cd:0.3,nk:10}},
+ {id:'t125m60',n:'125 mm 3BM60 鉛-2 尾翼穩定脫殼穿甲彈',g:'tank',k:'lr',d:125,L:740,m:4900,v0:1660,bc:3.1,dm:'G7',core:{mat:'wha',d:22,L:740},rw:22000,ref:4500,bom:[['wha',4950],['al7039',2600]],x:{'可燃藥筒與發射藥':800},gel:{cd:0.3,nk:10}},
+ {id:'t120heat',n:'120 mm M830 反坦克高爆彈',g:'tank',k:'sc',d:120,L:700,m:13500,v0:1140,bc:1.1,dm:'G7',sc:{cd:100,k:6.0,pr:4,so:2.5},he:{x:'compb',g:1700,tw:6},rw:24200,ref:5000,bom:[['msteel',9000],['cu',900]],x:{'引信':300,'可燃藥筒與發射藥':900},gel:{cd:0.3,nk:10}},
+ {id:'t120hesh',n:'120 mm L31 碎甲彈（線膛砲）',g:'tank',k:'hesh',d:120,L:480,m:17100,v0:670,bc:0.6,dm:'G1',he:{x:'a3',g:4000,tw:8},rw:27000,ref:1800,bom:[['msteel',12500]],x:{'底部引信':120,'藥包':300},gel:{cd:0.6,nk:5}},
+ {id:'t88pzgr39',n:'88 mm KwK 36 PzGr.39 被帽穿甲彈（二戰）',g:'tank',k:'core',d:88,L:360,m:10200,v0:773,bc:1.15,dm:'G1',dfm:0,cap:1,core:{mat:'hsteel',m:10000,d:88,N:0.3},rw:15300,ref:700,bom:[['hsteel',10100]],he:{x:'tnt',g:59},x:{'黃銅藥筒與發射藥':140},gel:{cd:0.4,nk:20}},
+ {id:'t75m61',n:'75 mm M3 M61 被帽穿甲彈（二戰）',g:'tank',k:'core',d:75,L:300,m:6790,v0:619,bc:1.0,dm:'G1',dfm:0,cap:1,core:{mat:'hsteel',m:6700,d:75,N:0.3},rw:8900,ref:450,bom:[['hsteel',6700]],he:{x:'tnt',g:64},x:{'黃銅藥筒與發射藥':90},gel:{cd:0.4,nk:20}},
+ {id:'t76hvap',n:'76 mm M93 超高速穿甲彈（鎢芯，二戰）',g:'tank',k:'core',d:76,L:260,m:4300,v0:1036,bc:0.75,dm:'G1',dfm:0,core:{mat:'wc',m:1100,d:38,N:0.3},rw:8400,ref:900,bom:[['wc',1100],['al5083',3200]],x:{'黃銅藥筒與發射藥':90},gel:{cd:0.4,nk:20}},
+ /* artillery, mortar, grenades */
+ {id:'art155m107',n:'155 mm M107 高爆榴彈',g:'art',k:'he',d:155,L:700,m:43100,v0:684,bc:2.0,dm:'G1',he:{x:'tnt',g:6620,tw:22},rw:52000,ref:1600,bom:[['msteel',36000]],x:{'M739 引信':60,'發射藥包':500},gel:{cd:0.6,nk:5}},
+ {id:'art155m795',n:'155 mm M795 高爆榴彈（高破片鋼）',g:'art',k:'he',d:155,L:800,m:46700,v0:827,bc:2.4,dm:'G1',he:{x:'tnt',g:10800,tw:18},rw:58000,ref:2000,bom:[['hsteel',35500]],x:{'M739 引信':60,'模組化發射藥':800},gel:{cd:0.6,nk:5}},
+ {id:'mor120',n:'120 mm M933 迫擊砲彈',g:'art',k:'he',d:120,L:700,m:13600,v0:318,bc:0.9,dm:'G1',he:{x:'compb',g:2990,tw:10},rw:13900,ref:900,bom:[['msteel',10300]],x:{'M734 多選引信':180,'藥包':40},gel:{cd:0.6,nk:5}},
+ {id:'gm67',n:'M67 破片手榴彈',g:'gren',k:'he',d:64,L:90,m:400,v0:15,bc:0.02,dm:'G1',guided:1,he:{x:'compb',g:180,tw:2.5},ref:45,bom:[['msteel',190]],x:{'M213 延時引信':8},gel:{cd:0.6,nk:5}},
+ /* rockets and missiles */
+ {id:'rpg7v',n:'RPG-7 PG-7V 85 mm 反坦克火箭',g:'rkt',k:'sc',d:85,L:930,m:2200,v0:300,cruise:240,guided:1,rocket:1,sc:{cd:80,k:3.6,pr:2,so:2.2},he:{x:'a3',g:340,tw:3},ref:250,bom:[['msteel',1300],['cu',120]],x:{'壓電引信':20,'火箭發動機':60},gel:{cd:0.6,nk:5}},
+ {id:'rpg7vl',n:'RPG-7 PG-7VL 93 mm 反坦克火箭',g:'rkt',k:'sc',d:93,L:990,m:2600,v0:290,cruise:240,guided:1,rocket:1,sc:{cd:90,k:5.5,pr:4,so:2.6},he:{x:'octol',g:730,tw:3},ref:700,bom:[['msteel',1500],['cu',160]],x:{'壓電引信':20,'火箭發動機':80},gel:{cd:0.6,nk:5}},
+ {id:'rpg7vr',n:'RPG-7 PG-7VR 105 mm 串聯反坦克火箭',g:'rkt',k:'sc',d:105,L:1130,m:4500,v0:200,cruise:200,guided:1,rocket:1,sc:{cd:102,k:6.4,pr:4,so:2.5,tan:1},he:{x:'octol',g:1400,tw:3},ref:2500,bom:[['msteel',2600],['cu',260]],x:{'雙引信':60,'火箭發動機':120},gel:{cd:0.6,nk:5}},
+ {id:'at4',n:'AT4 84 mm 反坦克火箭（含發射管）',g:'rkt',k:'sc',d:84,L:1000,m:1800,v0:290,cruise:285,guided:1,rocket:1,sc:{cd:80,k:5.25,pr:4,so:2.5},he:{x:'octol',g:440,tw:3},rw:6700,ref:1800,bom:[['al5083',900],['cu',140]],x:{'發射管':600,'引信':40},gel:{cd:0.6,nk:5}},
+ {id:'m72',n:'M72A2 LAW 66 mm 反坦克火箭',g:'rkt',k:'sc',d:66,L:510,m:1000,v0:145,cruise:145,guided:1,rocket:1,sc:{cd:62,k:4.5,pr:3,so:2.2},he:{x:'octol',g:300,tw:2},rw:2500,ref:1300,bom:[['al5083',500],['cu',90]],x:{'發射管':300,'引信':25},gel:{cd:0.6,nk:5}},
+ {id:'cg551',n:'卡爾古斯塔夫 FFV551 84 mm 反坦克彈',g:'rkt',k:'sc',d:84,L:520,m:2200,v0:255,cruise:255,guided:1,rocket:1,sc:{cd:80,k:5.0,pr:4,so:2.5},he:{x:'octol',g:400,tw:3},rw:3200,ref:900,bom:[['msteel',1300],['cu',130]],x:{'引信':30,'續航火箭':60},gel:{cd:0.6,nk:5}},
+ {id:'javelin',n:'FGM-148 標槍飛彈（串聯）',g:'rkt',k:'sc',d:127,L:1080,m:11800,v0:140,cruise:140,guided:1,rocket:1,sc:{cd:120,k:6.4,pr:5,so:3,tan:1},he:{x:'pbx',g:8400,tw:3},rw:22300,ref:200000,bom:[['al7039',4000],['cu',500]],x:{'紅外線尋標器與導引':120000,'推進':8000},gel:{cd:0.6,nk:5}},
+ {id:'tow2a',n:'BGM-71 TOW-2A 飛彈（串聯）',g:'rkt',k:'sc',d:152,L:1510,m:22600,v0:280,cruise:280,guided:1,rocket:1,sc:{cd:150,k:6.0,pr:5,so:3,tan:1},he:{x:'pbx',g:5900,tw:3},ref:93000,bom:[['al7039',8000],['cu',800]],x:{'線導與導引':45000,'推進':6000},gel:{cd:0.6,nk:5}},
+ {id:'kornet',n:'9M133 短號飛彈（串聯）',g:'rkt',k:'sc',d:152,L:1200,m:27000,v0:300,cruise:300,guided:1,rocket:1,sc:{cd:150,k:7.6,pr:5,so:3,tan:1},he:{x:'octol',g:4600,tw:3},ref:30000,bom:[['msteel',9000],['cu',800]],x:{'雷射駕束導引':12000,'推進':3000},gel:{cd:0.6,nk:5}},
+ /* shotgun */
+ {id:'s12buck',n:'12 號 00 鹿彈（9 粒）',g:'shot',k:'shot',d:8.38,L:8.38,m:31.5,pel:9,pm:3.5,pd:8.38,v0:400,bc:0.07,dm:'G1',dfm:0.4,core:{mat:'lead',m:3.5,d:8.38,N:0.5},cs:{mat:'pc',g:6},prop:2.3,rw:40,ref:0.85,bom:[['lead',31.5]],gel:{cd:0.5}},
+ {id:'s12slug',n:'12 號 1 oz 獨頭彈',g:'shot',k:'soft',d:18.5,L:18,m:28.3,v0:480,bc:0.07,dm:'G1',dfm:0.6,N:0.6,mat:'lead',cs:{mat:'pc',g:8},prop:2.4,rw:41,ref:1.1,bom:[['lead',28.3]],gel:{cd:0.45,ex:1.35,vx:300}},
+ /* fragment simulating projectiles */
+ {id:'fsp17',n:'17 gr 破片模擬彈（.22 FSP）',g:'frag',k:'frag',d:5.59,L:6.4,m:1.1,v0:600,bc:0.03,dm:'G1',dfm:0.1,core:{mat:'msteel',m:1.1,d:5.59,N:0.9},ref:1.0,bom:[['msteel',1.1]],gel:{cd:0.9,nk:2}},
+ {id:'fsp64',n:'64 gr 破片模擬彈（.30 FSP）',g:'frag',k:'frag',d:7.62,L:8.6,m:4.15,v0:600,bc:0.05,dm:'G1',dfm:0.1,core:{mat:'msteel',m:4.15,d:7.62,N:0.9},ref:1.5,bom:[['msteel',4.15]],gel:{cd:0.9,nk:2}},
+ /* 架空 (fictional) */
+ {id:'xmana762',n:'【架空】7.62 mm 魔晶穿甲彈（光屬性）',g:'magic',k:'core',d:7.82,L:31,m:9.0,v0:900,bc:0.21,dm:'G7',dfm:0.02,core:{mat:'manacore',m:4.6,d:5.4,N:0.1},cs:{mat:'brass',g:12},prop:3.0,bom:[['manacore',4.6],['gm',2.4]],
+   mg:{bo:0.3,pi:1.2,dp:0.5,el:4,mc:2,mcp:100,st:0.98},gel:{cd:0.24,nk:15},note:'魔晶加速 +30% 動能、穿甲 ×1.2、破除目標魔能 50%'},
+ {id:'xmanarod',n:'【架空】120 mm 魔能素長桿彈',g:'magic',k:'lr',d:120,L:900,m:5600,v0:1700,bc:3.4,dm:'G7',core:{mat:'manacore',d:22,L:800},rw:22000,bom:[['manacore',6400],['al7039',3200]],
+   mg:{bo:0.2,pi:1.15,dp:0.3,el:3,mc:300,mcp:100,st:0.97},x:{'可燃藥筒與發射藥':1000},gel:{cd:0.3,nk:10}},
+ {id:'xmanaheat',n:'【架空】110 mm 魔導射流彈（雷屬性）',g:'magic',k:'sc',d:110,L:900,m:3200,v0:280,cruise:280,guided:1,rocket:1,sc:{cd:105,k:7.0,pr:5,so:3,ln:'mana',tan:1},he:{x:'octol',g:900,tw:3},bom:[['msteel',1600]],
+   mg:{bo:0,pi:1.1,dp:0.8,el:3,mc:120,mcp:100,st:0.95},x:{'引信':60,'火箭發動機':150},gel:{cd:0.6,nk:5}},
+ {id:'xburst40',n:'【架空】40 mm 魔爆榴彈（火屬性）',g:'magic',k:'he',d:40,L:90,m:230,v0:76,bc:0.08,dm:'G1',he:{x:'compb',g:32,tw:3},cs:{mat:'al5083',g:45},prop:0.3,rw:290,bom:[['msteel',170]],
+   mg:{bu:0.6,el:1,mc:40,mcp:100,st:0.93},x:{'引信':12},gel:{cd:0.6,nk:5}}
+];
+
+window.LatoArmoryLib={PROJ:PROJ,MATS:MATS,mat:mat,rtOf:rtOf,ypOf:ypOf,cunniffU:cunniffU,EXPL:EXPL,ELEM:ELEM,ELM:ELM,envOf:envOf,flyTable:flyTable,velAt:velAt,loPerf:loPerf,taRun:taRun,K:K,KINDN:KINDN,
+  stackKE:stackKE,stackSC:stackSC,stackHE:stackHE,evaluate:evaluate,perfLimit:perfLimit,v50Stack:v50Stack,pPerf:pPerf,stackAD:stackAD,stackThick:stackThick,stackCostM2:stackCostM2,
+  GROUPS:GROUPS,MARKET:MARKET,roundMass:roundMass,rawCost:rawCost,costOf:costOf,calibrateCost:calibrateCost,gelRun:gelRun,babt:babt,NIJ:NIJ,kinneyGraham:kinneyGraham,blastRadius:blastRadius,
+  fragments:fragments,multiHit:multiHit,heEq:heEq,scCapacity:scCapacity,teCE:teCE,noseN:noseN,coreOf:coreOf,clamp:clamp,mb32:mb32,hstr:hstr,ncdf:ncdf,cloneObj:cloneObj};
+})();
+</script>
+<script>
+/* ===== MediaWiki:Gadget-LatoArmory.js：貼上這段 ===== */
+(function(){
+"use strict";
+var root=document.getElementById('lato-armory');
+if(!root||!window.LatoArmoryLib)return;
+var A=window.LatoArmoryLib,PI=Math.PI,D2R=PI/180;
+function q(k){return root.querySelector('[data-k="'+k+'"]');}
+function esc(s){return String(s===undefined||s===null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+function fx(n,d){if(n===null||n===undefined||!isFinite(n))return '—';var a=Math.abs(n);d=d===undefined?(a>=100?0:a>=10?1:2):d;return n.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});}
+function opts(list,sel){return list.map(function(o){return '<option value="'+esc(o[0])+'"'+(String(o[0])===String(sel)?' selected':'')+'>'+esc(o[1])+'</option>';}).join('');}
+function dl(name,blob){var a=document.createElement('a'),u=URL.createObjectURL(blob);a.href=u;a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(u);a.remove();},2000);}
+function store(k,v){try{if(v===undefined)return JSON.parse(localStorage.getItem(k)||'null');localStorage.setItem(k,JSON.stringify(v));}catch(e){return null;}}
+
+/* ---------- library state: built-ins plus the user's own and edited entries ---------- */
+var KEY='latoArmory.v1';
+var S={mats:[],proj:[],set:{rate:2.5,market:'mil',lot:1,alt:0,T:15,g:9.80665,wind:0,charge:100,usd:true},last:null};
+var BASEM={},BASEP={};A.MATS.forEach(function(m){BASEM[m.id]=1;});A.PROJ.forEach(function(p){BASEP[p.id]=1;});
+function loadLib(){var sv=store(KEY)||{};S.mats=A.MATS.map(A.cloneObj);S.proj=A.PROJ.map(A.cloneObj);
+  S.proj.forEach(function(p){A.calibrateCost(p,S.mats);});
+  (sv.mats||[]).forEach(function(m){var i=idxOf(S.mats,m.id);if(i>=0)S.mats[i]=m;else S.mats.push(m);});
+  (sv.proj||[]).forEach(function(p){var i=idxOf(S.proj,p.id);if(i>=0)S.proj[i]=p;else S.proj.push(p);});
+  if(sv.set)Object.keys(sv.set).forEach(function(k){S.set[k]=sv.set[k];});}
+function saveLib(){var sv={set:S.set,mats:S.mats.filter(function(m){return m._u;}),proj:S.proj.filter(function(p){return p._u;})};store(KEY,sv);}
+function idxOf(a,id){for(var i=0;i<a.length;i++)if(a[i].id===id)return i;return -1;}
+function P(id){var i=idxOf(S.proj,id);return S.proj[i>=0?i:0];}
+function M(id){return A.mat(id,S.mats);}
+function env(){return {alt:S.set.alt,T:S.set.T,g:S.set.g,wind:S.set.wind};}
+function eo(extra){var o={lib:S.mats,charge:S.set.charge/100,env:env()};if(extra)Object.keys(extra).forEach(function(k){o[k]=extra[k];});return o;}
+loadLib();
+
+/* ---------- money and mass ---------- */
+function money(usd){if(!isFinite(usd))return '—';var d=usd/S.set.rate;return '<b>'+fx(d,d<0.1?3:d<10?2:d<1000?1:0)+'</b> 東銀圓'+(S.set.usd?'<span class="lt-note">（US$ '+fx(usd,usd<10?2:usd<1000?1:0)+'）</span>':'');}
+function moneyT(usd){var d=usd/S.set.rate;return fx(d,d<0.1?4:d<10?2:d<1000?1:0)+' 東銀圓';}
+function mass(g){if(!isFinite(g))return '—';return g>=1000?fx(g/1000,g>=1e5?0:2)+' kg':fx(g,g<10?2:1)+' g';}
+function costP(p){return A.costOf(p,{lib:S.mats,market:S.set.market,lot:(A.GROUPS[p.g]||A.GROUPS.rifle)[1]*S.set.lot});}
+function small(p){return (p.d||0)<=20.5&&['pistol','rifle','hmg','auto','shot','frag','magic'].indexOf(p.g)>=0&&(p.m||0)<1000;}
+
+/* ---------- armour presets ---------- */
+var ARM=[
+ ['b2a','body','NIJ IIA 芳綸軟甲',[['km2',2.2]]],['b2','body','NIJ II 芳綸軟甲',[['km2',2.9]]],['b3a','body','NIJ IIIA 芳綸軟甲',[['km2',3.7]]],['b3ape','body','NIJ IIIA 聚乙烯軟甲',[['peud',4.6]]],
+ ['b3ar','body','III 級 AR500 鋼板（6.35 mm）',[['ar500',6.35]]],['b3ar6','body','III+ 級 AR600 鋼板（6.35 mm）',[['ar600',6.35]]],['b3pe','body','III 級獨立式聚乙烯板',[['pehb',20]]],
+ ['b3c','body','III+ 級氧化鋁陶瓷板',[['al2o3',6.5],['pehb',6]]],['b4a','body','IV 級氧化鋁陶瓷板',[['al2o3',9.5],['pehb',6.5]]],['b4s','body','IV 級碳化矽陶瓷板',[['sic',8.5],['pehb',6]]],
+ ['besapi','body','ESAPI 碳化硼陶瓷板',[['b4c',9],['pehb',6.5]]],['bicw','body','IV 級陶瓷板＋IIIA 軟甲（併用）',[['al2o3',9.5],['pehb',6.5],['km2',3.7]]],
+ ['hm1','body','M1 鋼盔（1.0 mm 錳鋼）',[['hadf',1.0]]],['hpasgt','body','PASGT 芳綸頭盔',[['aramc',8]]],['hach','body','ACH 先進戰鬥頭盔',[['aramc',7.8]]],['bsilk','body','十九世紀絲綢防彈衣',[['silk',6]]],
+ ['vhum','veh','悍馬車門（加裝 HHA）',[['hha',8,0]]],['vmrap','veh','MRAP 側面（12 mm HHA）',[['hha',12,0]]],['vm113','veh','M113 正面（38 mm 鋁 5083，45°）',[['al5083',38,45]]],
+ ['vbrad','veh','布萊德雷側面（間隔鋼＋7039 鋁）',[['hha',6.35,0,100],['al7039',25.4,0]]],['vbmp','veh','BMP-1 車首上裝甲（19 mm，57°）',[['rha',19,57]]],
+ ['vt34','veh','T-34 車首（45 mm，60°）',[['rha',45,60]]],['vsher','veh','雪曼 車首（51 mm，56°）',[['cast',51,56]]],['vtig','veh','虎式 車首（100 mm，9°）',[['rha',100,9]]],['vpan','veh','豹式 車首上裝甲（80 mm，55°）',[['rha',80,55]]],
+ ['vt72','veh','T-72B 砲塔正面（接觸-5＋複合）',[['k5',80,60,20],['chob',520,30]]],['vm1','veh','M1A1HA 砲塔正面（貧鈾網複合）',[['dumesh',720,0]]],['vt90','veh','T-90 車首（遺物＋複合）',[['relikt',90,60,20],['chob',600,0]]],
+ ['vslat','veh','柵欄＋布萊德雷側面',[['slat',10,0,400],['hha',6.35,0,100],['al7039',25.4,0]]],
+ ['oconc','other','混凝土牆 30 cm',[['conc',300]]],['osand','other','雙層沙包 45 cm',[['sand',450]]],['obrick','other','紅磚牆 23 cm',[['brick',230]]],['odoor','other','汽車車門',[['mild',0.8,0,100],['mild',0.8]]],
+ ['owood','other','實木門 4.5 cm',[['oak',45]]],['oglass','other','防彈玻璃 40 mm＋聚碳酸酯',[['glass',40],['pc',6]]],['oauto','other','汽車擋風玻璃（45°）',[['aglass',6,45]]],
+ ['xmana','magic','【架空】魔能素胸甲',[['mana',4],['rune',3]]],['xdragon','magic','【架空】龍鱗甲',[['dragon',6],['rune',4]]],['xmith','magic','【架空】秘銀胸板',[['mithril',5]]],['xtank','magic','【架空】魔晶陶瓷戰車裝甲',[['manacer',60,50],['mana',40,50]]]];
+var ARMG={body:'人員防護',veh:'車輛裝甲',other:'掩體與建材',magic:'架空裝甲'};
+function armLayers(id){for(var i=0;i<ARM.length;i++)if(ARM[i][0]===id)return ARM[i][3].map(function(l){return {mat:l[0],t:l[1],ang:l[2]||0,gap:l[3]||0};});return [];}
+function armOpts(sel,filter){var h='';Object.keys(ARMG).forEach(function(g){var it=ARM.filter(function(a){return a[1]===g&&(!filter||filter(a));});if(!it.length)return;h+='<optgroup label="'+ARMG[g]+'">'+it.map(function(a){return '<option value="'+a[0]+'"'+(a[0]===sel?' selected':'')+'>'+esc(a[2])+'</option>';}).join('')+'</optgroup>';});return '<option value="">（自訂疊層）</option>'+h;}
+function projOpts(sel,filter){var h='';Object.keys(A.GROUPS).forEach(function(g){var it=S.proj.filter(function(p){return p.g===g&&(!filter||filter(p));});if(!it.length)return;h+='<optgroup label="'+A.GROUPS[g][0]+'">'+it.map(function(p){return '<option value="'+esc(p.id)+'"'+(p.id===sel?' selected':'')+'>'+esc(p.n)+(p._u?' ✎':'')+'</option>';}).join('')+'</optgroup>';});return h;}
+var CATN={metal:'金屬',ceramic:'陶瓷',fiber:'纖維／織物',poly:'聚合物',glass:'玻璃',conc:'混凝土與磚',soil:'土石',wood:'木材與板材',liquid:'液體',tissue:'人體組織',comp:'複合裝甲（等效）',era:'反應／柵欄裝甲'};
+function matOpts(sel){var h='';Object.keys(CATN).forEach(function(c){var it=S.mats.filter(function(m){return m.cat===c;});if(!it.length)return;h+='<optgroup label="'+CATN[c]+'">'+it.map(function(m){return '<option value="'+esc(m.id)+'"'+(m.id===sel?' selected':'')+'>'+esc(m.n)+(m.mg?' ✦':'')+'</option>';}).join('')+'</optgroup>';});return h;}
+
+/* ---------- layer editor ---------- */
+function layerEditor(box,get,set,onChange){
+  function draw(){var L=get();box.innerHTML='<div class="lt-sc"><table class="lt-dt lt-lay"><tr><th>#</th><th class="l">材料</th><th>厚度 mm</th><th>傾角 °</th><th>後方間隙 mm</th><th>面密度 kg/m²</th><th></th></tr>'+
+    L.map(function(l,i){var m=M(l.mat);return '<tr data-i="'+i+'"><td>'+(i+1)+'</td><td class="l"><select data-f="mat">'+matOpts(l.mat)+'</select></td><td><input type="number" data-f="t" value="'+l.t+'" min="0" step="0.1"></td>'+
+      '<td><input type="number" data-f="ang" value="'+(l.ang||0)+'" min="0" max="89" step="1"></td><td><input type="number" data-f="gap" value="'+(l.gap||0)+'" min="0" step="5"></td><td>'+fx((+l.t||0)*m.rho)+'</td>'+
+      '<td><button type="button" data-up="'+i+'" title="上移">↑</button><button type="button" data-del="'+i+'" title="刪除">✕</button></td></tr>';}).join('')+'</table></div>'+
+    '<div class="row"><button type="button" data-add="1">新增一層</button><label>全部傾角 <input type="number" data-allang="1" value="" placeholder="°" style="width:56px"></label><button type="button" data-setang="1">套用</button><span class="lt-note">傾角為北約定義：與裝甲板法線的夾角（0° 為垂直正射）。由外而內排列。</span></div>';}
+  box.addEventListener('change',function(e){var tr=e.target.closest('tr[data-i]');if(!tr)return;var L=get(),l=L[+tr.getAttribute('data-i')],f=e.target.getAttribute('data-f');if(!l||!f)return;l[f]=f==='mat'?e.target.value:+e.target.value;set(L);draw();onChange();});
+  box.addEventListener('click',function(e){var b=e.target,L=get();if(b.hasAttribute('data-add')){var last=L[L.length-1];L.push({mat:last?last.mat:'rha',t:last?last.t:10,ang:last?last.ang:0,gap:0});}
+    else if(b.hasAttribute('data-del'))L.splice(+b.getAttribute('data-del'),1);else if(b.hasAttribute('data-up')){var i=+b.getAttribute('data-up');if(i>0){var t=L[i];L[i]=L[i-1];L[i-1]=t;}}
+    else if(b.hasAttribute('data-setang')){var v=box.querySelector('[data-allang]').value;if(v==='')return;L.forEach(function(l){l.ang=clamp(+v,0,89);});}else return;set(L);draw();onChange();});
+  draw();return draw;}
+
+/* ---------- canvas charts ---------- */
+function cvs(c,h){var w=Math.max(280,c.clientWidth||c.parentNode.clientWidth||600),r=window.devicePixelRatio||1;c.width=w*r;c.height=h*r;c.style.height=h+'px';var g=c.getContext('2d');g.setTransform(r,0,0,r,0,0);g.clearRect(0,0,w,h);return {g:g,w:w,h:h};}
+function niceMax(v){if(!(v>0))return 1;var p=Math.pow(10,Math.floor(Math.log10(v))),n=v/p;return (n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*p;}
+function chart(c,o){/* o: {h, x:[label,max], y:[label,max], series:[{c,pts:[[x,y]],w,dash,fill,label}], hl:[{y,c,label}], vl:[{x,c,label}]} */
+  var C=cvs(c,o.h||240),g=C.g,L=54,R=12,T=14,B=34,W=C.w-L-R,H=C.h-T-B,xm=niceMax(o.x[1]),ym=o.y[1]>0?niceMax(o.y[1]):1,ymin=o.y[2]<0?-niceMax(-o.y[2]):(o.y[2]||0);
+  function X(x){return L+x/xm*W;}function Y(y){return T+H-(y-ymin)/(ym-ymin)*H;}
+  g.font='11px system-ui,sans-serif';g.strokeStyle='#e3e3e3';g.fillStyle='#666';g.lineWidth=1;
+  for(var i=0;i<=5;i++){var yv=ymin+(ym-ymin)*i/5,yy=Y(yv);g.beginPath();g.moveTo(L,yy);g.lineTo(L+W,yy);g.stroke();g.textAlign='right';g.fillText(fx(yv,yv<10&&ym<20?1:0),L-5,yy+4);}
+  for(i=0;i<=5;i++){var xv=xm*i/5,xx=X(xv);g.beginPath();g.moveTo(xx,T);g.lineTo(xx,T+H);g.stroke();g.textAlign='center';g.fillText(fx(xv,xv<10&&xm<20?1:0),xx,T+H+14);}
+  g.fillStyle='#444';g.textAlign='center';g.fillText(o.x[0],L+W/2,C.h-4);g.save();g.translate(12,T+H/2);g.rotate(-PI/2);g.fillText(o.y[0],0,0);g.restore();
+  (o.fills||[]).forEach(function(f){g.fillStyle=f.c;g.beginPath();f.top.forEach(function(p,j){var px=X(p[0]),py=Y(p[1]);if(j)g.lineTo(px,py);else g.moveTo(px,py);});for(var j=f.bot.length-1;j>=0;j--)g.lineTo(X(f.bot[j][0]),Y(f.bot[j][1]));g.closePath();g.fill();});
+  (o.hl||[]).forEach(function(l){g.strokeStyle=l.c;g.setLineDash([5,4]);g.lineWidth=1.5;g.beginPath();g.moveTo(L,Y(l.y));g.lineTo(L+W,Y(l.y));g.stroke();g.setLineDash([]);g.fillStyle=l.c;g.textAlign='right';g.fillText(l.label||'',L+W-4,Y(l.y)-4);});
+  (o.vl||[]).forEach(function(l){g.strokeStyle=l.c;g.setLineDash([3,3]);g.lineWidth=1.2;g.beginPath();g.moveTo(X(l.x),T);g.lineTo(X(l.x),T+H);g.stroke();g.setLineDash([]);g.fillStyle=l.c;g.textAlign='left';g.fillText(l.label||'',X(l.x)+3,T+H-6);});
+  (o.series||[]).forEach(function(s){g.strokeStyle=s.c;g.lineWidth=s.w||2;if(s.dash)g.setLineDash(s.dash);g.beginPath();s.pts.forEach(function(p,j){var px=X(p[0]),py=Y(clamp(p[1],ymin,ym));if(j)g.lineTo(px,py);else g.moveTo(px,py);});g.stroke();g.setLineDash([]);});
+  var lx=L+8;(o.series||[]).concat(o.hl||[]).forEach(function(s){if(!s.label||s.y!==undefined)return;g.fillStyle=s.c;g.fillRect(lx,T+4,12,3);g.fillStyle='#333';g.textAlign='left';g.fillText(s.label,lx+16,T+9);lx+=g.measureText(s.label).width+34;});
+  return {X:X,Y:Y};}
+function bars(c,vals,labels,o){var C=cvs(c,o.h||180),g=C.g,L=40,B=26,T=10,W=C.w-L-10,H=C.h-T-B,n=vals.length,bw=W/n*0.7;g.font='11px system-ui,sans-serif';
+  for(var i=0;i<=4;i++){var y=T+H-H*i/4;g.strokeStyle='#e6e6e6';g.beginPath();g.moveTo(L,y);g.lineTo(L+W,y);g.stroke();g.fillStyle='#666';g.textAlign='right';g.fillText(Math.round(i*25)+'%',L-4,y+4);}
+  vals.forEach(function(v,i){var x=L+W/n*(i+0.15),h=H*v;g.fillStyle=v>0.5?'#C62828':v>0.1?'#EF6C00':'#2E7D32';g.fillRect(x,T+H-h,bw,h);g.fillStyle='#333';g.textAlign='center';g.fillText(labels[i],x+bw/2,T+H+14);g.fillText(Math.round(v*100)+'%',x+bw/2,T+H-h-3);});}
+
+/* ---------- cross-section of the armour stack with the shot ---------- */
+function drawStack(c,layers,res){var C=cvs(c,200),g=C.g,tot=0;layers.forEach(function(l){tot+=(+l.t||0)/Math.max(0.2,Math.cos((l.ang||0)*D2R))+(+l.gap||0);});
+  var scale=Math.min(5,(C.w-170)/Math.max(1,tot)),x=110,mid=C.h/2,col={metal:'#78909C',ceramic:'#E0E0E0',fiber:'#FFD54F',poly:'#B3E5FC',glass:'#B2EBF2',conc:'#BDBDBD',soil:'#D7CCC8',wood:'#A1887F',liquid:'#81D4FA',tissue:'#F8BBD0',comp:'#8D6E63',era:'#FF8A65'};
+  g.fillStyle='#fafafa';g.fillRect(0,0,C.w,C.h);g.font='11px system-ui,sans-serif';
+  var stopX=null,stopI=res&&res.layers?res.layers.length-1:-1;
+  layers.forEach(function(l,i){var m=M(l.mat),t=(+l.t||0)*scale,a=(l.ang||0)*D2R,hh=C.h-40,dx=Math.tan(a)*hh/2,w=t/Math.max(0.2,Math.cos(a));
+    g.fillStyle=col[m.cat]||'#999';if(m.mg)g.fillStyle='#B39DDB';g.strokeStyle='#455A64';g.beginPath();g.moveTo(x-dx,mid-hh/2);g.lineTo(x-dx+w,mid-hh/2);g.lineTo(x+dx+w,mid+hh/2);g.lineTo(x+dx,mid+hh/2);g.closePath();g.fill();g.stroke();
+    if(res&&res.layers&&res.layers[i]&&res.layers[i].stop){var dop=res.layers[i].dop!==undefined?res.layers[i].dop*scale:w*0.5;stopX=x+Math.min(w,Math.max(2,dop*(res.layers[i].los?w/(res.layers[i].los*scale):1)));}
+    g.save();g.translate(x+w/2,14);g.fillStyle='#333';g.textAlign='center';g.fillText((i+1)+'',0,0);g.restore();x+=w+(+l.gap||0)*scale;});
+  var endX=stopX===null?C.w-20:stopX,ric=res&&res.ric;
+  g.strokeStyle=res&&res.perf?'#C62828':'#1565C0';g.lineWidth=3;g.beginPath();g.moveTo(12,mid);
+  if(ric){g.lineTo(110,mid);g.lineTo(60,mid-50);}else g.lineTo(endX,mid);g.stroke();
+  g.fillStyle=g.strokeStyle;g.beginPath();if(ric){g.arc(60,mid-50,4,0,2*PI);}else g.arc(endX,mid,5,0,2*PI);g.fill();
+  g.fillStyle='#333';g.textAlign='left';g.fillText(res?(ric?'跳彈':res.perf?'貫穿':'擋下'):'',14,mid-10);}
+
+/* ---------- page skeleton ---------- */
+var TABS=[['pen','穿甲模擬'],['body','防彈衣與插板'],['gel','凝膠與創傷'],['multi','多發命中'],['blast','爆炸與破片'],['ammo','彈藥設計與計價'],['mat','材料庫（含魔能素）'],['mx','對照表'],['io','匯出／匯入']];
+root.innerHTML='<div class="lato-tool lt-arm">'+
+ '<div class="lt-info">裝甲、砲彈與子彈的穿透、防護與計價模擬。長桿穿甲彈採 Lanz–Odermatt 方程，硬芯彈、鉛心彈與破片採 Tate–Alekseevskii 侵蝕／剛體模型（含背面弱化），陶瓷複合板採 Florence 模型，軟甲採 Cunniff 纖維量綱分析，聚能裝藥依裝藥直徑、炸高與靶材密度強度換算；凝膠以速度平方阻力、偏航翻滾、擴張與碎裂推算創傷腔。傾角、材料、厚度、距離皆影響結果。'+
+  '所有金額以<b>東銀圓</b>計（預設 1 東銀圓＝2.5 美元，依材料、製程、批量與市場推估）。架空材料（魔能素等）的參數可完全自訂。</div>'+
+ '<details class="lt-grp"><summary>全域設定（匯率、市場、批量、環境、魔能充能）</summary>'+
+  '<div class="row"><label>1 東銀圓＝ <input type="number" data-k="sRate" step="0.01" min="0.01" style="width:64px"> 美元</label><label><input type="checkbox" data-k="sUsd"> 同時顯示美元</label>'+
+  '<label>市場 <select data-k="sMk">'+opts(Object.keys(A.MARKET).map(function(k){return [k,A.MARKET[k][0]];}),'mil')+'</select></label>'+
+  '<label title="以學習曲線估算：產量每加倍，單價約降 10%">生產批量 <select data-k="sLot">'+opts([[0.01,'試製（×0.01）'],[0.1,'小批（×0.1）'],[1,'標準'],[10,'大量（×10）'],[100,'戰時總動員（×100）']],1)+'</select></label></div>'+
+  '<div class="row"><label>海拔 <input type="number" data-k="sAlt" step="100" style="width:70px"> m</label><label>氣溫 <input type="number" data-k="sT" step="1" style="width:56px"> °C</label><label>側風 <input type="number" data-k="sWind" step="1" style="width:56px"> m/s</label>'+
+  '<label title="架空世界可改變重力">重力 <input type="number" data-k="sG" step="0.1" style="width:64px"> m/s²</label><label title="魔能素裝甲的護盾、硬化與偏斜隨充能縮放">魔能充能 <input type="range" data-k="sCh" min="0" max="150" step="5"> <span data-k="sChV"></span>%</label></div></details>'+
+ '<div class="lt-tabs" data-k="tabs">'+TABS.map(function(t,i){return '<button type="button" data-tab="'+t[0]+'"'+(i?'':' class="on"')+'>'+t[1]+'</button>';}).join('')+'</div>'+
+ TABS.map(function(t,i){return '<div class="lt-pane'+(i?'':' on')+'" data-pane="'+t[0]+'"></div>';}).join('')+
+ '<div class="lt-err" data-k="err"></div></div>';
+function pane(k){return root.querySelector('[data-pane="'+k+'"]');}
+function err(e){q('err').textContent=e?String(e.message||e):'';if(e&&e.stack)console.error(e);}
+var RENDER={},DIRTY={};
+root.querySelector('[data-k="tabs"]').addEventListener('click',function(e){var b=e.target.closest('button[data-tab]');if(!b)return;var t=b.getAttribute('data-tab');
+  root.querySelectorAll('[data-k="tabs"] button').forEach(function(x){x.classList.toggle('on',x===b);});root.querySelectorAll('.lt-pane').forEach(function(p){p.classList.toggle('on',p.getAttribute('data-pane')===t);});show(t);});
+function show(t){try{if(!pane(t).firstChild||DIRTY[t]){DIRTY[t]=false;RENDER[t].init();}RENDER[t].run();err();}catch(e){err(e);}}
+function rerunVisible(){var on=root.querySelector('.lt-pane.on');Object.keys(RENDER).forEach(function(k){DIRTY[k]=DIRTY[k]||false;});if(on)show(on.getAttribute('data-pane'));}
+function libChanged(){saveLib();Object.keys(RENDER).forEach(function(k){if(pane(k).firstChild)DIRTY[k]=true;});rerunVisible();}
+
+/* global settings */
+(function(){var s=S.set;q('sRate').value=s.rate;q('sUsd').checked=!!s.usd;q('sMk').value=s.market;q('sLot').value=s.lot;q('sAlt').value=s.alt;q('sT').value=s.T;q('sWind').value=s.wind;q('sG').value=s.g;q('sCh').value=s.charge;q('sChV').textContent=s.charge;
+  function rd(){s.rate=Math.max(0.01,+q('sRate').value||2.5);s.usd=q('sUsd').checked;s.market=q('sMk').value;s.lot=+q('sLot').value;s.alt=+q('sAlt').value||0;s.T=+q('sT').value;if(!isFinite(s.T))s.T=15;s.wind=+q('sWind').value||0;s.g=+q('sG').value;if(!(s.g>=0))s.g=9.80665;s.charge=+q('sCh').value;q('sChV').textContent=s.charge;saveLib();rerunVisible();}
+  ['sRate','sUsd','sMk','sLot','sAlt','sT','sWind','sG','sCh'].forEach(function(k){q(k).addEventListener('change',rd);});q('sCh').addEventListener('input',function(){q('sChV').textContent=q('sCh').value;});})();
+
+/* ---------- shared summaries ---------- */
+function projSummary(p,v){var c=costP(p),rm=A.roundMass(p),E=0.5*(p.m||0)/1000*v*v,sm=small(p);
+  var h='<div class="lt-kv"><b>彈種</b><span>'+esc(p.n)+'（'+esc(A.KINDN[p.k]||p.k)+'）</span><b>彈頭／彈丸質量</b><span>'+mass(p.m)+'</span>'+
+   '<b>'+(sm?'每顆全彈重':'全彈重')+'</b><span>'+mass(rm)+(sm?'；<b>每 30 顆</b> '+mass(rm*30)+'；每 100 顆 '+mass(rm*100):'')+'</span>'+
+   '<b>單價</b><span>'+money(c.usd)+(sm?'；每 30 顆 '+money(c.usd*30):'')+'</span>';
+  if(p.k!=='sc'&&p.k!=='he'&&p.k!=='hesh')h+='<b>撞擊速度與能量</b><span>'+fx(v,0)+' m/s，'+fx(E/1000,E<10000?2:1)+' kJ，動量 '+fx((p.m||0)/1000*v,2)+' kg·m/s</span>';
+  if(p.mg)h+='<b>魔能</b><span>'+mgTxt(p.mg)+'</span>';return h+'</div>';}
+function mgTxt(g){var a=[];if(g.bo)a.push('動能增幅 +'+Math.round(g.bo*100)+'%');if(g.pi&&g.pi!==1)a.push('穿甲倍率 ×'+g.pi);if(g.dp)a.push('破魔 '+Math.round(g.dp*100)+'%');if(g.bu)a.push('魔爆當量 '+g.bu+' kg TNT');if(g.el)a.push(A.ELEM[g.el]+'屬性');if(g.mc)a.push('魔晶 '+g.mc+' g');if(g.st!==undefined&&g.st<1)a.push('穩定度 '+Math.round(g.st*100)+'%（啞火／反噬機率 '+Math.round((1-g.st)*100)+'%）');return a.join('、')||'無';}
+function armSummary(L,cov,kind){var ad=A.stackAD(L,S.mats),fr=0;L.forEach(function(l){fr+=(+l.t||0)*M(l.mat).rho/Math.max(0.05,Math.cos((l.ang||0)*D2R));});
+  var c=A.stackCostM2(L,S.mats,kind),th=A.stackThick(L);
+  return '<div class="lt-kv"><b>總厚度</b><span>'+fx(th,1)+' mm（含間隙）</span><b>面密度</b><span>'+fx(ad,1)+' kg/m²（每平方公尺板材）</span>'+
+   '<b>每平方公尺正面投影</b><span>'+fx(fr,1)+' kg/m²（傾斜板需覆蓋更大面積）</span><b>覆蓋 '+fx(cov,2)+' m² 重量</b><span>'+mass(fr*cov*1000)+'</span>'+
+   '<b>造價</b><span>每 m² '+money(c.usd)+'；覆蓋 '+fx(cov,2)+' m² 共 '+money(c.usd*cov*(fr/Math.max(0.01,ad)))+'</span></div>';}
+function layRows(r){if(!r||!r.layers)return '';var sc=r.kind==='sc';return '<div class="lt-sc"><table class="lt-dt"><tr><th>#</th><th class="l">材料</th><th>厚度</th><th>傾角</th><th>視線厚</th>'+(sc?'<th>射流餘量 RHA</th><th>RHA 效率</th>':'<th>入射速度</th><th>侵徹深</th><th>極限 V50</th><th>跳彈機率</th>')+'<th class="l">結果</th></tr>'+
+  r.layers.map(function(l){return '<tr><td>'+(l.i+1)+'</td><td class="l">'+esc(l.mat.n)+'</td><td>'+fx(l.t,1)+'</td><td>'+fx(l.ang,0)+'°</td><td>'+fx(l.los,1)+'</td>'+
+    (sc?'<td>'+fx(l.capIn,0)+' mm</td><td>'+fx(l.te,2)+'</td>':'<td>'+fx(l.vIn,0)+'</td><td>'+(l.dop!==undefined?fx(l.dop,1)+' mm':'—')+'</td><td>'+(l.v50?fx(l.v50,0)+' m/s':'—')+'</td><td>'+(l.rico!==undefined?Math.round(l.rico*100)+'%':'—')+'</td>')+
+    '<td class="l">'+esc(l.res||'')+(l.shield?'（護盾吸收 '+(sc?Math.round(l.shield*100)+'%':fx(l.shield/1000,2)+' kJ')+'）':'')+(l.shat?'（彈芯碎裂）':'')+'</td></tr>';}).join('')+'</table></div>';}
+
+/* ===================== 穿甲模擬 ===================== */
+var PEN={p:'r762m61',R:100,V:'',arm:'b3ar',L:armLayers('b3ar'),cov:1};
+RENDER.pen={init:function(){var E=pane('pen');E.innerHTML=
+  '<div class="row"><label>彈藥 <select data-k="pP">'+projOpts(PEN.p)+'</select></label><label>距離 <input type="number" data-k="pR" value="'+PEN.R+'" min="0" step="50"> m</label>'+
+  '<label title="留白＝依外彈道計算">撞擊速度 <input type="number" data-k="pV" value="'+PEN.V+'" placeholder="自動" step="10"> m/s</label></div>'+
+  '<div class="row"><label>裝甲 <select data-k="pA">'+armOpts(PEN.arm)+'</select></label><label>覆蓋面積 <input type="number" data-k="pCov" value="'+PEN.cov+'" min="0" step="0.05"> m²</label></div>'+
+  '<div data-k="pL"></div><canvas class="lt-chart" data-k="pCv1" style="height:200px"></canvas><div data-k="pOut"></div><canvas class="lt-chart" data-k="pCv2"></canvas><div class="lt-note" data-k="pNote"></div>';
+  layerEditor(q('pL'),function(){return PEN.L;},function(L){PEN.L=L;q('pA').value='';},function(){RENDER.pen.run();});
+  q('pP').onchange=function(){PEN.p=this.value;RENDER.pen.run();};q('pR').onchange=function(){PEN.R=Math.max(0,+this.value||0);RENDER.pen.run();};q('pV').onchange=function(){PEN.V=this.value;RENDER.pen.run();};
+  q('pCov').onchange=function(){PEN.cov=Math.max(0,+this.value||0);RENDER.pen.run();};
+  q('pA').onchange=function(){PEN.arm=this.value;if(this.value){PEN.L=armLayers(this.value);RENDER.pen.init();}RENDER.pen.run();};},
+ run:function(){var p=P(PEN.p),v=PEN.V!==''?+PEN.V:A.velAt(p,PEN.R,env()),L=PEN.L,o=eo({v:v}),r=A.evaluate(p,L,o),h='',kind=p.k;S.last={p:p,v:v,L:L,r:r};
+  var ke=kind!=='sc'&&kind!=='he'&&kind!=='hesh',V50=ke?A.v50Stack(p,L,eo()):null,pp=ke?A.pPerf(v,V50):(r.perf?1:0);
+  var verdict=r.ric?'跳彈':r.perf?(kind==='hesh'?'背面剝落（碎甲）':'貫穿'):'擋下';
+  h+='<div class="lt-res '+(r.perf?'bad':'good')+'"><b>'+verdict+'</b>'+(ke&&isFinite(V50)?'　極限速度 V50 ≈ '+fx(V50,0)+' m/s；此速度貫穿機率 '+fx(pp*100,0)+'%':'')+
+    (ke&&!isFinite(V50)?'　此彈在任何合理速度都無法貫穿':'')+(r.perf&&ke?'；殘餘速度 '+fx(r.vRes,0)+' m/s、殘餘質量 '+mass(r.mRes*1000):'')+(kind==='sc'?'　射流穿深 '+fx(r.cap0,0)+' mm RHA，剩餘 '+fx(r.capRes,0)+' mm':'')+'</div>';
+  if(r.bfd!==undefined)h+='<div class="lt-note">背面變形（黏土）約 <b>'+fx(r.bfd,0)+' mm</b>：'+A.babt(r.bfd)+'</div>';
+  if(r.burst)h+='<div class="lt-note">彈頭魔爆：'+r.burst+' kg TNT 當量，'+fx(A.blastRadius(r.burst,35,true),1)+' m 內耳膜破裂、'+fx(A.blastRadius(r.burst,200,true),1)+' m 內肺部損傷。</div>';
+  if(r.perf&&ke&&r.vRes>0){var er=0.5*r.mRes*r.vRes*r.vRes;h+='<div class="lt-note">裝甲後方：殘餘動能 '+fx(er/1000,2)+' kJ'+(L.length&&M(L[L.length-1].mat).cat==='metal'?'；鋼板背面預計噴出約 '+fx(8+Math.pow(er,0.55)/4,0)+' 片剝落破片（加裝防剝落襯層可縮小噴射錐）':'')+'。</div>';}
+  h+=layRows(r);
+  /* RHA equivalence and immunity range */
+  var eqTxt='',rhaEq=null;if(ke&&isFinite(V50)&&V50>30){rhaEq=A.perfLimit(p,V50,'rha',0,eo());eqTxt='對此彈約等效 <b>'+fx(rhaEq,1)+' mm RHA</b>（垂直）';}
+  else if(kind==='sc'){var s=0;r.layers.forEach(function(l){if(l.te)s+=l.los*l.te;});eqTxt='對聚能射流約等效 '+fx(s,0)+' mm RHA（不含反應裝甲效應）';}
+  h+='<h4>裝甲</h4>'+(eqTxt?'<div class="lt-note">'+eqTxt+'</div>':'')+armSummary(L,PEN.cov,PEN.arm&&ARM.filter(function(a){return a[0]===PEN.arm;})[0]?ARM.filter(function(a){return a[0]===PEN.arm;})[0][1]==='body'?'body':'veh':'veh');
+  h+='<h4>彈藥</h4>'+projSummary(p,v);
+  q('pOut').innerHTML=h;drawStack(q('pCv1'),L,r);
+  /* penetration vs range */
+  var maxR=p.guided?Math.max(1000,PEN.R*1.5):kind==='lr'?4000:p.g==='pistol'?300:p.g==='shot'?150:p.g==='rifle'?1500:p.g==='hmg'?2500:3000,tab=A.flyTable(p,maxR,maxR/24,env()),th=L.length?(L[0].ang||0):0,pts=[],ptsA=[],last=null;
+  if(kind!=='he'&&kind!=='hesh'){tab.forEach(function(row){var lim=A.perfLimit(p,row[1],'rha',0,eo());pts.push([row[0],lim]);ptsA.push([row[0],lim*Math.cos(th*D2R)/Math.max(0.05,Math.cos(th*D2R))]);
+      var rr=A.evaluate(p,L,eo({v:row[1]}));if(rr.perf&&!rr.ric)last=row[0];});
+    var ym=0;pts.forEach(function(x){ym=Math.max(ym,x[1]);});if(rhaEq)ym=Math.max(ym,rhaEq*1.1);
+    chart(q('pCv2'),{x:['距離 (m)',maxR],y:['RHA 垂直穿深 (mm)',ym*1.05],series:[{c:'#C62828',pts:pts,label:'穿深（RHA，0°）'}],hl:rhaEq?[{y:rhaEq,c:'#1565C0',label:'此裝甲的 RHA 等效 '+fx(rhaEq,0)+' mm'}]:[],vl:[{x:Math.min(PEN.R,maxR),c:'#555',label:'目前距離'}]});
+    q('pNote').innerHTML=last===null?'在 0–'+fx(maxR,0)+' m 內都無法貫穿此裝甲。':last>=maxR?'在 0–'+fx(maxR,0)+' m 全程皆可貫穿。':'最遠約 <b>'+fx(last,0)+' m</b> 內可貫穿（之外為此裝甲的免疫區）。';}
+  else{cvs(q('pCv2'),10);q('pNote').textContent='';}}};
+
+/* ===================== 防彈衣與插板 ===================== */
+var PLATES=[['sapis','SAPI 小號 22×30 cm',0.0663],['sapim','SAPI 中號 24×32 cm',0.0766],['sapil','SAPI 大號 26×34 cm',0.0876],['sapixl','SAPI 特大號 28×36 cm',0.0994],['s1012','10×12 吋',0.0774],['s2530','25×30 cm',0.075],['side','側板 15×20 cm',0.03],['helm','頭盔（約 0.13 m²）',0.13]];
+var BODY={arm:'b4a',L:armLayers('b4a'),plate:'sapim',np:2,side:0,softA:0.45,soft:'b3a',p:'r762m61',R:50,icw:false};
+RENDER.body={init:function(){var E=pane('body');E.innerHTML=
+  '<div class="row"><label>插板／防護 <select data-k="bA">'+armOpts(BODY.arm,function(a){return a[1]==='body'||a[1]==='magic';})+'</select></label><label>尺寸 <select data-k="bPl">'+opts(PLATES.map(function(x){return [x[0],x[1]];}),BODY.plate)+'</select></label>'+
+  '<label>插板數 <input type="number" data-k="bNp" value="'+BODY.np+'" min="0" max="6" style="width:48px"></label><label>側板 <input type="number" data-k="bSide" value="'+BODY.side+'" min="0" max="4" style="width:48px"></label></div>'+
+  '<div class="row"><label>軟甲 <select data-k="bSoft">'+armOpts(BODY.soft,function(a){return a[1]==='body'&&a[3].every(function(l){return M(l[0]).cat==='fiber'&&!M(l[0]).hard;});})+'</select></label><label>軟甲覆蓋 <input type="number" data-k="bSA" value="'+BODY.softA+'" min="0" step="0.05" style="width:64px"> m²</label>'+
+  '<label><input type="checkbox" data-k="bIcw"'+(BODY.icw?' checked':'')+'> 插板後方疊加軟甲（ICW 併用）</label></div>'+
+  '<div data-k="bL"></div><h4>NIJ 標準測試（0°、新品）</h4><div data-k="bNij"></div>'+
+  '<h4>自訂威脅</h4><div class="row"><label>彈藥 <select data-k="bP">'+projOpts(BODY.p,function(p){return p.k!=='he'&&p.k!=='hesh'&&p.g!=='tank'&&p.g!=='art'&&p.g!=='rkt';})+'</select></label><label>距離 <input type="number" data-k="bR" value="'+BODY.R+'" min="0" step="10"> m</label><label>入射角 <input type="number" data-k="bAng" value="0" min="0" max="80" style="width:56px"> °</label></div><div data-k="bOut"></div><h4>重量與造價</h4><div data-k="bW"></div>';
+  layerEditor(q('bL'),function(){return BODY.L;},function(L){BODY.L=L;q('bA').value='';},function(){RENDER.body.run();});
+  q('bA').onchange=function(){BODY.arm=this.value;if(this.value){BODY.L=armLayers(this.value);RENDER.body.init();}RENDER.body.run();};
+  ['bPl','bNp','bSide','bSoft','bSA','bIcw','bP','bR','bAng'].forEach(function(k){q(k).onchange=function(){BODY.plate=q('bPl').value;BODY.np=+q('bNp').value||0;BODY.side=+q('bSide').value||0;BODY.soft=q('bSoft').value;BODY.softA=+q('bSA').value||0;BODY.icw=q('bIcw').checked;BODY.p=q('bP').value;BODY.R=+q('bR').value||0;RENDER.body.run();};});},
+ run:function(){var L=BODY.L.map(function(l){return {mat:l.mat,t:l.t,ang:l.ang,gap:l.gap};}),soft=armLayers(BODY.soft||'b3a');if(BODY.icw)L=L.concat(soft);
+  var rows=A.NIJ.map(function(lv){var ok=true,cells=lv[1].map(function(t){var p=P(t[0]),r=A.evaluate(p,L,eo({v:t[1]})),V50=A.v50Stack(p,L,eo()),pass=!(r.perf&&!r.ric)&&(r.bfd===undefined||r.bfd<=44);if(!pass)ok=false;
+      return '<span class="'+(pass?'ok':'ng')+'">'+esc(p.n.replace(/\s.*$/,''))+' @'+t[1]+'：'+(r.perf?'貫穿':'擋下')+(r.bfd!==undefined&&!r.perf?'，BFD '+fx(r.bfd,0)+' mm':'')+'，V50 '+(isFinite(V50)?(V50>2000?'> 2,000':fx(V50,0)):'∞')+'</span>';});
+    return [lv[0],ok,cells];});
+  var best06='',best07='';rows.forEach(function(x){if(x[1]){if(x[0].indexOf('06')>=0)best06=x[0];else best07=x[0];}});
+  q('bNij').innerHTML='<div class="lt-res '+(best06||best07?'good':'bad')+'">此組合達到：<b>'+(best06||'未達 IIA')+'</b>；<b>'+(best07||'未達 HG1')+'</b></div><div class="lt-sc"><table class="lt-dt"><tr><th class="l">等級</th><th>判定</th><th class="l">測試彈（全部通過才算達標；BFD ≤ 44 mm）</th></tr>'+
+    rows.map(function(x){return '<tr><td class="l">'+x[0]+'</td><td>'+(x[1]?'✔ 通過':'✘')+'</td><td class="l lt-cells">'+x[2].join('　')+'</td></tr>';}).join('')+'</table></div><div class="lt-note">註：NIJ 0101.07 RF 等級另含多發與高溫等條件，此處只模擬單發常溫新品。</div>';
+  var p=P(BODY.p),v=A.velAt(p,BODY.R,env()),ang=+q('bAng').value||0,La=L.map(function(l){return {mat:l.mat,t:l.t,ang:Math.max(l.ang||0,ang),gap:l.gap};}),r=A.evaluate(p,La,eo({v:v})),V50=A.v50Stack(p,La,eo());
+  var h='<div class="lt-res '+(r.perf?'bad':'good')+'"><b>'+(r.ric?'跳彈':r.perf?'貫穿':'擋下')+'</b>　撞擊 '+fx(v,0)+' m/s，V50 '+(isFinite(V50)?fx(V50,0)+' m/s，貫穿機率 '+fx(A.pPerf(v,V50)*100,0)+'%':'∞')+(r.perf?'；殘餘 '+fx(r.vRes,0)+' m/s':'')+'</div>';
+  if(r.bfd!==undefined)h+='<div class="lt-note">背面變形約 <b>'+fx(r.bfd,0)+' mm</b>：'+A.babt(r.bfd)+'</div>';
+  if(r.perf&&r.vRes>0){var pp=A.cloneObj(p);pp.m=Math.max(0.1,(r.st&&r.st.mTot||p.m/1000)*1000);var g=A.gelRun(pp,r.vRes,{preDef:r.st&&r.st.def>1.2&&p.gel&&p.gel.ex?1.3:0});h+='<div class="lt-note">穿過後進入人體：凝膠穿深約 '+fx(g.pen,0)+' cm、軀幹（30 cm）內釋放 '+fx(g.eTorso,0)+' J、估計 30 秒內失能機率 '+fx(g.pInc*100,0)+'%。</div>';}
+  q('bOut').innerHTML=h+layRows(r);
+  var pa=PLATES.filter(function(x){return x[0]===BODY.plate;})[0][2],adP=A.stackAD(BODY.L,S.mats),adS=A.stackAD(soft,S.mats),plateKg=adP*pa,sideKg=adP*0.03,softKg=adS*BODY.softA;
+  var cP=A.stackCostM2(BODY.L,S.mats,'body').usd,cS=A.stackCostM2(soft,S.mats,'body').usd,tot=plateKg*BODY.np+sideKg*BODY.side+softKg+(BODY.np+BODY.side>0?1.4:0.6);
+  q('bW').innerHTML='<div class="lt-kv"><b>插板面密度</b><span>'+fx(adP,1)+' kg/m²</span><b>每片插板</b><span>'+fx(plateKg,2)+' kg（'+fx(pa*1e4,0)+' cm²），'+money(cP*pa)+'</span>'+
+   '<b>側板（每片）</b><span>'+fx(sideKg,2)+' kg，'+money(cP*0.03)+'</span><b>軟甲</b><span>'+fx(adS,1)+' kg/m² × '+fx(BODY.softA,2)+' m² ＝ '+fx(softKg,2)+' kg，'+money(cS*BODY.softA)+'</span>'+
+   '<b>整套（含載具背心約 1.4 kg）</b><span><b>'+fx(tot,1)+' kg</b>，'+money(cP*(pa*BODY.np+0.03*BODY.side)+cS*BODY.softA+(BODY.np+BODY.side>0?120:60))+'</span>'+
+   '<b>每平方公尺</b><span>插板 '+money(cP)+'；軟甲 '+money(cS)+'</span></div>';}};
+
+/* ===================== 凝膠與創傷 ===================== */
+var BARR=[['none','無（裸凝膠）',[]],['cloth','厚衣物（四層牛仔布）',[['nylon',1.2]]],['steel','汽車鋼板（2 × 20 號）',[['mild',0.9,0,75],['mild',0.9]]],['wall','石膏板牆（2 × 12.7 mm）',[['gyp',12.7,0,90],['gyp',12.7]]],
+  ['ply','夾板 19 mm',[['pine',19]]],['glass','汽車擋風玻璃（45°）',[['aglass',6,45]]],['vest','穿過「防彈衣」分頁的插板／軟甲',null]];
+var TIS=[['gel','10% 明膠／肌肉',{}],['lung','肺（低密度、富彈性）',{rhoMul:0.45,rMul:0.4,pcMul:0.6,tissueK:0.4}],['liver','肝、腎（缺乏彈性，伸展即撕裂）',{rhoMul:1.02,rMul:1.1,tissueK:3}],['brain','腦（顱內，伸展傷害極大）',{rhoMul:1.0,rMul:0.8,tissueK:4}]];
+var GEL={p:'r556m193',R:10,V:'',b:'none',tis:'gel',torso:30};
+RENDER.gel={init:function(){var E=pane('gel');E.innerHTML=
+  '<div class="row"><label>彈藥 <select data-k="gP">'+projOpts(GEL.p,function(p){return p.k!=='sc'&&p.k!=='he'&&p.k!=='hesh'&&p.g!=='tank'&&p.g!=='art'&&p.g!=='rkt';})+'</select></label><label>距離 <input type="number" data-k="gR" value="'+GEL.R+'" min="0" step="10"> m</label>'+
+  '<label>撞擊速度 <input type="number" data-k="gV" value="'+GEL.V+'" placeholder="自動" step="10"> m/s</label></div>'+
+  '<div class="row"><label>障礙物 <select data-k="gB">'+opts(BARR.map(function(b){return [b[0],b[1]];}),GEL.b)+'</select></label><label>組織 <select data-k="gT">'+opts(TIS.map(function(t){return [t[0],t[1]];}),GEL.tis)+'</select></label>'+
+  '<label>軀幹厚度 <input type="number" data-k="gTo" value="'+GEL.torso+'" min="5" max="80" style="width:56px"> cm</label></div>'+
+  '<canvas class="lt-chart" data-k="gCv" style="height:260px"></canvas><div data-k="gOut"></div><h4>FBI 式障礙物測試（同一彈藥、同一速度）</h4><div data-k="gFbi"></div>';
+  ['gP','gR','gV','gB','gT','gTo'].forEach(function(k){q(k).onchange=function(){GEL.p=q('gP').value;GEL.R=+q('gR').value||0;GEL.V=q('gV').value;GEL.b=q('gB').value;GEL.tis=q('gT').value;GEL.torso=clamp(+q('gTo').value||30,5,80);RENDER.gel.run();};});},
+ run:function(){var p=P(GEL.p),v=GEL.V!==''?+GEL.V:A.velAt(p,GEL.R,env()),tis=TIS.filter(function(t){return t[0]===GEL.tis;})[0][2];
+  function through(bid){var b=BARR.filter(function(x){return x[0]===bid;})[0],L=b[2]===null?BODY.L.concat(BODY.icw?armLayers(BODY.soft):[]):b[2].map(function(l){return {mat:l[0],t:l[1],ang:l[2]||0,gap:l[3]||0};});
+    if(!L.length)return {p:p,v:v,o:{},note:''};var r=A.stackKE(p,v,L,eo());if(!r.perf||r.ric)return {stop:true,r:r};
+    var pp=A.cloneObj(p),mT=r.st.mTot*1000;pp.m=Math.max(0.05,Math.min(p.m,mT));var o={};if(bid==='cloth'&&p.gel&&p.gel.ex>1)o.plug=true;if(r.st.def>1.2&&p.gel&&p.gel.ex>1&&bid!=='cloth')o.preDef=Math.min(p.gel.ex,1+(r.st.def-1)*0.6);
+    if(bid==='glass'||bid==='steel'){pp.gel=A.cloneObj(p.gel||{});pp.gel.nk=Math.max(2,(pp.gel.nk||20)*0.4);}
+    return {p:pp,v:r.vRes,o:o,note:'穿過障礙物後 '+fx(r.vRes,0)+' m/s、剩 '+mass(pp.m)};}
+  var t=through(GEL.b),h='';
+  if(t.stop){q('gOut').innerHTML='<div class="lt-res good"><b>彈頭未能穿過障礙物</b></div>'+layRows(t.r);cvs(q('gCv'),10);}
+  else{var o=t.o;Object.keys(tis).forEach(function(k){o[k]=tis[k];});o.torso=GEL.torso;var g=A.gelRun(t.p,t.v,o),rows=g.rows,mx=0;rows.forEach(function(r){mx=Math.max(mx,r[2]);});
+    var sm2=rows.map(function(r,i){var s=0,n=0;for(var j=Math.max(0,i-3);j<=Math.min(rows.length-1,i+3);j++){s+=rows[j][2];n++;}return s/n;});var top=rows.map(function(r,i){return [r[0],sm2[i]/2];}),bot=rows.map(function(r,i){return [r[0],-sm2[i]/2];}),pt=rows.map(function(r){return [r[0],r[1]/2];}),pb=rows.map(function(r){return [r[0],-r[1]/2];});
+    var ext=Math.max(20,mx/2*1.15);chart(q('gCv'),{h:260,x:['深度 (cm)',Math.max(g.pen*1.08,GEL.torso+5)],y:['半徑 (mm)',ext,-ext],fills:[{c:'rgba(239,108,0,.28)',top:top,bot:bot},{c:'rgba(183,28,28,.85)',top:pt,bot:pb}],
+      series:[{c:'#EF6C00',pts:top,w:1,label:'暫時腔'},{c:'#B71C1C',pts:pt,w:1,label:'永久腔（彈體掃過）'},{c:'#EF6C00',pts:bot,w:1}],vl:[{x:GEL.torso,c:'#1565C0',label:'軀幹背側'}].concat(g.neck?[{x:g.neck,c:'#555',label:'翻滾'}]:[])});
+    h='<div class="lt-res '+(g.pen>=30&&g.pen<=45?'good':'warn')+'">穿深 <b>'+fx(g.pen,0)+' cm</b>（FBI 建議 30–45 cm）；最大暫時腔 '+fx(g.maxTC/10,1)+' cm（深 '+fx(g.maxTCx,0)+' cm）</div>'+
+     '<div class="lt-kv"><b>撞擊</b><span>'+fx(t.v,0)+' m/s，'+fx(g.E0,0)+' J'+(t.note?'；'+t.note:'')+'</span><b>頸長（翻滾起點）</b><span>'+(g.neck?fx(g.neck,0)+' cm':(g.expanded?'擴張後保持彈頭向前':'—'))+'</span>'+
+     '<b>擴張</b><span>'+(g.expanded?fx(g.exp,2)+' 倍（'+fx(t.p.d*g.exp,1)+' mm）':'無')+(o.plug?'（被衣物堵塞，擴張失效）':'')+'</span><b>碎裂</b><span>'+(g.frag?g.frag+' 片、共 '+mass(g.fragM)+'（保留 '+mass(g.retained)+'）':'無')+'</span>'+
+     '<b>軀幹內釋放能量</b><span>'+fx(g.eTorso,0)+' J（前 '+GEL.torso+' cm）'+(g.exitV>0?'；<b>貫穿身體</b>，出口速度約 '+fx(g.exitV,0)+' m/s，有誤傷後方風險':'')+'</span>'+
+     '<b>永久腔體積</b><span>'+fx(g.crush,0)+' cm³（彈體壓碎）＋伸展撕裂 '+fx(g.stretch,0)+' cm³（暫時腔）</span>'+
+     '<b>30 秒內失能機率（軀幹中央命中）</b><span><b>'+fx(g.pInc*100,0)+'%</b>（以有效永久腔 '+fx(g.pcEff,0)+' cm³ 估算，非致死率）</span></div>';
+    q('gOut').innerHTML=h;}
+  var fb=BARR.filter(function(b){return b[2]!==null;}).map(function(b){var tt=through(b[0]);if(tt.stop)return '<tr><td class="l">'+b[1]+'</td><td colspan="5" class="l">未穿過</td></tr>';var g2=A.gelRun(tt.p,tt.v,tt.o);
+    return '<tr><td class="l">'+b[1]+'</td><td>'+fx(tt.v,0)+'</td><td>'+fx(g2.pen,0)+'</td><td>'+(g2.expanded?fx(g2.exp,2)+'×':'—')+'</td><td>'+mass(g2.retained)+'</td><td>'+fx(g2.maxTC/10,1)+'</td></tr>';}).join('');
+  q('gFbi').innerHTML='<div class="lt-sc"><table class="lt-dt"><tr><th class="l">障礙物</th><th>入射速度</th><th>穿深 cm</th><th>擴張</th><th>保留重</th><th>最大暫時腔 cm</th></tr>'+fb+'</table></div>';}};
+
+/* ===================== 多發命中 ===================== */
+var MH={p:'r762m80',R:25,src:'body',n:6,sp:6,w:25,h:30,tr:300};
+RENDER.multi={init:function(){var E=pane('multi');E.innerHTML='<div class="lt-info">在同一塊板上連續射擊，每發依先前彈著點附近的損傷（陶瓷裂錐、鋼板硬化區、纖維鬆脫、魔能護盾耗損與再生）降低該處防護，以蒙地卡羅法重複數百次，求每一發的貫穿機率。</div>'+
+  '<div class="row"><label>彈藥 <select data-k="mP">'+projOpts(MH.p,function(p){return p.k!=='he'&&p.k!=='hesh';})+'</select></label><label>距離 <input type="number" data-k="mR" value="'+MH.R+'" min="0" step="10"> m</label>'+
+  '<label>裝甲來源 <select data-k="mS">'+opts([['body','防彈衣分頁的插板'],['pen','穿甲模擬分頁的裝甲']],MH.src)+'</select></label></div>'+
+  '<div class="row"><label>發數 <input type="number" data-k="mN" value="'+MH.n+'" min="1" max="20" style="width:52px"></label><label>散布（標準差）<input type="number" data-k="mSp" value="'+MH.sp+'" min="0.5" step="0.5" style="width:56px"> cm</label>'+
+  '<label>板寬 <input type="number" data-k="mW" value="'+MH.w+'" style="width:52px"> cm</label><label>板高 <input type="number" data-k="mH" value="'+MH.h+'" style="width:52px"> cm</label><label>重複 <input type="number" data-k="mT" value="'+MH.tr+'" min="50" max="2000" step="50" style="width:64px"> 次</label><button type="button" data-k="mGo" class="lt-pri">模擬</button></div>'+
+  '<canvas class="lt-chart" data-k="mCv" style="height:200px"></canvas><div data-k="mOut"></div>';
+  q('mGo').onclick=function(){MH.p=q('mP').value;MH.R=+q('mR').value||0;MH.src=q('mS').value;MH.n=clamp(+q('mN').value||6,1,20);MH.sp=+q('mSp').value||6;MH.w=+q('mW').value||25;MH.h=+q('mH').value||30;MH.tr=clamp(+q('mT').value||300,50,2000);RENDER.multi.run();};},
+ run:function(){var p=P(MH.p),v=A.velAt(p,MH.R,env()),L=MH.src==='body'?BODY.L:PEN.L,r=A.multiHit(p,L,{n:MH.n,w:MH.w,h:MH.h,spread:MH.sp,trials:MH.tr,v:v,lib:S.mats,charge:S.set.charge/100,seed:p.id+MH.n});
+  bars(q('mCv'),r.perShot,r.perShot.map(function(x,i){return '第'+(i+1)+'發';}),{h:200});
+  var first=-1;r.perShot.forEach(function(x,i){if(first<0&&x>0.5)first=i;});
+  q('mOut').innerHTML='<div class="lt-kv"><b>撞擊速度</b><span>'+fx(v,0)+' m/s</span><b>平均貫穿發數</b><span>'+fx(r.mean,2)+' / '+MH.n+'</span><b>防護失效</b><span>'+(first<0?'全部 '+MH.n+' 發的貫穿機率都低於 50%':'從第 '+(first+1)+' 發起貫穿機率超過 50%')+'</span><b>裝甲</b><span>'+esc(L.map(function(l){return M(l.mat).n+' '+l.t+' mm';}).join('＋'))+'</span></div>';}};
+
+/* ===================== 爆炸與破片 ===================== */
+var BL={p:'art155m107',ground:true};
+RENDER.blast={init:function(){var E=pane('blast');E.innerHTML='<div class="row"><label>彈藥 <select data-k="xP">'+projOpts(BL.p,function(p){return (p.he&&p.he.g>0)||(p.mg&&p.mg.bu);})+'</select></label>'+
+  '<label><input type="checkbox" data-k="xG"'+(BL.ground?' checked':'')+'> 地面爆炸（反射加成）</label></div><canvas class="lt-chart" data-k="xCv1"></canvas><canvas class="lt-chart" data-k="xCv2"></canvas><div data-k="xOut"></div>';
+  q('xP').onchange=function(){BL.p=this.value;RENDER.blast.run();};q('xG').onchange=function(){BL.ground=this.checked;RENDER.blast.run();};},
+ run:function(){var p=P(BL.p),w=A.heEq(p),f=A.fragments(p,{env:env(),ground:BL.ground}),h='';
+  var thr=[[5,'窗玻璃破碎'],[16,'輕微受傷、門窗損壞'],[35,'耳膜破裂門檻'],[100,'約半數耳膜破裂'],[200,'肺部損傷門檻'],[700,'約半數致死（肺）']];
+  h+='<div class="lt-kv"><b>炸藥</b><span>'+(p.he&&p.he.g?esc((A.EXPL[p.he.x||'tnt']||A.EXPL.tnt)[0])+' '+mass(p.he.g):'—')+(p.mg&&p.mg.bu?'＋魔爆 '+p.mg.bu+' kg':'')+'；TNT 當量 <b>'+fx(w,2)+' kg</b></span>';
+  if(f)h+='<b>破片初速（Gurney）</b><span>'+fx(f.v0,0)+' m/s（裝藥／殼體質量比 '+fx(f.CM,2)+'）</span><b>破片（Mott 分布）</b><span>約 '+fx(f.N0,0)+' 片，平均 '+fx(f.MA,2)+' g，殼體 '+fx(f.caseKg,1)+' kg</span>'+
+    '<b>殺傷半徑</b><span>暴露站立人員：50% 受傷 <b>'+fx(f.r50,1)+' m</b>、10% 受傷 '+fx(f.r10,0)+' m；大破片危險距離約 '+fx(f.danger,0)+' m（判準：撞擊能量 ≥ 79 J）</span>';
+  h+='</div><div class="lt-sc"><table class="lt-dt"><tr><th>超壓</th><th class="l">效應</th><th>距離</th></tr>'+thr.map(function(t){return '<tr><td>'+t[0]+' kPa</td><td class="l">'+t[1]+'</td><td>'+fx(A.blastRadius(w,t[0],BL.ground),1)+' m</td></tr>';}).join('')+'</table></div>';
+  q('xOut').innerHTML=h;var Rm=Math.max(10,A.blastRadius(w,5,BL.ground)),pts=[];for(var i=1;i<=60;i++){var R=Rm*i/60;pts.push([R,A.kinneyGraham(R/Math.pow(w*(BL.ground?1.8:1),1/3))*101.325]);}
+  chart(q('xCv1'),{x:['距離 (m)',Rm],y:['峰值超壓 (kPa)',Math.min(pts[2][1],1000)],series:[{c:'#C62828',pts:pts,label:'峰值超壓'}],hl:[{y:35,c:'#EF6C00',label:'耳膜 35 kPa'},{y:200,c:'#6A1B9A',label:'肺 200 kPa'}]});
+  if(f){var Rx=Math.max(f.r10*1.5,20),hp=[];for(i=1;i<=60;i++){var R2=Rx*i/60;hp.push([R2,1-Math.exp(-f.hitsAt(R2))]);}chart(q('xCv2'),{x:['距離 (m)',Rx],y:['被危險破片命中機率',1],series:[{c:'#37474F',pts:hp,label:'站立人員（0.5 m²）'}],vl:[{x:f.r50,c:'#C62828',label:'50%'}]});}
+  else cvs(q('xCv2'),10);}};
+
+/* ===================== 彈藥設計與計價 ===================== */
+var AM={p:'r556m855',R:600};
+var PF=[['n','名稱','text'],['g','類別','sel',function(){return Object.keys(A.GROUPS).map(function(k){return [k,A.GROUPS[k][0]];});}],['k','彈種','sel',function(){return Object.keys(A.KINDN).map(function(k){return [k,A.KINDN[k]];});}],
+ ['d','口徑 mm','num'],['L','彈長 mm','num'],['m','彈頭質量 g','num'],['v0','初速 m/s','num'],['bc','彈道係數 lb/in²','num'],['dm','阻力模型','sel',function(){return [['G1','G1（平底）'],['G7','G7（船尾）']];}],
+ ['cap','被帽（AP cap）','chk'],['dfm','受撞變形度 0–1','num'],['core.mat','彈芯材料','mat'],['core.m','彈芯質量 g','num'],['core.d','彈芯直徑 mm','num'],['core.L','彈芯長 mm（長桿）','num'],['core.N','頭形係數 N（尖 0.1／圓 0.5／平 1）','num'],
+ ['cs.mat','彈殼材料','mat'],['cs.g','彈殼重 g','num'],['prop','發射藥 g','num'],['rw','全彈重 g（覆寫）','num'],['cx','製造複雜度係數','num'],
+ ['he.x','炸藥','sel',function(){return [['','—']].concat(Object.keys(A.EXPL).map(function(k){return [k,A.EXPL[k][0]];}));}],['he.g','炸藥量 g','num'],['he.tw','殼壁厚 mm','num'],
+ ['sc.cd','聚能裝藥直徑 mm','num'],['sc.k','穿深（裝藥直徑倍數）','num'],['sc.pr','精度 1–5','num'],['sc.so','炸高（裝藥直徑倍數）','num'],['sc.ln','藥型罩','sel',function(){return [['cu','銅'],['ta','鉭'],['mo','鉬'],['fe','鋼'],['al','鋁'],['mana','魔晶']];}],['sc.tan','串聯前驅裝藥','chk'],
+ ['gel.cd','凝膠阻力係數（彈頭向前）','num'],['gel.nk','頸長 cm','num'],['gel.vf','碎裂門檻 m/s','num'],['gel.ff','碎裂比例 0–1','num'],['gel.ex','擴張倍率','num'],['gel.vx','擴張門檻 m/s','num'],
+ ['pel','彈丸數','num'],['pm','每粒重 g','num'],['pd','每粒直徑 mm','num'],
+ ['mg.bo','【魔能】動能增幅（0.3＝+30%）','num'],['mg.pi','【魔能】穿甲倍率','num'],['mg.dp','【魔能】破魔 0–1','num'],['mg.bu','【魔能】魔爆當量 kg TNT','num'],['mg.el','【魔能】屬性','sel',function(){return A.ELEM.map(function(e,i){return [i,e];});}],
+ ['mg.mc','【魔能】魔晶用量 g','num'],['mg.mcp','【魔能】魔晶單價 美元/kg','num'],['mg.st','【魔能】穩定度 0–1','num']];
+function gp(o,path){var a=path.split('.'),x=o;for(var i=0;i<a.length;i++){if(x===undefined||x===null)return undefined;x=x[a[i]];}return x;}
+function sp(o,path,v){var a=path.split('.'),x=o;for(var i=0;i<a.length-1;i++){if(typeof x[a[i]]!=='object'||x[a[i]]===null)x[a[i]]={};x=x[a[i]];}if(v===''||v===undefined||(typeof v==='number'&&!isFinite(v)))delete x[a[a.length-1]];else x[a[a.length-1]]=v;}
+function fieldHtml(o,F){return '<div class="lt-form">'+F.map(function(f){var v=gp(o,f[0]),id=f[0],inp;
+  if(f[2]==='sel')inp='<select data-pf="'+id+'">'+opts(f[3](),v===undefined?'':v)+'</select>';else if(f[2]==='mat')inp='<select data-pf="'+id+'"><option value="">—</option>'+matOpts(v)+'</select>';
+  else if(f[2]==='chk')inp='<input type="checkbox" data-pf="'+id+'"'+(v?' checked':'')+'>';else if(f[2]==='text')inp='<input type="text" data-pf="'+id+'" value="'+esc(v)+'" style="width:15em">';
+  else inp='<input type="number" data-pf="'+id+'" value="'+(v===undefined?'':v)+'" step="any">';return '<label>'+f[1]+' '+inp+'</label>';}).join('')+'</div>';}
+function readFields(box,o,F){F.forEach(function(f){var el=box.querySelector('[data-pf="'+f[0]+'"]');if(!el)return;var v;if(f[2]==='chk')v=el.checked?1:'';else if(f[2]==='num')v=el.value===''?'':+el.value;else if(f[2]==='sel'&&f[0]==='mg.el')v=+el.value||'';else v=el.value;sp(o,f[0],v);});}
+RENDER.ammo={init:function(){var E=pane('ammo');E.innerHTML='<div class="row"><label>彈藥 <select data-k="aP">'+projOpts(AM.p)+'</select></label><button type="button" data-k="aDup">複製為新彈藥</button><button type="button" data-k="aNew">新增空白彈藥</button><button type="button" data-k="aDel">刪除／還原</button>'+
+  '<label>彈道表最遠 <input type="number" data-k="aR" value="'+AM.R+'" step="100" style="width:70px"> m</label></div><div data-k="aOut"></div><details class="lt-grp" open><summary>參數（修改後按「套用」）</summary><div data-k="aF"></div><div class="row"><button type="button" class="lt-pri" data-k="aApply">套用</button><span class="lt-note">修改內建彈藥會另存為你的版本（✎），可用「刪除／還原」回到原值。</span></div></details>';
+  q('aP').onchange=function(){AM.p=this.value;RENDER.ammo.run();};q('aR').onchange=function(){AM.R=Math.max(10,+this.value||600);RENDER.ammo.run();};
+  q('aDup').onclick=function(){var p=A.cloneObj(P(AM.p));p.id='u'+Date.now().toString(36);p.n=p.n+'（自訂）';p._u=1;S.proj.push(p);AM.p=p.id;libChanged();};
+  q('aNew').onclick=function(){var p={id:'u'+Date.now().toString(36),n:'新彈藥',g:'rifle',k:'core',d:7.62,L:30,m:9,v0:850,bc:0.2,dm:'G7',dfm:0.1,core:{mat:'hsteel',m:4,d:6,N:0.12},cs:{mat:'brass',g:12},prop:3,bom:[['hsteel',4],['lead',3],['gm',2]],cx:1.3,gel:{cd:0.24,nk:18},_u:1};S.proj.push(p);AM.p=p.id;libChanged();};
+  q('aDel').onclick=function(){var i=idxOf(S.proj,AM.p);if(i<0)return;if(BASEP[AM.p]){var b=A.cloneObj(A.PROJ.filter(function(x){return x.id===AM.p;})[0]);A.calibrateCost(b,S.mats);S.proj[i]=b;}else{S.proj.splice(i,1);AM.p=S.proj[0].id;}libChanged();};
+  q('aApply').onclick=function(){var p=P(AM.p);readFields(q('aF'),p,PF);p._u=1;var cm=p.core&&p.core.mat;if(p.bom&&cm&&p.bom.length&&p.core.m){p.bom[0]=[cm,p.core.m];}libChanged();};},
+ run:function(){var p=P(AM.p),c=costP(p),rm=A.roundMass(p),sm=small(p),tab=A.flyTable(p,AM.R,AM.R/10,env()),h='';
+  h+='<div class="lt-kv"><b>單價</b><span>'+money(c.usd)+'（市場 ×'+c.mk+'、批量學習曲線 ×'+fx(c.learn,2)+'、製造複雜度 ×'+fx(c.cx,2)+'）</span>'+
+   (sm?'<b>每 30 顆</b><span>'+money(c.usd*30)+'；<b>重 '+mass(rm*30)+'</b></span><b>每 1,000 顆</b><span>'+money(c.usd*1000)+'；'+mass(rm*1000)+'</span>':'')+
+   '<b>'+(sm?'每顆全彈重':'全彈重')+'</b><span>'+mass(rm)+'（彈頭 '+mass(p.m)+(p.cs&&p.cs.g?'、彈殼 '+mass(p.cs.g):'')+(p.prop?'、發射藥 '+mass(p.prop):'')+'）</span>'+
+   '<b>截面密度</b><span>'+fx((p.m||0)/1000/Math.pow((p.d||1)/1000,2),0)+' kg/m²</span><b>初速／砲口動能</b><span>'+fx(p.v0,0)+' m/s，'+fx(0.5*(p.m||0)/1000*p.v0*p.v0/1000,2)+' kJ</span></div>';
+  h+='<h4>造價分解（原料與製程，未乘係數）</h4><div class="lt-sc"><table class="lt-dt"><tr><th class="l">項目</th><th>成本</th></tr>'+c.raw.parts.map(function(x){return '<tr><td class="l">'+esc(x[0])+'</td><td>'+moneyT(x[1])+'</td></tr>';}).join('')+'<tr class="sum"><td class="l">合計（未乘係數）</td><td>'+moneyT(c.raw.sum)+'</td></tr></table></div>';
+  if(p.k!=='sc'&&p.k!=='he'&&p.k!=='hesh'||p.bc){h+='<h4>外彈道</h4><div class="lt-sc"><table class="lt-dt"><tr><th>距離 m</th><th>速度 m/s</th><th>能量 J</th><th>飛行 s</th><th>下墜 cm</th><th>風偏 cm</th>'+(p.k==='sc'?'':'<th>RHA 穿深 mm</th>')+'</tr>'+
+    tab.map(function(r){return '<tr><td>'+fx(r[0],0)+'</td><td>'+fx(r[1],0)+'</td><td>'+fx(0.5*(p.m||0)/1000*r[1]*r[1],0)+'</td><td>'+fx(r[2],3)+'</td><td>'+fx(r[3]*100,1)+'</td><td>'+fx(r[4]*100,1)+'</td>'+(p.k==='sc'||p.k==='he'||p.k==='hesh'?'':'<td>'+fx(A.perfLimit(p,r[1],'rha',0,eo()),1)+'</td>')+'</tr>';}).join('')+'</table></div>';}
+  q('aOut').innerHTML=h;q('aF').innerHTML=fieldHtml(p,PF);}};
+
+/* ===================== 材料庫 ===================== */
+var MT={id:'mana'};
+var MF=[['n','名稱','text'],['cat','類別','sel',function(){return Object.keys(CATN).map(function(k){return [k,CATN[k]];});}],['rho','密度 g/cm³','num'],['bhn','布氏硬度 HB','num'],['hv','維氏硬度 HV（陶瓷）','num'],
+ ['ys','降伏強度 MPa','num'],['uts','抗拉強度 MPa','num'],['E','彈性模數 GPa','num'],['el','伸長率 %','num'],['rt','靶材阻抗 Rt GPa（非金屬）','num'],
+ ['fs','纖維強度 GPa','num'],['fe','纖維破斷應變','num'],['fE','纖維模數 GPa','num'],['mx','織物效率 0–1','num'],['hard','熱壓硬板','chk'],
+ ['yp','作彈芯時流動應力 GPa','num'],['brit','脆性（易碎裂）','chk'],['lo','長桿類別','sel',function(){return [['','—'],['W','重金屬（鎢、鈾）'],['S','鋼']];}],['ss','自銳係數','num'],['fh','表面硬化','chk'],
+ ['tek','對動能 RHA 厚度效率（複合）','num'],['tec','對化學能 RHA 厚度效率（複合）','num'],['ce','對聚能射流額外係數','num'],['era.ke','反應裝甲：削弱長桿','num'],['era.ce','反應裝甲：削弱射流','num'],['era.st','反應裝甲：鋼板等效比例','num'],['era.min','反應裝甲：最小有效傾角 °','num'],['era.trig','爆炸式（串聯可破）','chk'],['era.slat','柵欄攔截機率','num'],
+ ['bfd','背面變形係數','num'],['mh.0','多發損傷半徑（彈徑倍數）','num'],['mh.1','損傷區剩餘效能 0–1','num'],['usd','原料價 美元/kg','num'],['fab','裝甲加工倍率','num'],['proc','彈頭零件加工倍率','num'],
+ ['mg.sh','【魔能】護盾 kJ／發','num'],['mg.hd','【魔能】硬化（阻抗 +倍）','num'],['mg.ke','【魔能】對動能厚度倍率','num'],['mg.ce','【魔能】對化學能厚度倍率','num'],['mg.df','【魔能】偏斜場 °','num'],
+ ['mg.el','【魔能】屬性','sel',function(){return A.ELEM.map(function(e,i){return [i,e];});}],['mg.rg','【魔能】再生 %／秒','num'],['mg.cap','【魔能】護盾容量 kJ（多發）','num'],['note','備註','text']];
+RENDER.mat={init:function(){var E=pane('mat');E.innerHTML='<div class="lt-info">「魔能素」等架空材料可自由設定物理性質與魔能性質：護盾吸收每發的能量、硬化提高靶材阻抗、偏斜場加大有效傾角、屬性相剋（同屬性強化、受剋屬性削弱）、多發時的容量與再生；破魔彈頭會削減這些效果。全域「魔能充能」整體縮放。</div>'+
+  '<div class="row"><label>材料 <select data-k="tM">'+matOpts(MT.id)+'</select></label><button type="button" data-k="tDup">複製為新材料</button><button type="button" data-k="tNew">新增魔能素材料</button><button type="button" data-k="tDel">刪除／還原</button></div>'+
+  '<div data-k="tOut"></div><details class="lt-grp" open><summary>參數</summary><div data-k="tF"></div><div class="row"><button type="button" class="lt-pri" data-k="tApply">套用</button></div></details><h4>全部材料</h4><div data-k="tAll"></div>';
+  q('tM').onchange=function(){MT.id=this.value;RENDER.mat.run();};
+  q('tDup').onclick=function(){var m=A.cloneObj(M(MT.id));m.id='um'+Date.now().toString(36);m.n=m.n+'（自訂）';m._u=1;S.mats.push(m);MT.id=m.id;libChanged();};
+  q('tNew').onclick=function(){var m={id:'um'+Date.now().toString(36),n:'新魔能素材料',cat:'metal',rho:4.5,bhn:450,ys:1300,uts:1600,E:140,el:12,usd:500,fab:2.5,bfd:0.009,mh:[1.2,0.85],mg:{sh:3,hd:0.5,ke:1,ce:1,df:3,el:0,rg:2,cap:40},_u:1};S.mats.push(m);MT.id=m.id;libChanged();};
+  q('tDel').onclick=function(){var i=idxOf(S.mats,MT.id);if(i<0)return;if(BASEM[MT.id])S.mats[i]=A.cloneObj(A.MATS.filter(function(x){return x.id===MT.id;})[0]);else{S.mats.splice(i,1);MT.id='rha';}libChanged();};
+  q('tApply').onclick=function(){var m=M(MT.id);readFields(q('tF'),m,MF);if(m.mg&&!Object.keys(m.mg).length)delete m.mg;if(m.era&&!Object.keys(m.era).length)delete m.era;m._u=1;libChanged();};},
+ run:function(){var m=M(MT.id),rt=A.rtOf(m)/1e9,h='<div class="lt-kv"><b>靶材阻抗 Rt</b><span>'+fx(rt,2)+' GPa</span>';
+  if(m.cat==='fiber')h+='<b>Cunniff 速度 U*^(1/3)</b><span>'+fx(A.cunniffU(m),0)+' m/s（越高越好；芳綸約 700、超高分子量聚乙烯約 900）</span>';
+  var ref=P('r762m61'),lr=P('t120dm53'),sc=P('rpg7vl');
+  try{var tk=A.perfLimit(lr,1600,m.id,0,eo()),tr=A.perfLimit(lr,1600,'rha',0,eo()),tc=A.perfLimit(sc,0,m.id,0,eo()),tcr=A.perfLimit(sc,0,'rha',0,eo());
+    h+='<b>對長桿彈（DM53 1600 m/s）</b><span>需 '+fx(tk,0)+' mm 才擋得住；厚度效率 '+fx(tr/tk,2)+'、質量效率 '+fx(tr/tk*7.85/m.rho,2)+'</span><b>對聚能射流（PG-7VL）</b><span>需 '+fx(tc,0)+' mm；厚度效率 '+fx(tcr/tc,2)+'、質量效率 '+fx(tcr/tc*7.85/m.rho,2)+'</span>';
+    h+='<b>對 7.62 M61 穿甲彈（100 m）</b><span>需 '+fx(A.perfLimit(ref,A.velAt(ref,100,env()),m.id,0,eo()),1)+' mm</span>';}catch(e){}
+  h+='<b>價格</b><span>原料 '+money(m.usd||0)+'／kg；做成裝甲每 10 mm 每 m² 約 '+money(10*m.rho*(m.usd||0)*(m.fab||1))+'</span>';if(m.note)h+='<b>備註</b><span>'+esc(m.note)+'</span>';
+  q('tOut').innerHTML=h+'</div>';q('tF').innerHTML=fieldHtml(m,MF);
+  q('tAll').innerHTML='<div class="lt-sc"><table class="lt-dt"><tr><th class="l">材料</th><th class="l">類別</th><th>密度</th><th>硬度</th><th>Rt GPa</th><th>價格（東銀圓/kg）</th><th class="l">魔能</th></tr>'+S.mats.map(function(x){return '<tr class="ck" data-m="'+esc(x.id)+'"><td class="l">'+esc(x.n)+'</td><td class="l">'+CATN[x.cat]+'</td><td>'+fx(x.rho,2)+'</td><td>'+(x.bhn?x.bhn+' HB':x.hv?x.hv+' HV':'—')+'</td><td>'+fx(A.rtOf(x)/1e9,2)+'</td><td>'+fx((x.usd||0)/S.set.rate,1)+'</td><td class="l">'+(x.mg?'✦ 護盾 '+(x.mg.sh||0)+' kJ、'+A.ELEM[x.mg.el||0]:'')+'</td></tr>';}).join('')+'</table></div>';
+  q('tAll').onclick=function(e){var tr=e.target.closest('tr[data-m]');if(!tr)return;MT.id=tr.getAttribute('data-m');q('tM').value=MT.id;RENDER.mat.run();window.scrollTo(0,root.offsetTop);};}};
+
+/* ===================== 對照表 ===================== */
+var MX={p:['p9fmj','r556m193','r556m855','r762m80','r762m61','r762m993','r3006ap','h50ap','h145b32','a25apds','a30api','t120dm53','rpg7vl','javelin'],a:['b3a','b3ar','b3pe','b4a','vm113','vbrad','vbmp','vt72','vm1'],R:100};
+RENDER.mx={init:function(){var E=pane('mx');E.innerHTML='<div class="row"><label>距離 <input type="number" data-k="xR" value="'+MX.R+'" min="0" step="50" style="width:70px"> m</label><button type="button" class="lt-pri" data-k="xGo">計算</button></div>'+
+  '<details class="lt-grp"><summary>選擇彈藥與裝甲</summary><div class="lt-chk">'+S.proj.filter(function(p){return p.k!=='he'&&p.k!=='hesh';}).map(function(p){return '<label><input type="checkbox" data-xp="'+esc(p.id)+'"'+(MX.p.indexOf(p.id)>=0?' checked':'')+'> '+esc(p.n)+'</label>';}).join('')+'</div><hr>'+
+  '<div class="lt-chk">'+ARM.map(function(a){return '<label><input type="checkbox" data-xa="'+a[0]+'"'+(MX.a.indexOf(a[0])>=0?' checked':'')+'> '+esc(a[2])+'</label>';}).join('')+'</div></details><div data-k="xOut"></div>';
+  q('xGo').onclick=function(){MX.R=+q('xR').value||0;MX.p=[].map.call(E.querySelectorAll('[data-xp]:checked'),function(x){return x.getAttribute('data-xp');});MX.a=[].map.call(E.querySelectorAll('[data-xa]:checked'),function(x){return x.getAttribute('data-xa');});RENDER.mx.run();};},
+ run:function(){var h='<div class="lt-sc"><table class="lt-dt lt-mx"><tr><th class="l">彈藥＼裝甲</th>'+MX.a.map(function(a){var x=ARM.filter(function(z){return z[0]===a;})[0];return '<th>'+esc(x[2])+'<br><span class="lt-note">'+fx(A.stackAD(armLayers(a),S.mats),0)+' kg/m²</span></th>';}).join('')+'<th>單價</th></tr>';
+  MX.p.forEach(function(id){var p=P(id),v=A.velAt(p,MX.R,env());h+='<tr><td class="l">'+esc(p.n)+'<br><span class="lt-note">'+fx(v,0)+' m/s</span></td>'+MX.a.map(function(a){var L=armLayers(a),r=A.evaluate(p,L,eo({v:v})),V50=p.k==='sc'?null:A.v50Stack(p,L,eo()),pp=V50===null?(r.perf?1:0):A.pPerf(v,V50);
+      var cls=r.ric?'ric':pp>0.5?'bad':pp>0.1?'warn':'good';return '<td class="'+cls+'">'+(r.ric?'跳彈':pp>0.5?'貫穿':'擋下')+'<br><span class="lt-note">'+(V50===null?(p.k==='sc'?'餘 '+fx(r.capRes,0)+' mm':''):'P '+fx(pp*100,0)+'%')+'</span></td>';}).join('')+'<td>'+moneyT(costP(p).usd)+'</td></tr>';});
+  q('xOut').innerHTML=h+'</table></div><div class="lt-note">綠＝擋下、橘＝少數會貫穿（10–50%）、紅＝多半貫穿、灰＝跳彈。P 為依 V50 與散布估計的貫穿機率。</div>';}};
+
+/* ===================== 匯出／匯入 ===================== */
+RENDER.io={init:function(){var E=pane('io');E.innerHTML='<div class="row"><button type="button" data-k="iExp">匯出自訂彈藥與材料（JSON）</button><button type="button" data-k="iImp">匯入（JSON）</button><input type="file" data-k="iFile" accept=".json,application/json" style="display:none">'+
+  '<button type="button" data-k="iCsv">匯出最近一次穿甲結果（CSV）</button><button type="button" data-k="iLib">匯出全部彈藥價格表（CSV）</button><button type="button" data-k="iReset">清除全部自訂</button></div><div class="lt-note" data-k="iMsg"></div>'+
+  '<h4>模型與資料說明</h4><div class="lt-info lt-small">'+
+  '・長桿穿甲彈：Lanz–Odermatt 貫穿方程（鎢、鋼、貧鈾含自銳係數），多層裝甲以校準後的 Tate–Alekseevskii 侵蝕模型逐層積分，傾角依 cos<sup>0.224</sup> 修正；穿過薄斜板會引起偏航。<br>'+
+  '・硬芯彈與鉛心彈：Tate–Alekseevskii（剛體／侵蝕兩種狀態、背面弱化、尺寸效應），彈芯硬度不足或撞上更硬的靶材會碎裂；鈍頭穿薄板時帶走塞塊。<br>'+
+  '・陶瓷複合板：Florence 模型（63° 陶瓷錐、背板的破斷應變與強度）；軟甲：Cunniff 量綱分析 V50＝U*<sup>1/3</sup>·f(面密度×投影面積／彈重)，含彈頭在織物上的變形。<br>'+
+  '・聚能裝藥：穿深＝裝藥直徑×係數×炸高曲線×藥型罩，靶材依密度平方根與強度換算；反應裝甲依傾角削弱射流與長桿，串聯裝藥可先行引爆。碎甲彈依裝藥量估算背面剝落厚度。<br>'+
+  '・背面變形：以 Roma Plastilina 黏土的落球校準值（1.04 kg、2 m → 25 mm）反推；NIJ 上限 44 mm。<br>'+
+  '・凝膠：速度平方阻力加強度項、彈頭偏航至翻滾、擴張與碎裂；暫時腔直徑由單位長度能量釋放換算；失能機率僅為以永久腔體積估計的指標。<br>'+
+  '・爆炸：Kinney–Graham 超壓公式；破片：Gurney 初速、Mott 質量分布、79 J 危險破片判準。<br>'+
+  '・造價：原料價×加工倍率＋彈殼、發射藥、炸藥、引信與導引、裝配，乘以製造複雜度（內建彈藥已校準到公開合約價量級）、批量學習曲線（90%）與市場係數；1 東銀圓預設等於 2.5 美元。<br>'+
+  '・校準資料：NIJ 0101.06／0101.07 測試彈、常見 III／IV 級插板、.30-06 M2、.50 M2、14.5 B-32 對均質鋼、DM53／M829／3BM42 的公開穿深、PG-7VL／標槍、FBI 凝膠測試等。結果為工程估算，同一彈種實際仍有約 ±10–20% 的離散。</div>';
+  q('iExp').onclick=function(){dl('lato-armory-library.json',new Blob([JSON.stringify({format:'LatoArmory',v:1,set:S.set,mats:S.mats.filter(function(m){return m._u;}),proj:S.proj.filter(function(p){return p._u;})},null,1)],{type:'application/json'}));};
+  q('iImp').onclick=function(){q('iFile').click();};
+  q('iFile').onchange=function(){var f=this.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(){try{var d=JSON.parse(rd.result);(d.mats||[]).forEach(function(m){m._u=1;var i=idxOf(S.mats,m.id);if(i>=0)S.mats[i]=m;else S.mats.push(m);});
+      (d.proj||[]).forEach(function(p){p._u=1;var i=idxOf(S.proj,p.id);if(i>=0)S.proj[i]=p;else S.proj.push(p);});q('iMsg').textContent='已匯入 '+(d.mats||[]).length+' 種材料、'+(d.proj||[]).length+' 種彈藥。';libChanged();}catch(e){err(e);}};rd.readAsText(f);};
+  q('iCsv').onclick=function(){var x=S.last;if(!x){q('iMsg').textContent='請先在「穿甲模擬」計算一次。';return;}var rows=[['層','材料','厚度mm','傾角','視線厚mm','入射速度','侵徹深mm','結果']];
+    x.r.layers.forEach(function(l){rows.push([l.i+1,l.mat.n,l.t,l.ang,fx(l.los,1),fx(l.vIn,0),l.dop!==undefined?fx(l.dop,1):'',l.res||'']);});rows.unshift(['彈藥',x.p.n,'撞擊速度',fx(x.v,0)]);
+    dl('lato-armory-result.csv',new Blob(['﻿'+rows.map(function(r){return r.map(function(c){return '"'+String(c).replace(/"/g,'""')+'"';}).join(',');}).join('\n')],{type:'text/csv'}));};
+  q('iLib').onclick=function(){var rows=[['彈藥','類別','彈頭g','全彈g','每30顆kg','單價東銀圓','每30顆東銀圓','初速m/s']];S.proj.forEach(function(p){var c=costP(p).usd/S.set.rate,rm=A.roundMass(p),sm=small(p);rows.push([p.n,(A.GROUPS[p.g]||[''])[0],p.m,fx(rm,1),sm?fx(rm*30/1000,3):'',fx(c,2),sm?fx(c*30,2):'',p.v0]);});
+    dl('lato-armory-prices.csv',new Blob(['﻿'+rows.map(function(r){return r.map(function(c){return '"'+String(c).replace(/"/g,'""')+'"';}).join(',');}).join('\n')],{type:'text/csv'}));};
+  q('iReset').onclick=function(){if(!confirm('清除所有自訂的彈藥、材料與設定？'))return;store(KEY,{});loadLib();libChanged();q('iMsg').textContent='已還原為內建資料。';};},
+ run:function(){}};
+
+show('pen');
+window.addEventListener('resize',function(){clearTimeout(window.__ltArmR);window.__ltArmR=setTimeout(rerunVisible,250);});
+})();
+</script>
+</body></html>
