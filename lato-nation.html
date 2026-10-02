@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>國家綜合製作器（LatoNation）</title>
+<style>
+/* ===== LatoTools 共用樣式（MediaWiki:Gadget-LatoTools.css 已有，不必重貼） ===== */
+.lato-tool{font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif;font-size:14px;color:#222;}
+.lato-tool .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;font-size:13px;color:#555;margin:0 0 10px;}
+.lato-tool input[type=number]{width:74px;}
+.lato-tool input[type=color]{width:34px;height:26px;padding:0;border:1px solid #ccc;border-radius:4px;vertical-align:middle;}
+.lato-tool input[type=range]{width:90px;vertical-align:middle;}
+.lato-tool button{padding:4px 12px;border:1px solid #aaa;border-radius:6px;background:#fff;color:#222;cursor:pointer;font-size:13px;}
+.lato-tool button:hover{background:#f0f0f0;}
+.lato-tool .lt-cv{width:100%;min-height:120px;display:block;border:1px solid #ccc;border-radius:8px;background:#f6f6f6;}
+.lato-tool .lt-err{color:#b3261e;font-size:13px;margin:0 0 8px;min-height:1em;}
+.lato-tool .lt-info{font-size:13px;color:#555;margin:0 0 8px;line-height:1.7;}
+.lato-tool .lt-chip{display:inline-block;width:16px;height:16px;border-radius:4px;border:1px solid #ccc;vertical-align:middle;margin-left:4px;}
+.lato-tool .lt-cl{display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border:1px solid #ccc;border-radius:6px;cursor:pointer;font-size:12px;}
+.lato-tool .lt-mk{position:absolute;width:14px;height:14px;margin:-7px 0 0 -7px;border:2px solid #b3261e;border-radius:50%;pointer-events:none;display:none;}
+.lt-terrain .lt-scroll{max-height:260px;overflow:auto;margin:4px 0;}
+.lt-terrain .lt-scroll input[type=number]{padding:1px 3px;font-size:12px;}
+/* ===== LatoNation 新增：以下附加到 MediaWiki:Gadget-LatoTools.css 末尾 ===== */
+.lato-tool select,.lato-tool input[type=text],.lato-tool input[type=number],.lato-tool input[type=date]{font-size:13px;padding:3px 6px;border:1px solid #aaa;border-radius:6px;background:#fff;color:#222;}
+.lato-tool .lt-pri{background:#222;border-color:#222;color:#fff;}
+.lato-tool .lt-pri:hover{background:#444;}
+.lato-tool .lt-grp{border:1px solid #ddd;border-radius:8px;padding:0 10px;margin:0 0 8px;}
+.lato-tool .lt-grp>summary{cursor:pointer;padding:6px 0;font-size:13px;color:#333;}
+.lt-nation textarea{width:100%;box-sizing:border-box;font:12px/1.5 system-ui,-apple-system,"Noto Sans TC",sans-serif;border:1px solid #ccc;border-radius:6px;padding:4px 6px;}
+.lt-nation .ln-bar{position:sticky;top:0;z-index:5;background:#fffdf8;border:1px solid #d9d2c3;border-radius:8px;padding:6px 10px;margin:0 0 8px;display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;font-size:13px;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+.lt-nation .ln-bar .nm{font-size:15px;font-weight:600;color:#3E2723;}
+.lt-nation .ln-chip{white-space:nowrap;color:#555;}
+.lt-nation .ln-chip b{color:#222;font-size:14px;margin-left:3px;}
+.lt-nation .ln-lv{display:inline-block;padding:0 6px;border-radius:4px;background:#3E2723;color:#fff;font-size:12px;margin-left:4px;}
+.lt-nation .ln-st{cursor:pointer;white-space:nowrap;}
+.lt-nation .ln-st.bad{color:#b3261e;}
+.lt-nation .ln-st.warn{color:#8a5a00;}
+.lt-nation .ln-st.ok{color:#2e7d32;}
+.lt-nation .ln-act{gap:6px;}
+.lt-nation .ln-save{font-size:12px;color:#888;}
+.lt-nation .lt-tabs{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0 10px;border-bottom:1px solid #ddd;padding-bottom:6px;}
+.lt-nation .lt-tabs button.on{background:#3E2723;color:#fff;border-color:#3E2723;}
+.lt-nation .ln-pane{display:none;}
+.lt-nation .ln-pane.on{display:block;}
+.lt-nation .ln-card{border:1px solid #ddd;border-radius:8px;padding:8px 12px;margin:0 0 10px;background:#fff;}
+.lt-nation .ln-card>h4{margin:0 0 8px;font-size:15px;color:#3E2723;}
+.lt-nation .ln-card .row{gap:8px 14px;margin:0 0 8px;}
+.lt-nation .ln-res{font-size:13px;line-height:1.75;color:#333;background:#faf8f4;border-radius:6px;padding:6px 10px;margin-top:4px;}
+.lt-nation .ln-res:empty{display:none;}
+.lt-nation .ln-tiles{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 6px;}
+.lt-nation .ln-tile{border:1px solid #e3ddd2;border-radius:6px;padding:3px 10px;background:#fff;min-width:96px;}
+.lt-nation .ln-tile .l{font-size:12px;color:#666;}
+.lt-nation .ln-tile .v{font-size:17px;font-weight:600;color:#222;white-space:nowrap;}
+.lt-nation .ln-tile .s{font-size:11px;color:#777;}
+.lt-nation .ln-chk{list-style:none;margin:4px 0;padding:0;font-size:13px;}
+.lt-nation .ln-chk li{padding:2px 0 2px 22px;position:relative;line-height:1.55;}
+.lt-nation .ln-chk li:before{position:absolute;left:2px;font-weight:700;}
+.lt-nation .ln-chk li.err{color:#b3261e;}
+.lt-nation .ln-chk li.err:before{content:'✕';}
+.lt-nation .ln-chk li.warn{color:#8a5a00;}
+.lt-nation .ln-chk li.warn:before{content:'！';}
+.lt-nation .ln-chk li.info{color:#555;}
+.lt-nation .ln-chk li.info:before{content:'ⓘ';}
+.lt-nation .ln-chk li.miss{color:#555;}
+.lt-nation .ln-chk li.miss:before{content:'…';}
+.lt-nation .ln-die{white-space:nowrap;}
+.lt-nation .ln-dn{font-size:11px;color:#fff;background:#6D4C41;border-radius:4px;padding:0 4px;}
+.lt-nation .ln-dv{font-size:12px;color:#2e7d32;}
+.lt-nation .ln-dv.bad{color:#b3261e;}
+.lt-nation table.ln-lt,.lt-nation table.ln-tbl{border-collapse:collapse;font-size:12.5px;}
+.lt-nation table.ln-lt th,.lt-nation table.ln-tbl th{background:#f3eee9;color:#4E342E;font-weight:600;padding:3px 6px;text-align:left;white-space:nowrap;}
+.lt-nation table.ln-lt td,.lt-nation table.ln-tbl td{border-bottom:1px solid #eee;padding:3px 6px;vertical-align:top;}
+.lt-nation table.ln-tbl td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.lt-nation table.ln-tbl tr.sum td{font-weight:600;border-top:1px solid #bbb;}
+.lt-nation table.ln-tbl td.ov input{width:5.5em;}
+.lt-nation .ln-x{padding:1px 6px;font-size:12px;color:#b3261e;}
+.lt-nation .ln-sc{overflow:auto;max-width:100%;}
+.lt-nation .ln-note{font-size:12px;color:#777;line-height:1.6;}
+.lt-nation .ln-hi{background:#fff3cd;}
+.lt-nation textarea.ln-out{height:440px;font:12px/1.5 ui-monospace,Menlo,Consolas,"Noto Sans TC",monospace;white-space:pre;}
+.lt-nation .ln-tip{position:fixed;pointer-events:none;background:#fff;border:1px solid #bbb;border-radius:6px;padding:4px 8px;font-size:12px;line-height:1.5;color:#555;box-shadow:0 2px 6px rgba(0,0,0,.15);display:none;z-index:30;max-width:260px;}
+.lt-nation .ln-tip b{color:#111;font-size:13px;}
+.lt-nation .ln-lg{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:#444;margin:4px 0;}
+.lt-nation .ln-sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px;}
+.lt-nation .ln-ch{margin:6px 0 4px;}
+.lt-nation .ln-ch svg{display:block;max-width:100%;height:auto;overflow:visible;}
+.lt-nation .ln-ch .t{font-size:13px;color:#333;font-weight:600;margin:0 0 2px;}
+.lt-nation .ln-grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:10px;}
+.lt-nation .ln-rule{font-size:13px;line-height:1.75;color:#444;}
+.lt-nation .ln-rule li{margin:0 0 4px;}
+.lt-nation .ln-sep{display:inline-block;width:1px;height:22px;background:#d9d6cf;margin:0 4px;}
+@media (max-width:640px){
+.lt-nation .ln-bar{font-size:12px;padding:4px 8px;gap:2px 10px;}
+.lt-nation .ln-bar .nm{font-size:14px;}
+.lt-nation table.ln-lt,.lt-nation table.ln-lt tbody,.lt-nation table.ln-rv,.lt-nation table.ln-rv tbody{display:block;}
+.lt-nation table.ln-lt thead,.lt-nation table.ln-rv tr:first-child{display:none;}
+.lt-nation table.ln-lt tr,.lt-nation table.ln-rv tr{display:flex;flex-wrap:wrap;align-items:flex-end;gap:4px 10px;padding:6px 0;border-bottom:1px solid #e3ddd2;}
+.lt-nation table.ln-lt td,.lt-nation table.ln-rv td{display:block;border:0;padding:0;min-width:0!important;text-align:left;}
+.lt-nation table.ln-lt td:last-child{margin-left:auto;}
+.lt-nation table.ln-rv td:first-child,.lt-nation table.ln-rv td:nth-child(6),.lt-nation table.ln-rv td:nth-child(7){flex:1 1 100%;}
+.lt-nation table.ln-rv textarea{width:100%;box-sizing:border-box;}
+.lt-nation table.ln-tbl.ln-rv td.n{text-align:left;}
+.lt-nation td[data-lb]::before{content:attr(data-lb);display:block;font-size:11px;font-weight:400;color:#8a8178;line-height:1.5;}
+}
+body{margin:0;padding:12px;font-family:system-ui,-apple-system,"Noto Sans TC","Microsoft JhengHei",sans-serif;background:#fafafa;color:#222;}
+</style></head><body>
+<div id="lato-nation"></div>
+<script>
+/* ===== MediaWiki:Gadget-LatoNation.js：貼上這段 ===== */
+(function(){
+"use strict";
+var root=document.getElementById('lato-nation');
+if(!root)return;
+/* ===================== LatoNation 國家綜合製作器：規則表、數學與格式 ===================== */
+var PI=Math.PI,D2R=PI/180;
+function q(k){return root.querySelector('[data-k="'+k+'"]');}
+function esc(s){return String(s===undefined||s===null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+function has(v){return v!==undefined&&v!==null&&String(v).trim()!=='';}
+function num(v){if(typeof v==='number')return v;if(!has(v))return NaN;var s=String(v).replace(/[,，\s]/g,'').replace(/[%％]$/,'');return s===''?NaN:+s;}
+function sum(a){var s=0;for(var i=0;i<a.length;i++)s+=a[i]||0;return s;}
+/* 四捨五入：先去掉浮點誤差，再以半數進位（0.5 進位） */
+function rnd(v,step){if(!isFinite(v))return v;var x=Math.round(v/step*1e6)/1e6;return (x<0?-Math.round(-x):Math.round(x))*step;}
+function rndD(v,d){var m=Math.pow(10,d);return rnd(v*m,1)/m;}
+function fmt(n,d){if(!isFinite(n))return '—';d=d||0;return (+n).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});}
+function fx(n,d){return isFinite(n)?(+n).toFixed(d):'—';}
+function pct(n,d){return isFinite(n)?fmt(n,d===undefined?1:d)+'%':'—';}
+function wan(n,d){if(!isFinite(n))return '—';var w=n/1e4;return fmt(w,d!==undefined?d:Math.abs(w-Math.round(w))<1e-9?0:1)+'萬';}
+/* 金額：兆（10^12）、億、萬 */
+function money(v,cur,full){if(!isFinite(v))return '—';var a=Math.abs(v),s;
+  if(full&&a<1e8)s=fmt(v,0);else if(a>=1e12)s=fmt(v/1e12,2)+'兆';else if(a>=1e11)s=fmt(v/1e8,0)+'億';else if(a>=1e8)s=fmt(v/1e8,1)+'億';else if(a>=1e6)s=fmt(v/1e4,0)+'萬';else if(a>=1e4)s=fmt(v/1e4,1)+'萬';else s=fmt(v,0);
+  return s+(cur===undefined?'東銀圓':cur);}
+function mb32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};}
+function hstr(s){s=String(s);var h=1779033703^s.length;for(var i=0;i<s.length;i++){h=Math.imul(h^s.charCodeAt(i),3432918353);h=h<<13|h>>>19;}return h>>>0;}
+function gauss(r){var u=Math.max(1e-9,r()),v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*PI*v);}
+/* 常態分配：誤差函數（Abramowitz–Stegun 7.1.26）與反函數（Acklam） */
+function erf(x){var s=x<0?-1:1;x=Math.abs(x);var t=1/(1+0.3275911*x);return s*(1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x));}
+function Phi(x){return x===Infinity?1:x===-Infinity?0:0.5*(1+erf(x/Math.SQRT2));}
+function PhiInv(p){if(p<=0)return -Infinity;if(p>=1)return Infinity;
+  var a=[-39.69683028665376,220.9460984245205,-275.9285104469687,138.357751867269,-30.66479806614716,2.506628277459239],b=[-54.47609879822406,161.5858368580409,-155.6989798598866,66.80131188771972,-13.28068155288572],
+    c=[-0.007784894002430293,-0.3223964580411365,-2.400758277161838,-2.549732539343734,4.374664141464968,2.938163982698783],d=[0.007784695709041462,0.3224671290700398,2.445134137142996,3.754408661907416],t,r;
+  if(p<0.02425){t=Math.sqrt(-2*Math.log(p));return (((((c[0]*t+c[1])*t+c[2])*t+c[3])*t+c[4])*t+c[5])/((((d[0]*t+d[1])*t+d[2])*t+d[3])*t+1);}
+  if(p>0.97575){t=Math.sqrt(-2*Math.log(1-p));return -(((((c[0]*t+c[1])*t+c[2])*t+c[3])*t+c[4])*t+c[5])/((((d[0]*t+d[1])*t+d[2])*t+d[3])*t+1);}
+  t=p-0.5;r=t*t;return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*t/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);}
+/* 球面距離（公里） */
+function gcKm(la1,lo1,la2,lo2,R){var p1=la1*D2R,p2=la2*D2R,dp=p2-p1,dl=(lo2-lo1)*D2R,h=Math.sin(dp/2)*Math.sin(dp/2)+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)*Math.sin(dl/2);return 2*R*Math.asin(Math.min(1,Math.sqrt(h)));}
+/* 日期（真實日期，用於審核程序） */
+function pd(s){var m=String(s||'').match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);return m?new Date(Date.UTC(+m[1],+m[2]-1,+m[3])):null;}
+function addM(d,n){var x=new Date(d.getTime()),day=x.getUTCDate();x.setUTCDate(1);x.setUTCMonth(x.getUTCMonth()+n);var last=new Date(Date.UTC(x.getUTCFullYear(),x.getUTCMonth()+1,0)).getUTCDate();x.setUTCDate(Math.min(day,last));return x;}
+function addD(d,n){return new Date(d.getTime()+n*864e5);}
+function ds(d){return d?d.getUTCFullYear()+'-'+('0'+(d.getUTCMonth()+1)).slice(-2)+'-'+('0'+d.getUTCDate()).slice(-2):'';}
+function today(){var d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}
+/* 擲骰結果：可填總和（150），或逐顆（45+60+45、45 60 45） */
+function dieVal(raw,n,sides){var s=String(raw===undefined||raw===null?'':raw).trim();if(!s)return {ok:false,empty:true,v:NaN};
+  var parts=s.split(/[+＋,，、\s]+/).filter(Boolean),v,msg='';
+  if(parts.length>1){var bad=false;v=0;parts.forEach(function(x){var y=+x;if(!(Math.floor(y)===y&&y>=1&&y<=sides))bad=true;v+=y;});
+    if(parts.length!==n)msg='應有 '+n+' 顆骰子，輸入了 '+parts.length+' 顆';else if(bad)msg='每顆骰子須為 1～'+sides+' 的整數';}
+  else{v=+parts[0];if(!(Math.floor(v)===v&&v>=n&&v<=n*sides))msg='須為 '+n+'～'+n*sides+' 的整數';}
+  return {ok:!msg&&isFinite(v),v:v,msg:msg,dice:parts.length>1?parts.map(Number):null};}
+
+/* ---------- 規則表 ---------- */
+var PTYPE={land:'陸權',mixed:'混合',sea:'海權'};
+var TYPEDESC={land:'內陸國，或海岸線短而內陸縱深大',mixed:'同時具備相當長度的海岸線與內陸縱深',sea:'島國，或領土以沿海地帶為主，內陸縱深淺'};
+var PLAYERN={initial:'初始玩家',normal:'普通玩家'};
+/* 領土額度（萬平方公里）＝ 3d100 × 係數 ＋ 基數 */
+var QUOTA={initial:{land:[0.8,10],mixed:[0.6,10],sea:[0.4,10]},normal:{land:[0.55,8],mixed:[0.4,8],sea:[0.28,8]}};
+var AREAK={land:30,mixed:40,sea:55};
+var SHAPE={land:{isle:3,encl:1,dist:2000},mixed:{isle:6,encl:3,dist:5000},sea:{isle:Infinity,encl:6,dist:Infinity}};
+var KINDN={main:'本土',isle:'本土群島',encl:'海外飛地'};
+var SIZECL=[[35,'迷你領土'],[80,'小型領土'],[150,'中型領土'],[280,'大型領土'],[500,'超大領土']];
+var W_HAB=[[1.3,'溫帶平原、河谷為主'],[1.0,'一般混合地形'],[0.7,'乾旱或高山為主'],[0.4,'凍原、沙漠為主']];
+var W_DEV=[[1.2,'已開發國家'],[1.0,'開發中國家'],[0.8,'新興或殖民型國家']];
+var W_ECON=[['market',1.2,'市場經濟'],['mixed',1.0,'混合經濟'],['planned',0.8,'計畫經濟']];
+var W_IND=[[1.3,'已工業化'],[1.0,'工業化中'],[0.6,'農業為主']];
+var W_MIL=[[1.8,'軍國體制、長期戰爭狀態'],[1.3,'普遍徵兵制、強鄰環伺'],[1.0,'一般國家'],[0.6,'島國、中立國、重商體制']];
+var PPPSYS={market:1.0,mixed:1.05,planned:1.25};
+var LVN=['小國','中等','區強','列強','超強'];
+/* 設定修正性權重：鍵、名稱、下限、上限、對應項目、類別、評定內容 */
+var REVIEW=[
+ ['hist','歷史深度',0.92,1.02,'硬實力總值','mul','建國沿革、重大事件、政權更迭'],
+ ['inst','制度細節',0.85,1.04,'經濟體制加權','mul','政體運作、立法機構、司法、地方行政'],
+ ['mil','軍事沿革',0.90,1.04,'軍事體制加權','mul','軍種編制、重要戰役、裝備發展'],
+ ['econ','經濟產業',0.88,1.04,'工業化加權','mul','產業結構、主要企業、貿易、資源'],
+ ['geo','地理環境',0.92,1.03,'宜居度加權','mul','地形、氣候、自然資源、交通建設'],
+ ['urban','都市發展',0.92,1.03,'人口','mul','首都、主要城市、人口分布、基礎建設'],
+ ['edu','國民素質',0.88,1.03,'發展程度加權','mul','教育制度、識字率、醫療、社會福利'],
+ ['dip','外交關係',-8,1,'外交影響力','add','條約、衝突、同盟史'],
+ ['cult','文化輸出',-8,1,'文化影響力','add','語言、宗教、族群、文學、影視、音樂、體育、國際聲望']];
+var EMPTYC=['不足 1,500 字或無獨立條目','只有形容詞與概括描述，無具體名稱、數字、年份或事件','未與任何既有國家、組織或事件產生關聯','可替換到任何其他國家而不需修改'];
+function defRules(){return {ver:'',year:4005,radius:6371,avg:{gdp:4.9e11,pop:8e7,def:2.2e10,army:6.7e5},hdi:{ref:9900,c:0.76,slope:0.10,half:0.06},enclGeo:true};}
+
+/* ---------- 政治、選舉、指標 ---------- */
+var REGIME=[['parl','議會制（內閣制）',7.8],['const','君主立憲議會制',8.0],['pres','總統制',7.2],['semi','半總統制',7.0],['dir','委員會制',8.2],['dom','一黨獨大（形式多黨）',4.6],
+  ['dual','二元君主制',4.2],['one','一黨專政',2.4],['theo','神權政體',2.0],['abs','絕對君主制',1.8],['mil','軍政府',1.6],['other','其他',5.0]];
+var ESYS=[['dhondt','比例代表制（頓特最高平均數法）'],['sl','比例代表制（聖拉古法）'],['hare','比例代表制（最大餘數法，黑爾數額）'],['fptp','單一選區相對多數制'],
+  ['parallel','並立制（單一選區＋比例代表）'],['mmp','聯立制（補償式比例代表）'],['indirect','間接選舉（依下議院席次）'],['manual','任命或指定（手動填席次）']];
+var PARTYCOL=['#1565C0','#C62828','#2E7D32','#F9A825','#6A1B9A','#00838F','#EF6C00','#5D4037','#AD1457','#455A64','#7CB342','#3949AB'];
+/* 資訊面板「指標」可選項目：鍵、名稱、單位、上限、小數位 */
+var INDIC=[['urb','都市化率','%',100,1],['lit','識字率','%',100,1],['e0','預期壽命','歲',100,1],['rd','研發支出占GDP','%',5,2],['une','失業率','%',30,1],['infl','通貨膨脹率','%',20,1],
+  ['debt','政府債務占GDP','%',200,1],['dem','民主指數','',10,1],['cpi','清廉指數','',100,0],['tfr','總和生育率','',8,2],['school','平均受教育年數','年',16,1],['gro','潛在經濟成長率','%',10,1],['mob','動員率','%',3,2]];
+var CHARTSRC=[['auto','自動（有行政區時用行政區人口，否則用就業結構）'],['region','行政區人口分布'],['emp','就業結構'],['class','社會階層'],['age','年齡結構'],['urban','都市與鄉村人口'],['sector','產業結構（GDP）'],['custom','自訂']];
+var EXPN=[['def','國防'],['edu','教育'],['hea','醫療衛生'],['soc','社會保障'],['eco','經濟事務與基礎建設'],['pub','一般公共服務'],['int','公債利息'],['oth','公共秩序、環境與其他']];
+/* ===================== 建國計算：步驟 1～10 與設定修正性權重 ===================== */
+function newNation(){return {
+  calc:{player:'normal',type:'mixed',ally:{on:false,name:'',bg:'',goal:'',members:''},d3d100:'',pxArea:'',cap:{lat:'',lon:''},
+    parts:[{kind:'main',name:'本土',px:'',area:'',lat:'',lon:''}],w:{hab:'1',dev:'1',econ:'mixed',ind:'1',mil:'1'},self:'',
+    d12d100:'',d2d100a:'',d2d100b:'',d2d10:'',d2d100m:'',d1d300:'',d1d6:'',d1d10dip:'',d1d10cul:'',cultMode:'roll',hdi:'',
+    rev:{typeOK:false,noOverlap:false},admin:false,adminLevel:''},
+  review:{w:{hist:'',inst:'',mil:'',econ:'',geo:'',urban:'',edu:'',dip:'',cult:''},why:{},empty:{},date:'',found:'',gy:'',keepPos:false,cultExt:true,excellent:false},
+  info:{status:'現存',flags:[{file:'',name:'',size:'',desc:'',period:''}],emblems:[{file:'',name:'',size:'',desc:'',period:''}],leaders:[{title:'',name:''}],events:[{ev:'',date:''}]},
+  demo:{tfr:'',e0:'',urb:'',lit:'',school:'',ageY:'',ageW:'',ageO:'',eth:[],rel:[],regions:[],cities:[],primacy:'1'},
+  econ:{ov:{}},
+  pol:{regime:'parl',parties:[],ch:[{on:true,name:'',seats:'',sys:'dhondt',thr:'',smd:'50',year:'',vote:'v1'},{on:false,name:'',seats:'',sys:'manual',thr:'',smd:'50',year:'',vote:'v2'}],ov:{},salt:0},
+  out:{cur:'dyn',empty:true,ranks:true,popFmt:'full',notePower:true,ind:['urb','lit','e0','rd'],chart:'auto',chartTitle:'',custom:[]},
+  rules:defRules()};}
+function econKey(v){return v==='market'||v==='planned'?v:'mixed';}
+function econName(k){for(var i=0;i<W_ECON.length;i++)if(W_ECON[i][0]===k)return W_ECON[i][2];return '';}
+function econVal(k){for(var i=0;i<W_ECON.length;i++)if(W_ECON[i][0]===k)return W_ECON[i][1];return 1;}
+function tabName(tab,v){v=+v;for(var i=0;i<tab.length;i++)if(Math.abs(tab[i][0]-v)<1e-9)return tab[i][1];return '';}
+function indKey(v){v=+v;return v>=1.2?'high':v<=0.7?'agri':'mid';}
+function levelOf(x){return !isFinite(x)?-1:x>=4?3:x>=2?2:x>=0.6?1:0;}
+/* 區間一律含下限、不含上限（與步驟10相同） */
+function eqScore(pc){return !isFinite(pc)?NaN:pc<3000?0:pc<6000?1:pc<12000?2:3;}
+function hdiScore(h){return !isFinite(h)?NaN:h<0.7?0:h<0.8?1:h<0.9?2:3;}
+/* HDI 可選區間：規則未列出，依範例（GDP_PPP人均 9,900 → 0.70～0.82）以 ln(所得) 線性延伸 */
+function hdiBand(pcP,R){var H=R.hdi||{},ref=num(H.ref)>0?num(H.ref):9900,c0=isFinite(num(H.c))?num(H.c):0.76,sl=isFinite(num(H.slope))?num(H.slope):0.1,hf=num(H.half)>=0?num(H.half):0.06,c=clamp(c0+sl*Math.log(pcP/ref),0.25,0.95);return {c:c,lo:Math.max(0.2,c-hf),hi:Math.min(0.999,c+hf)};}
+/* 平均國數值（硬實力分母）；未填或無效時用規則原值 */
+function avgOf(R){var A=R.avg||{},d=defRules().avg,o={};Object.keys(d).forEach(function(k){var v=num(A[k]);o[k]=v>0?v:d[k];});return o;}
+function sizeClass(w){for(var i=0;i<SIZECL.length;i++)if(w<=SIZECL[i][0])return SIZECL[i][1];return '超出級距';}
+function typeLabel(hard,coef){if(!isFinite(hard)||!isFinite(coef))return '';if(hard>=1.5&&coef>=1.2)return '全面型強國';if(hard>=1.5&&coef<=0.8)return '軍事型強權';if(hard<=1.0&&coef>=1.2)return '經濟文化型國家';return '';}
+/* 空泛內容的審核程序狀態（警告後 14 天未修改移除條目，1 個月未完成修改適用懲罰性權重） */
+function emptyStatus(V,k,dR){var e=(V.empty||{})[k]||{},n=0;for(var i=0;i<4;i++)if(e['c'+i])n++;
+  var o={n:n,empty:n>=2,code:'ok',text:'未判定為空泛'};if(!o.empty&&!has(e.warned))return o;
+  var dw=pd(e.warned);if(!dw){o.code='due';o.text='判定為空泛，尚未加註警告';return o;}
+  o.d14=addD(dw,14);o.d1m=addM(dw,1);
+  if(e.fixed){o.code='fixed';o.text='已補正，懲罰性權重撤銷';return o;}
+  if(dR<o.d14){o.code='warned';o.text='警告中：'+ds(o.d14)+' 前須修改，'+ds(o.d1m)+' 前須完成';return o;}
+  if(!e.edited){o.code='remove';o.text='警告後 14 天內未修改：條目移除（'+ds(o.d14)+' 起）';return o;}
+  if(dR<o.d1m){o.code='warned';o.text='已修改，'+ds(o.d1m)+' 前須完成補正';return o;}
+  o.code='pen';o.text='警告逾 1 個月未完成修改：適用懲罰性權重';return o;}
+
+function compute(N){
+  var c=N.calc,R=N.rules,V=N.review,B={chk:[],miss:[],dice:{}},admin=!!c.admin;
+  function chk(t,m,s){B.chk.push({t:t,m:m,s:s||''});}
+  function err(m,s){chk(admin?'info':'err',m,s);}
+  function die(key,n,sides,lb,s){var r=dieVal(c[key],n,sides);r.n=n;r.sides=sides;r.lb=lb;B.dice[key]=r;if(r.empty){B.miss.push(lb+'（'+n+'d'+sides+'）');return NaN;}if(!r.ok)err(lb+'（'+n+'d'+sides+'）'+r.msg+'。',s);return isFinite(r.v)?r.v:NaN;}
+  /* ---- 步驟1 玩家身分、國家類型與領土額度 ---- */
+  var pl=c.player==='initial'?'initial':'normal',ty=AREAK[c.type]?c.type:'mixed',al=!!(c.ally&&c.ally.on),qk=QUOTA[pl][ty];
+  B.pl=pl;B.ty=ty;B.al=al;B.qk=qk;
+  var d3=die('d3d100',3,100,'領土額度','s1');B.quota=d3*qk[0]+qk[1]+(al?5:0);
+  if(al){var mem=String(c.ally.members||'').split(/[\n,，、;；]+/).filter(function(x){return x.trim();});B.allyN=mem.length+1;
+    if(B.allyN<3)chk('warn','聯盟建國須三個以上國家同時申請：請在成員欄列出其他成員國（目前連同本國 '+B.allyN+' 國）。','s1');
+    if(!has(c.ally.name)||!has(c.ally.bg)||!has(c.ally.goal))chk('warn','聯盟建國須共同提交聯盟名稱、成立背景與共同目標。','s1');}
+  /* ---- 步驟2 劃定領土 ---- */
+  var pxA=num(c.pxArea),capLa=num(c.cap&&c.cap.lat),capLo=num(c.cap&&c.cap.lon),Rk=num(R.radius)>0?num(R.radius):6371,lim=SHAPE[ty],parts=[];
+  (c.parts||[]).forEach(function(p,i){var px=num(p.px),byPx=isFinite(px)&&px>0&&isFinite(pxA)&&pxA>0,o={i:i,kind:KINDN[p.kind]?p.kind:'isle',name:p.name||'',area:byPx?px*pxA:num(p.area),byPx:byPx,lat:num(p.lat),lon:num(p.lon)};
+    o.dist=isFinite(o.lat)&&isFinite(o.lon)&&isFinite(capLa)&&isFinite(capLo)?gcKm(capLa,capLo,o.lat,o.lon,Rk):NaN;parts.push(o);});
+  var main=0,mainN=0,isle=0,isleN=0,encl=0,enclN=0,tinyN=0;
+  parts.forEach(function(o){if(!(o.area>0)){o.cnt=false;o.st='未填面積';return;}
+    if(o.kind==='main'){o.cnt=true;main+=o.area;mainN++;return;}
+    if(o.area<500){o.cnt=false;tinyN++;o.st='未滿 500 平方公里：不計入數量與面積';return;}
+    o.cnt=true;if(o.kind==='encl'){encl+=o.area;enclN++;}else{isle+=o.area;isleN++;}});
+  var area=main+isle+encl;B.parts=parts;B.area=area;B.main=main;B.isle=isle;B.encl=encl;B.isleN=isleN;B.enclN=enclN;B.tinyN=tinyN;B.capOK=isFinite(capLa)&&isFinite(capLo);
+  if(!mainN)B.miss.push('本土面積');
+  if(mainN>1)err('本土只能有一塊（包含首都且相連的最大陸塊）；其他陸塊請列為本土群島或海外飛地。','s2');
+  if(area>0&&isFinite(B.quota)&&area>B.quota*1e4+1e-6)err('實際面積 '+fmt(area)+' 平方公里超過領土額度 '+fmt(B.quota*1e4)+' 平方公里。','s2');
+  if(isleN>lim.isle)err(PTYPE[ty]+'國家的本土群島上限為 '+lim.isle+' 處（目前 '+isleN+' 處）。','s2');
+  if(enclN>lim.encl)err(PTYPE[ty]+'國家的海外飛地上限為 '+lim.encl+' 處（目前 '+enclN+' 處）。','s2');
+  parts.forEach(function(o){if(o.kind!=='encl'||!o.cnt)return;var nm='「'+(o.name||'#'+(o.i+1))+'」';
+    if(!isFinite(o.dist)){if(isFinite(lim.dist))chk('warn','海外飛地'+nm+'未填最近點經緯度或首都經緯度，無法檢查 '+fmt(lim.dist)+' 公里的距離上限。','s2');}
+    else if(o.dist>lim.dist)err('海外飛地'+nm+'距首都 '+fmt(o.dist)+' 公里，超過'+PTYPE[ty]+'國家的上限 '+fmt(lim.dist)+' 公里。','s2');});
+  if(area>0){if(encl/area>0.2+1e-9)err('海外飛地合計占總領土 '+pct(encl/area*100)+'，不得超過 20%。','s2');if(main/area<0.5-1e-9)err('本土僅占總領土 '+pct(main/area*100)+'，不得低於 50%。','s2');}
+  if(tinyN)chk('info',tinyN+' 處島嶼面積未滿 500 平方公里，不計入數量與面積。','s2');
+  B.areaW=area/1e4;B.size=area>0?sizeClass(B.areaW):'';
+  if(B.areaW>500)err('面積超過 500 萬平方公里，不在領土級距內。','s2');else if(B.areaW>280&&!(admin&&c.adminLevel==='super'))err('超大領土（超過 280 萬平方公里）限超強使用。','s2');
+  if(area>0){if(!c.rev||!c.rev.typeOK)chk('warn','審核者尚未確認領土形態符合「'+PTYPE[ty]+'」：'+TYPEDESC[ty]+'。','s2');if(!c.rev||!c.rev.noOverlap)chk('warn','審核者尚未確認領土不與既有國家及保留區重疊。','s2');}
+  /* 公式用面積：萬平方公里四捨五入至整數；飛地另計，兩者相加等於總數 */
+  var Aint=rnd(area/1e4,1),Aen=rnd(encl/1e4,1),Amn=Aint-Aen;B.Aint=Aint;B.Aen=Aen;B.Amn=Amn;
+  /* ---- 步驟3 加權 ---- */
+  var w=c.w||{},H=num(w.hab),D=num(w.dev),ek=econKey(w.econ),I=num(w.ind),M0=num(w.mil);
+  if(!(H>0))H=1;if(!(D>0))D=1;if(!(I>0))I=1;if(!(M0>0))M0=1;
+  var Ev=econVal(ek),M=Math.min(1.8,M0*(ek==='planned'?1.2:1));
+  B.H=H;B.D=D;B.ek=ek;B.Ev=Ev;B.I=I;B.indK=indKey(I);B.M0=M0;B.M=M;B.self=c.self||'';
+  if(c.self){if(pl!=='normal')err('只有普通玩家可以自行指定一項加權。','s3');else if(c.self==='hab')err('宜居度加權不得自行指定。','s3');}
+  /* ---- 步驟4 人口（萬人） ---- */
+  var d12=die('d12d100',12,100,'人口','s4'),kA=AREAK[ty];B.d12=d12;B.kA=kA;
+  B.popOf=function(h_,d_,he_){return (d12*6.6+Amn*kA)*h_*d_+Aen*kA*he_*d_;};
+  B.popRaw=B.popOf(H,D,0.7);B.popW=rnd(B.popRaw,1);B.pop=B.popW*1e4;B.den=area>0?B.pop/area:NaN;
+  /* ---- 步驟5 人均GDP與物價水準 ---- */
+  var a=die('d2d100a',2,100,'人均GDP 第一組','s5'),b=die('d2d100b',2,100,'人均GDP 第二組','s5'),p10=die('d2d10',2,10,'PPP 倍率','s5');B.a=a;B.b=b;B.p10=p10;
+  B.pcRaw=a*b*0.6*Ev*I;B.pc=rnd(B.pcRaw,10);
+  B.pppB=Math.pow(15000/B.pc,0.4);B.pppR=(p10+90)/100;B.pppS=PPPSYS[ek];B.ppp=rndD(B.pppB*B.pppR*B.pppS,4);
+  B.gdp=B.pop*B.pc;B.gdpP=B.gdp*B.ppp;B.pcP=B.pc*B.ppp;B.price=100/B.ppp;
+  /* ---- 步驟6 軍隊、步驟7 國防預算 ---- */
+  var dm=die('d2d100m',2,100,'常備軍','s6'),dr=die('d1d300',1,300,'預備役','s6'),d6=die('d1d6',1,6,'國防預算','s7');B.dm=dm;B.dr=dr;B.d6=d6;
+  B.armyRaw=B.pop*(dm+50)/18000*M;B.army=rnd(B.armyRaw,1000);B.resRaw=B.army*(dr+100)/100;B.res=rnd(B.resRaw,1e4);B.mob=B.army/B.pop;B.garrison=Math.floor(B.army*0.15);
+  if(B.mob>0.03+1e-12)err('動員率 '+pct(B.mob*100,2)+' 超過 3%，超過部分須經事件或管理員核准。','s6');
+  B.defBase=ek==='planned'?3:1;B.defRaw=(d6+B.defBase)*M;B.defPct=Math.min(15,B.defRaw);B.def=B.gdp*B.defPct/100;
+  if(B.defRaw>15)chk('info','國防預算比例 '+fx(B.defRaw,2)+'% 超過上限，以 15% 計。','s7');
+  /* ---- 步驟8 國力指數 ---- */
+  var dd=die('d1d10dip',1,10,'外交影響力','s8');B.dipRoll=dd;B.dipAdd=(pl==='normal'?2:0)+(al?1:0);B.dip=Math.min(10,dd+B.dipAdd);
+  var AV=avgOf(R);B.avg=AV;B.mult=[B.gdp/AV.gdp,B.pop/AV.pop,B.def/AV.def,B.army/AV.army];B.hard=(B.mult[0]+B.mult[1]+B.mult[2]+B.mult[3])/4;
+  B.eq=eqScore(B.pc);var hdi=num(c.hdi);B.hdi=hdi;B.hb=isFinite(B.pcP)?hdiBand(B.pcP,R):null;
+  if(!isFinite(hdi))B.miss.push('HDI（在可選區間內自選）');else if(!(hdi>0&&hdi<1))err('HDI 須介於 0 與 1 之間。','s8');
+  B.hdiUse=isFinite(hdi)?hdi:B.hb?B.hb.c:0.7;B.hs=hdiScore(hdi);
+  if(c.cultMode==='legacy'){B.cultLegacy=true;B.cult=clamp(rndD(0.5*(B.eq+B.hs+B.dip)+0.75,2),1,10);}else B.cult=die('d1d10cul',1,10,'文化影響力','s8');
+  B.soft=B.eq+B.hs+B.dip+B.cult;B.coef=(B.soft+1.5)/15;B.idx=rndD(B.hard*B.coef,2);B.lvl=levelOf(B.idx);B.type=typeLabel(B.hard,B.coef);
+  /* ---- 步驟9 設定修正性權重 ---- */
+  var dR=pd(V.date)||pd(today()),dF=pd(V.found),restrictPos=B.lvl===3&&!V.keepPos,exempt=!!(dF&&dR&&dR<addM(dF,3)),eff={},raw={},notes=[];
+  REVIEW.forEach(function(r){var k=r[0],neu=r[5]==='mul'?1:0,v=num(V.w[k]);if(!isFinite(v))v=neu;
+    if(v<r[2]-1e-9||v>r[3]+1e-9){err(r[1]+'權重 '+v+' 超出範圍 '+r[2]+'～'+r[3]+'。','s9');v=clamp(v,r[2],r[3]);}
+    raw[k]=v;var e=v;
+    if(restrictPos&&e>neu){e=neu;notes.push(r[1]+'：列強不適用正向權重，以 '+(r[5]==='mul'?'1.00':'0')+' 計');}
+    if(exempt&&e<neu){e=neu;notes.push(r[1]+'：建國未滿 3 個月，不適用懲罰性權重');}
+    if(k==='cult'&&!V.cultExt&&e>0){e=0;notes.push('文化輸出：僅有國內描述而無對外影響，最高給 0');}
+    if(e<neu-1e-9){var st=emptyStatus(V,k,dR);if(st.code!=='pen')chk('warn',r[1]+'評為懲罰性權重，但審核程序為「'+st.text+'」；懲罰性權重須於警告後 1 個月仍未完成修改時才適用。','s9');}
+    eff[k]=e;});
+  B.allMax=REVIEW.every(function(r){return raw[r[0]]>=r[3]-1e-9;});
+  var exc=!!V.excellent&&B.allMax&&!restrictPos;if(V.excellent&&!B.allMax)chk('warn','卓越設定須九項權重全數取得最高值。','s9');
+  B.raw=raw;B.eff=eff;B.wNotes=notes;B.restrictPos=restrictPos;B.exempt=exempt;B.exc=exc;B.found=dF;B.reviewDate=dR;
+  B.C=corrected(B,R,eff,exc);
+  var cap=B.lvl+(exc?2:1);B.C.lvl0=levelOf(B.C.idx);B.C.lvl=B.lvl<0?B.C.lvl0:Math.min(B.C.lvl0,cap);
+  if(B.lvl>=0&&B.C.lvl0>cap)chk('info','修正後指數達「'+LVN[B.C.lvl0]+'」，但'+(exc?'卓越設定最多升兩級':'未經卓越設定最多升一級')+'，等級以「'+LVN[B.C.lvl]+'」計。','s10');
+  B.effect=B.C.idx/B.idx;
+  /* 九項全取最高值或全取最低值時的國力指數（不含列強與新國家的限制，供評估權重效果） */
+  var eMax={},eMin={};REVIEW.forEach(function(r){eMax[r[0]]=r[3];eMin[r[0]]=r[2];});B.Cmax=corrected(B,R,eMax,false);B.Cmin=corrected(B,R,eMin,false);
+  /* ---- HDI 區間檢查（國民素質 1.02 以上選上半部、0.95 以下選下半部） ---- */
+  if(B.hb){var lo=B.hb.lo,hi=B.hb.hi;if(eff.edu>=1.02-1e-9){lo=B.hb.c;B.hdiHalf='上半部';}else if(eff.edu<=0.95+1e-9){hi=B.hb.c;B.hdiHalf='下半部';}B.hdiLo=lo;B.hdiHi=hi;
+    if(isFinite(hdi)&&(hdi<lo-5e-4||hdi>hi+5e-4))err('HDI '+fx(hdi,3)+' 不在可選區間 '+fx(lo,3)+'～'+fx(hi,3)+(B.hdiHalf?'（國民素質權重 '+fx(eff.edu,2)+'，須選所屬區間的'+B.hdiHalf+'）':'')+'。','s8');}
+  B.level=admin&&c.adminLevel==='super'?'超強':B.C.lvl>=0?LVN[B.C.lvl]:'';B.levelBase=B.lvl>=0?LVN[B.lvl]:'';
+  B.ready=!B.miss.length;B.nErr=B.chk.filter(function(x){return x.t==='err';}).length;B.nWarn=B.chk.filter(function(x){return x.t==='warn';}).length;
+  return B;}
+/* 以修正後加權重算（步驟9 的計算順序） */
+function corrected(B,R,eff,exc){var C={},ek=B.ek;
+  C.H=B.H*eff.geo;C.Hen=0.7*(R.enclGeo?eff.geo:1);C.D=B.D*eff.edu;C.Ev=B.Ev*eff.inst;C.I=B.I*eff.econ;C.M=B.M*eff.mil;
+  C.popRaw=B.popOf(C.H,C.D,C.Hen);C.popW=rnd(C.popRaw*eff.urban,1);C.pop=C.popW*1e4;
+  C.pc=rnd(B.a*B.b*0.6*C.Ev*C.I,10);C.gdp=C.pop*C.pc;
+  C.army=rnd(C.pop*(B.dm+50)/18000*C.M,1000);
+  C.defRaw=(B.d6+B.defBase)*C.M;C.defPct=Math.min(15,C.defRaw);C.def=C.gdp*C.defPct/100;
+  var AV=avgOf(R);C.mult=[C.gdp/AV.gdp,C.pop/AV.pop,C.def/AV.def,C.army/AV.army];C.hard0=(C.mult[0]+C.mult[1]+C.mult[2]+C.mult[3])/4;C.hist=eff.hist;C.exc=exc;C.hard=C.hard0*eff.hist*(exc?1.15:1);
+  C.eq=eqScore(C.pc);C.dip=clamp(B.dip+eff.dip,1,10);C.cult=clamp(B.cult+eff.cult,1,10);C.soft=C.eq+B.hs+C.dip+C.cult;C.coef=(C.soft+1.5)/15;
+  C.idx=rndD(C.hard*C.coef,2);C.type=typeLabel(C.hard,C.coef);return C;}
+/* ===================== 人民結構：人口轉型與兩性五歲組世代推估 ===================== */
+/* Brass 關係邏輯模型（一般標準生命表，年齡 1,5,…,85 的 logit 值） */
+var BRY=[-0.8670,-0.6015,-0.5498,-0.5131,-0.4551,-0.3829,-0.3150,-0.2496,-0.1816,-0.1073,-0.0212,0.0832,0.2100,0.3746,0.5818,0.8611,1.2433,1.7810],BRX=[1,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85],NG=21;
+var AGEN=[];for(var g_=0;g_<NG;g_++)AGEN.push(g_<NG-1?(5*g_)+'–'+(5*g_+4):'100+');
+/* 生命表：L[g] 為每組人年（基數 1），lb[g] 為各組起始存活率 */
+function lifeTable(al,be){var l={0:1},g,x;BRX.forEach(function(xx,i){l[xx]=1/(1+Math.exp(2*(al+be*BRY[i])));});
+  var L=new Float64Array(NG),lb=new Float64Array(NG+1),q0=1-l[1],a0=q0<0.1?0.07+1.7*q0:0.3;
+  L[0]=l[1]+a0*(1-l[1])+2*(l[1]+l[5]);lb[0]=1;for(g=1;g<=17;g++)lb[g]=l[5*g];
+  for(g=1;g<17;g++)L[g]=2.5*(l[5*g]+l[5*g+5]);
+  /* 85 歲以上：以 80～85 歲的死亡力為起點，Gompertz 每歲遞增 10% */
+  var mu=-Math.log(Math.max(1e-12,l[85]/l[80]))/5,lx=l[85];
+  for(x=85;x<140&&lx>1e-12;x++){var ln=lx*Math.exp(-mu*Math.exp(0.1*(x+0.5-82.5)));L[Math.min(20,17+Math.floor((x-85)/5))]+=(lx+ln)/2;if((x+1)%5===0&&x+1<=100)lb[17+(x+1-85)/5]=ln;lx=ln;}
+  return {L:L,lb:lb,l1:l[1],e0:sum(L)};}
+var LTC={};
+function lifeFor(e0){e0=clamp(e0,22,90);var key=Math.round(e0*20);if(LTC[key])return LTC[key];var be=1+0.35*clamp((e0-50)/30,0,1),lo=-5,hi=3,t;
+  for(var i=0;i<60;i++){var m=(lo+hi)/2;t=lifeTable(m,be);if(t.e0>e0)lo=m;else hi=m;}t=lifeTable((lo+hi)/2,be);LTC[key]=t;return t;}
+/* 年齡別生育率分布（15–19 至 45–49），依總和生育率在低、中、高三種型態間內插 */
+var FS=[[0.02,0.12,0.29,0.33,0.18,0.05,0.01],[0.07,0.24,0.29,0.22,0.12,0.05,0.01],[0.10,0.22,0.23,0.19,0.14,0.08,0.04]];
+function fshape(tfr){var a,b,t;if(tfr<=2.5){t=clamp((tfr-1.6)/0.9,0,1);a=FS[0];b=FS[1];}else{t=clamp((tfr-2.5)/2.5,0,1);a=FS[1];b=FS[2];}
+  var s=a.map(function(v,i){return v+(b[i]-v)*t;}),z=sum(s);return s.map(function(v){return v/z;});}
+/* 由 HDI 推估總和生育率與平均餘命（可覆寫） */
+function demoParam(h){return {tfr:1.25+9.5*Math.pow(1-h,2),e0:38+46*h};}
+function sexGap(h){return 2.5+4*h;}
+var SRB=1.05,FF=1/(1+SRB);
+function periodPar(tfr,e0,gap){var fs=fshape(tfr);return {tfr:tfr,e0:e0,F:lifeFor(e0+gap/2),M:lifeFor(e0-gap/2),asfr:fs.map(function(s){return tfr*s/5;})};}
+/* 五年一步的世代推估 */
+function cstep(F,M,p){var F2=new Float64Array(NG),M2=new Float64Array(NG),k,LF=p.F.L,LM=p.M.L;
+  for(k=1;k<NG-1;k++){F2[k]=F[k-1]*LF[k]/Math.max(1e-12,LF[k-1]);M2[k]=M[k-1]*LM[k]/Math.max(1e-12,LM[k-1]);}
+  F2[NG-1]=(F[NG-2]+F[NG-1])*LF[NG-1]/Math.max(1e-12,LF[NG-2]+LF[NG-1]);M2[NG-1]=(M[NG-2]+M[NG-1])*LM[NG-1]/Math.max(1e-12,LM[NG-2]+LM[NG-1]);
+  var Bt=0;for(k=3;k<=9;k++)Bt+=5*p.asfr[k-3]*(F[k]+F2[k])/2;
+  F2[0]=Bt*FF*LF[0]/5;M2[0]=Bt*(1-FF)*LM[0]/5;return {F:F2,M:M2,B:Bt};}
+/* 穩定人口（Lotka 內在成長率） */
+function stablePop(p){function R(r){var s=0;for(var k=3;k<=9;k++)s+=Math.exp(-r*(5*k+2.5))*p.F.L[k]*p.asfr[k-3]*FF;return s;}
+  var lo=-0.08,hi=0.1;for(var i=0;i<60;i++){var m=(lo+hi)/2;if(R(m)>1)lo=m;else hi=m;}var r=(lo+hi)/2,F=new Float64Array(NG),M=new Float64Array(NG);
+  for(var k=0;k<NG;k++){var e=Math.exp(-r*(5*k+2.5));F[k]=FF*e*p.F.L[k];M[k]=(1-FF)*e*p.M.L[k];}return {F:F,M:M,r:r,nrr:R(0)};}
+/* 人口模型：60 年前的穩定人口（較低的發展程度），生育率與餘命線性過渡到目前，再推估未來 30 年 */
+function demography(pop,h,ov){ov=ov||{};var cur=demoParam(h),gap=sexGap(h);if(num(ov.tfr)>0)cur.tfr=num(ov.tfr);if(num(ov.e0)>0)cur.e0=num(ov.e0);
+  cur.tfr=clamp(cur.tfr,0.6,9);cur.e0=clamp(cur.e0,25,88);
+  var past=demoParam(Math.max(0.25,h-0.28));past.tfr=Math.max(past.tfr,cur.tfr);past.e0=Math.min(past.e0,cur.e0);
+  var p0=periodPar(past.tfr,past.e0,gap),st=stablePop(p0),F=st.F,M=st.M,s,i;
+  for(i=0;i<12;i++){var t=(i+0.5)/12;s=cstep(F,M,periodPar(past.tfr+(cur.tfr-past.tfr)*t,past.e0+(cur.e0-past.e0)*t,gap));F=s.F;M=s.M;}
+  var pc=periodPar(cur.tfr,cur.e0,gap),tot=sum(F)+sum(M),sc=pop/tot;F=F.map(function(v){return v*sc;});M=M.map(function(v){return v*sc;});
+  var D={F:F,M:M,pop:pop,tfr:cur.tfr,e0:cur.e0,e0f:pc.F.e0,e0m:pc.M.e0,past:past};
+  function band(a,b){var x=0;for(var k=a;k<=b;k++)x+=F[k]+M[k];return x;}
+  D.young=band(0,2);D.wa=band(3,12);D.old=band(13,20);D.share={y:D.young/pop*100,w:D.wa/pop*100,o:D.old/pop*100};D.dep=(D.young+D.old)/D.wa*100;
+  var half=pop/2,acc=0;for(i=0;i<NG;i++){var gi=F[i]+M[i];if(acc+gi>=half){D.median=5*i+5*(half-acc)/gi;break;}acc+=gi;}
+  var births=0;for(i=3;i<=9;i++)births+=pc.asfr[i-3]*F[i];
+  var deaths=0;for(i=0;i<NG;i++){var mf=i<NG-1?(pc.F.lb[i]-pc.F.lb[i+1])/pc.F.L[i]:pc.F.lb[i]/pc.F.L[i],mm=i<NG-1?(pc.M.lb[i]-pc.M.lb[i+1])/pc.M.L[i]:pc.M.lb[i]/pc.M.L[i];deaths+=F[i]*mf+M[i]*mm;}
+  D.births=births;D.deaths=deaths;D.cbr=births/pop*1000;D.cdr=deaths/pop*1000;D.rni=D.cbr-D.cdr;
+  D.imr=((1-pc.F.l1)*FF+(1-pc.M.l1)*(1-FF))*1000;D.sexRatio=sum(M)/sum(F)*100;
+  var Fp=F,Mp=M,proj=[];for(i=1;i<=6;i++){s=cstep(Fp,Mp,pc);Fp=s.F;Mp=s.M;if(i%2===0)proj.push([i*5,sum(Fp)+sum(Mp)]);if(i===1)D.growth=Math.pow((sum(Fp)+sum(Mp))/pop,1/5)-1;}
+  D.proj=proj;return D;}
+/* 其他社會指標的建議值 */
+function urbanSug(pcP,ind){return clamp(20+15.5*Math.log(Math.max(200,pcP)/1000)+{high:6,mid:0,agri:-8}[ind],8,98);}
+function literacySug(h){return Math.min(99.9,100/(1+Math.exp(-(h-0.44)/0.08)));}
+function schoolSug(h){return clamp(1+13*Math.pow(h,1.5),0.5,14.5);}
+/* 城市體系：位序—規模法則（齊夫），首位度調整首都規模 */
+function citySizes(urbanPop,n,prim){var k,m=Math.max(10,Math.round(urbanPop/50000)),Hm=0;for(k=1;k<=m;k++)Hm+=1/k;var C=urbanPop/Hm,out=[];
+  for(k=1;k<=n;k++)out.push(C/k*(k===1?prim:1));return out;}
+/* ===================== 經濟模型：產業、支出、財政、物價、勞動、所得分配、貿易、成長、信用評等 ===================== */
+/* 每一項都有模型建議值；玩家可覆寫（econ.ov），留白即採用建議值 */
+function econModel(N,B,D,P){
+  var ov=N.econ.ov||{},E={rows:{},warn:[]},h=B.hdiUse,x=isFinite(B.pcP)?B.pcP:7400,sys=B.ek,ind=B.indK,ty=B.ty,r1=function(v){return rndD(v,1);},r2=function(v){return rndD(v,2);};
+  function v(key,sug,dec){var o=num(ov[key]);sug=rndD(sug,dec===undefined?1:dec);var val=isFinite(o)?o:sug;E.rows[key]={sug:sug,val:val,ov:isFinite(o)};return val;}
+  /* 產業結構（占 GDP %）：農業比重隨所得遞減，工業呈倒 U 形 */
+  var ag=v('ag',clamp(38*Math.pow(x/1000,-0.65)*{high:0.6,mid:1,agri:1.6}[ind],0.5,60));
+  var inS=clamp({high:27,mid:28,agri:17}[ind]+7*Math.exp(-Math.pow(Math.log(x/9000),2)/1.5)+{planned:8,mixed:1,market:-2}[sys],8,60);
+  var in_=v('in',inS),ot=v('ot',0),sv=v('sv',Math.max(0,100-ag-in_-ot));
+  if(Math.abs(ag+in_+sv+ot-100)>0.15)E.warn.push('產業結構合計 '+fx(ag+in_+sv+ot,1)+'%，應為 100%。');
+  /* 就業結構：農業勞動生產力較低，就業占比高於產值占比 */
+  var agE=v('agE',clamp(ag*(1.5+2.0*(1-h)),ag,72)),inE=v('inE',clamp(in_*(0.72+0.2*h),5,60)),svE=v('svE',Math.max(0,100-agE-inE));
+  /* 支出法 GDP（%） */
+  var bs={market:[60,16,22,2],mixed:[56,19,24,1],planned:[42,21,33,4]}[sys].slice(),adj={high:-1,mid:4,agri:-3}[ind];bs[2]+=adj;bs[0]-=adj;
+  var Gs=Math.max(bs[1],B.defPct+6);bs[0]-=Gs-bs[1];bs[1]=Gs;
+  var C=v('C',bs[0]),G=v('G',bs[1]),I=v('I',bs[2]),NX=v('NX',100-C-G-I);
+  if(G<B.defPct)E.warn.push('政府消費 '+fx(G,1)+'% 低於國防預算 '+fx(B.defPct,2)+'%。');
+  /* 物價與利率 */
+  var infl=v('infl',sys==='planned'?2:({market:2,mixed:2.5}[sys]+7*Math.pow(1-h,2)*(sys==='mixed'?1.1:1))),rate=v('rate',Math.max(0.5,infl+2)),yld=rate+1.2;
+  /* 財政（占 GDP %） */
+  var rev=v('rev',clamp({market:30,mixed:34,planned:40}[sys]+20*(h-0.65),12,55)),debt=v('debt',clamp({market:60,mixed:50,planned:28}[sys]+(h-0.7)*40,10,160));
+  var old=D?D.share.o:8,X={def:B.defPct,edu:clamp(2.2+3.6*h,2,7.5),hea:clamp((0.5+8*(h-0.45))*(sys==='market'?0.85:1),0.8,9.5),soc:clamp(old*0.55+{market:1.5,mixed:3,planned:4}[sys]+4*(h-0.6),1,26),
+    eco:{market:3.5,mixed:4.5,planned:7}[sys]+(ind==='mid'?1:0),pub:3.5+2*(1-h),int:debt*yld/100,oth:2.5},xs=0;
+  E.x={};EXPN.forEach(function(e){var k=e[0],val=k==='def'?B.defPct:v('x_'+k,X[k],2);if(k==='def')E.rows.x_def={sug:B.defPct,val:B.defPct,ov:false,fixed:true};E.x[k]=val;xs+=val;});
+  E.rev=rev;E.exp=xs;E.bal=rev-xs;E.debt=debt;E.infl=infl;E.rate=rate;E.yld=yld;
+  if(E.bal<-6)E.warn.push('財政赤字達 GDP 的 '+fx(-E.bal,1)+'%，債務將快速累積；可提高歲入或刪減支出。');
+  /* 勞動市場 */
+  var wa=D?D.wa:B.pop*0.65,lfpr=v('lfpr',clamp({market:64,mixed:62,planned:72}[sys]+(h-0.7)*10,45,80)),
+    une=v('une',sys==='planned'?clamp(1.5+3*(0.8-h),0.8,4):clamp({market:5.2,mixed:6.3}[sys]+12*Math.max(0,0.75-h)+3*Math.max(0,ag/100-0.2),2.5,25)),
+    ls=v('ls',{market:55,mixed:52,planned:46}[sys]-(ind==='agri'?6:0));
+  E.lf=wa*lfpr/100;E.emp=E.lf*(1-une/100);E.unemp=E.lf-E.emp;E.wage=B.gdp*ls/100/Math.max(1,E.emp);E.une=une;E.lfpr=lfpr;
+  E.empSec=[agE,inE,svE].map(function(s){return E.emp*s/100;});E.prod=[ag,in_,sv].map(function(s,i){return B.gdp*s/100/Math.max(1,E.empSec[i]);});
+  /* 所得分配：以吉尼係數推得對數常態分配 */
+  var gini=v('gini',clamp({market:38,mixed:33,planned:29}[sys]+12*(0.8-h),22,63)),sg=Math.SQRT2*PhiInv((clamp(gini,1,99)/100+1)/2),mu=Math.max(1,C/100*x),med=mu*Math.exp(-sg*sg/2);
+  E.gini=gini;E.sigma=sg;E.meanC=mu;E.medC=med;E.quint=[];for(var k=1;k<=5;k++)E.quint.push((Phi(PhiInv(k/5)-sg)-Phi(PhiInv((k-1)/5)-sg))*100);
+  E.top10=(1-Phi(PhiInv(0.9)-sg))*100;E.bot40=Phi(PhiInv(0.4)-sg)*100;E.palma=E.top10/E.bot40;
+  E.pov215=Phi((Math.log(2.15*365)-Math.log(med))/sg)*100;E.pov685=Phi((Math.log(6.85*365)-Math.log(med))/sg)*100;E.rel=Phi(Math.log(0.5)/sg)*100;
+  var cut=[0.5,0.75,2,4],cdf=cut.map(function(t){return Phi(Math.log(t)/sg);});
+  E.cls=[['貧困階層（低於中位數 50%）',cdf[0]],['中低收入（50～75%）',cdf[1]-cdf[0]],['中產階級（75%～2 倍）',cdf[2]-cdf[1]],['中高收入（2～4 倍）',cdf[3]-cdf[2]],['富裕階層（4 倍以上）',1-cdf[3]]].map(function(a){return [a[0],a[1]*100];});
+  /* 對外貿易（占 GDP %）：小國與海權國家較開放，計畫經濟較封閉 */
+  var ex=v('ex',clamp(28*Math.pow(B.pop/5e7,-0.2)*{land:0.8,mixed:1,sea:1.35}[ty]*{market:1.1,mixed:1,planned:0.7}[sys]+NX/2,3,150));E.ex=ex;E.im=ex-NX;
+  /* 潛在成長率（%）：追趕效果、投資率與人口成長 */
+  var lg=D&&isFinite(D.growth)?D.growth*100:0.5;E.gro=v('gro',clamp(1.2+0.09*(I-22)+(x<25000?1.4:0.4)*Math.log(25000/x)+0.6*lg,-2,10));
+  E.path=[];for(var y=0;y<=30;y+=5)E.path.push([y,B.gdp*Math.pow(1+E.gro/100,y)]);
+  /* 研發支出（% GDP） */
+  E.rd=v('rd',clamp(0.1+3.2*Math.max(0,h-0.5)*{high:1.2,mid:0.9,agri:0.5}[ind]+(sys==='planned'?0.3:0),0.05,5),2);
+  /* 主權信用評等 */
+  var stab=P&&isFinite(P.stab)?P.stab:50,sc=60+(h-0.7)*120-(debt-60)*0.25-Math.max(0,-E.bal-1)*3-Math.max(0,infl-3)*2+{market:4,mixed:2,planned:-6}[sys]+(stab-50)*0.15;
+  E.score=sc;E.rating=sc>=90?'AAA':sc>=80?'AA':sc>=70?'A':sc>=60?'BBB':sc>=50?'BB':sc>=40?'B':sc>=30?'CCC':sc>=20?'CC':'C';E.invest=sc>=60;
+  /* 本國貨幣：1 本國貨幣 = rate 東銀圓 */
+  var fxr=num(N.info.curRate);E.fx=fxr>0?fxr:NaN;E.cur=has(N.info.currency)?N.info.currency:'';
+  E.ag=ag;E.in=in_;E.sv=sv;E.ot=ot;E.agE=agE;E.inE=inE;E.svE=svE;E.C=C;E.G=G;E.I=I;E.NX=NX;
+  return E;}
+/* 本國貨幣換算 */
+function toLocal(v,E){return isFinite(E.fx)?v/E.fx:NaN;}
+/* ===================== 政治模型：議席分配、執政聯盟、政治指標 ===================== */
+function regimeOf(k){for(var i=0;i<REGIME.length;i++)if(REGIME[i][0]===k)return REGIME[i];return REGIME[REGIME.length-1];}
+function esysName(k){for(var i=0;i<ESYS.length;i++)if(ESYS[i][0]===k)return ESYS[i][1];return '';}
+/* 最高平均數法（頓特、聖拉古）與最大餘數法（黑爾） */
+function allocPR(votes,seats,method,thr){var n=votes.length,el=votes.map(function(v){return v>=thr&&v>0?v:0;}),s=[],i;for(i=0;i<n;i++)s.push(0);
+  var tot=sum(el);if(!(seats>0)||!(tot>0))return s;
+  if(method==='hare'){var qn=tot/seats,given=0,rem=[];el.forEach(function(v,j){var e=v/qn;s[j]=Math.floor(e);given+=s[j];rem.push([e-s[j],j]);});
+    rem.sort(function(a,b){return b[0]-a[0]||a[1]-b[1];});for(i=0;given<seats;i++){s[rem[i%n][1]]++;given++;}return s;}
+  for(var t=0;t<seats;t++){var bi=-1,bv=-1;for(i=0;i<n;i++){if(!el[i])continue;var d=method==='sl'?2*s[i]+1:s[i]+1,q2=el[i]/d;if(q2>bv+1e-12){bv=q2;bi=i;}}if(bi<0)break;s[bi]++;}
+  return s;}
+/* 單一選區：各選區得票＝全國得票 × 地區波動（地域性政黨波動較大），得票最高者當選 */
+function allocFPTP(votes,conc,seats,rng){var n=votes.length,s=[],i;for(i=0;i<n;i++)s.push(0);if(!(seats>0)||!(sum(votes)>0))return s;
+  for(var d=0;d<seats;d++){var bi=-1,bv=-1;for(i=0;i<n;i++){if(!(votes[i]>0))continue;var sh=votes[i]*Math.exp((0.25+0.6*(conc[i]||0))*gauss(rng));if(sh>bv){bv=sh;bi=i;}}if(bi>=0)s[bi]++;}
+  return s;}
+function chamber(N,ci,lower){var ch=N.pol.ch[ci]||{},ps=N.pol.parties||[],n=ps.length,R={ci:ci,on:ci===0||!!ch.on,sys:ch.sys||'dhondt',note:''};
+  R.name=has(ch.name)?ch.name:ci===0?(N.info.lowerName||N.info.legis||'國會'):(N.info.upperName||'上議院');R.year=has(ch.year)?ch.year:N.rules.year;
+  var seats=Math.round(num(ch.seats)),thr=num(ch.thr);if(!(thr>=0))thr=0;R.seatsIn=seats;R.thr=thr;
+  var vk=ch.vote==='v2'?'v2':'v1',votes=ps.map(function(p){var v=num(p[vk]);if(!isFinite(v)&&vk==='v2')v=num(p.v1);return isFinite(v)&&v>0?v:0;}),conc=ps.map(function(p){return clamp(num(p.conc)||0,0,1);});
+  R.votes=votes;R.vsum=sum(votes);var rng=mb32(hstr((N.info.name||'')+'|'+R.name+'|'+ci+'|'+(N.pol.salt||0))),s;
+  if(!R.on||!n||!(seats>0)&&R.sys!=='manual'){R.seats=ps.map(function(){return 0;});R.total=0;return R;}
+  if(R.sys==='manual'){s=ps.map(function(p){var v=Math.round(num(ci===0?p.s1:p.s2));return v>0?v:0;});}
+  else if(R.sys==='indirect'){s=allocPR(lower?lower.seats:votes,seats,'dhondt',0);R.note='依下議院席次以頓特法分配';}
+  else if(R.sys==='fptp'){s=allocFPTP(votes,conc,seats,rng);R.note=seats+' 個單一選區';}
+  else if(R.sys==='parallel'||R.sys==='mmp'){var smd=Math.round(seats*clamp(num(ch.smd)||50,0,100)/100),sm=allocFPTP(votes,conc,smd,rng);R.smd=sm;R.smdN=smd;
+    if(R.sys==='parallel'){var pr=allocPR(votes,seats-smd,'dhondt',thr);s=sm.map(function(v,i){return v+pr[i];});R.note='單一選區 '+smd+' 席、比例代表 '+(seats-smd)+' 席（頓特法）';}
+    else{var ok=votes.map(function(v,i){return v>=thr||sm[i]>=3?v:0;}),tg=allocPR(ok,seats,'sl',0);s=tg.map(function(v,i){return Math.max(v,sm[i]);});var over=sum(s)-seats;
+      R.note='單一選區 '+smd+' 席；依聖拉古法補償至總席次 '+seats+(over>0?'，另有超額席次 '+over+' 席':'');}}
+  else s=allocPR(votes,seats,R.sys,thr);
+  R.seats=s;R.total=sum(s);R.maj=Math.floor(R.total/2)+1;if(!R.total)return R;
+  var vs=R.vsum>0?votes.map(function(v){return v/R.vsum;}):votes,ss=s.map(function(v){return v/R.total;});
+  R.enpV=R.vsum>0?1/sum(vs.map(function(v){return v*v;})):NaN;R.enpS=1/sum(ss.map(function(v){return v*v;}));
+  R.gallagher=R.vsum>0&&R.sys!=='manual'&&R.sys!=='indirect'?Math.sqrt(0.5*sum(vs.map(function(v,i){return Math.pow((v-ss[i])*100,2);}))):NaN;
+  var big=0;s.forEach(function(v,i){if(v>s[big])big=i;});R.big=big;R.single=s[big]>=R.maj;R.coal=coalitions(ps,s,R.maj);return R;}
+/* 最小獲勝聯盟（成員皆不可或缺），優先意識形態相鄰、含最大黨、黨數少、超額席次少 */
+function coalitions(ps,s,maj){var idx=[],i;for(i=0;i<ps.length;i++)if(s[i]>0)idx.push(i);idx.sort(function(a,b){return s[b]-s[a];});idx=idx.slice(0,12);
+  idx.sort(function(a,b){return (num(ps[a].ideo)||0)-(num(ps[b].ideo)||0)||a-b;});var n=idx.length,big=-1,out=[];idx.forEach(function(j){if(big<0||s[j]>s[big])big=j;});
+  for(var m=1;m<(1<<n);m++){var tot=0,mem=[];for(i=0;i<n;i++)if(m&(1<<i)){tot+=s[idx[i]];mem.push(i);}if(tot<maj)continue;
+    if(!mem.every(function(j){return tot-s[idx[j]]<maj;}))continue;
+    var lo=num(ps[idx[mem[0]]].ideo)||0,hi=num(ps[idx[mem[mem.length-1]]].ideo)||0;
+    out.push({m:mem.map(function(j){return idx[j];}),seats:tot,conn:mem[mem.length-1]-mem[0]===mem.length-1,hasBig:mem.some(function(j){return idx[j]===big;}),range:hi-lo});}
+  out.sort(function(a,b){return (b.conn-a.conn)||(b.hasBig-a.hasBig)||(a.m.length-b.m.length)||(a.seats-b.seats)||(a.range-b.range);});return out.slice(0,5);}
+function polModel(N,B){var pol=N.pol,ov=pol.ov||{},P={rows:{}},h=B.hdiUse,sys=B.ek,rg=regimeOf(pol.regime);
+  function v(key,sug,dec){var o=num(ov[key]);sug=rndD(sug,dec===undefined?1:dec);var val=isFinite(o)?o:sug;P.rows[key]={sug:sug,val:val,ov:isFinite(o)};return val;}
+  P.regime=rg;P.ch=[];P.ch[0]=chamber(N,0,null);P.ch[1]=chamber(N,1,P.ch[0]);
+  /* 政府：手動勾選的執政黨，未勾選則採第一個建議聯盟 */
+  var L=P.ch[0],ps=pol.parties||[],gov=[];ps.forEach(function(p,i){if(p.gov)gov.push(i);});P.govAuto=!gov.length;
+  if(!gov.length&&L.total){gov=L.single?[L.big]:L.coal.length?L.coal[0].m:[L.big];}
+  P.gov=gov;P.govSeats=L.total?sum(gov.map(function(i){return L.seats[i]||0;})):0;
+  var elect=['abs','mil','one'].indexOf(rg[0])<0&&L.total>0;
+  P.govType=!elect?'none':P.govSeats>=L.maj?(gov.length===1?'single':'coal'):'minor';
+  P.govTypeN={none:'非經競爭性選舉產生',single:'單一政黨過半執政',coal:gov.length+' 黨過半聯合政府',minor:'少數政府'}[P.govType];
+  var milW=+N.calc.w.mil||1;
+  var dem=v('dem',clamp(rg[2]+3*(h-0.75)+{market:0.3,mixed:0,planned:-0.9}[sys]-(milW>=1.8?0.8:milW>=1.3?0.2:0),0,10));
+  P.demCat=dem>=8?'完全民主':dem>=6?'部分民主':dem>=4?'混合政權':'威權政體';
+  var instW=num(N.review.w.inst);if(!isFinite(instW))instW=1;
+  var eff=v('eff',clamp(15+85*(h-0.35)/0.6+(instW-1)*200,0,100),0),cpi=v('cpi',clamp(10+80*Math.pow(clamp((h-0.35)/0.6,0,1.2),1.2)+(dem-5)*2-(sys==='planned'?6:0),0,100),0);
+  var rol=v('rol',clamp((eff+cpi)/2+(dem-5)*1.5,0,100),0),press=v('press',clamp(dem*9.5+(h-0.6)*20,0,100),0);
+  var gEff={none:4,single:10,coal:4-3*Math.max(0,gov.length-2),minor:-8}[P.govType];
+  P.stab=v('stab',clamp(50+(h-0.7)*60+gEff+(dem>=8?5:dem>=4&&dem<6?-8:0)-(milW>=1.8?6:0),0,100),0);
+  P.dem=dem;P.eff=eff;P.cpi=cpi;P.rol=rol;P.press=press;return P;}
+/* ===================== 計算書：與規則範例相同的逐步算式（介面、純文字、討論頁共用） ===================== */
+function wf(v){if(!isFinite(v))return '—';var s=String(+(+v).toFixed(4));return /\./.test(s)?s:s+'.0';}
+function dtx(r){if(!r||r.empty)return '（未擲）';return r.dice?r.dice.join('＋')+'＝'+r.v:String(r.v);}
+function nf(v,d){return fmt(v,d||0);}
+function wn(v){return !isFinite(v)?'—':Math.abs(v-Math.round(v))<1e-9?String(Math.round(v)):String(+(+v).toFixed(2));}
+function wName(k,v){return k==='hab'?tabName(W_HAB,v):k==='dev'?tabName(W_DEV,v):k==='ind'?tabName(W_IND,v):k==='mil'?tabName(W_MIL,v):econName(v);}
+var WKN={hab:'宜居度',dev:'發展程度',econ:'經濟體制',ind:'工業化',mil:'軍事體制'};
+function sheet(N,B){var c=N.calc,R=N.rules,S=[],L,qk=B.qk,dc=B.dice;
+  function sec(id,t){L=[];S.push({id:id,t:t,l:L});}
+  sec('s1','步驟1　玩家身分、國家類型與領土額度');
+  L.push('玩家身分：'+PLAYERN[B.pl]+'；國家類型：'+PTYPE[B.ty]+'（'+TYPEDESC[B.ty]+'）');
+  L.push('3d100 擲出 '+dtx(dc.d3d100)+' → '+nf(B.dice.d3d100.v)+' × '+qk[0]+' ＋ '+qk[1]+(B.al?' ＋ 5（聯盟建國）':'')+' ＝ '+fx(B.quota,2)+' 萬平方公里');
+  L.push('（參考：'+PLAYERN[B.pl]+PTYPE[B.ty]+'國家的平均額度為 '+fx(151.5*qk[0]+qk[1],1)+' 萬平方公里）');
+  if(B.pl==='normal'||B.al){sec('s1b','步驟1之2　補償機制');
+    if(B.pl==='normal')L.push('普通玩家：外交影響力改擲 1d10 ＋ 2（上限 10）；'+(B.self?'自行指定加權：'+WKN[B.self]+' '+wf(B.self==='econ'?B.Ev:num(c.w[B.self]))+'（'+wName(B.self,B.self==='econ'?B.ek:c.w[B.self])+'）':'未使用自行指定加權'));
+    if(B.al)L.push('聯盟建國'+(has(c.ally.name)?'「'+c.ally.name+'」':'')+'：領土額度 ＋5 萬平方公里、外交影響力 ＋1（上限 10）；成員國至 '+(num(R.year)+10)+' 年（建國起 10 個遊戲年）不得相互宣戰；共同基金每回合提撥上限 GDP 的 1%（'+money(B.gdp*0.01)+'）');}
+  sec('s2','步驟2　劃定領土');
+  L.push('實際劃定 '+fx(B.areaW,2)+' 萬平方公里（'+nf(B.area)+' 平方公里），額度 '+fx(B.quota,2)+' 萬，'+(B.area<=B.quota*1e4?'剩餘 '+fx(B.quota-B.areaW,2)+' 萬':'超出 '+fx(B.areaW-B.quota,2)+' 萬'));
+  L.push('本土 '+fx(B.main/1e4,2)+' 萬（'+pct(B.main/B.area*100)+'）；本土群島 '+B.isleN+' 處，'+fx(B.isle/1e4,2)+' 萬；海外飛地 '+B.enclN+' 處，'+fx(B.encl/1e4,2)+' 萬'+(B.encl?'（'+pct(B.encl/B.area*100)+'）':''));
+  B.parts.forEach(function(o){if(o.kind==='main')return;L.push('　'+KINDN[o.kind]+'「'+(o.name||'#'+(o.i+1))+'」'+(o.area>0?nf(o.area)+' 平方公里':'')+(isFinite(o.dist)?'，距首都 '+nf(o.dist)+' 公里':'')+(o.cnt?'':'（不計入）'));});
+  L.push('領土級距：'+(B.size||'—')+'；公式用面積：'+nf(B.Aint)+' 萬平方公里'+(B.Aen?'（其中海外飛地 '+nf(B.Aen)+' 萬，另以宜居度 0.7 計算）':''));
+  sec('s3','步驟3　判定加權');
+  L.push(['hab','dev','econ','ind','mil'].map(function(k){var v=k==='econ'?econVal(B.ek):c.w[k];return WKN[k]+' '+wf(num(v))+'（'+wName(k,k==='econ'?B.ek:v)+(B.self===k?'，普通玩家自行指定':'')+'）';}).join('、'));
+  if(B.ek==='planned')L.push('計畫經濟：軍事體制 '+wf(B.M0)+' × 1.2 ＝ '+wf(B.M0*1.2)+(B.M0*1.2>1.8?' → 上限 1.8':''));
+  sec('s4','步驟4　人口');
+  var pf='（'+nf(B.d12)+' × 6.6 ＋ '+nf(B.Amn)+' × '+B.kA+'）× '+wf(B.H)+' × '+wf(B.D)+(B.Aen?' ＋ '+nf(B.Aen)+' × '+B.kA+' × 0.7 × '+wf(B.D):'');
+  L.push('12d100 擲出 '+dtx(dc.d12d100)+' → '+pf+' ＝ '+nf(B.popRaw,2)+' → '+nf(B.popW)+' 萬人');
+  L.push('人口密度 ＝ '+nf(B.popW)+' 萬 ÷ '+fx(B.areaW,2)+' 萬 ≒ '+fx(B.den,1)+' 人／平方公里');
+  sec('s5','步驟5　人均GDP與物價水準');
+  L.push('2d100 擲出 '+dtx(dc.d2d100a)+' 與 '+dtx(dc.d2d100b)+' → '+nf(B.a)+' × '+nf(B.b)+' × 0.6 × '+wf(B.Ev)+' × '+wf(B.I)+' ＝ '+nf(B.pcRaw,1)+' → '+nf(B.pc)+' 東銀圓（四捨五入至十元）');
+  L.push('2d10 擲出 '+dtx(dc.d2d10)+' → PPP 倍率 ＝（15,000 ÷ '+nf(B.pc)+'）^0.4 ×（'+nf(B.p10)+' ＋ 90）÷ 100 × '+fx(B.pppS,2)+' ＝ '+fx(B.pppB,4)+' × '+fx(B.pppR,2)+' × '+fx(B.pppS,2)+' ＝ '+fx(B.ppp,4));
+  L.push('GDP名目 ＝ '+nf(B.pop)+' × '+nf(B.pc)+' ≒ '+money(B.gdp)+'（'+nf(B.gdp)+'）');
+  L.push('GDP_PPP ＝ '+money(B.gdp,'')+' × '+fx(B.ppp,4)+' ≒ '+money(B.gdpP)+'；GDP_PPP人均 ＝ '+nf(B.pc)+' × '+fx(B.ppp,4)+' ≒ '+nf(B.pcP)+' 東銀圓');
+  L.push('物價水準 ＝ 100 ÷ '+fx(B.ppp,4)+' ≒ '+fx(B.price,1)+'（東銀圓＝100）');
+  sec('s6','步驟6　軍隊');
+  L.push('2d100 擲出 '+dtx(dc.d2d100m)+' → '+nf(B.pop)+' ×（'+nf(B.dm)+' ＋ 50）÷ 18,000 × '+wf(B.M)+' ＝ '+nf(B.armyRaw,1)+' → '+nf(B.army)+' 人（動員率 '+pct(B.mob*100,2)+'，上限 3%）');
+  L.push('1d300 擲出 '+dtx(dc.d1d300)+' → '+nf(B.army)+' ×（'+nf(B.dr)+' ＋ 100）÷ 100 ＝ '+nf(B.resRaw)+' → '+wan(B.res,0)+'人');
+  if(B.enclN)L.push('海外飛地駐軍上限：'+nf(B.garrison)+' 人（常備軍的 15%；聯盟援軍不受此限）');
+  sec('s7','步驟7　國防預算');
+  L.push('1d6 擲出 '+dtx(dc.d1d6)+' →（'+nf(B.d6)+' ＋ '+B.defBase+'）× '+wf(B.M)+' ＝ '+fx(B.defRaw,2)+'%'+(B.defRaw>15?' → 上限 15%':'')+' → 國防預算 ＝ '+money(B.gdp,'')+' × '+fx(B.defPct,2)+'% ≒ '+money(B.def));
+  sec('s8','步驟8　國力指數');
+  var A=avgOf(R),mn=['GDP','人口','國防預算','常備軍'],mv=[money(B.gdp,'')+' ÷ '+money(A.gdp,''),wan(B.pop)+' ÷ '+wan(A.pop),money(B.def,'')+' ÷ '+money(A.def,''),wan(B.army)+' ÷ '+wan(A.army)];
+  L.push(mn.map(function(n,i){return n+'倍數 ＝ '+mv[i]+' ＝ '+fx(B.mult[i],4);}).join('；'));
+  L.push('硬實力 ＝（'+B.mult.map(function(v){return fx(v,4);}).join(' ＋ ')+'）÷ 4 ＝ '+fx(B.hard,4));
+  if(B.hb)L.push('HDI 可選 '+fx(B.hb.lo,3)+'～'+fx(B.hb.hi,3)+'（GDP_PPP人均 '+nf(B.pcP)+'）'+(B.hdiHalf?'，國民素質權重 '+fx(B.eff.edu,2)+' 須選'+B.hdiHalf+' '+fx(B.hdiLo,3)+'～'+fx(B.hdiHi,3):'')+'；選 '+(isFinite(B.hdi)?fx(B.hdi,3):'（未選）'));
+  L.push('外交影響力 ＝ 1d10 擲出 '+dtx(dc.d1d10dip)+(B.dipAdd?' ＋ '+B.dipAdd+'（'+[B.pl==='normal'?'普通玩家 2':'',B.al?'聯盟 1':''].filter(Boolean).join('、')+'）':'')+' ＝ '+B.dip+(B.dipRoll+B.dipAdd>10?'（上限 10）':''));
+  L.push(B.cultLegacy?'文化影響力 ＝ 0.5 ×（'+B.eq+' ＋ '+B.hs+' ＋ '+B.dip+'）＋ 0.75 ＝ '+fx(B.cult,2)+'（既有國家以原單位反推：新公式的軟實力係數與舊公式相同）':'文化影響力 ＝ 1d10 擲出 '+dtx(dc.d1d10cul));
+  L.push('軟實力 ＝ 經濟品質 '+B.eq+' ＋ HDI '+B.hs+' ＋ 外交 '+B.dip+' ＋ 文化 '+wn(B.cult)+' ＝ '+wn(B.soft));
+  L.push('軟實力係數 ＝（'+wn(B.soft)+' ＋ 1.5）÷ 15 ＝ '+fx(B.coef,4));
+  L.push('國力指數 ＝ '+fx(B.hard,4)+' × '+fx(B.coef,4)+' ＝ '+fx(B.idx,2)+' → '+(B.levelBase||'—')+(B.type?'（'+B.type+'）':''));
+  sec('s9','步驟9　設定修正性權重');var C=B.C,ef=B.eff,any=REVIEW.some(function(r){return Math.abs(B.raw[r[0]]-(r[5]==='mul'?1:0))>1e-9;});
+  L.push(REVIEW.map(function(r){var k=r[0],v=ef[k],raw=B.raw[k];return r[1]+' '+(r[5]==='mul'?fx(v,2):(v>0?'+':'')+v)+(Math.abs(raw-v)>1e-9?'（評定 '+(r[5]==='mul'?fx(raw,2):raw)+'）':'');}).join('、')+(any?'':'（尚未評定，均以中性值計）'));
+  B.wNotes.forEach(function(t){L.push('　※ '+t);});
+  L.push('修正後加權：宜居度 '+wf(B.H)+' × '+fx(ef.geo,2)+' ＝ '+wf(C.H)+'、發展程度 '+wf(B.D)+' × '+fx(ef.edu,2)+' ＝ '+wf(C.D)+'、經濟體制 '+wf(B.Ev)+' × '+fx(ef.inst,2)+' ＝ '+wf(C.Ev)+'、工業化 '+wf(B.I)+' × '+fx(ef.econ,2)+' ＝ '+wf(C.I)+'、軍事體制 '+wf(B.M)+' × '+fx(ef.mil,2)+' ＝ '+wf(C.M)+(B.Aen?'；飛地宜居度 0.7'+(R.enclGeo?' × '+fx(ef.geo,2)+' ＝ '+wf(C.Hen):''):''));
+  L.push('修正後人口 ＝ '+nf(C.popRaw,2)+' × 都市發展 '+fx(ef.urban,2)+' → '+nf(C.popW)+' 萬人；人均GDP '+nf(C.pc)+'；GDP '+money(C.gdp)+'；常備軍 '+nf(C.army)+' 人；國防預算 '+fx(C.defPct,2)+'% ＝ '+money(C.def));
+  L.push('硬實力 ＝（'+C.mult.map(function(v){return fx(v,4);}).join(' ＋ ')+'）÷ 4 × 歷史深度 '+fx(C.hist,2)+(C.exc?' × 卓越設定 1.15':'')+' ＝ '+fx(C.hard,4));
+  L.push('軟實力 ＝ '+C.eq+' ＋ '+B.hs+' ＋ 外交 '+wn(C.dip)+' ＋ 文化 '+wn(C.cult)+' ＝ '+wn(C.soft)+'；係數 ＝ '+fx(C.coef,4));
+  L.push('最終國力指數 ＝ '+fx(C.hard,4)+' × '+fx(C.coef,4)+' ＝ '+fx(C.idx,2)+'（原指數的 '+fx(B.effect,3)+' 倍）');
+  sec('s10','步驟10　國力等級');
+  L.push('最終國力指數 '+fx(C.idx,2)+' → '+(B.level||'—')+'（未修正 '+fx(B.idx,2)+' → '+(B.levelBase||'—')+'）'+(C.type?'；國家類型：'+C.type:''));
+  L.push('等級區間（含下限、不含上限）：4.00 以上列強、2.00～4.00 區強、0.60～2.00 中等、未滿 0.60 小國');
+  return S;}
+function sheetText(S){return S.map(function(s){return '━━ '+s.t+'\n'+s.l.join('\n');}).join('\n\n');}
+/* ===================== 維基輸出：國家資訊面板、條目正文、討論頁紀錄；純文字 ===================== */
+var CHCOL=['#4E79A7','#F28E2B','#59A14F','#E15759','#B07AA1','#9C755F'];
+function money2(v,X,full){var E=X.E;return X.N.out.cur==='local'&&isFinite(E.fx)&&has(E.cur)?money(v/E.fx,E.cur,full):money(v,undefined,full);}
+function coordText(la,lo){return isFinite(la)&&isFinite(lo)?(la>=0?'北緯':'南緯')+fx(Math.abs(la),2)+'° '+(lo>=0?'東經':'西經')+fx(Math.abs(lo),2)+'°':'';}
+function unitNum(v,u){var x=num(v);return isFinite(x)?fmt(x,Math.abs(x-Math.round(x))>1e-9?1:0)+u:has(v)?String(v):'';}
+/* 所有模型輸出的整合值（玩家覆寫優先） */
+function demoVal(X,k){var N=X.N,B=X.B,D=X.D,d=N.demo,o=num(d[k]);if(isFinite(o))return o;
+  return k==='urb'?rndD(urbanSug(B.pcP,B.indK),1):k==='lit'?rndD(literacySug(B.hdiUse),1):k==='school'?rndD(schoolSug(B.hdiUse),1):NaN;}
+function ageShares(X){var d=X.N.demo,D=X.D,y=num(d.ageY),w=num(d.ageW),o=num(d.ageO);return [isFinite(y)?y:D.share.y,isFinite(w)?w:D.share.w,isFinite(o)?o:D.share.o];}
+function indicator(X,k){var B=X.B,D=X.D,E=X.E,P=X.P;
+  switch(k){case 'urb':case 'lit':case 'school':return demoVal(X,k);case 'e0':return D.e0;case 'rd':return E.rd;case 'une':return E.une;case 'infl':return E.infl;case 'debt':return E.debt;
+    case 'dem':return P.dem;case 'cpi':return P.cpi;case 'tfr':return D.tfr;case 'gro':return E.gro;case 'mob':return B.mob*100;}return NaN;}
+function indicDef(k){for(var i=0;i<INDIC.length;i++)if(INDIC[i][0]===k)return INDIC[i];return null;}
+/* 比例圖項目（至多 6 項，超過的併入「其他」） */
+function chartItems(X){var N=X.N,o=N.out,src=o.chart||'auto',D=X.D,E=X.E,it=[],t='';
+  var regs=(N.demo.regions||[]).filter(function(r){return has(r.name)&&(num(r.pop)>0||num(r.pct)>0);});if(src==='auto')src=regs.length?'region':'emp';
+  if(src==='region'){var tot=sum(regs.map(function(r){return num(r.pop)>0?num(r.pop):0;})),usePop=tot>0;
+    it=regs.map(function(r){return [r.name,usePop?num(r.pop)/tot*100:num(r.pct),r.color];});t='各行政區人口分布';}
+  else if(src==='emp'){it=[['農業',E.agE],['工業',E.inE],['服務業',E.svE]];t='就業人口產業分布';}
+  else if(src==='class'){it=E.cls.map(function(c){return [c[0].replace(/（.*$/,''),c[1]];});t='社會階層（相對所得）';}
+  else if(src==='age'){var a=ageShares(X);it=[['0～14歲',a[0]],['15～64歲',a[1]],['65歲以上',a[2]]];t='年齡結構';}
+  else if(src==='urban'){var u=demoVal(X,'urb');it=[['都市人口',u],['鄉村人口',100-u]];t='都市與鄉村人口';}
+  else if(src==='sector'){it=[['農業',E.ag],['工業',E.in],['服務業',E.sv]];if(E.ot>0)it.push(['其他',E.ot]);t='產業結構（占GDP）';}
+  else{it=(o.custom||[]).filter(function(c){return has(c.name);}).map(function(c){return [c.name,num(c.pct),c.color];});t='比例圖';}
+  it.sort(function(a,b){return (b[1]||0)-(a[1]||0);});if(it.length>6){var rest=sum(it.slice(5).map(function(x){return x[1]||0;}));it=it.slice(0,5).concat([['其他',rest,'#BDBDBD']]);}
+  return {t:has(o.chartTitle)?o.chartTitle:t,items:it.map(function(x,i){return [x[0],x[1],has(x[2])?x[2]:CHCOL[i%6]];})};}
+/* 議席（至多 6 黨，其餘併入「其他」） */
+function seatRows(X,R){var ps=X.N.pol.parties||[],rows=[];if(!R||!R.total)return rows;ps.forEach(function(p,i){if(R.seats[i]>0)rows.push([p.name||'政黨'+(i+1),R.seats[i],has(p.color)?p.color:PARTYCOL[i%PARTYCOL.length]]);});
+  rows.sort(function(a,b){return b[1]-a[1];});if(rows.length>6){var rest=sum(rows.slice(5).map(function(r){return r[1];}));rows=rows.slice(0,5).concat([['其他',rest,'#BDBDBD']]);}return rows;}
+function rankOf(X,k,manual){var RK=X.RK;if(X.N.out.ranks&&RK&&RK[k])return String(RK[k]);return X.N.info[manual]||'';}
+function noteText(X){var N=X.N,B=X.B,E=X.E,I=N.info,a=[];if(has(I.note))a.push(I.note);
+  if(N.out.cur==='local'&&isFinite(E.fx)&&has(E.cur))a.push('金額以'+E.cur+'標示（1 '+E.cur+'＝'+wf(E.fx)+' 東銀圓）；東銀圓數額：GDP名目 '+money(B.gdp)+'、GDP_PPP '+money(B.gdpP)+'、人均GDP '+money(B.pc,undefined,1)+'、GDP_PPP人均 '+money(rnd(B.pcP,1),undefined,1)+'、國防預算 '+money(B.def)+'。');
+  if(N.out.notePower&&isFinite(B.idx))a.push('依建國規則計算之國力指數 '+fx(B.idx,2)+'（'+B.levelBase+'）'+(Math.abs(B.C.idx-B.idx)>1e-9||B.level!==B.levelBase?'；設定修正後 '+fx(B.C.idx,2)+'（'+B.level+'）':'')+'。');
+  return a.join('<br />');}
+function infobox(X){var N=X.N,B=X.B,D=X.D,E=X.E,P=X.P,I=N.info,o=N.out,yr=N.rules.year,keep=o.empty!==false,L=['{{國家資訊面板'];
+  function kv(k,v){v=v===undefined||v===null||(typeof v==='number'&&!isFinite(v))?'':String(v);if(v===''&&!keep)return;L.push('|'+k+'='+v);}
+  function line(arr,force){if(!force&&!arr.some(function(p){return has(p[1]);}))return;L.push(arr.map(function(p){return '|'+p[0]+'='+(has(p[1])?p[1]:'');}).join(''));}
+  function gap(){if(L[L.length-1]!=='')L.push('');}
+  kv('正式國名',I.name);kv('常用國名',I.short);kv('原文國名',I.native);kv('別稱',I.alias);kv('國家狀態',I.status);gap();
+  var fl=I.flags||[],em=I.emblems||[];
+  for(var n=1;n<=10;n++){[['國旗',fl[n-1]],['國徽',em[n-1]]].forEach(function(z){var e=z[1]||{},sf=n===1?'':String(n),on=['file','name','size','desc','period'].some(function(k){return has(e[k]);});if(!on&&!(n===1&&keep))return;
+      kv(z[0]+sf,e.file);kv(z[0]+'名稱'+sf,e.name);kv(z[0]+'尺寸'+sf,e.size);kv(z[0]+'說明'+sf,e.desc);kv(z[0]+'使用時期'+sf,e.period);gap();});}
+  kv('國家格言',I.motto);kv('國歌',I.anthem);kv('皇家頌歌',I.royal);gap();kv('國花',I.flower);kv('國樹',I.tree);kv('國鳥',I.bird);kv('國獸',I.beast);gap();
+  kv('地圖',I.map);kv('地圖尺寸',I.mapSize);kv('地圖說明',I.mapDesc);kv('第二地圖',I.map2);kv('第二地圖尺寸',I.map2Size);kv('第二地圖說明',I.map2Desc);gap();
+  kv('首都',I.capital);kv('最大城市',I.largest);kv('行政中心',I.admin);kv('座標',has(I.coord)?I.coord:coordText(num(N.calc.cap.lat),num(N.calc.cap.lon)));kv('所屬洲',I.continent);kv('所屬地區',I.region);
+  kv('常用語言',I.langCommon);kv('官方語言',I.langOfficial);kv('地方語言',I.langLocal);kv('文字',I.script);gap();
+  [['族群',N.demo.eth,I.ethTitle],['宗教',N.demo.rel,I.relTitle]].forEach(function(z){var list=(z[1]||[]).filter(function(e){return has(e.name);}).slice(0,6);kv(z[0],z[2]);kv(z[0]+'年份',list.length?yr:'');
+    for(var i=0;i<Math.max(list.length,keep?1:0);i++){var e=list[i]||{};line([[z[0]+(i+1),e.name],[z[0]+'比例'+(i+1),has(e.pct)?fx(num(e.pct),1):''],[z[0]+'色'+(i+1),e.color]],true);}});
+  kv('國民稱謂',I.demonym);kv('人口估計',isFinite(B.pop)?(o.popFmt==='wan'?wan(B.pop):fmt(B.pop)):'');kv('人口估計年份',isFinite(B.pop)?yr:'');kv('人口排名',rankOf(X,'pop','rPop'));
+  kv('人口普查',I.census);kv('人口普查年份',I.censusYear);kv('人口密度',isFinite(B.den)?fx(B.den,1)+'人/平方公里':'');kv('人口密度排名',rankOf(X,'den','rDen'));
+  var ag=ageShares(X);kv('年齡年份',yr);kv('年齡幼年',fx(ag[0],1));kv('年齡青壯',fx(ag[1],1));kv('年齡老年',fx(ag[2],1));gap();
+  kv('國體',I.polity);kv('政體',has(I.govt)?I.govt:P.regime[1]);kv('憲法',I.constitution);kv('國家元首制度',I.headSys);
+  var ld=(I.leaders||[]).filter(function(e){return has(e.title)||has(e.name);}).slice(0,10);for(var j=0;j<Math.max(ld.length,keep?1:0);j++){var e2=ld[j]||{};kv('領袖職稱'+(j+1),e2.title);kv('領袖姓名'+(j+1),e2.name);}
+  var C0=P.ch[0],C1=P.ch[1];
+  kv('立法機構',I.legis);kv('上議院名稱',has(I.upperName)?I.upperName:C1.on&&C1.total?C1.name:'');kv('上議院',has(I.upper)?I.upper:C1.on&&C1.total?C1.total+'席':'');
+  kv('下議院名稱',has(I.lowerName)?I.lowerName:C0.total?C0.name:'');kv('下議院',has(I.lower)?I.lower:C0.total?C0.total+'席':'');
+  [[C0,1],[C1,2]].forEach(function(z){var R=z[0],k='議席'+z[1],rows=R.on?seatRows(X,R):[];if(!rows.length&&!(keep&&z[1]===1))return;
+    kv(k+'名稱',rows.length?R.name:'');kv(k+'總數',rows.length?R.total:'');kv(k+'年份',rows.length?R.year:'');
+    for(var i=0;i<Math.max(rows.length,1);i++){var r=rows[i]||[];line([[k+'政黨'+(i+1),r[0]],[k+'席次'+(i+1),r[1]],[k+'色'+(i+1),r[2]]],true);}});
+  kv('行政機構',I.exec);kv('司法機構',I.judic);gap();
+  kv('主權類型',I.sovType);kv('前身',I.pred);var ev=(I.events||[]).filter(function(e){return has(e.ev)||has(e.date);}).slice(0,10);
+  for(var m=0;m<Math.max(ev.length,keep?1:0);m++){var e3=ev[m]||{};kv('建立事件'+(m+1),e3.ev);kv('建立日期'+(m+1),e3.date);}kv('繼承',I.succ);gap();
+  var wat=num(I.water);kv('面積',B.area>0?fmt(B.area)+'平方公里':'');kv('面積排名',rankOf(X,'area','rArea'));kv('陸地面積',wat>=0&&B.area>0?fmt(B.area-wat)+'平方公里':'');
+  kv('水域面積',wat>=0?fmt(wat)+'平方公里':'');kv('水域比例',wat>=0&&B.area>0?pct(wat/B.area*100,2):'');kv('海岸線',unitNum(I.coast,'公里'));kv('最高點',I.high);kv('最低點',I.low);kv('最長河流',I.river);kv('最大湖泊',I.lake);gap();
+  var ok=isFinite(B.gdp);kv('GDP_PPP',ok?money2(B.gdpP,X):'');kv('GDP_PPP年份',ok?yr:'');kv('GDP_PPP排名',rankOf(X,'gdpP','rPPP'));kv('GDP_PPP人均',ok?money2(rnd(B.pcP,1),X,1):'');kv('GDP_PPP人均排名',rankOf(X,'pcP','rPPPpc'));
+  kv('GDP名目',ok?money2(B.gdp,X):'');kv('GDP名目年份',ok?yr:'');kv('GDP名目排名',rankOf(X,'gdp','rGDP'));kv('GDP名目人均',ok?money2(B.pc,X,1):'');kv('GDP名目人均排名',rankOf(X,'pc','rGDPpc'));
+  kv('產業年份',yr);kv('產業農業',fx(E.ag,1));kv('產業工業',fx(E.in,1));kv('產業服務業',fx(E.sv,1));kv('產業其他',E.ot>0?fx(E.ot,1):'');
+  kv('基尼係數',fx(E.gini,1));kv('基尼年份',yr);kv('基尼變化',I.giniTrend);kv('HDI',isFinite(B.hdi)?fx(B.hdi,3):'');kv('HDI年份',isFinite(B.hdi)?yr:'');kv('HDI排名',rankOf(X,'hdi','rHDI'));kv('HDI變化',I.hdiTrend);gap();
+  kv('貨幣',I.currency);kv('貨幣代碼',I.curCode);kv('時區',I.tz);kv('UTC時差',I.utc);kv('夏令時間',I.dst);kv('夏令UTC時差',I.dstUtc);kv('日期格式',I.dateFmt);kv('曆法',I.calendar);gap();
+  kv('行車方向',I.drive);kv('國際電話區號',I.phone);kv('國家頂級域',I.tld);kv('ISO3166',I.iso);kv('車輛國籍代碼',I.vehicle);kv('郵遞區號',I.postal);gap();
+  (o.ind||[]).slice(0,4).forEach(function(k,i){var d=indicDef(k);if(!d)return;var v=indicator(X,k),n2=i+1;kv('指標'+n2+'名稱',d[1]);kv('指標'+n2+'數值',isFinite(v)?fx(v,d[4]):'');kv('指標'+n2+'上限',d[3]);kv('指標'+n2+'單位',d[2]);kv('指標'+n2+'年份',yr);});
+  var ch=chartItems(X);if(ch.items.length||keep){kv('比例圖標題',ch.items.length?ch.t:'');kv('比例圖年份',ch.items.length?yr:'');for(var p=0;p<Math.max(ch.items.length,1);p++){var it=ch.items[p]||[];line([['比例圖項目'+(p+1),it[0]],['比例圖比例'+(p+1),it.length?fx(it[1],1):''],['比例圖色'+(p+1),it[2]]],true);}}gap();
+  kv('軍隊',I.army);kv('最高統帥',I.cinc);kv('軍事首長',I.milChief);kv('現役軍人',isFinite(B.army)?fmt(B.army)+'人':'');kv('預備役',isFinite(B.res)?fmt(B.res)+'人':'');
+  kv('國防預算',isFinite(B.def)?money2(B.def,X)+'（GDP的'+fx(B.defPct,2)+'%）':'');gap();
+  kv('聯合國席位',I.un);kv('國際組織席位',I.orgSeat);kv('國際組織',I.orgs);kv('外交承認',I.recog);gap();
+  kv('官方網站',I.web);kv('備註',noteText(X));L.push('}}');
+  return L.join('\n').replace(/\n{3,}/g,'\n\n').replace(/\n\n\}\}$/,'\n}}');}
+/* ---------- 條目正文 ---------- */
+function wt(head,rows){return '{| class="wikitable"\n! '+head.join(' !! ')+'\n'+rows.map(function(r){return '|-\n| '+r.join(' || ');}).join('\n')+'\n|}';}
+function hint(k){for(var i=0;i<REVIEW.length;i++)if(REVIEW[i][0]===k)return '<!-- 本節影響「'+REVIEW[i][1]+'」權重：'+REVIEW[i][6]+'。宜有獨立條目或 '+(k==='cult'?'2,000':'1,500')+' 字以上，含具體名稱、數字、年份、事件，並與既有國家、組織或事件產生關聯。 -->';return '';}
+function article(X){var N=X.N,B=X.B,D=X.D,E=X.E,P=X.P,I=N.info,yr=N.rules.year,nm=I.name||I.short||'（國名）',out=[infobox(X),''];
+  var where=(I.continent||'')+(I.region||''),lead="'''"+nm+"'''"+(has(I.native)?'（'+I.native+'）':'')+(has(I.short)&&I.short!==nm?"，通稱'''"+I.short+"'''":'')+'，是一個'+(where?'位於'+where+'的':'')+(has(I.govt)?I.govt:P.regime[1])+'國家'+(has(I.capital)?'，首都為[['+I.capital+']]':'')+'。';
+  lead+='全國面積約 '+fmt(B.area)+' 平方公里，'+yr+' 年人口約 '+wan(B.pop)+'，國內生產毛額（名目）約 '+money2(B.gdp,X)+'，人均 '+money2(B.pc,X,1)+'；人類發展指數 '+(isFinite(B.hdi)?fx(B.hdi,3):'—')+'。依建國規則評定，國力指數為 '+fx(B.C.idx,2)+'，屬'+B.level+'。';
+  out.push(lead,'','== 歷史 ==',hint('hist'));var ev=(I.events||[]).filter(function(e){return has(e.ev);});if(ev.length)out.push(ev.map(function(e){return '* '+(has(e.date)?e.date+'：':'')+e.ev;}).join('\n'));
+  out.push('','== 地理 ==',hint('geo'));
+  var wat=num(I.water),gr=[['面積',fmt(B.area)+' 平方公里（'+B.size+'）']];if(wat>=0)gr.push(['陸地／水域',fmt(B.area-wat)+'／'+fmt(wat)+' 平方公里（水域 '+pct(wat/B.area*100,2)+'）']);
+  [['海岸線',unitNum(I.coast,' 公里')],['最高點',I.high],['最低點',I.low],['最長河流',I.river],['最大湖泊',I.lake]].forEach(function(r){if(has(r[1]))gr.push(r);});
+  out.push(wt(['項目','數值'],gr));
+  out.push('=== 領土組成 ===',wt(['區域','類型','面積（平方公里）','占總領土','距首都（公里）'],B.parts.filter(function(o){return o.cnt;}).map(function(o){return [o.name||KINDN[o.kind],KINDN[o.kind],fmt(o.area),pct(o.area/B.area*100),o.kind==='main'?'—':isFinite(o.dist)?fmt(o.dist):''];})));
+  out.push('','== 政治 ==',hint('inst'));var pr=[['國體',I.polity],['政體',has(I.govt)?I.govt:P.regime[1]],['憲法',I.constitution],['國家元首制度',I.headSys],['立法機構',I.legis],['行政機構',I.exec],['司法機構',I.judic]].filter(function(r){return has(r[1]);});
+  (I.leaders||[]).forEach(function(l){if(has(l.title)&&has(l.name))pr.push([l.title,l.name]);});if(pr.length)out.push(wt(['項目','內容'],pr));
+  P.ch.forEach(function(R){if(!R.on||!R.total)return;var ps=N.pol.parties;out.push('=== '+R.name+'（'+R.year+' 年）===','選舉制度：'+esysName(R.sys)+(R.thr>0?'，法定門檻 '+R.thr+'%':'')+(R.note?'；'+R.note:'')+'。');
+    out.push(wt(['','政黨','得票率','席次','席次比例'],ps.map(function(p,i){return [i,p];}).filter(function(z){return R.seats[z[0]]>0||R.votes[z[0]]>0;}).sort(function(a,b){return R.seats[b[0]]-R.seats[a[0]];}).map(function(z){var i=z[0],p=z[1];
+      return ['style="background:'+(has(p.color)?p.color:PARTYCOL[i%PARTYCOL.length])+';" |',p.name||'政黨'+(i+1),R.vsum>0&&R.sys!=='indirect'&&R.sys!=='manual'?pct(R.votes[i]/R.vsum*100):'—',R.seats[i],pct(R.seats[i]/R.total*100)];}).concat([['','合計','',R.total,'100.0%']])));
+    out.push('過半數 '+R.maj+' 席；有效政黨數（席次）'+fx(R.enpS,2)+(isFinite(R.gallagher)?'；比例偏差（Gallagher 指數）'+fx(R.gallagher,2):'')+'。');});
+  if(P.govSeats)out.push('執政：'+P.gov.map(function(i){return N.pol.parties[i].name;}).join('、')+'（'+P.govTypeN+'，'+P.govSeats+' 席）。');
+  out.push('=== 政治指標（模型估計）===',wt(['指標','數值'],[['民主指數',fx(P.dem,1)+'／10（'+P.demCat+'）'],['政府效能',fx(P.eff,0)+'／100'],['清廉指數',fx(P.cpi,0)+'／100'],['法治',fx(P.rol,0)+'／100'],['新聞自由',fx(P.press,0)+'／100'],['政治穩定',fx(P.stab,0)+'／100']]));
+  out.push('','== 經濟 ==',hint('econ'));
+  out.push(wt(['指標','數值'],[['GDP（名目）',money2(B.gdp,X)],['GDP（購買力平價）',money2(B.gdpP,X)],['人均GDP（名目）',money2(B.pc,X,1)],['人均GDP（購買力平價）',money2(rnd(B.pcP,1),X,1)],['物價水準',fx(B.price,1)+'（東銀圓區＝100）'],
+    ['經濟體制',econName(B.ek)],['潛在經濟成長率',pct(E.gro)],['通貨膨脹率',pct(E.infl)],['政策利率',pct(E.rate)],['失業率',pct(E.une)],['基尼係數',fx(E.gini,1)],['主權信用評等',E.rating]].concat(isFinite(E.fx)&&has(E.cur)?[['匯率','1 '+E.cur+'＝'+wf(E.fx)+' 東銀圓']]:[])));
+  out.push('=== 產業結構 ===',wt(['產業','占GDP','占就業','每位就業者產值'],[['農業',pct(E.ag),pct(E.agE),money2(E.prod[0],X,1)],['工業',pct(E.in),pct(E.inE),money2(E.prod[1],X,1)],['服務業',pct(E.sv),pct(E.svE),money2(E.prod[2],X,1)]]));
+  out.push('=== 財政 ===',wt(['項目','占GDP','金額'],[['歲入',pct(E.rev,1),money2(B.gdp*E.rev/100,X)]].concat(EXPN.map(function(e){return ['歲出：'+e[1],pct(E.x[e[0]],2),money2(B.gdp*E.x[e[0]]/100,X)];}),[['歲出合計',pct(E.exp,1),money2(B.gdp*E.exp/100,X)],['財政餘額',pct(E.bal,1),money2(B.gdp*E.bal/100,X)],['政府債務',pct(E.debt,1),money2(B.gdp*E.debt/100,X)]])));
+  out.push('=== 所得分配 ===',wt(['指標','數值'],[['所得最低 20%',pct(E.quint[0])],['所得最高 20%',pct(E.quint[4])],['所得最高 10%',pct(E.top10)],['帕爾馬比值',fx(E.palma,2)],['國際貧窮線（每日 2.15 東銀圓）以下',pct(E.pov215)],['相對貧窮（中位數 50% 以下）',pct(E.rel)]]));
+  out.push('=== 對外貿易 ===','出口約占 GDP 的 '+pct(E.ex)+'（'+money2(B.gdp*E.ex/100,X)+'），進口約 '+pct(E.im)+'（'+money2(B.gdp*E.im/100,X)+'）。');
+  out.push('','== 人口 ==',hint('urban'));var ag=ageShares(X);
+  out.push(wt(['指標','數值'],[['人口',fmt(B.pop)+'（'+yr+' 年）'],['人口密度',fx(B.den,1)+' 人／平方公里'],['年齡結構','0～14 歲 '+pct(ag[0])+'、15～64 歲 '+pct(ag[1])+'、65 歲以上 '+pct(ag[2])],['年齡中位數',fx(D.median,1)+' 歲'],['扶養比',fx(D.dep,1)],
+    ['總和生育率',fx(D.tfr,2)],['粗出生率／粗死亡率',fx(D.cbr,1)+'‰／'+fx(D.cdr,1)+'‰'],['自然增加率',pct(D.rni/10,2)],['平均餘命','男 '+fx(D.e0m,1)+' 歲、女 '+fx(D.e0f,1)+' 歲'],['嬰兒死亡率',fx(D.imr,1)+'‰'],
+    ['都市化率',pct(demoVal(X,'urb'))],['識字率',pct(demoVal(X,'lit'))],['平均受教育年數',fx(demoVal(X,'school'),1)+' 年']]));
+  out.push('人口推估（自然增減）：'+D.proj.map(function(p){return (num(yr)+p[0])+' 年約 '+wan(p[1]*B.pop/D.pop);}).join('、')+'。');
+  [['族群',N.demo.eth],['宗教',N.demo.rel]].forEach(function(z){var l=(z[1]||[]).filter(function(e){return has(e.name);});if(l.length)out.push('=== '+z[0]+' ===',wt([z[0],'比例'],l.map(function(e){return [e.name,pct(num(e.pct))];})));});
+  var cs=cityTable(X);if(cs.length)out.push('=== 主要城市 ===',wt(['位序','城市','人口'],cs.map(function(c,i){return [i+1,c[0],fmt(c[1])];})));
+  out.push('','== 軍事 ==',hint('mil'),wt(['項目','數值'],[['軍隊',I.army||''],['最高統帥',I.cinc||''],['現役軍人',fmt(B.army)+' 人（動員率 '+pct(B.mob*100,2)+'）'],['預備役',fmt(B.res)+' 人'],['國防預算',money2(B.def,X)+'（GDP 的 '+fx(B.defPct,2)+'%）']].filter(function(r){return has(r[1]);})));
+  out.push('','== 外交 ==',hint('dip'),'','== 文化 ==',hint('cult'),'','== 註釋 ==','<references />');
+  return out.join('\n');}
+/* 主要城市：玩家填的城市名稱依序對應位序—規模推估；有填人口者採用填寫值 */
+function cityTable(X){var N=X.N,B=X.B,list=(N.demo.cities||[]).filter(function(c){return has(c.name);});if(!list.length)return [];
+  var u=demoVal(X,'urb'),sz=citySizes(B.pop*u/100,list.length,clamp(num(N.demo.primacy)||1,0.5,4));return list.map(function(c,i){var p=num(c.pop);return [c.name,p>0?p:rnd(sz[i],1000)];});}
+/* ---------- 討論頁：擲骰與權重評定紀錄 ---------- */
+function talkPage(X){var N=X.N,B=X.B,V=N.review,c=N.calc,dc=B.dice,out=['== 建國擲骰與計算紀錄 ==','遊戲年份：'+N.rules.year+'；玩家身分：'+PLAYERN[B.pl]+'；國家類型：'+PTYPE[B.ty]+(B.al?'；聯盟建國：'+(c.ally.name||''):'')+'。'];
+  var rows=[['1 領土額度','3d100',dtx(dc.d3d100),fx(B.quota,2)+' 萬平方公里'],['4 人口','12d100',dtx(dc.d12d100),fmt(B.popW)+' 萬人'],['5 人均GDP','2d100 ×2',dtx(dc.d2d100a)+'；'+dtx(dc.d2d100b),fmt(B.pc)+' 東銀圓'],['5 PPP 倍率','2d10',dtx(dc.d2d10),fx(B.ppp,4)],
+    ['6 常備軍','2d100',dtx(dc.d2d100m),fmt(B.army)+' 人'],['6 預備役','1d300',dtx(dc.d1d300),fmt(B.res)+' 人'],['7 國防預算','1d6',dtx(dc.d1d6),fx(B.defPct,2)+'%'],['8 外交影響力','1d10',dtx(dc.d1d10dip),String(B.dip)],
+    ['8 文化影響力',B.cultLegacy?'（反推）':'1d10',B.cultLegacy?'—':dtx(dc.d1d10cul),wf(B.cult)]];
+  out.push(wt(['步驟','擲骰','結果','計算值'],rows));
+  out.push('<pre>\n'+sheetText(sheet(N,B))+'\n</pre>');
+  out.push('== 設定修正性權重評定 ==','評定日期：'+(V.date||today())+(has(V.gy)?'（遊戲年 '+V.gy+'，下次審核 '+(num(V.gy)+5)+' 年）':'')+(has(V.found)?'；建國日：'+V.found:'')+'。');
+  var dR=pd(V.date)||pd(today());
+  out.push(wt(['項目','範圍','對應','評定','採計','審核程序','理由'],REVIEW.map(function(r){var k=r[0],st=emptyStatus(V,k,dR),mul=r[5]==='mul';
+    return [r[1],r[2]+'～'+r[3],r[4],mul?fx(B.raw[k],2):String(B.raw[k]),mul?fx(B.eff[k],2):String(B.eff[k]),st.text,((V.why||{})[k]||'').replace(/\n/g,'<br />')];})));
+  if(B.wNotes.length)out.push(B.wNotes.map(function(t){return '* '+t;}).join('\n'));
+  out.push('國力指數：'+fx(B.idx,2)+'（'+B.levelBase+'）→ 設定修正後 '+fx(B.C.idx,2)+'（'+B.level+'）'+(B.C.type?'；'+B.C.type:'')+(B.exc?'；卓越設定（硬實力 ×1.15）':'')+'。');
+  return out.join('\n\n');}
+/* ---------- 純文字：計算書、檢查結果、國家資料與模型摘要 ---------- */
+function plainText(X){var N=X.N,B=X.B,D=X.D,E=X.E,P=X.P,I=N.info,yr=N.rules.year,out=[];
+  out.push('【國家綜合製作器・建國計算書】',(I.name||I.short||'（未命名）')+'　遊戲年 '+yr+(has(N.rules.ver)?'　規則版本 '+N.rules.ver:'')+'　輸出 '+today(),'');
+  out.push(sheetText(sheet(N,B)),'');
+  if(B.chk.length||B.miss.length){out.push('━━ 檢查結果');B.chk.forEach(function(x){out.push(({err:'【違規】',warn:'【提醒】',info:'【說明】'})[x.t]+x.m);});if(B.miss.length)out.push('【尚待輸入】'+B.miss.join('、'));out.push('');}
+  out.push('━━ 資訊面板數值',
+    '面積 '+fmt(B.area)+' 平方公里（'+B.size+'）；人口 '+fmt(B.pop)+'；人口密度 '+fx(B.den,1)+' 人／平方公里',
+    'GDP名目 '+money(B.gdp)+'；人均 '+money(B.pc,undefined,1)+'；GDP_PPP '+money(B.gdpP)+'；PPP人均 '+money(rnd(B.pcP,1),undefined,1)+'；HDI '+(isFinite(B.hdi)?fx(B.hdi,3):'—'),
+    '現役軍人 '+fmt(B.army)+'；預備役 '+fmt(B.res)+'；國防預算 '+money(B.def)+'（'+fx(B.defPct,2)+'%）',
+    '國力指數 '+fx(B.idx,2)+'（'+B.levelBase+'）；修正後 '+fx(B.C.idx,2)+'（'+B.level+'）'+(B.C.type?'；'+B.C.type:''),'');
+  var ag=ageShares(X);
+  out.push('━━ 人民結構','年齡：0～14 歲 '+pct(ag[0])+'、15～64 歲 '+pct(ag[1])+'、65 歲以上 '+pct(ag[2])+'；中位數 '+fx(D.median,1)+' 歲；扶養比 '+fx(D.dep,1),
+    '總和生育率 '+fx(D.tfr,2)+'；出生率 '+fx(D.cbr,1)+'‰、死亡率 '+fx(D.cdr,1)+'‰；平均餘命 男 '+fx(D.e0m,1)+'／女 '+fx(D.e0f,1)+' 歲；嬰兒死亡率 '+fx(D.imr,1)+'‰',
+    '都市化率 '+pct(demoVal(X,'urb'))+'；識字率 '+pct(demoVal(X,'lit'))+'；平均受教育 '+fx(demoVal(X,'school'),1)+' 年',
+    '社會階層：'+E.cls.map(function(c){return c[0]+' '+pct(c[1]);}).join('、'),'');
+  out.push('━━ 經濟模型','產業（占GDP）農業 '+pct(E.ag)+'、工業 '+pct(E.in)+'、服務業 '+pct(E.sv)+'；就業 農 '+pct(E.agE)+'、工 '+pct(E.inE)+'、服務 '+pct(E.svE),
+    '支出法：民間消費 '+pct(E.C)+'、政府消費 '+pct(E.G)+'、投資 '+pct(E.I)+'、淨出口 '+pct(E.NX),
+    '財政：歲入 '+pct(E.rev)+'、歲出 '+pct(E.exp)+'（'+EXPN.map(function(e){return e[1]+' '+pct(E.x[e[0]],2);}).join('、')+'）、餘額 '+pct(E.bal)+'、債務 '+pct(E.debt),
+    '物價與勞動：通膨 '+pct(E.infl)+'、政策利率 '+pct(E.rate)+'、失業率 '+pct(E.une)+'、勞動力 '+wan(E.lf)+'、平均年薪 '+money(E.wage,undefined,1),
+    '所得分配：基尼 '+fx(E.gini,1)+'、最高 10% '+pct(E.top10)+'、最低 40% '+pct(E.bot40)+'、國際貧窮 '+pct(E.pov215)+'、相對貧窮 '+pct(E.rel),
+    '貿易：出口 '+pct(E.ex)+'、進口 '+pct(E.im)+'；潛在成長率 '+pct(E.gro)+'；研發支出 '+pct(E.rd,2)+'；主權信用評等 '+E.rating,'');
+  out.push('━━ 政治模型','政體：'+(has(I.govt)?I.govt:P.regime[1])+'；民主指數 '+fx(P.dem,1)+'（'+P.demCat+'）；政府效能 '+fx(P.eff,0)+'；清廉 '+fx(P.cpi,0)+'；法治 '+fx(P.rol,0)+'；新聞自由 '+fx(P.press,0)+'；政治穩定 '+fx(P.stab,0));
+  P.ch.forEach(function(R){if(R.on&&R.total)out.push(R.name+'（'+esysName(R.sys)+'，'+R.total+' 席）：'+seatRows(X,R).map(function(r){return r[0]+' '+r[1];}).join('、')+(P.govSeats&&R===P.ch[0]?'；執政 '+P.govTypeN:''));});
+  out.push('','━━ 國家資訊面板（維基格式）',infobox(X));
+  return out.join('\n');}
+/* ===================== 介面：版面與欄位 ===================== */
+var N=null,X=null,REG=[],TAB='calc',OUTV='ib',pend=0,saveT=0,DCACHE={k:'',D:null};
+function newId(){return 'n'+Date.now().toString(36)+Math.floor(Math.random()*1e8).toString(36);}
+function getP(o,p){var ks=p.split('.');for(var i=0;i<ks.length;i++){if(o===null||o===undefined)return undefined;o=o[ks[i]];}return o;}
+function setP(o,p,v){var ks=p.split('.');for(var i=0;i<ks.length-1;i++){var k=ks[i];if(o[k]===null||o[k]===undefined||typeof o[k]!=='object')o[k]=/^\d+$/.test(ks[i+1])?[]:{};o=o[k];}o[ks[ks.length-1]]=v;}
+/* ---------- 欄位產生器（data-b＝資料路徑） ---------- */
+function ai(a){return a?' '+a:'';}
+function T(p,w,ph,a){return '<input type="text" data-b="'+p+'" style="width:'+(w||'8em')+'"'+(ph?' placeholder="'+esc(ph)+'"':'')+ai(a)+'>';}
+function NM(p,w,ph,a){return T(p,w||'6em',ph,'inputmode="decimal"'+ai(a));}
+function SEL(p,o,a){return '<select data-b="'+p+'"'+ai(a)+'>'+o.map(function(x){return '<option value="'+esc(x[0])+'">'+esc(x[1])+'</option>';}).join('')+'</select>';}
+function CK(p,t,a){return '<label><input type="checkbox" data-b="'+p+'"'+ai(a)+'> '+t+'</label>';}
+function DT(p){return '<input type="date" data-b="'+p+'">';}
+function TA(p,rows,ph,a){return '<textarea data-b="'+p+'" rows="'+(rows||2)+'"'+(ph?' placeholder="'+esc(ph)+'"':'')+ai(a)+'></textarea>';}
+function CL(p){return '<input type="color" data-b="'+p+'">';}
+function LB(t,inner,tip){return '<label'+(tip?' title="'+esc(tip)+'"':'')+'>'+t+' '+inner+'</label>';}
+function DIE(k,n,s,lb){return '<label class="ln-die">'+lb+' <span class="ln-dn">'+n+'d'+s+'</span> '+T('calc.'+k,'8em',n>1?'總和或逐顆以＋分隔':'1～'+s)+' <span class="ln-dv" data-dv="'+k+'"></span></label>';}
+function card(id,title,body){return '<div class="ln-card" data-sec="'+id+'"><h4>'+title+'</h4>'+body+'<div class="ln-res" data-r="'+id+'"></div></div>';}
+function row(){return '<div class="row">'+Array.prototype.slice.call(arguments).join('')+'</div>';}
+function grp(title,body,open){return '<details class="lt-grp"'+(open?' open':'')+'><summary>'+title+'</summary>'+body+'</details>';}
+/* ---------- 清單編輯器 ---------- */
+var LIST={
+ parts:{p:'calc.parts',add:function(k){return {kind:k||'isle',name:'',px:'',area:'',lat:'',lon:''};},head:['類型','名稱','像素數','面積（平方公里）','最近點緯度','最近點經度','計算結果'],
+   row:function(i){var b='calc.parts.'+i+'.';return [SEL(b+'kind',[['main','本土'],['isle','本土群島'],['encl','海外飛地']]),T(b+'name','7em'),NM(b+'px','6em','選填'),NM(b+'area','8em'),NM(b+'lat','5em','緯度'),NM(b+'lon','5em','經度'),'<span class="ln-note" data-po="'+i+'"></span>'];}},
+ flags:{p:'info.flags',max:10,add:function(){return {file:'',name:'',size:'',desc:'',period:''};},head:['檔案','名稱','尺寸','說明','使用時期'],
+   row:function(i){var b='info.flags.'+i+'.';return [T(b+'file','10em','Flag of X.png'),T(b+'name','8em'),T(b+'size','5em','125px'),T(b+'desc','12em'),T(b+'period','8em')];}},
+ emblems:{p:'info.emblems',max:10,add:function(){return {file:'',name:'',size:'',desc:'',period:''};},head:['檔案','名稱','尺寸','說明','使用時期'],
+   row:function(i){var b='info.emblems.'+i+'.';return [T(b+'file','10em','Emblem of X.png'),T(b+'name','8em'),T(b+'size','5em','100px'),T(b+'desc','12em'),T(b+'period','8em')];}},
+ leaders:{p:'info.leaders',max:10,add:function(){return {title:'',name:''};},head:['職稱','姓名'],row:function(i){var b='info.leaders.'+i+'.';return [T(b+'title','8em','總統'),T(b+'name','10em')];}},
+ events:{p:'info.events',max:10,add:function(){return {ev:'',date:''};},head:['建立事件','日期'],row:function(i){var b='info.events.'+i+'.';return [T(b+'ev','14em','獨立宣言'),T(b+'date','10em','4005年1月1日')];}},
+ eth:{p:'demo.eth',max:6,add:function(){return {name:'',pct:'',color:CHCOL[(N.demo.eth||[]).length%6]};},head:['族群','比例（%）','顏色'],row:function(i){var b='demo.eth.'+i+'.';return [T(b+'name','9em'),NM(b+'pct','5em'),CL(b+'color')];}},
+ rel:{p:'demo.rel',max:6,add:function(){return {name:'',pct:'',color:CHCOL[(N.demo.rel||[]).length%6]};},head:['宗教','比例（%）','顏色'],row:function(i){var b='demo.rel.'+i+'.';return [T(b+'name','9em'),NM(b+'pct','5em'),CL(b+'color')];}},
+ regions:{p:'demo.regions',add:function(){return {name:'',pop:'',pct:'',color:CHCOL[(N.demo.regions||[]).length%6]};},head:['行政區','人口','或比例（%）','顏色'],
+   row:function(i){var b='demo.regions.'+i+'.';return [T(b+'name','9em'),NM(b+'pop','8em'),NM(b+'pct','5em'),CL(b+'color')];}},
+ cities:{p:'demo.cities',add:function(){return {name:'',pop:''};},head:['城市（由大到小）','人口（留白＝推估）','採用'],row:function(i){var b='demo.cities.'+i+'.';return [T(b+'name','9em'),NM(b+'pop','8em'),'<span class="ln-note" data-cp="'+i+'"></span>'];}},
+ parties:{p:'pol.parties',add:function(){var n=(N.pol.parties||[]).length;return {name:'',color:PARTYCOL[n%PARTYCOL.length],ideo:'0',v1:'',v2:'',conc:'',s1:'',s2:'',gov:false};},
+   head:['政黨','顏色','意識形態<br>左−10～右+10','下議院得票%','上議院得票%','地域集中度<br>0～1','手動席次<br>下議院','手動席次<br>上議院','執政'],
+   row:function(i){var b='pol.parties.'+i+'.';return [T(b+'name','8em'),CL(b+'color'),NM(b+'ideo','4em'),NM(b+'v1','4.5em'),NM(b+'v2','4.5em','同左'),NM(b+'conc','3.5em','0'),NM(b+'s1','4em'),NM(b+'s2','4em'),'<input type="checkbox" data-b="'+b+'gov">'];}},
+ custom:{p:'out.custom',max:6,add:function(){return {name:'',pct:'',color:CHCOL[(N.out.custom||[]).length%6]};},head:['項目','比例（%）','顏色'],row:function(i){var b='out.custom.'+i+'.';return [T(b+'name','9em'),NM(b+'pct','5em'),CL(b+'color')];}}};
+function renderList(name){var L=LIST[name],box=root.querySelector('[data-list="'+name+'"]');if(!box)return;var arr=getP(N,L.p)||[];
+  var h=arr.length?'<div class="ln-sc"><table class="ln-lt"><thead><tr>'+L.head.map(function(x){return '<th>'+x+'</th>';}).join('')+'<th></th></tr></thead><tbody>'+
+    arr.map(function(o,i){return '<tr>'+L.row(i).map(function(c,j){var lb=String(L.head[j]||'').replace(/<br\s*\/?>/g,' ').replace(/<[^>]+>/g,'');return '<td'+(lb?' data-lb="'+esc(lb)+'"':'')+'>'+c+'</td>';}).join('')+'<td><button type="button" class="ln-x" data-del="'+name+':'+i+'" title="刪除此列">✕</button></td></tr>';}).join('')+'</tbody></table></div>':'<div class="ln-note">（尚無資料）</div>';
+  box.innerHTML=h+'<div class="row" style="margin-top:4px"><button type="button" data-add="'+name+'">＋ 新增</button>'+(L.max?'<span class="ln-note">上限 '+L.max+' 項</span>':'')+'</div>';fill(box);}
+function renderLists(){Object.keys(LIST).forEach(renderList);}
+/* ---------- 版面 ---------- */
+var TABS=[['calc','建國計算'],['review','權重審核'],['info','國家資料'],['demo','人民結構'],['econ','經濟模型'],['pol','政治模型'],['out','維基與輸出'],['reg','名冊'],['rules','規則設定']];
+var EROWS=[['產業結構（占GDP）',[['ag','農業','%'],['in','工業','%'],['sv','服務業','%'],['ot','其他','%']]],['就業結構',[['agE','農業就業','%'],['inE','工業就業','%'],['svE','服務業就業','%']]],
+  ['支出法GDP',[['C','民間消費','%'],['G','政府消費','%'],['I','投資（資本形成）','%'],['NX','淨出口','%']]],
+  ['財政（占GDP）',[['rev','歲入','%'],['x_def','國防（規則步驟7）','%'],['x_edu','教育','%'],['x_hea','醫療衛生','%'],['x_soc','社會保障','%'],['x_eco','經濟事務與基礎建設','%'],['x_pub','一般公共服務','%'],['x_int','公債利息','%'],['x_oth','公共秩序、環境與其他','%'],['debt','政府債務','%']]],
+  ['物價與金融',[['infl','通貨膨脹率','%'],['rate','政策利率','%']]],['勞動',[['lfpr','勞動參與率（15～64 歲）','%'],['une','失業率','%'],['ls','勞動所得占GDP','%']]],
+  ['所得、貿易與成長',[['gini','基尼係數',''],['ex','出口占GDP','%'],['gro','潛在經濟成長率','%'],['rd','研發支出占GDP','%']]]];
+var PROWS=[['dem','民主指數（0～10）'],['eff','政府效能（0～100）'],['cpi','清廉指數（0～100）'],['rol','法治（0～100）'],['press','新聞自由（0～100）'],['stab','政治穩定（0～100）']];
+function ovTable(rows,ns){return '<div class="ln-sc"><table class="ln-tbl"><tr><th>項目</th><th>模型建議</th><th>覆寫（留白＝採用建議）</th><th>採用值</th></tr>'+rows.map(function(g){
+  return (g[0]?'<tr><th colspan="4">'+g[0]+'</th></tr>':'')+g[1].map(function(r){return '<tr><td>'+r[1]+'</td><td class="n" data-es="'+ns+r[0]+'"></td><td class="ov">'+(r[0]==='x_def'?'<span class="ln-note">依規則，不可覆寫</span>':NM(ns==='p:'?'pol.ov.'+r[0]:'econ.ov.'+r[0],'5.5em'))+'</td><td class="n" data-ev="'+ns+r[0]+'"></td></tr>';}).join('');}).join('')+'</table></div>';}
+function layout(){var W=W_HAB.map(function(x){return [String(x[0]),x[0].toFixed(1)+'　'+x[1]];}),Dv=W_DEV.map(function(x){return [String(x[0]),x[0].toFixed(1)+'　'+x[1]];}),Iv=W_IND.map(function(x){return [String(x[0]),x[0].toFixed(1)+'　'+x[1]];}),
+    Mv=W_MIL.map(function(x){return [String(x[0]),x[0].toFixed(1)+'　'+x[1]];}),Ev=W_ECON.map(function(x){return [x[0],x[1].toFixed(1)+'　'+x[2]];});
+  var calc='<ul class="ln-chk" data-r="chk"></ul>'+
+   card('s1','步驟1　玩家身分、國家類型與領土額度',row(LB('正式國名',T('info.name','12em')),LB('常用國名',T('info.short','8em')),LB('遊戲年份',NM('rules.year','5em')))+
+     row(LB('玩家身分',SEL('calc.player',[['normal','普通玩家'],['initial','初始玩家']])),LB('國家類型',SEL('calc.type',[['land','陸權'],['mixed','混合'],['sea','海權']])),DIE('d3d100',3,100,'領土額度'))+
+     row(CK('calc.ally.on','聯盟建國（三個以上國家同時申請，領土相鄰或位於同一區域）'))+
+     '<div class="ln-ally">'+row(LB('聯盟名稱',T('calc.ally.name','10em')),LB('共同目標',T('calc.ally.goal','18em')))+row(LB('成立背景',TA('calc.ally.bg',2)),LB('其他成員國（每行一國）',TA('calc.ally.members',2)))+'</div>')+
+   card('s2','步驟2　劃定領土',row(LB('首都緯度',NM('calc.cap.lat','6em','北正南負')),LB('首都經度',NM('calc.cap.lon','6em','東正西負')),LB('每像素面積',NM('calc.pxArea','7em','經緯度計算器')+' 平方公里',
+       '面積＝Equal Earth 地圖像素數 × 每像素面積；填了像素數的列會自動換算'))+
+     '<div class="ln-note">本土＝包含首都且相連的最大陸塊；與本土相鄰海域的島嶼為本土群島（間距 200 公里內的島鏈計 1 處）；不相連且距離較遠者為海外飛地。未滿 500 平方公里的島嶼不計入數量與面積。距離取首都到該領土最近點的球面距離。</div>'+
+     '<div data-list="parts"></div>'+row(CK('calc.rev.typeOK','審核者確認：領土形態符合國家類型'),CK('calc.rev.noOverlap','審核者確認：不與既有國家及保留區重疊')))+
+   card('s3','步驟3　判定加權',row(LB('宜居度',SEL('calc.w.hab',W)),LB('發展程度',SEL('calc.w.dev',Dv)),LB('經濟體制',SEL('calc.w.econ',Ev)))+row(LB('工業化',SEL('calc.w.ind',Iv)),LB('軍事體制',SEL('calc.w.mil',Mv)))+
+     row(LB('普通玩家自行指定',SEL('calc.self',[['','（不使用）'],['dev','發展程度'],['econ','經濟體制'],['ind','工業化'],['mil','軍事體制']],'data-k="selfSel"'),'普通玩家建國時得自行指定一項加權，不需經審核判定；宜居度除外')))+
+   card('s4','步驟4　人口',row(DIE('d12d100',12,100,'人口')))+
+   card('s5','步驟5　人均GDP與物價水準',row(DIE('d2d100a',2,100,'第一組'),DIE('d2d100b',2,100,'第二組'),DIE('d2d10',2,10,'PPP 倍率')))+
+   card('s6','步驟6　軍隊',row(DIE('d2d100m',2,100,'常備軍'),DIE('d1d300',1,300,'預備役')))+
+   card('s7','步驟7　國防預算',row(DIE('d1d6',1,6,'國防預算比例')))+
+   card('s8','步驟8　國力指數',row(DIE('d1d10dip',1,10,'外交影響力'),LB('文化影響力',SEL('calc.cultMode',[['roll','擲 1d10'],['legacy','既有國家：以原單位反推']])),'<span data-k="culBox">'+DIE('d1d10cul',1,10,'')+'</span>')+
+     row(LB('HDI',NM('calc.hdi','5em','0.000')),'<input type="range" data-k="hdiR" min="0.2" max="1" step="0.001" style="width:220px">','<span class="ln-note" data-k="hdiTxt"></span>'))+
+   card('s10','步驟9～10　設定修正後的國力等級','<div class="ln-note">設定修正性權重在「權重審核」分頁評定；此處顯示最終結果。</div>'+row(CK('calc.admin','管理員或事件主持人國家（另依管理規則，規則檢查僅供參考）'),LB('等級',SEL('calc.adminLevel',[['','依計算'],['super','超強']]))));
+  var rev='<div class="ln-card"><h4>步驟9　設定修正性權重</h4><div class="ln-note">各國提交歷史與詳細設定後，由審核者評定九項權重。乘數類修正對應的加權，加減類修正外交與文化影響力（加減後維持 1～10）。修正僅用於國力指數，面板原始數值不變。'+
+     '空泛判定的四項標準（符合兩項以上即為空泛）：1. '+EMPTYC[0]+'（文化輸出為 2,000 字）；2. '+EMPTYC[1]+'；3. '+EMPTYC[2]+'；4. '+EMPTYC[3]+'。</div>'+
+     row(LB('評定日期',DT('review.date')),LB('建國日（真實日期）',DT('review.found'),'建國起 3 個月內不適用懲罰性權重'),LB('評定時遊戲年',NM('review.gy','5em'),'權重每 5 個遊戲年重新審核一次'))+
+     row(CK('review.keepPos','已取得的正向權重（一經取得不予降低，列強亦保留）'),CK('review.cultExt','文化輸出兼具國內底蘊與對外影響（否則最高給 0）'),CK('review.excellent','卓越設定（九項皆最高值並經全體玩家表決通過，硬實力 ×1.15）'))+
+     '<div class="ln-sc"><table class="ln-tbl ln-rv"><tr><th>項目</th><th>範圍</th><th>對應</th><th>評定</th><th>採計</th><th>空泛判定與審核程序</th><th>評定理由（公開記錄於討論頁）</th></tr>'+REVIEW.map(function(r){var k=r[0],mul=r[5]==='mul',st=mul?'0.01':'1';
+       return '<tr><td><b>'+r[1]+'</b><div class="ln-note">'+r[6]+'</div></td><td class="n" data-lb="範圍">'+r[2]+'～'+r[3]+'</td><td data-lb="對應">'+r[4]+'</td><td style="white-space:nowrap" data-lb="評定"><input type="number" data-b="review.w.'+k+'" min="'+r[2]+'" max="'+r[3]+'" step="'+st+'" style="width:5em" placeholder="'+(mul?'1.00':'0')+'"><br><input type="range" data-b="review.w.'+k+'" data-neu="'+(mul?1:0)+'" min="'+r[2]+'" max="'+r[3]+'" step="'+st+'" style="width:110px"></td>'+
+         '<td class="n" data-rw="'+k+'" data-lb="採計"></td><td style="min-width:200px" data-lb="空泛判定與審核程序">'+[0,1,2,3].map(function(j){return '<label title="'+esc(EMPTYC[j])+'"><input type="checkbox" data-b="review.empty.'+k+'.c'+j+'">'+(j+1)+'</label>';}).join(' ')+
+         '<br>警告日 '+DT('review.empty.'+k+'.warned')+'<br>'+CK('review.empty.'+k+'.edited','14 天內有修改')+' '+CK('review.empty.'+k+'.fixed','已補正')+'<div class="ln-note" data-rs="'+k+'"></div></td><td style="min-width:220px" data-lb="評定理由">'+TA('review.why.'+k,3,'評定理由')+'</td></tr>';}).join('')+'</table></div>'+
+     '<div class="ln-res" data-r="s9"></div><div class="ln-res" data-r="s9x"></div></div>';
+  function IG(list){return '<div class="row">'+list.map(function(f){return LB(f[1],f[3]==='ta'?TA('info.'+f[0],2,f[2]):T('info.'+f[0],f[3]||'10em',f[2]));}).join('')+'</div>';}
+  var info=grp('名稱與狀態',IG([['name','正式國名'],['short','常用國名'],['native','原文國名'],['alias','別稱'],['status','國家狀態','現存','6em']]),true)+
+   grp('國旗與國徽','<div class="ln-note">第一面國旗／國徽對應「國旗」「國徽」欄位，其後依序為國旗2～10、國徽2～10。</div><b>國旗</b><div data-list="flags"></div><b>國徽</b><div data-list="emblems"></div>')+
+   grp('國家象徵',IG([['motto','國家格言'],['anthem','國歌'],['royal','皇家頌歌'],['flower','國花'],['tree','國樹'],['bird','國鳥'],['beast','國獸']]))+
+   grp('地圖',IG([['map','地圖'],['mapSize','地圖尺寸','','6em'],['mapDesc','地圖說明'],['map2','第二地圖'],['map2Size','第二地圖尺寸','','6em'],['map2Desc','第二地圖說明']]))+
+   grp('首都、地區與語言',IG([['capital','首都'],['largest','最大城市'],['admin','行政中心'],['coord','座標','留白＝依首都經緯度'],['continent','所屬洲'],['region','所屬地區'],['langCommon','常用語言'],['langOfficial','官方語言'],['langLocal','地方語言'],['script','文字'],['demonym','國民稱謂']]))+
+   grp('政府與領袖',IG([['polity','國體'],['govt','政體','留白＝採用政治模型的政體'],['constitution','憲法'],['headSys','國家元首制度'],['legis','立法機構'],['upperName','上議院名稱'],['upper','上議院','留白＝席次數','6em'],['lowerName','下議院名稱'],['lower','下議院','留白＝席次數','6em'],['exec','行政機構'],['judic','司法機構']])+'<b>領袖</b><div data-list="leaders"></div>')+
+   grp('建國沿革',IG([['sovType','主權類型'],['pred','前身'],['succ','繼承']])+'<div data-list="events"></div>')+
+   grp('地理',IG([['water','水域面積（平方公里）','','8em'],['coast','海岸線（公里）','','8em'],['high','最高點'],['low','最低點'],['river','最長河流'],['lake','最大湖泊']]))+
+   grp('貨幣、時間與交通',IG([['currency','貨幣'],['curCode','貨幣代碼','','5em'],['curRate','1 本國貨幣＝?東銀圓','例：0.25','7em'],['tz','時區'],['utc','UTC時差','','5em'],['dst','夏令時間'],['dstUtc','夏令UTC時差','','5em'],['dateFmt','日期格式'],['calendar','曆法'],['drive','行車方向','靠右','5em']]))+
+   grp('登記代碼（全服不得重複，須向管理員登記）',IG([['phone','國際電話區號','+','6em'],['tld','國家頂級域','.xx','6em'],['iso','ISO3166','','6em'],['vehicle','車輛國籍代碼','','6em'],['postal','郵遞區號','','8em']])+'<ul class="ln-chk" data-r="dup"></ul>')+
+   grp('軍事與國際',IG([['army','軍隊'],['cinc','最高統帥'],['milChief','軍事首長'],['un','聯合國席位'],['orgSeat','國際組織席位'],['orgs','國際組織'],['recog','外交承認']]))+
+   grp('排名、普查與變化（未使用名冊時手動填）',IG([['rPop','人口排名','','4em'],['rDen','人口密度排名','','4em'],['rArea','面積排名','','4em'],['rPPP','GDP_PPP排名','','4em'],['rPPPpc','GDP_PPP人均排名','','4em'],['rGDP','GDP名目排名','','4em'],['rGDPpc','GDP名目人均排名','','4em'],['rHDI','HDI排名','','4em'],
+     ['census','人口普查'],['censusYear','人口普查年份','','5em'],['giniTrend','基尼變化','增加／減少','6em'],['hdiTrend','HDI變化','增加／減少','6em'],['ethTitle','族群（標題）'],['relTitle','宗教（標題）']]))+
+   grp('其他',IG([['web','官方網站','','16em'],['note','備註','會與自動備註合併','ta']]));
+  var demo='<div class="ln-card"><h4>人口模型</h4><div class="ln-note">總人口依規則步驟4；年齡結構以「人口轉型」推估：60 年前的穩定人口（較低的發展程度）經五歲組兩性世代推估至今，生育率與平均餘命依 HDI 推得，可自行覆寫。</div>'+
+     row(LB('總和生育率',NM('demo.tfr','5em')),LB('平均餘命（歲）',NM('demo.e0','5em')),'<span class="ln-note" data-k="demoSug"></span>')+
+     row(LB('覆寫年齡結構：0～14 歲 %',NM('demo.ageY','4em')),LB('15～64 歲 %',NM('demo.ageW','4em')),LB('65 歲以上 %',NM('demo.ageO','4em')))+
+     row(LB('都市化率 %',NM('demo.urb','5em')),LB('識字率 %',NM('demo.lit','5em')),LB('平均受教育年數',NM('demo.school','5em')),'<span class="ln-note" data-k="demoSug2"></span>')+
+     '<div class="ln-res" data-r="demo"></div></div>'+
+   '<div class="ln-grid2"><div class="ln-card"><h4>族群</h4><div data-list="eth"></div><div class="ln-note" data-k="ethSum"></div></div><div class="ln-card"><h4>宗教</h4><div data-list="rel"></div><div class="ln-note" data-k="relSum"></div></div></div>'+
+   '<div class="ln-card"><h4>行政區人口</h4><div class="ln-note">填人口或比例；可作為資訊面板的比例圖（人口國屬分布）。</div><div data-list="regions"></div></div>'+
+   '<div class="ln-card"><h4>城市體系（位序—規模法則）</h4><div class="ln-note">依都市人口推估各位序城市規模；首位度大於 1 表示首都特別突出。</div>'+row(LB('首位度',SEL('demo.primacy',[['1','1.0　一般'],['1.5','1.5　首都突出'],['2','2.0　首位城市'],['3','3.0　極端集中'],['0.7','0.7　多核心']])))+'<div data-list="cities"></div></div>'+
+   '<div class="ln-card"><h4>社會階層</h4><div class="ln-res" data-r="class"></div></div>';
+  var econ='<div class="ln-card"><h4>經濟總覽</h4><div class="ln-res" data-r="econTop"></div>'+row(LB('本國貨幣',T('info.currency','7em')),LB('代碼',T('info.curCode','4em')),LB('1 本國貨幣＝',NM('info.curRate','6em','例：0.25')+' 東銀圓'))+'</div>'+
+   '<div class="ln-grid2"><div class="ln-card"><h4>模型參數（建議值與覆寫）</h4>'+ovTable(EROWS,'e:')+'</div><div><div class="ln-card"><h4>財政</h4><div class="ln-res" data-r="budget"></div></div><div class="ln-card"><h4>勞動、所得分配與貿易</h4><div class="ln-res" data-r="labour"></div></div></div></div>';
+  var pol='<div class="ln-card"><h4>政體與政黨</h4>'+row(LB('政體類型',SEL('pol.regime',REGIME.map(function(r){return [r[0],r[1]];}))),'<button type="button" data-act="resalt" title="單一選區制的選區結果含隨機地區差異">重新抽樣選區結果</button>')+
+     '<div data-list="parties"></div><div class="ln-note">得票率合計不必剛好 100%（缺額視為未當選的小黨與廢票）。地域集中度越高，越可能在單一選區勝出。「執政」不勾選時自動採用最小獲勝聯盟。</div></div>'+
+   '<div class="ln-grid2">'+[0,1].map(function(i){var b='pol.ch.'+i+'.';return '<div class="ln-card"><h4>'+(i?'上議院（選填）':'下議院（或一院制議會）')+'</h4>'+(i?row(CK(b+'on','設有上議院')):'')+
+       row(LB('名稱',T(b+'name','9em',i?'參議院':'國民議會')),LB('總席次',NM(b+'seats','5em')),LB('選舉年',NM(b+'year','5em')))+row(LB('制度',SEL(b+'sys',ESYS)))+
+       row(LB('法定門檻 %',NM(b+'thr','4em','0')),LB('單一選區比例 %',NM(b+'smd','4em','50'),'並立制與聯立制使用'),i?LB('得票',SEL(b+'vote',[['v2','上議院得票'],['v1','同下議院']])):'')+'<div class="ln-res" data-r="ch'+i+'"></div></div>';}).join('')+'</div>'+
+   '<div class="ln-grid2"><div class="ln-card"><h4>政府組成</h4><div class="ln-res" data-r="gov"></div></div><div class="ln-card"><h4>政治指標</h4>'+ovTable([['',PROWS]],'p:')+'</div></div>';
+  var out='<div class="ln-card"><h4>輸出設定</h4>'+row(LB('面板金額',SEL('out.cur',[['dyn','東銀圓'],['local','本國貨幣（備註附東銀圓）']])),LB('人口格式',SEL('out.popFmt',[['full','66,660,000'],['wan','6,666萬']])),CK('out.empty','保留空白欄位'),CK('out.ranks','使用名冊計算排名'),CK('out.notePower','備註附國力指數'))+
+     row([0,1,2,3].map(function(i){return LB('指標'+(i+1),SEL('out.ind.'+i,[['','（不輸出）']].concat(INDIC.map(function(x){return [x[0],x[1]];}))));}).join(''))+
+     row(LB('比例圖',SEL('out.chart',CHARTSRC)),LB('標題',T('out.chartTitle','12em','留白＝自動')))+'<div data-k="customBox"><div data-list="custom"></div></div></div>'+
+   '<div class="ln-card"><div class="row"><button type="button" data-out="ib">國家資訊面板</button><button type="button" data-out="art">條目正文（含面板）</button><button type="button" data-out="talk">討論頁紀錄</button><button type="button" data-out="txt">純文字計算書</button>'+
+     '<span class="ln-sep"></span><button type="button" data-act="copy">複製</button><button type="button" data-act="dlOut">下載此內容</button><span class="ln-note" data-k="outMsg"></span></div><textarea class="ln-out" data-k="outText" readonly></textarea></div>';
+  var reg='<div class="ln-card"><h4>名冊（多國比較、平均國中位數、排名、代碼查重）</h4><div class="ln-note">匯入各國的國家檔（可一次選多個），或把目前國家加入名冊。成員國滿 15 國後，平均國數值改用實際中位數。名冊只存在這個瀏覽器，可匯出成名冊檔與他人共用。</div>'+
+     '<div class="row"><button type="button" data-act="regAdd" class="lt-pri">加入／更新目前國家</button><button type="button" data-act="regImp">匯入國家檔或名冊檔</button><input type="file" data-k="regFile" accept=".json,application/json" multiple style="display:none"><button type="button" data-act="regExp">匯出名冊檔</button><button type="button" data-act="regClr">清空名冊</button></div>'+
+     '<div class="ln-res" data-r="reg"></div></div>';
+  var rules='<div class="ln-card"><h4>規則參數（隨國家檔儲存；規則修訂後既有國家的數值不重新計算）</h4>'+
+     row(LB('規則版本',T('rules.ver','8em','例：2026-10')),LB('遊戲年份',NM('rules.year','5em')),LB('星球半徑（公里）',NM('rules.radius','6em'),'計算首都與海外飛地的球面距離'))+
+     '<b>平均國數值（硬實力分母）</b>'+row(LB('GDP名目',NM('rules.avg.gdp','6em','','data-mul="1e8"')+' 億東銀圓'),LB('人口',NM('rules.avg.pop','6em','','data-mul="1e4"')+' 萬人'),LB('國防預算',NM('rules.avg.def','6em','','data-mul="1e8"')+' 億東銀圓'),LB('常備軍',NM('rules.avg.army','6em','','data-mul="1e4"')+' 萬人'))+
+     '<b>HDI 可選區間</b><div class="ln-note">規則沒有列出 HDI 區間，此處依範例（GDP_PPP人均 9,900 → 0.70～0.82）推廣：中心值＝基準 HDI ＋ 斜率 × ln(GDP_PPP人均 ÷ 基準所得)，區間為中心值 ± 半寬。</div>'+
+     row(LB('基準所得',NM('rules.hdi.ref','6em')),LB('基準 HDI',NM('rules.hdi.c','5em')),LB('斜率',NM('rules.hdi.slope','5em')),LB('半寬',NM('rules.hdi.half','5em')))+
+     row(CK('rules.enclGeo','海外飛地的宜居度 0.7 也乘上地理環境權重'))+
+     row('<button type="button" data-act="rulesSave">存為預設（新國家使用）</button><button type="button" data-act="rulesLoad">套用預設</button><button type="button" data-act="rulesReset">還原規則原值</button>')+'</div>'+
+   '<div class="ln-card"><h4>規則勘誤與實作說明</h4><ol class="ln-rule" data-r="errata"></ol></div>';
+  root.innerHTML='<div class="lato-tool lt-nation">'+
+   '<div class="lt-info">國家綜合製作器：依《建國規則》逐步計算領土、人口、經濟、軍隊與國力指數（擲骰在群組完成，這裡只填結果），並以人口、經濟、政治模型補足資訊面板，輸出維基格式與純文字。</div>'+
+   '<div class="ln-bar" data-k="bar"></div>'+
+   '<div class="row ln-act"><button type="button" data-act="new">新建國家</button><button type="button" data-act="example">載入規則範例</button><button type="button" data-act="imp">匯入國家檔</button><input type="file" data-k="impFile" accept=".json,application/json" style="display:none">'+
+   '<button type="button" data-act="impWiki">貼上維基資訊面板匯入</button><button type="button" class="lt-pri" data-act="expJson">匯出國家檔（JSON）</button><button type="button" data-act="expTxt">下載純文字</button><button type="button" data-act="expWiki">下載維基文字</button><span class="ln-save" data-k="save"></span></div>'+
+   '<div data-k="wikiBox" style="display:none" class="ln-card"><h4>貼上既有的 {{國家資訊面板}}</h4><div class="ln-note">會填入國家資料、族群宗教、領袖、建立事件、議會席次、HDI、基尼係數、產業與年齡結構；擲骰數值不會改變。</div><textarea data-k="wikiIn" rows="8"></textarea><div class="row"><button type="button" class="lt-pri" data-act="impWikiGo">匯入</button><button type="button" data-act="impWikiX">取消</button></div></div>'+
+   '<div class="lt-tabs" data-k="tabs">'+TABS.map(function(t){return '<button type="button" data-tab="'+t[0]+'"'+(t[0]===TAB?' class="on"':'')+'>'+t[1]+'</button>';}).join('')+'</div>'+
+   '<div class="ln-pane on" data-pane="calc">'+calc+'</div><div class="ln-pane" data-pane="review">'+rev+'</div><div class="ln-pane" data-pane="info">'+info+'</div><div class="ln-pane" data-pane="demo">'+demo+'</div>'+
+   '<div class="ln-pane" data-pane="econ">'+econ+'</div><div class="ln-pane" data-pane="pol">'+pol+'</div><div class="ln-pane" data-pane="out">'+out+'</div><div class="ln-pane" data-pane="reg">'+reg+'</div><div class="ln-pane" data-pane="rules">'+rules+'</div>'+
+   '<div class="ln-tip" data-k="tip"></div></div>';}
+/* ===================== 圖表（SVG）：人口金字塔、橫條、議席；滑鼠與鍵盤焦點提示 ===================== */
+var VZ={s1:'#2a78d6',s2:'#eb6834',grid:'#e6e4df',axis:'#c9c6bf',ink:'#222',ink2:'#555',surf:'#ffffff',halo:'#faf8f4'};
+var SVGNS='http://www.w3.org/2000/svg';
+function sv(tag,at,par){var e=document.createElementNS(SVGNS,tag);for(var k in at)e.setAttribute(k,at[k]);if(par)par.appendChild(e);return e;}
+function stxt(par,x,y,s,at){var t=sv('text',at||{},par);t.setAttribute('x',x);t.setAttribute('y',y);t.textContent=s;return t;}
+/* 橫條：一端圓角 4px（資料端），另一端方角（基線） */
+function hbar(x0,x1,y,h,dir){var w=Math.abs(x1-x0),r=Math.min(4,w/2,h/2);if(w<0.5)return '';
+  if(dir>0)return 'M'+x0+','+y+'H'+(x1-r)+'Q'+x1+','+y+' '+x1+','+(y+r)+'V'+(y+h-r)+'Q'+x1+','+(y+h)+' '+(x1-r)+','+(y+h)+'H'+x0+'Z';
+  return 'M'+x0+','+y+'H'+(x1+r)+'Q'+x1+','+y+' '+x1+','+(y+r)+'V'+(y+h-r)+'Q'+x1+','+(y+h)+' '+(x1+r)+','+(y+h)+'H'+x0+'Z';}
+function tipShow(ev,val,lab){var t=q('tip');t.textContent='';var b=document.createElement('b');b.textContent=val;t.appendChild(b);if(lab){t.appendChild(document.createElement('br'));t.appendChild(document.createTextNode(lab));}
+  t.style.display='block';var r=ev&&ev.clientX!==undefined?{x:ev.clientX,y:ev.clientY}:(function(){var bb=ev.target.getBoundingClientRect();return {x:bb.left+bb.width/2,y:bb.top};})();
+  t.style.left=Math.min(window.innerWidth-270,r.x+14)+'px';t.style.top=(r.y+14)+'px';}
+function tipHide(){var t=q('tip');if(t)t.style.display='none';}
+function hit(el,val,lab,mark){el.setAttribute('tabindex','0');el.style.cursor='default';el.style.outline='none';
+  var on=function(ev){tipShow(ev,val,lab);if(mark)mark.setAttribute('opacity','0.8');},off=function(){tipHide();if(mark)mark.setAttribute('opacity','1');};
+  el.addEventListener('pointermove',on);el.addEventListener('pointerleave',off);el.addEventListener('focus',on);el.addEventListener('blur',off);}
+function stepDec(st){for(var d=0;d<4;d++){var k=st*Math.pow(10,d);if(Math.abs(k-Math.round(k))<1e-6)return d;}return 4;}
+function niceStep(m,n){var raw=m/n,p=Math.pow(10,Math.floor(Math.log(raw)/Math.LN10)),f=raw/p;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*p;}
+/* 人口金字塔：男左（系列 1）、女右（系列 2），各五歲組占總人口 % */
+function pyramid(box,D){box.textContent='';if(!D||!isFinite(D.pop)||!(D.pop>0))return;
+  var W=Math.max(300,Math.min(680,box.clientWidth||600)),bh=11,gap=2,top=8,lab=46,rows=NG,H=top+rows*(bh+gap)+26,cx=W/2,half=(W-lab)/2-6;
+  var mx=0,i;for(i=0;i<NG;i++){mx=Math.max(mx,D.F[i]/D.pop*100,D.M[i]/D.pop*100);}var st=niceStep(mx,3),lim=Math.ceil(mx/st)*st,sc=half/lim;
+  var lg=document.createElement('div');lg.className='ln-lg';[['男性',VZ.s1],['女性',VZ.s2]].forEach(function(s){var sp=document.createElement('span'),sw=document.createElement('i');sw.className='ln-sw';sw.style.background=s[1];sp.appendChild(sw);sp.appendChild(document.createTextNode(s[0]));lg.appendChild(sp);});box.appendChild(lg);
+  var svg=sv('svg',{viewBox:'0 0 '+W+' '+H,width:W,height:H,role:'img','aria-label':'人口金字塔'},box),g=sv('g',{},svg),xL=cx-lab/2,xR=cx+lab/2,ybase=top+rows*(bh+gap);
+  for(var t=st;t<=lim+1e-9;t+=st){[xL-t*sc,xR+t*sc].forEach(function(x){sv('line',{x1:x,x2:x,y1:top,y2:ybase,stroke:VZ.grid,'stroke-width':1},g);stxt(g,x,ybase+14,fx(t,stepDec(st))+'%',{'text-anchor':'middle','font-size':10,fill:VZ.ink2});});}
+  sv('line',{x1:xL,x2:xL,y1:top,y2:ybase,stroke:VZ.axis,'stroke-width':1},g);sv('line',{x1:xR,x2:xR,y1:top,y2:ybase,stroke:VZ.axis,'stroke-width':1},g);
+  for(i=0;i<NG;i++){var y=top+(NG-1-i)*(bh+gap),m=D.M[i]/D.pop*100,f=D.F[i]/D.pop*100;
+    stxt(g,cx,y+bh-2,AGEN[i],{'text-anchor':'middle','font-size':9.5,fill:VZ.ink2});
+    var pm=sv('path',{d:hbar(xL,xL-m*sc,y,bh,-1),fill:VZ.s1},g),pf=sv('path',{d:hbar(xR,xR+f*sc,y,bh,1),fill:VZ.s2},g);
+    var hm=sv('rect',{x:xL-half,y:y-1,width:half,height:bh+gap,fill:'transparent'},g),hf=sv('rect',{x:xR,y:y-1,width:half,height:bh+gap,fill:'transparent'},g);
+    hit(hm,fx(m,2)+'%（'+fmt(D.M[i])+' 人）','男性 '+AGEN[i]+' 歲',pm);hit(hf,fx(f,2)+'%（'+fmt(D.F[i])+' 人）','女性 '+AGEN[i]+' 歲',pf);}
+  stxt(g,cx,ybase+14,'年齡',{'text-anchor':'middle','font-size':10,fill:VZ.ink2});}
+/* 單一系列橫條圖：rows＝[[標籤, 數值, 提示]]，數值標在條末 */
+function hbars(box,rows,unit,ref,refLab){box.textContent='';if(!rows.length)return;var W=Math.max(300,Math.min(640,box.clientWidth||560)),lab=130,bh=14,gap=8,top=refLab?18:4,H=top+rows.length*(bh+gap)+18,pw=W-lab-60;
+  var mx=Math.max.apply(null,rows.map(function(r){return Math.max(0,r[1]||0);}).concat([ref||0]));if(!(mx>0))mx=1;var st=niceStep(mx,4),lim=Math.ceil(mx/st)*st,sc=pw/lim;
+  var svg=sv('svg',{viewBox:'0 0 '+W+' '+H,width:W,height:H,role:'img'},box),g=sv('g',{},svg),yb=top+rows.length*(bh+gap);
+  for(var t=0;t<=lim+1e-9;t+=st){var x=lab+t*sc;sv('line',{x1:x,x2:x,y1:top,y2:yb,stroke:t?VZ.grid:VZ.axis,'stroke-width':1},g);stxt(g,x,yb+12,fx(t,stepDec(st))+unit,{'text-anchor':'middle','font-size':10,fill:VZ.ink2});}
+  if(ref>0){var xr=lab+ref*sc;sv('line',{x1:xr,x2:xr,y1:top-3,y2:yb,stroke:VZ.ink2,'stroke-width':1},g);if(refLab)stxt(g,xr,top-6,refLab,{'text-anchor':'middle','font-size':10,fill:VZ.ink2});}
+  rows.forEach(function(r,i){var y=top+i*(bh+gap),v=Math.max(0,r[1]||0),x1=lab+v*sc;stxt(g,lab-6,y+bh-3,r[0],{'text-anchor':'end','font-size':11,fill:VZ.ink});
+    var p=sv('path',{d:hbar(lab,x1,y,bh,1),fill:VZ.s1},g);stxt(g,x1+4,y+bh-3,r[3]!==undefined?r[3]:fx(v,2)+unit,{'font-size':10.5,fill:VZ.ink,stroke:VZ.halo,'stroke-width':3,'paint-order':'stroke','stroke-linejoin':'round'});
+    var h=sv('rect',{x:0,y:y-gap/2,width:W,height:bh+gap,fill:'transparent'},g);hit(h,r[3]!==undefined?r[3]:fx(v,2)+unit,r[0]+(r[2]?'　'+r[2]:''),p);});}
+/* 議席：一條堆疊橫條（政黨自訂顏色），段間 2px 留白，過半線 */
+function seatBar(box,R,ps){box.textContent='';if(!R||!R.total)return;var W=Math.max(300,Math.min(680,box.clientWidth||600)),h=22,H=h+30,sc=(W-2)/R.total,x=1,order=[];
+  ps.forEach(function(p,i){if(R.seats[i]>0)order.push(i);});order.sort(function(a,b){return (num(ps[a].ideo)||0)-(num(ps[b].ideo)||0)||a-b;});
+  var svg=sv('svg',{viewBox:'0 0 '+W+' '+H,width:W,height:H,role:'img'},box),g=sv('g',{},svg);
+  order.forEach(function(i){var w=R.seats[i]*sc,col=has(ps[i].color)?ps[i].color:PARTYCOL[i%PARTYCOL.length],r=sv('rect',{x:x,y:4,width:Math.max(0.5,w-2),height:h,fill:col,rx:order.length===1?4:0},g);
+    var hh=sv('rect',{x:x,y:0,width:w,height:h+8,fill:'transparent'},g);hit(hh,R.seats[i]+' 席（'+pct(R.seats[i]/R.total*100)+'）',(ps[i].name||'政黨'+(i+1))+(R.votes[i]>0&&R.vsum>0?'，得票 '+pct(R.votes[i]/R.vsum*100):''),r);x+=w;});
+  var xm=1+R.maj*sc;sv('line',{x1:xm,x2:xm,y1:0,y2:h+8,stroke:VZ.ink,'stroke-width':1},g);stxt(g,xm,h+22,'過半 '+R.maj,{'text-anchor':'middle','font-size':10.5,fill:VZ.ink});
+  var lg=document.createElement('div');lg.className='ln-lg';order.forEach(function(i){var sp=document.createElement('span'),sw=document.createElement('i');sw.className='ln-sw';sw.style.background=has(ps[i].color)?ps[i].color:PARTYCOL[i%PARTYCOL.length];sp.appendChild(sw);
+    sp.appendChild(document.createTextNode((ps[i].name||'政黨'+(i+1))+' '+R.seats[i]));lg.appendChild(sp);});box.appendChild(lg);}
+/* ===================== 介面：計算與繪製 ===================== */
+function build(){var B=compute(N),k=[B.pop,rndD(B.hdiUse,4),N.demo.tfr,N.demo.e0].join('|');if(DCACHE.k!==k){DCACHE.k=k;DCACHE.D=demography(B.pop,B.hdiUse,N.demo);}
+  var D=DCACHE.D,P=polModel(N,B),E=econModel(N,B,D,P),Y={N:N,B:B,D:D,E:E,P:P,RK:null};Y.RK=ranks(Y);Y.dup=dupCodes();return Y;}
+function schedule(){if(pend)return;pend=1;setTimeout(function(){pend=0;update();},40);}
+function update(){try{X=build();}catch(e){console.error(e);q('save').textContent='計算錯誤：'+e.message;return;}paintBar();paintTab(TAB);autosave();}
+function paintTab(t){({calc:paintCalc,review:paintReview,info:paintInfo,demo:paintDemo,econ:paintEcon,pol:paintPol,out:paintOut,reg:paintReg,rules:paintRules})[t]();}
+function setR(k,h){var el=root.querySelector('[data-r="'+k+'"]');if(el)el.innerHTML=h;return el;}
+function tile(l,v,s){return '<div class="ln-tile"><div class="l">'+esc(l)+'</div><div class="v">'+esc(v)+'</div>'+(s?'<div class="s">'+esc(s)+'</div>':'')+'</div>';}
+function tiles(a){return '<div class="ln-tiles">'+a.join('')+'</div>';}
+function chkList(list){return list.map(function(x){return '<li class="'+x.t+'">'+esc(x.m)+'</li>';}).join('');}
+function chip(l,v,x){return '<span class="ln-chip">'+l+'<b>'+esc(v)+'</b>'+(x?'<span class="ln-lv">'+esc(x)+'</span>':'')+'</span>';}
+function paintBar(){var B=X.B,nm=N.info.name||N.info.short||'（未命名國家）',ne=B.nErr+X.dup.length,nw=B.nWarn,st=ne?'<span class="ln-st bad" data-act="goChk">✕ '+ne+' 項違規</span>':nw?'<span class="ln-st warn" data-act="goChk">！'+nw+' 項提醒</span>':B.ready?'<span class="ln-st ok">✓ 符合規則</span>':'';
+  q('bar').innerHTML='<span class="nm">'+esc(nm)+'</span>'+chip('國力指數',isFinite(B.C.idx)?fx(B.C.idx,2):'—',B.level)+(isFinite(B.idx)&&Math.abs(B.C.idx-B.idx)>1e-9?chip('原指數',fx(B.idx,2)):'')+chip('硬實力',fx(B.C.hard,2))+chip('軟實力係數',fx(B.C.coef,2))+
+    chip('人口',wan(B.pop))+chip('GDP',money(B.gdp))+chip('面積',B.area>0?fx(B.areaW,2)+'萬km²':'—')+st+(B.miss.length?'<span class="ln-st" data-act="goChk">尚缺 '+B.miss.length+' 項</span>':'');}
+/* ---------- 建國計算 ---------- */
+function paintCalc(){var B=X.B,c=N.calc,S=sheet(N,B),by={};S.forEach(function(s){by[s.id]=s;});
+  Object.keys(B.dice).forEach(function(k){var r=B.dice[k],el=root.querySelector('[data-dv="'+k+'"]');if(!el)return;el.className='ln-dv'+(r.ok||r.empty?'':' bad');el.textContent=r.empty?'':r.ok?(r.dice?'＝'+r.v:'✓'):r.msg;});
+  function lines(id){var s=by[id];return s?s.l.map(function(t){return '<div>'+esc(t)+'</div>';}).join(''):'';}
+  function sc(id){var l=B.chk.filter(function(x){return x.s===id;});return l.length?'<ul class="ln-chk">'+chkList(l)+'</ul>':'';}
+  var A=B.area>0;
+  setR('s1',tiles([tile('領土額度',isFinite(B.quota)?fx(B.quota,2)+' 萬km²':'—',PLAYERN[B.pl]+'・'+PTYPE[B.ty]+'，平均 '+fx(151.5*B.qk[0]+B.qk[1],1)+' 萬')])+lines('s1')+(by.s1b?'<div><b>步驟1之2　補償機制</b></div>'+lines('s1b'):'')+sc('s1'));
+  setR('s2',tiles([tile('實際面積',A?fx(B.areaW,2)+' 萬km²':'—',A?fmt(B.area)+' 平方公里':''),tile('領土級距',B.size||'—'),tile('本土比例',A?pct(B.main/B.area*100):'—','不得低於 50%'),tile('海外飛地',B.enclN+' 處',A&&B.encl?pct(B.encl/B.area*100)+'（上限 20%）':'上限 '+(isFinite(SHAPE[B.ty].encl)?SHAPE[B.ty].encl:'不限')+' 處')])+lines('s2')+sc('s2'));
+  B.parts.forEach(function(o){var el=root.querySelector('[data-po="'+o.i+'"]');if(el)el.textContent=(o.byPx?'＝'+fmt(o.area)+' km²　':'')+(isFinite(o.dist)?'距首都 '+fmt(o.dist)+' 公里　':'')+(o.st||'');});
+  setR('s3',lines('s3')+sc('s3'));
+  setR('s4',tiles([tile('人口',wan(B.pop)+'人',isFinite(B.pop)?fmt(B.pop)+' 人':''),tile('人口密度',fx(B.den,1)+' /km²')])+lines('s4')+sc('s4'));
+  setR('s5',tiles([tile('人均GDP',money(B.pc,undefined,1)),tile('PPP 倍率',fx(B.ppp,4),'物價水準 '+fx(B.price,1)),tile('GDP名目',money(B.gdp)),tile('GDP_PPP',money(B.gdpP),'人均 '+money(rnd(B.pcP,1),undefined,1))])+lines('s5')+sc('s5'));
+  setR('s6',tiles([tile('常備軍',fmt(B.army)+' 人','動員率 '+pct(B.mob*100,2)),tile('預備役',fmt(B.res)+' 人')])+lines('s6')+sc('s6'));
+  setR('s7',tiles([tile('國防預算',money(B.def),'GDP 的 '+fx(B.defPct,2)+'%')])+lines('s7')+sc('s7'));
+  setR('s8',tiles([tile('硬實力',fx(B.hard,4)),tile('軟實力',isFinite(B.soft)?wn(B.soft):'—','係數 '+fx(B.coef,4)),tile('國力指數',fx(B.idx,2),B.levelBase+(B.type?'・'+B.type:''))])+lines('s8')+sc('s8')+'<div class="ln-ch" data-k="multCh"></div>');
+  setR('s10',tiles([tile('最終國力指數',fx(B.C.idx,2),'原指數 '+fx(B.idx,2)+'（× '+fx(B.effect,3)+'）'),tile('國力等級',B.level||'—',B.C.type||''),tile('九項全最高',fx(B.Cmax.idx,2),'× '+fx(B.Cmax.idx/B.idx,3)),tile('九項全最低',fx(B.Cmin.idx,2),'× '+fx(B.Cmin.idx/B.idx,3))])+lines('s10')+sc('s9')+sc('s10'));
+  var mc=q('multCh');if(mc&&isFinite(B.hard))hbars(mc,[['GDP倍數',B.mult[0],money(B.gdp)],['人口倍數',B.mult[1],wan(B.pop)],['國防預算倍數',B.mult[2],money(B.def)],['常備軍倍數',B.mult[3],fmt(B.army)+' 人']].map(function(r){return [r[0],r[1],r[2],fx(r[1],3)];}),'',1,'平均國 1.0');
+  var all=B.chk.concat(X.dup),miss=B.miss.length?[{t:'miss',m:'尚待輸入：'+B.miss.join('、')}]:[];setR('chk',chkList(all.filter(function(x){return x.t==='err';}).concat(all.filter(function(x){return x.t==='warn';}),miss)));
+  root.querySelectorAll('.ln-ally').forEach(function(el){el.style.display=c.ally&&c.ally.on?'':'none';});
+  var ss=q('selfSel');if(ss)ss.disabled=c.player!=='normal';var cb=q('culBox');if(cb)cb.style.display=c.cultMode==='legacy'?'none':'';
+  var hr=q('hdiR');if(hr&&isFinite(B.hdiLo)){hr.min=fx(B.hdiLo,3);hr.max=fx(B.hdiHi,3);if(document.activeElement!==hr)hr.value=isFinite(B.hdi)?B.hdi:B.hb.c;}
+  var ht=q('hdiTxt');if(ht)ht.textContent=B.hb?'可選 '+fx(B.hdiLo,3)+'～'+fx(B.hdiHi,3)+(B.hdiHalf?'（國民素質權重 '+fx(B.eff.edu,2)+'，限'+B.hdiHalf+'）':'')+'；HDI 分 '+(isFinite(B.hs)?B.hs:'—'):'（先完成步驟5）';}
+/* ---------- 權重審核 ---------- */
+function paintReview(){var B=X.B,V=N.review,dR=pd(V.date)||pd(today());
+  REVIEW.forEach(function(r){var k=r[0],mul=r[5]==='mul',e=B.eff[k],raw=B.raw[k],el=root.querySelector('[data-rw="'+k+'"]');
+    if(el)el.innerHTML='<b>'+(mul?fx(e,2):(e>0?'+':'')+e)+'</b>'+(Math.abs(e-raw)>1e-9?'<div class="ln-note">（評定 '+(mul?fx(raw,2):raw)+'）</div>':'');
+    var st=emptyStatus(V,k,dR),es=root.querySelector('[data-rs="'+k+'"]');if(es)es.textContent=(st.empty?'符合 '+st.n+' 項：空泛。':st.n?'符合 '+st.n+' 項。':'')+st.text;});
+  var S=sheet(N,B),s9=S.filter(function(s){return s.id==='s9'||s.id==='s10';});
+  setR('s9',tiles([tile('原國力指數',fx(B.idx,2),B.levelBase),tile('修正後',fx(B.C.idx,2),B.level+'（× '+fx(B.effect,3)+'）'),tile('硬實力',fx(B.C.hard,4),'原 '+fx(B.hard,4)),tile('軟實力係數',fx(B.C.coef,4),'原 '+fx(B.coef,4))])+
+    (B.restrictPos?'<div class="ln-note">本國原指數為列強：不適用正向權重（已取得者可勾選保留）。</div>':'')+(B.exempt?'<div class="ln-note">建國未滿 3 個月：不適用懲罰性權重。</div>':'')+
+    s9.map(function(s){return '<div><b>'+esc(s.t)+'</b></div>'+s.l.map(function(t){return '<div>'+esc(t)+'</div>';}).join('');}).join('')+
+    '<ul class="ln-chk">'+chkList(B.chk.filter(function(x){return x.s==='s9'||x.s==='s10';}))+'</ul>');
+  setR('s9x','<b>權重效果（以本國數值計算）</b><div>九項全取最高值：國力指數 '+fx(B.Cmax.idx,2)+'（原指數的 '+fx(B.Cmax.idx/B.idx,3)+' 倍；其中硬實力 × '+fx(B.Cmax.hard/B.hard,3)+'）。</div><div>九項全取最低值：國力指數 '+fx(B.Cmin.idx,2)+
+    '（'+fx(B.Cmin.idx/B.idx,3)+' 倍；其中硬實力 × '+fx(B.Cmin.hard/B.hard,3)+'，外交與文化影響力各扣至 1）。</div><div class="ln-note">公告的「約提升四成五／約降為 0.55 倍」與現行公式不完全相符：0.55 倍約等於只計硬實力的效果；加上軟實力的扣減後，實際降幅會大得多。</div>');}
+/* ---------- 國家資料 ---------- */
+function paintInfo(){setR('dup',chkList(X.dup));}
+/* ---------- 人民結構 ---------- */
+function paintDemo(){var B=X.B,D=X.D,E=X.E,dp=demoParam(B.hdiUse),ag=ageShares(X);
+  var s=q('demoSug');if(s)s.textContent='依 HDI '+fx(B.hdiUse,3)+' 的建議：總和生育率 '+fx(dp.tfr,2)+'、平均餘命 '+fx(dp.e0,1)+' 歲';
+  var s2=q('demoSug2');if(s2)s2.textContent='建議：都市化 '+pct(urbanSug(B.pcP,B.indK))+'、識字率 '+pct(literacySug(B.hdiUse))+'、受教育 '+fx(schoolSug(B.hdiUse),1)+' 年';
+  var el=setR('demo',tiles([tile('人口',wan(B.pop)),tile('年齡中位數',fx(D.median,1)+' 歲'),tile('0～14／15～64／65+',fx(ag[0],1)+'／'+fx(ag[1],1)+'／'+fx(ag[2],1)+'%'),tile('總和生育率',fx(D.tfr,2)),tile('平均餘命',fx(D.e0,1)+' 歲','男 '+fx(D.e0m,1)+'・女 '+fx(D.e0f,1)),
+      tile('出生／死亡率',fx(D.cbr,1)+'／'+fx(D.cdr,1)+'‰','自然增加 '+pct(D.rni/10,2)),tile('嬰兒死亡率',fx(D.imr,1)+'‰'),tile('扶養比',fx(D.dep,1)),tile('都市化率',pct(demoVal(X,'urb'))),tile('識字率',pct(demoVal(X,'lit')))])+
+    '<div class="ln-ch"><div class="t">人口金字塔（各年齡組占總人口 %）</div><div data-k="pyr"></div></div>'+
+    '<div>人口推估（自然增減）：'+D.proj.map(function(p){return (num(N.rules.year)+p[0])+' 年 '+wan(p[1]);}).join('、')+'</div>'+
+    '<details><summary class="ln-note">五歲組明細（表格）</summary><div class="ln-sc"><table class="ln-tbl"><tr><th>年齡</th><th>男</th><th>女</th><th>合計</th><th>占總人口</th></tr>'+AGEN.map(function(a,i){var t=D.M[i]+D.F[i];return '<tr><td>'+a+'</td><td class="n">'+fmt(D.M[i])+'</td><td class="n">'+fmt(D.F[i])+'</td><td class="n">'+fmt(t)+'</td><td class="n">'+pct(t/D.pop*100,2)+'</td></tr>';}).join('')+'</table></div></details>');
+  var py=q('pyr');if(py)pyramid(py,D);
+  [['eth','ethSum'],['rel','relSum']].forEach(function(z){var l=(N.demo[z[0]]||[]).filter(function(e){return has(e.name);}),t=sum(l.map(function(e){return num(e.pct)||0;})),el2=q(z[1]);if(el2)el2.textContent=l.length?'合計 '+fx(t,1)+'%'+(Math.abs(t-100)>0.05?'（應為 100%）':''):'';});
+  var ct=cityTable(X);ct.forEach(function(c,i){var e2=root.querySelector('[data-cp="'+i+'"]');if(e2)e2.textContent=fmt(c[1])+' 人';});
+  setR('class','<div class="ln-sc"><table class="ln-tbl"><tr><th>階層（依相對所得）</th><th>人口比例</th><th>人數</th></tr>'+E.cls.map(function(c){return '<tr><td>'+c[0]+'</td><td class="n">'+pct(c[1])+'</td><td class="n">'+wan(B.pop*c[1]/100)+'</td></tr>';}).join('')+'</table></div>'+
+    '<div class="ln-note">以吉尼係數 '+fx(E.gini,1)+' 推得的對數常態所得分配；可在「經濟模型」覆寫基尼係數。</div>');}
+/* ---------- 經濟模型 ---------- */
+function ovPaint(rows,ns){Object.keys(rows).forEach(function(k){var r=rows[k],a=root.querySelector('[data-es="'+ns+k+'"]'),b=root.querySelector('[data-ev="'+ns+k+'"]');if(a)a.textContent=fx(r.sug,k.indexOf('x_')===0||k==='rd'?2:1);if(b){b.textContent=fx(r.val,k.indexOf('x_')===0||k==='rd'?2:1);b.className='n'+(r.ov?' ln-hi':'');}});}
+function paintEcon(){var B=X.B,E=X.E,loc=isFinite(E.fx)&&has(E.cur);ovPaint(E.rows,'e:');
+  setR('econTop',tiles([tile('GDP名目',money(B.gdp),loc?money(B.gdp/E.fx,E.cur):''),tile('GDP_PPP',money(B.gdpP)),tile('人均GDP',money(B.pc,undefined,1),'PPP '+money(rnd(B.pcP,1),undefined,1)),tile('物價水準',fx(B.price,1),'東銀圓區＝100'),
+     tile('潛在成長率',pct(E.gro)),tile('通膨／利率',pct(E.infl)+'／'+pct(E.rate)),tile('主權信用評等',E.rating,E.invest?'投資級':'投機級'),tile('經濟體制',econName(B.ek))])+
+    '<div>未來 30 年（以潛在成長率、不變價格）：'+E.path.filter(function(p){return p[0];}).map(function(p){return '+'+p[0]+' 年 '+money(p[1]);}).join('、')+'</div>'+(E.warn.length?'<ul class="ln-chk">'+E.warn.map(function(w){return '<li class="warn">'+esc(w)+'</li>';}).join('')+'</ul>':''));
+  setR('budget','<div class="ln-sc"><table class="ln-tbl"><tr><th>項目</th><th>占GDP</th><th>金額（東銀圓）</th>'+(loc?'<th>金額（'+esc(E.cur)+'）</th>':'')+'</tr>'+
+    [['歲入',E.rev]].concat(EXPN.map(function(e){return ['　'+e[1],E.x[e[0]]];}),[['歲出合計',E.exp],['財政餘額',E.bal],['政府債務',E.debt]]).map(function(r,i){var v=B.gdp*r[1]/100;
+      return '<tr'+(i===0||r[0]==='歲出合計'?' class="sum"':'')+'><td>'+r[0]+'</td><td class="n">'+pct(r[1],2)+'</td><td class="n">'+money(v)+'</td>'+(loc?'<td class="n">'+money(v/E.fx,E.cur)+'</td>':'')+'</tr>';}).join('')+'</table></div>'+
+    '<div class="ln-ch"><div class="t">歲出結構（占GDP %）</div><div data-k="budCh"></div></div>');
+  var bc=q('budCh');if(bc)hbars(bc,EXPN.map(function(e){return [e[1],E.x[e[0]],money(B.gdp*E.x[e[0]]/100)];}).sort(function(a,b){return b[1]-a[1];}),'%');
+  setR('labour','<div class="ln-sc"><table class="ln-tbl"><tr><th colspan="2">勞動市場</th></tr><tr><td>勞動力</td><td class="n">'+wan(E.lf)+'（參與率 '+pct(E.lfpr)+'）</td></tr><tr><td>就業／失業</td><td class="n">'+wan(E.emp)+'／'+wan(E.unemp)+'（'+pct(E.une)+'）</td></tr>'+
+    '<tr><td>平均年薪</td><td class="n">'+money(E.wage,undefined,1)+(loc?'（'+money(E.wage/E.fx,E.cur,1)+'）':'')+'</td></tr><tr><td>每位就業者產值（東銀圓）</td><td class="n">農 '+money(E.prod[0],'',1)+'、工 '+money(E.prod[1],'',1)+'、服務 '+money(E.prod[2],'',1)+'</td></tr>'+
+    '<tr><th colspan="2">所得分配（基尼 '+fx(E.gini,1)+'）</th></tr><tr><td>五等分所得占比</td><td class="n">'+E.quint.map(function(v){return fx(v,1);}).join('／')+'%</td></tr><tr><td>最高 10%／最低 40%</td><td class="n">'+pct(E.top10)+'／'+pct(E.bot40)+'（帕爾馬 '+fx(E.palma,2)+'）</td></tr>'+
+    '<tr><td>國際貧窮線（每日 2.15）</td><td class="n">'+pct(E.pov215)+'</td></tr><tr><td>每日 6.85 以下</td><td class="n">'+pct(E.pov685)+'</td></tr><tr><td>相對貧窮（中位數 50% 以下）</td><td class="n">'+pct(E.rel)+'</td></tr>'+
+    '<tr><th colspan="2">對外貿易</th></tr><tr><td>出口</td><td class="n">'+pct(E.ex)+'（'+money(B.gdp*E.ex/100)+'）</td></tr><tr><td>進口</td><td class="n">'+pct(E.im)+'（'+money(B.gdp*E.im/100)+'）</td></tr><tr><td>研發支出</td><td class="n">'+pct(E.rd,2)+'</td></tr></table></div>');}
+/* ---------- 政治模型 ---------- */
+function paintPol(){var P=X.P,ps=N.pol.parties||[];ovPaint(P.rows,'p:');
+  [0,1].forEach(function(i){var R=P.ch[i];if(!R.on){setR('ch'+i,'<div class="ln-note">未設上議院（一院制）。</div>');return;}if(!R.total){setR('ch'+i,'<div class="ln-note">請新增政黨並填寫總席次'+(R.sys==='manual'?'與各黨手動席次':'與得票率')+'。</div>');return;}
+    var el=setR('ch'+i,'<div class="ln-ch" data-k="seat'+i+'"></div><div class="ln-sc"><table class="ln-tbl"><tr><th>政黨</th><th>得票率</th><th>席次</th><th>席次比例</th></tr>'+ps.map(function(p,j){return [j,p];}).filter(function(z){return R.seats[z[0]]>0||R.votes[z[0]]>0;}).sort(function(a,b){return R.seats[b[0]]-R.seats[a[0]];}).map(function(z){var j=z[0];
+      return '<tr><td><i class="ln-sw" style="background:'+esc(has(z[1].color)?z[1].color:PARTYCOL[j%PARTYCOL.length])+'"></i>'+esc(z[1].name||'政黨'+(j+1))+'</td><td class="n">'+(R.vsum>0&&R.sys!=='manual'&&R.sys!=='indirect'?pct(R.votes[j]/R.vsum*100):'—')+'</td><td class="n">'+R.seats[j]+'</td><td class="n">'+pct(R.seats[j]/R.total*100)+'</td></tr>';}).join('')+
+      '<tr class="sum"><td>合計</td><td></td><td class="n">'+R.total+'</td><td></td></tr></table></div><div>'+esc(esysName(R.sys))+(R.thr>0?'，門檻 '+R.thr+'%':'')+(R.note?'；'+esc(R.note):'')+'。過半 '+R.maj+' 席；有效政黨數 '+fx(R.enpS,2)+(isFinite(R.gallagher)?'；比例偏差（Gallagher）'+fx(R.gallagher,2):'')+'。</div>');
+    var sb=q('seat'+i);if(sb)seatBar(sb,R,ps);});
+  var L=P.ch[0];setR('gov',(L.total?'<div><b>執政：</b>'+esc(P.gov.map(function(i){return ps[i].name||'政黨'+(i+1);}).join('、'))+'（'+P.govTypeN+'，'+P.govSeats+'／'+L.total+' 席）'+(P.govAuto?'<span class="ln-note">（自動採用建議聯盟）</span>':'')+'</div>'+
+    '<div><b>可能的最小獲勝聯盟：</b></div>'+(L.single?'<div>'+esc(ps[L.big].name||'')+' 單獨過半（'+L.seats[L.big]+' 席）。</div>':'')+L.coal.map(function(c){return '<div>・'+esc(c.m.map(function(i){return ps[i].name||'政黨'+(i+1);}).join('＋'))+'：'+c.seats+' 席'+(c.conn?'':'（意識形態不相鄰）')+'</div>';}).join(''):'<div class="ln-note">尚無議會資料。</div>')+
+    '<div style="margin-top:6px"><b>政體：</b>'+esc(P.regime[1])+'；民主指數 '+fx(P.dem,1)+'（'+P.demCat+'）</div>');}
+/* ---------- 輸出 ---------- */
+function outText(){return OUTV==='ib'?infobox(X):OUTV==='art'?article(X):OUTV==='talk'?talkPage(X):plainText(X);}
+function paintOut(){var t=q('outText');if(t)t.value=outText();root.querySelectorAll('[data-out]').forEach(function(b){b.classList.toggle('lt-pri',b.getAttribute('data-out')===OUTV);});
+  var cb=q('customBox');if(cb)cb.style.display=N.out.chart==='custom'?'':'none';}
+/* ---------- 規則設定 ---------- */
+var ERRATA=['3d100 的平均值為 151.5：普通玩家混合國家的平均額度應為 68.6 萬（原文 68.2）、海權應為 50.4 萬（原文 50.1）；其餘四項的原文平均值正確。',
+  '範例的人均GDP 7,524 未依規定四捨五入至十元，應為 7,520；GDP名目因此為 5,013億（原文 5,015億）。',
+  '範例的 PPP 基礎倍率 (15,000 ÷ 7,520)^0.4 應為 1.3181（原文 1.3151）；GDP_PPP 約 6,607億、人均約 9,912。',
+  '範例的軟實力沿用舊公式（未計文化影響力、除以 10）。新公式為（經濟品質＋HDI＋外交＋文化＋1.5）÷ 15；以「原單位反推」文化影響力 6.25 時，係數仍為 1.25。',
+  '範例先把硬實力四捨五入成 0.90 再相乘，得 1.13；未經中途進位的國力指數為 0.8994 × 1.25 ＝ 1.12。本工具只在規則指定處進位：面積（萬平方公里整數）、人口（萬人）、人均GDP（十元）、PPP（小數四位）、常備軍（千人）、預備役（萬人）、國力指數（小數兩位）。',
+  '經濟品質分與 HDI 分的區間界線，比照步驟10「含下限、不含上限」：人均 3,000 得 1 分、6,000 得 2 分、12,000 得 3 分；HDI 0.700 得 1 分、0.800 得 2 分、0.900 得 3 分。',
+  '規則未列出 HDI 的可選區間；本工具依範例（GDP_PPP人均 9,900 → 0.70～0.82）以 ln(所得) 推廣，參數可在上方調整。國民素質 1.02 以上限選上半部、0.95 以下限選下半部。',
+  '海外飛地人口：骰子部分只計一次（用本土宜居度），飛地面積 × 面積係數 × 0.7 × 發展程度另計後相加；公式用面積先把總面積與飛地面積各自四捨五入，本土部分取兩者之差，使合計等於總面積。',
+  '「國力等級為列強者不適用正向權重」以未修正的國力指數判定（否則會循環）；勾選「已取得的正向權重」可保留。未經卓越設定時，修正後等級最多比原等級高一級。',
+  '公告的「九項全最高約提升四成五、全最低約降為 0.55 倍」與現行公式不完全相符：0.55 倍大約是只計硬實力的效果，加上外交與文化影響力扣減後的實際降幅通常更大。「權重審核」分頁會依本國數值算出實際倍數。',
+  '既有國家「以原單位反推」文化影響力：文化 ＝ 0.5 ×（經濟品質＋HDI分＋外交）＋ 0.75，使新公式的軟實力係數與舊公式相同。',
+  '常備軍上限：軍事體制加權最高 1.8、2d100 最高 200，動員率最高 2.5%，故建國時不會超過 3%；設定修正後（軍事沿革 1.04）最高約 2.6%。'];
+function paintRules(){setR('errata',ERRATA.map(function(t){return '<li>'+esc(t)+'</li>';}).join(''));}
+/* ===================== 名冊、匯入匯出、暫存與事件 ===================== */
+function merge(def,src){if(Array.isArray(def))return Array.isArray(src)?src:def;if(def&&typeof def==='object'){var o={};Object.keys(def).forEach(function(k){o[k]=src&&src[k]!==undefined&&src[k]!==null?merge(def[k],src[k]):def[k];});
+  if(src&&typeof src==='object')Object.keys(src).forEach(function(k){if(o[k]===undefined)o[k]=src[k];});return o;}return src===undefined||src===null?def:src;}
+function lsGet(k){try{var s=window.localStorage.getItem(k);return s?JSON.parse(s):null;}catch(e){return null;}}
+function lsSet(k,v){try{window.localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){return false;}}
+function autosave(){clearTimeout(saveT);saveT=setTimeout(function(){var ok=lsSet('latoNation.draft',N);var d=new Date();q('save').textContent=ok?'已自動暫存於此瀏覽器 '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)+':'+('0'+d.getSeconds()).slice(-2):'（此瀏覽器無法暫存，請記得匯出國家檔）';},600);}
+function dl(name,text,type){var b=new Blob([text],{type:type||'text/plain;charset=utf-8'}),a=document.createElement('a'),u=URL.createObjectURL(b);a.href=u;a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(u);a.remove();},1500);}
+function fname(ext){return String(N.info.short||N.info.name||'nation').replace(/[\\\/:*?"<>|\s]+/g,'_')+ext;}
+function say(t){var m=q('save');if(m)m.textContent=t;}
+/* ---------- 名冊 ---------- */
+function summaryOf(Nx,Bx){var B=Bx||compute(Nx),I=Nx.info;return {id:Nx.id,name:I.name||I.short||'（未命名）',pl:B.pl,ty:B.ty,area:B.area,den:B.den,pop:B.pop,gdp:B.gdp,pc:B.pc,gdpP:B.gdpP,pcP:B.pcP,hdi:B.hdi,army:B.army,def:B.def,idx:B.idx,cidx:B.C.idx,level:B.level};}
+function regSave(){lsSet('latoNation.reg',REG.map(function(r){return {id:r.id,N:r.N};}));}
+function regPut(Nx){Nx=JSON.parse(JSON.stringify(Nx));if(!Nx.id)Nx.id=newId();var i=-1;REG.forEach(function(r,j){if(r.id===Nx.id)i=j;});var e={id:Nx.id,N:Nx};if(i>=0)REG[i]=e;else REG.push(e);}
+function ranks(Y){if(!REG.length)return null;var me=summaryOf(Y.N,Y.B),list=[me];REG.forEach(function(r){if(r.id===Y.N.id)return;if(!r.S)r.S=summaryOf(r.N);list.push(r.S);});if(list.length<2)return null;
+  var RK={n:list.length};['pop','den','area','gdpP','pcP','gdp','pc','hdi'].forEach(function(k){var v=me[k];if(isFinite(v))RK[k]=1+list.filter(function(o){return isFinite(o[k])&&o[k]>v+1e-9;}).length;});return RK;}
+var CODES=[['phone','國際電話區號'],['tld','國家頂級域'],['iso','ISO3166'],['vehicle','車輛國籍代碼'],['postal','郵遞區號']];
+function dupCodes(){var out=[],I=N.info;CODES.forEach(function(c){var v=String(I[c[0]]||'').trim().toLowerCase();if(!v)return;
+  REG.forEach(function(r){if(r.id===N.id)return;var w=String(r.N.info[c[0]]||'').trim().toLowerCase();if(w===v)out.push({t:'err',m:c[1]+'「'+I[c[0]]+'」與名冊中的「'+(r.N.info.name||r.N.info.short||'')+'」重複；登記代碼全服不得重複，先登記者優先。',s:'codes'});});});return out;}
+function median(a){a=a.filter(isFinite).sort(function(x,y){return x-y;});if(!a.length)return NaN;var m=a.length>>1;return a.length%2?a[m]:(a[m-1]+a[m])/2;}
+function regMedians(){var S=REG.map(function(r){return r.S||(r.S=summaryOf(r.N));});return {n:S.length,gdp:median(S.map(function(s){return s.gdp;})),pop:median(S.map(function(s){return s.pop;})),def:median(S.map(function(s){return s.def;})),army:median(S.map(function(s){return s.army;}))};}
+function paintReg(){var md=regMedians(),inReg=REG.some(function(r){return r.id===N.id;}),RK=X.RK;
+  var h='<div>名冊 '+REG.length+' 國'+(inReg?'（含目前國家）':'；目前國家尚未加入')+'。</div>';
+  if(REG.length){h+='<div class="ln-sc"><table class="ln-tbl"><tr><th>國家</th><th>身分</th><th>類型</th><th>面積</th><th>人口</th><th>GDP名目</th><th>人均</th><th>PPP人均</th><th>HDI</th><th>常備軍</th><th>國防預算</th><th>國力指數</th><th>等級</th><th></th></tr>'+
+    REG.map(function(r){var s=r.S||(r.S=summaryOf(r.N));return '<tr'+(r.id===N.id?' class="ln-hi"':'')+'><td>'+esc(s.name)+'</td><td>'+PLAYERN[s.pl]+'</td><td>'+PTYPE[s.ty]+'</td><td class="n">'+(s.area>0?fx(s.area/1e4,2)+'萬':'—')+'</td><td class="n">'+wan(s.pop)+'</td><td class="n">'+money(s.gdp,'')+'</td><td class="n">'+fmt(s.pc)+'</td><td class="n">'+fmt(s.pcP)+'</td><td class="n">'+fx(s.hdi,3)+
+      '</td><td class="n">'+fmt(s.army)+'</td><td class="n">'+money(s.def,'')+'</td><td class="n">'+fx(s.cidx,2)+'</td><td>'+esc(s.level)+'</td><td style="white-space:nowrap"><button type="button" data-act="regLoad" data-id="'+esc(r.id)+'">載入</button> <button type="button" class="ln-x" data-act="regDel" data-id="'+esc(r.id)+'">✕</button></td></tr>';}).join('')+'</table></div>';
+    h+='<div style="margin-top:6px"><b>四項中位數</b>（'+md.n+' 國）：GDP名目 '+money(md.gdp)+'、人口 '+wan(md.pop)+'、國防預算 '+money(md.def)+'、常備軍 '+wan(md.army)+'。'+(md.n<15?'<span class="ln-note">成員國未滿 15 國，規則上仍使用假設平均國數值。</span>':'')+
+      ' <button type="button" data-act="regMed">以中位數更新目前國家的平均國數值</button></div>';}
+  h+='<div style="margin-top:6px"><b>目前國家的排名</b>'+(RK?'（共 '+RK.n+' 國）：人口第 '+(RK.pop||'—')+'、面積第 '+(RK.area||'—')+'、人口密度第 '+(RK.den||'—')+'、GDP名目第 '+(RK.gdp||'—')+'、人均第 '+(RK.pc||'—')+'、GDP_PPP第 '+(RK.gdpP||'—')+'、PPP人均第 '+(RK.pcP||'—')+'、HDI第 '+(RK.hdi||'—')+'。'+(N.out.ranks?'已用於資訊面板。':'（「維基與輸出」未勾選使用名冊排名）'):'：名冊至少需要另一個國家。')+'</div>';
+  if(X.dup.length)h+='<ul class="ln-chk">'+chkList(X.dup)+'</ul>';setR('reg',h);}
+/* ---------- 匯入 ---------- */
+function loadNation(d){N=merge(newNation(),d);if(!N.id)N.id=newId();DCACHE.k='';renderLists();fill();update();}
+function readJSON(file,cb){var fr=new FileReader();fr.onload=function(){var o;try{o=JSON.parse(fr.result);}catch(e){say('無法讀取「'+file.name+'」：不是有效的 JSON。');return;}cb(o);};fr.readAsText(file);}
+function importObj(o,toReg){if(o&&o.format==='LatoNationRegistry'&&Array.isArray(o.nations)){o.nations.forEach(function(x){regPut(merge(newNation(),x.N||x));});REG.forEach(function(r){r.S=null;});regSave();tab('reg');say('已匯入名冊 '+o.nations.length+' 國。');update();return;}
+  var d=o&&o.format==='LatoNation'?o.data:o&&o.calc?o:null;if(!d){say('這不是國家綜合製作器的國家檔或名冊檔。');return;}
+  if(toReg){regPut(merge(newNation(),d));REG.forEach(function(r){r.S=null;});regSave();update();return;}loadNation(d);say('已匯入「'+(N.info.name||N.info.short||'國家檔')+'」。');}
+/* 解析 {{國家資訊面板|…}}（略過 [[…]] 與 {{…}} 內的分隔線） */
+function parseTemplate(text){var key='{{國家資訊面板',i=text.indexOf(key);if(i<0)return null;i+=key.length;var dep=0,cur='',ps=[],n=text.length;
+  for(;i<n;i++){var ch=text.charAt(i),nx=text.charAt(i+1);
+    if((ch==='{'&&nx==='{')||(ch==='['&&nx==='[')){dep++;cur+=ch+nx;i++;continue;}
+    if((ch==='}'&&nx==='}')||(ch===']'&&nx===']')){if(dep===0&&ch==='}')break;dep--;cur+=ch+nx;i++;continue;}
+    if(ch==='|'&&dep===0){ps.push(cur);cur='';continue;}cur+=ch;}
+  ps.push(cur);var o={};ps.forEach(function(p){var j=p.indexOf('=');if(j<0)return;var k=p.slice(0,j).trim();if(k)o[k]=p.slice(j+1).trim();});return o;}
+var IBMAP={'正式國名':'name','常用國名':'short','原文國名':'native','別稱':'alias','國家狀態':'status','國家格言':'motto','國歌':'anthem','皇家頌歌':'royal','國花':'flower','國樹':'tree','國鳥':'bird','國獸':'beast',
+  '地圖':'map','地圖尺寸':'mapSize','地圖說明':'mapDesc','第二地圖':'map2','第二地圖尺寸':'map2Size','第二地圖說明':'map2Desc','首都':'capital','最大城市':'largest','行政中心':'admin','座標':'coord','所屬洲':'continent','所屬地區':'region',
+  '常用語言':'langCommon','官方語言':'langOfficial','地方語言':'langLocal','文字':'script','族群':'ethTitle','宗教':'relTitle','國民稱謂':'demonym','人口普查':'census','人口普查年份':'censusYear','國體':'polity','政體':'govt','憲法':'constitution',
+  '國家元首制度':'headSys','立法機構':'legis','上議院名稱':'upperName','上議院':'upper','下議院名稱':'lowerName','下議院':'lower','行政機構':'exec','司法機構':'judic','主權類型':'sovType','前身':'pred','繼承':'succ','海岸線':'coast','最高點':'high','最低點':'low',
+  '最長河流':'river','最大湖泊':'lake','基尼變化':'giniTrend','HDI變化':'hdiTrend','貨幣':'currency','貨幣代碼':'curCode','時區':'tz','UTC時差':'utc','夏令時間':'dst','夏令UTC時差':'dstUtc','日期格式':'dateFmt','曆法':'calendar','行車方向':'drive',
+  '國際電話區號':'phone','國家頂級域':'tld','ISO3166':'iso','車輛國籍代碼':'vehicle','郵遞區號':'postal','軍隊':'army','最高統帥':'cinc','軍事首長':'milChief','聯合國席位':'un','國際組織席位':'orgSeat','國際組織':'orgs','外交承認':'recog','官方網站':'web','備註':'note',
+  '人口排名':'rPop','人口密度排名':'rDen','面積排名':'rArea','GDP_PPP排名':'rPPP','GDP_PPP人均排名':'rPPPpc','GDP名目排名':'rGDP','GDP名目人均排名':'rGDPpc','HDI排名':'rHDI'};
+function pnum(s){s=String(s||'');var m=s.replace(/,/g,'').match(/-?\d+(\.\d+)?/);if(!m)return NaN;var v=+m[0];if(/兆/.test(s))v*=1e12;else if(/億/.test(s))v*=1e8;else if(/萬/.test(s))v*=1e4;return v;}
+function applyInfobox(o){var I=N.info,n=0,k,i;function g(key){return o[key]!==undefined&&o[key]!==''?o[key]:'';}
+  Object.keys(IBMAP).forEach(function(key){if(has(o[key])){I[IBMAP[key]]=o[key];n++;}});
+  if(has(o['水域面積'])){I.water=String(pnum(o['水域面積']));n++;}if(has(o['海岸線']))I.coast=String(pnum(o['海岸線'])||o['海岸線']);
+  if(has(o['面積'])){var a=pnum(o['面積']),m=N.calc.parts[0];if(a>0&&m&&m.kind==='main'&&!has(m.area)&&!has(m.px)){m.area=String(a);n++;}}
+  if(has(o.HDI)&&isFinite(pnum(o.HDI))){N.calc.hdi=String(pnum(o.HDI));n++;}
+  [['基尼係數','gini'],['產業農業','ag'],['產業工業','in'],['產業服務業','sv'],['產業其他','ot']].forEach(function(z){if(has(o[z[0]])&&isFinite(pnum(o[z[0]]))){N.econ.ov[z[1]]=String(pnum(o[z[0]]));n++;}});
+  [['年齡幼年','ageY'],['年齡青壯','ageW'],['年齡老年','ageO']].forEach(function(z){if(has(o[z[0]])&&isFinite(pnum(o[z[0]]))){N.demo[z[1]]=String(pnum(o[z[0]]));n++;}});
+  [['國旗','flags'],['國徽','emblems']].forEach(function(z){var L=[];for(i=1;i<=10;i++){var sf=i===1?'':String(i),e={file:g(z[0]+sf),name:g(z[0]+'名稱'+sf),size:g(z[0]+'尺寸'+sf),desc:g(z[0]+'說明'+sf),period:g(z[0]+'使用時期'+sf)};if(e.file||e.name||e.desc)L.push(e);}if(L.length){I[z[1]]=L;n+=L.length;}});
+  [['族群','eth'],['宗教','rel']].forEach(function(z){var L=[];for(i=1;i<=6;i++)if(has(o[z[0]+i]))L.push({name:o[z[0]+i],pct:has(o[z[0]+'比例'+i])?String(pnum(o[z[0]+'比例'+i])):'',color:g(z[0]+'色'+i)||CHCOL[(i-1)%6]});if(L.length){N.demo[z[1]]=L;n+=L.length;}});
+  var ld=[];for(i=1;i<=10;i++)if(has(o['領袖職稱'+i])||has(o['領袖姓名'+i]))ld.push({title:g('領袖職稱'+i),name:g('領袖姓名'+i)});if(ld.length){I.leaders=ld;n+=ld.length;}
+  var ev=[];for(i=1;i<=10;i++)if(has(o['建立事件'+i])||has(o['建立日期'+i]))ev.push({ev:g('建立事件'+i),date:g('建立日期'+i)});if(ev.length){I.events=ev;n+=ev.length;}
+  var ps=[],idx={};[1,2].forEach(function(h){for(i=1;i<=6;i++){var nm=o['議席'+h+'政黨'+i];if(!has(nm))continue;var p=idx[nm];if(p===undefined){p=idx[nm]=ps.length;ps.push({name:nm,color:g('議席'+h+'色'+i)||PARTYCOL[p%PARTYCOL.length],ideo:'0',v1:'',v2:'',conc:'',s1:'',s2:'',gov:false});}ps[p]['s'+h]=String(pnum(o['議席'+h+'席次'+i])||'');}
+    var ch=N.pol.ch[h-1];if(has(o['議席'+h+'名稱'])||has(o['議席'+h+'政黨1'])){ch.sys='manual';ch.on=true;ch.name=g('議席'+h+'名稱');ch.year=g('議席'+h+'年份');ch.seats=g('議席'+h+'總數');}});if(ps.length){N.pol.parties=ps;n+=ps.length;}
+  var cu=[];for(i=1;i<=6;i++)if(has(o['比例圖項目'+i]))cu.push({name:o['比例圖項目'+i],pct:String(pnum(o['比例圖比例'+i])||''),color:g('比例圖色'+i)||CHCOL[(i-1)%6]});if(cu.length){N.out.chart='custom';N.out.custom=cu;N.out.chartTitle=g('比例圖標題');n+=cu.length;}
+  return n;}
+/* ---------- 範例：規則全文的範例國家（普通玩家、混合、未加入聯盟） ---------- */
+function exampleNation(){var E=newNation();E.id=newId();
+  Object.assign(E.calc,{player:'normal',type:'mixed',d3d100:'150',cap:{lat:'34.5',lon:'112.3'},parts:[{kind:'main',name:'本土',px:'',area:'600000',lat:'',lon:''},{kind:'isle',name:'東群島',px:'',area:'40000',lat:'33.2',lon:'120.8'},{kind:'isle',name:'南群島',px:'',area:'20000',lat:'28.4',lon:'114.6'}],
+    w:{hab:'1',dev:'1',econ:'market',ind:'1',mil:'1'},self:'econ',d12d100:'610',d2d100a:'95',d2d100b:'110',d2d10:'10',d2d100m:'100',d1d300:'150',d1d6:'3',d1d10dip:'6',cultMode:'legacy',hdi:'0.78',rev:{typeOK:true,noOverlap:true}});
+  Object.assign(E.info,{name:'範例聯邦共和國',short:'範例國',capital:'中京',largest:'中京',status:'現存',govt:'聯邦議會共和制',polity:'共和制',currency:'範例圓',curCode:'FLY',curRate:'0.25',legis:'聯邦議會',lowerName:'國民議會',upperName:'聯邦參議院'});
+  E.info.leaders=[{title:'總統',name:''},{title:'總理',name:''}];E.info.events=[{ev:'建國',date:''}];
+  E.pol.parties=[{name:'民主黨',color:'#1565C0',ideo:'-3',v1:'34',v2:'',conc:'',s1:'',s2:'',gov:false},{name:'國民黨',color:'#C62828',ideo:'4',v1:'31',v2:'',conc:'',s1:'',s2:'',gov:false},{name:'勞動黨',color:'#2E7D32',ideo:'-7',v1:'12',v2:'',conc:'',s1:'',s2:'',gov:false},
+    {name:'綠黨',color:'#F9A825',ideo:'-5',v1:'8',v2:'',conc:'0.2',s1:'',s2:'',gov:false},{name:'自由黨',color:'#6A1B9A',ideo:'2',v1:'7',v2:'',conc:'',s1:'',s2:'',gov:false},{name:'地方黨',color:'#00838F',ideo:'1',v1:'4',v2:'',conc:'1',s1:'',s2:'',gov:false}];
+  E.pol.ch[0]={on:true,name:'國民議會',seats:'300',sys:'parallel',thr:'5',smd:'50',year:'',vote:'v1'};E.pol.ch[1]={on:true,name:'聯邦參議院',seats:'100',sys:'indirect',thr:'',smd:'50',year:'',vote:'v2'};
+  return E;}
+/* ---------- 事件 ---------- */
+function tab(t){TAB=t;root.querySelectorAll('[data-tab]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-tab')===t);});root.querySelectorAll('[data-pane]').forEach(function(p){p.classList.toggle('on',p.getAttribute('data-pane')===t);});if(X)paintTab(t);}
+function put(el,v){var mul=el.getAttribute('data-mul');if(el.type==='checkbox'){el.checked=!!v;return;}if(mul&&typeof v==='number')v=+(v/(+mul)).toPrecision(10);
+  var s=v===undefined||v===null?'':String(v);if(el.type==='color'&&!/^#[0-9a-f]{6}$/i.test(s))s='#888888';if(el.type==='range'&&s==='')s=el.getAttribute('data-neu')||'';if(el.value!==s)el.value=s;}
+function fill(scope){(scope||root).querySelectorAll('[data-b]').forEach(function(el){put(el,getP(N,el.getAttribute('data-b')));});}
+function onEdit(ev){var el=ev.target;if(!el||!el.getAttribute)return;
+  if(el.getAttribute('data-k')==='hdiR'){N.calc.hdi=(+el.value).toFixed(3);fill(root.querySelector('[data-sec="s8"]'));schedule();return;}
+  if(el.getAttribute('data-k')==='impFile'||el.getAttribute('data-k')==='regFile'){if(ev.type!=='change')return;var fs=el.files,toReg=el.getAttribute('data-k')==='regFile';for(var i=0;fs&&i<fs.length;i++)readJSON(fs[i],function(o){importObj(o,toReg);});el.value='';return;}
+  var p=el.getAttribute('data-b');if(!p)return;var v=el.type==='checkbox'?el.checked:el.value,mul=el.getAttribute('data-mul');if(mul){var x=num(v);v=isFinite(x)?x*(+mul):'';}
+  setP(N,p,v);root.querySelectorAll('[data-b="'+p+'"]').forEach(function(o){if(o!==el)put(o,getP(N,p));});schedule();}
+function onClick(ev){var b=ev.target.closest?ev.target.closest('[data-tab],[data-add],[data-del],[data-out],[data-act]'):null;if(!b||!root.contains(b))return;
+  if(b.hasAttribute('data-tab')){tab(b.getAttribute('data-tab'));return;}
+  if(b.hasAttribute('data-out')){OUTV=b.getAttribute('data-out');paintOut();return;}
+  if(b.hasAttribute('data-add')){var a=b.getAttribute('data-add').split(':'),L=LIST[a[0]],arr=getP(N,L.p);if(!Array.isArray(arr)){arr=[];setP(N,L.p,arr);}if(L.max&&arr.length>=L.max){say('「'+a[0]+'」最多 '+L.max+' 項（資訊面板的欄位上限）。');return;}
+    arr.push(L.add(a[1]));renderList(a[0]);schedule();return;}
+  if(b.hasAttribute('data-del')){var d=b.getAttribute('data-del').split(':'),L2=LIST[d[0]],arr2=getP(N,L2.p);arr2.splice(+d[1],1);renderList(d[0]);schedule();return;}
+  var act=b.getAttribute('data-act'),id=b.getAttribute('data-id');
+  if(act==='new'){if(!window.confirm('新建國家會取代目前的草稿（請先匯出國家檔保存）。確定？'))return;var r=lsGet('latoNation.rules');var n2=newNation();if(r)n2.rules=merge(defRules(),r);loadNation(n2);tab('calc');say('已新建國家。');}
+  else if(act==='example'){if(!window.confirm('載入規則範例會取代目前的草稿。確定？'))return;loadNation(exampleNation());tab('calc');say('已載入規則範例（普通玩家、混合國家）。');}
+  else if(act==='imp')q('impFile').click();
+  else if(act==='impWiki'){q('wikiBox').style.display='';q('wikiIn').focus();}
+  else if(act==='impWikiX')q('wikiBox').style.display='none';
+  else if(act==='impWikiGo'){var o=parseTemplate(q('wikiIn').value);if(!o){say('找不到 {{國家資訊面板 …}}。');return;}var cnt=applyInfobox(o);renderLists();fill();update();q('wikiBox').style.display='none';q('wikiIn').value='';say('已從資訊面板匯入 '+cnt+' 項資料。');}
+  else if(act==='expJson')dl(fname('.nation.json'),JSON.stringify({format:'LatoNation',v:1,saved:new Date().toISOString(),data:N},null,1),'application/json');
+  else if(act==='expTxt')dl(fname('_計算書.txt'),plainText(X));
+  else if(act==='expWiki')dl(fname('_維基.txt'),article(X)+'\n\n<!-- ===== 討論頁 ===== -->\n\n'+talkPage(X));
+  else if(act==='copy'){var t=outText(),done=function(){var m=q('outMsg');if(m)m.textContent='已複製';};if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,function(){var ta=q('outText');ta.select();try{document.execCommand('copy');done();}catch(e){}});else{var ta=q('outText');ta.select();try{document.execCommand('copy');done();}catch(e){}}}
+  else if(act==='dlOut')dl(fname({ib:'_資訊面板.txt',art:'_條目.txt',talk:'_討論頁.txt',txt:'_計算書.txt'}[OUTV]),outText());
+  else if(act==='resalt'){N.pol.salt=(+N.pol.salt||0)+1;schedule();}
+  else if(act==='goChk'){tab('calc');var c=q('bar');if(c)root.querySelector('[data-r="chk"]').scrollIntoView({behavior:'smooth',block:'center'});}
+  else if(act==='regAdd'){regPut(N);REG.forEach(function(r){r.S=null;});regSave();update();say('已將目前國家加入名冊。');}
+  else if(act==='regImp')q('regFile').click();
+  else if(act==='regExp')dl('lato-nations.registry.json',JSON.stringify({format:'LatoNationRegistry',v:1,saved:new Date().toISOString(),nations:REG.map(function(r){return {id:r.id,N:r.N};})},null,1),'application/json');
+  else if(act==='regClr'){if(!window.confirm('清空名冊？（不影響目前國家）'))return;REG=[];regSave();update();}
+  else if(act==='regDel'){REG=REG.filter(function(r){return r.id!==id;});regSave();update();}
+  else if(act==='regLoad'){var e=REG.filter(function(r){return r.id===id;})[0];if(!e||!window.confirm('載入「'+(e.N.info.name||e.N.info.short||'')+'」會取代目前的草稿。確定？'))return;loadNation(JSON.parse(JSON.stringify(e.N)));tab('calc');}
+  else if(act==='regMed'){var md=regMedians();if(!(md.gdp>0))return;N.rules.avg={gdp:md.gdp,pop:md.pop,def:md.def,army:md.army};fill(root.querySelector('[data-pane="rules"]'));update();say('已以名冊中位數更新平均國數值（'+md.n+' 國）。');}
+  else if(act==='rulesSave'){lsSet('latoNation.rules',N.rules);say('已存為預設規則參數。');}
+  else if(act==='rulesLoad'){var rr=lsGet('latoNation.rules');if(rr){N.rules=merge(defRules(),rr);fill();update();say('已套用預設規則參數。');}else say('尚未儲存預設規則參數。');}
+  else if(act==='rulesReset'){N.rules=defRules();fill();update();say('已還原規則原值。');}}
+function init(){layout();var d=lsGet('latoNation.draft');N=d?merge(newNation(),d):newNation();if(!d){var r=lsGet('latoNation.rules');if(r)N.rules=merge(defRules(),r);}if(!N.id)N.id=newId();
+  REG=(lsGet('latoNation.reg')||[]).filter(function(x){return x&&x.N;}).map(function(x){return {id:x.id,N:merge(newNation(),x.N)};});
+  root.addEventListener('input',onEdit);root.addEventListener('change',onEdit);root.addEventListener('click',onClick);
+  renderLists();fill();update();if(d)say('已載入此瀏覽器暫存的草稿。');}
+init();
+})();
+</script>
+</body></html>
