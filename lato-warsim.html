@@ -4687,11 +4687,12 @@ function ageMix(y){var k=byYear([[1600,0.4],[1850,0.38],[1914,0.33],[1940,0.3],[
 function polSide(side){var S=SD(side);if(!S.pol)S.pol={pow:1,civ:1,doct:'mixed',press:'control',show:'occ',leave:'rot',sex:'ban',fem:'hist'};return S.pol;}
 function polOf(u,k){var c=u;while(c){if(c.pol&&c.pol[k]!==undefined)return c.pol[k];c=c.p>=0?uById(c.p):null;}return polSide(u.side)[k];}
 function polForm(u){var c=u;while(c){if(c.pol&&(c.pol.pow!==undefined||c.pol.civ!==undefined))return c;c=c.p>=0?uById(c.p):null;}return null;}
-/* 依方針替各團級以上編制產生態度（指揮官性格會影響），從守法到極端都可能出現 */
-function polGen(side,force){var P=polSide(side),D=DOCT[P.doct]||DOCT.mixed,r=mb32(hstr(G.set.seed+'|pol|'+side));
-  G.units.forEach(function(F){if(F.side!==side||isLeaf(F)||(F.ech||0)<3)return;if(F.pol&&!force)return;var par=F.p>=0?uById(F.p):null,pp=par&&par.pol?par.pol:null,o=F.off||{};
-    function one(base){var v=pp&&r()<0.6?base:D[1]+gauss(r)*D[2];v+=(o.agg>=8?0.5:0)+(hasQ(o,'reckless')?0.6:0)-(hasQ(o,'careful')?0.4:0)-(hasQ(o,'inspire')?0.3:0)+(r()<0.04?2:0);return clamp(Math.round(v),0,5);}
-    F.pol={pow:one(pp?pp.pow:D[1]),civ:one(pp?pp.civ:D[1])};});}
+/* 替各團級以上編制產生態度：以陣營政策為中心，依方針決定分散程度，指揮官性格造成偏差；
+   偏離陣營政策最多兩級（守法方針最多一級），所以「大致保護」的陣營不會憑空出現對難民開火的部隊 */
+function polGen(side,force){var P=polSide(side),D=DOCT[P.doct]||DOCT.mixed,r=mb32(hstr(G.set.seed+'|pol|'+side)),sp=D[2]*0.55,up=D[1]<=0?1:2;
+  G.units.forEach(function(F){if(F.side!==side||isLeaf(F)||(F.ech||0)<3)return;if(F.pol&&(!force||F.pol.man))return;/* 玩家手動設定的態度保留 */var par=F.p>=0?uById(F.p):null,pp=par&&par.pol?par.pol:null,o=F.off||{};
+    function one(k){var c=clamp(Math.round(P[k]!==undefined?P[k]:D[1]),0,5),v=pp&&r()<0.65?pp[k]:c+gauss(r)*sp;v+=(o.agg>=8?0.4:0)+(hasQ(o,'reckless')?0.4:0)-(hasQ(o,'careful')?0.4:0)-(hasQ(o,'inspire')?0.3:0)+(r()<0.02?1.5:0);return clamp(Math.round(v),Math.max(0,c-2),Math.min(5,c+up));}
+    F.pol={pow:one('pow'),civ:one('civ')};});}
 /* ---------- 狀態 ---------- */
 function civStat0(){return {civK:0,civW:0,civKF:0,civKC:0,refBlock:0,refShot:0,powHeld:0,powDied:0,powExec:0,powEsc:0,powLib:0,incid:0,crimes:0,loot:0,rapeV:0,slavV:0,deport:0,prop:0,mil:0,camps:0,shel:0};}
 function civInit(){var MP=G.map,S=G.set,y=S.y,AM=ageMix(y),ev=(EVACR[S.evac||'part']||EVACR.part)[1],W=WEALTH[S.wealth||'mid']||WEALTH.mid,mob=(MOBN[S.mob||'mid']||MOBN.mid)[1],dev=eraDev(y),per=curPer(),r=mb32(hstr(S.seed+'|civ'));
@@ -4723,8 +4724,8 @@ function civCas(g,c,kf,cause,bySide){var p=civPresent(g);if(p<=0)return;var k=c*
   /* 輕傷者大多留在原地（加回在場人口，但計入受傷） */g.men+=w*f.m*0.6;g.wom+=w*f.w*0.6;g.kid+=w*f.k*0.6;g.eld+=w*f.e*0.6;civStatAdd(bySide,k,w,k*f.w,k*f.k,cause);}
 function civStatAdd(bySide,k,w,kf,kc,cause){var C=G.civ;C.kill=(C.kill||0)+k;C.wound=(C.wound||0)+w;C.byC=C.byC||{};C.byC[cause]=(C.byC[cause]||0)+k;if(bySide>=0){var s=C.cs[bySide];s.civK+=k;s.civW+=w;s.civKF+=kf;s.civKC+=kc;}}
 function refCas(R2,c,kf,cause,bySide){var p=R2.n,k=c*kf,f={m:R2.m/p,w:R2.w/p,k:R2.k/p,e:R2.e/p},D=G.civ.rdead||(G.civ.rdead={m:0,w:0,k:0,e:0});D.m+=k*f.m;D.w+=k*f.w;D.k+=k*f.k;D.e+=k*f.e;R2.m=Math.max(0,R2.m-k*f.m);R2.w=Math.max(0,R2.w-k*f.w);R2.k=Math.max(0,R2.k-k*f.k);R2.e=Math.max(0,R2.e-k*f.e);R2.n=R2.m+R2.w+R2.k+R2.e;R2.dead+=k;R2.wnd=(R2.wnd||0)+c-k;civStatAdd(bySide,k,c-k,k*f.w,k*f.k,cause);}
-/* 砲擊、空襲的平民傷亡（呼叫自 artyFire、空中攻擊） */
-function civArt(u,s,M,SA,fr,dm){if(!G.civ)return;var av=CIVP[polOf(u,'civ')][3];civHit(M.x,M.y,Math.max(150,M.r),clamp(SA*fr*dm*0.0003*(1-av*0.5)*(s.fl.indexOf('p')>=0?0.4:1),0,0.05),'art',u.side,0.34);}
+/* 砲擊、空襲的平民傷亡（呼叫自 artyFire、空中攻擊）。砲擊係數依城市砲擊的歷史資料校準：居民進入掩蔽後，每發砲彈約造成 0.05～0.3 人死亡 */
+function civArt(u,s,M,SA,fr,dm){if(!G.civ)return;var av=CIVP[polOf(u,'civ')][3];civHit(M.x,M.y,Math.max(150,M.r),clamp(SA*fr*dm*0.00008*(1-av*0.5)*(s.fl.indexOf('p')>=0?0.4:1),0,0.05),'art',u.side,0.34);}
 function civHitAir(a,s,x,y,SA,fr,dm,area){if(!G.civ)return;civHit(x,y,area?500:250,clamp(SA*fr*dm*0.002*(area?1.6:0.6)*(s.fl.indexOf('p')>=0?0.35:1),0,0.08),'air',a.side,0.4);}
 function civAt(x,y,R){var b=null,bd=1e18;G.civ.S.forEach(function(g){var d=dist(g.x,g.y,x,y)-g.r;if(d<(R||0)&&d<bd){bd=d;b=g;}});return b;}
 /* 核武：依破壞圈直接造成傷亡 */
@@ -4797,12 +4798,13 @@ function refLogU(u,k,Q){var L=u.refL||(u.refL={});var e=L[k]||(L[k]={n:0,t:-1e9}
 /* 難民隊伍：移動、遭阻擋或驅逐、射擊、露宿與飢餓 */
 function refStep(dt){var h=dt/3600,C=G.civ;C.R.forEach(function(Q){if(Q.st==='out'||Q.st==='camp'||Q.st==='back'||Q.n<1){if(Q.n<1&&Q.st!=='camp'&&Q.st!=='back')Q.st='out';return;}
     var wx=G.env,exD=(wx.T<0?0.0012:wx.T>33?0.0008:0)+(WX[wx.wx][3]>=2?0.0006:0)+(Q.food<=0?0.0015:0);if(exD>0){var d0=(Q.k+Q.e)*exD*h;if(d0>0.01)refCas(Q,d0/0.6,0.6,'exposure',-1);}Q.food=Math.max(0,Q.food-h/24);
-    /* 檢查前方部隊（阻擋、驅逐、射擊） */var blk=null;gridNear(Q.x,Q.y,1500,function(u){if(blk||!onMap(u)||!isLeaf(u)||ST(u).dom!=='land'||u.side===Q.side)return;var L=polOf(u,'civ');if(CIVP[L][4]>=2&&dist(u.x,u.y,Q.x,Q.y)<1200)blk=u;});
-    if(blk){var L2=polOf(blk,'civ'),act=CIVP[L2][4],st=C.cs[blk.side];if(act>=4&&rnd()<0.08*(L2>=5?2:1)){var v=Math.min(Q.n,Q.n*(0.03+0.12*rnd())),dd=v*0.65;refCas(Q,v,0.65,'refshot',blk.side);st.refShot+=dd;var old=G.civ.wc.filter(function(w){return w.u===blk.id&&w.k==='refshot'&&G.t-w.t<3*3600;})[0];if(old){old.v+=Math.round(dd);old.txt=uName(blk)+'多次向接近陣地的難民開火，累計約 '+fmt(old.v)+' 人死亡（'+placeTxt(Q.x,Q.y)+'一帶）';}else if(dd>=0.5){var e=warCrime(blk,'refshot',dd,uName(blk)+'向接近陣地的難民隊伍開火，造成約 '+fmt(Math.max(1,dd))+' 人死亡（'+placeTxt(Q.x,Q.y)+'）',L2>=5);civEv('crime',blk.side,e.txt,Q.x,Q.y,blk.id,{wc:1});}Q.side=enemyOf(blk.side);refDest(Q);}
-      else if(act>=3){st.refBlock+=Q.n;if(!Q.bl){Q.bl=1;refLogU(blk,'expel',Q);}Q.side=enemyOf(blk.side);refDest(Q);}
-      else if(act>=2){if(!Q.bl){Q.bl=1;st.refBlock+=Q.n;refLogU(blk,'block',Q);}Q.st='stop';Q.stopT=G.t;}}
+    /* 檢查前方部隊（阻擋、驅逐、射擊）：同一部隊對同一支隊伍只在第一次接觸時處置，被趕走的隊伍有 45 分鐘離開 */var blk=null;if(!(Q.gr&&G.t<Q.gr))gridNear(Q.x,Q.y,1500,function(u){if(blk||!onMap(u)||!isLeaf(u)||ST(u).dom!=='land'||u.side===Q.side)return;var fl=ST(u).fl,ro=roleOf(u);if(!(ro==='man'||ro==='rec'||fl.indexOf('M')>=0||fl.indexOf('I')>=0)||isBridger(u))return;/* 只有步兵、偵察、憲兵與警衛部隊設檢查哨 */var L=polOf(u,'civ');if(CIVP[L][4]>=2&&dist(u.x,u.y,Q.x,Q.y)<1200)blk=u;});
+    if(blk){var L2=polOf(blk,'civ'),act=CIVP[L2][4],st=C.cs[blk.side],seen=Q.by||(Q.by={}),first=!seen[blk.id],bc=Q.bc||(Q.bc={});seen[blk.id]=1;if(!bc[blk.side]){bc[blk.side]=1;st.refBlock+=Q.n;}/* 每支隊伍每一方只計一次 */
+      if(act>=4&&first&&rnd()<(L2>=5?0.7:0.35)){/* 向接近陣地的人群開火：死傷集中在隊伍前段 */var v=Math.min(Q.n,3+Q.n*(0.006+0.018*rnd())*(L2>=5?2:1)),dd=v*0.55;refCas(Q,v,0.55,'refshot',blk.side);st.refShot+=dd;var old=G.civ.wc.filter(function(w){return w.u===blk.id&&w.k==='refshot'&&G.t-w.t<3*3600;})[0];if(old){old.v+=Math.round(dd);old.txt=uName(blk)+'多次向接近陣地的難民開火，累計約 '+fmt(old.v)+' 人死亡（'+placeTxt(Q.x,Q.y)+'一帶）';}else if(dd>=0.5){var e=warCrime(blk,'refshot',dd,uName(blk)+'向接近陣地的難民隊伍開火，造成約 '+fmt(Math.max(1,dd))+' 人死亡（'+placeTxt(Q.x,Q.y)+'）',L2>=5);civEv('crime',blk.side,e.txt,Q.x,Q.y,blk.id,{wc:1});}Q.side=enemyOf(blk.side);refDest(Q);Q.gr=G.t+2700;}
+      else if(act>=3){if(first)refLogU(blk,'expel',Q);Q.side=enemyOf(blk.side);refDest(Q);Q.gr=G.t+2700;}
+      else if(act>=2){if(first)refLogU(blk,'block',Q);if(Q.st!=='stop'){Q.st='stop';Q.stopT=G.t;}}}
     if(Q.st==='trap'){if(G.t-Q.trapT>3*3600){Q.st='go';refDest(Q);if(Q.reach===false)refTrap(Q);}return;}
-    if(Q.st==='stop'){if(!blk||G.t-Q.stopT>2*3600){Q.st='go';Q.bl=0;refDest(Q);}return;}
+    if(Q.st==='stop'){if(!blk||G.t-Q.stopT>2*3600){Q.st='go';refDest(Q);Q.gr=G.t+1800;}return;}
     var cg=C.cg[Math.floor(Q.x/1000)+'|'+Math.floor(Q.y/1000)]||0,sp=Q.spd*(cg>3000?0.5:1)*(G.env.light<0.3?0.6:1)*(WX[G.env.wx][3]>=2?0.7:1);
     if(walk(Q,sp*dt)){var cp=Q.camp?uById(Q.camp):null;if(cp&&alive(cp)&&cp.side!==undefined){cp.ref=(cp.ref||0)+Q.n;cp.refM=(cp.refM||0)+Q.m;cp.refW=(cp.refW||0)+Q.w;cp.refK=(cp.refK||0)+Q.k;cp.refE=(cp.refE||0)+Q.e;Q.st='camp';C.cs[cp.side].shel+=Q.n;C.S[Q.from].camp+=Q.n;}
       else{var MP=G.map,edge=Q.x<MP.cs*5||Q.y<MP.cs*5||Q.x>MP.Wm-MP.cs*5||Q.y>MP.Hm-MP.cs*5;if(edge){Q.st='out';C.out=(C.out||0)+Q.n;}else if(Q.reach===false||G.t-(Q.rdT||-1e9)<1800)refTrap(Q);else{refDest(Q);if(Q.reach===false&&Q.path.length<=2)refTrap(Q);}}}});}
@@ -5123,22 +5125,25 @@ var OUTLETZ=['日報','晨報','時報','通訊社','新聞社','廣播電台','
 function pressInit(){var y=G.set.y,P={R:[],A:[],seq:0,home:[60,60]};G.press=P;var nOwn=y>=1914?3:y>=1850?2:1,nNeu=y>=1940?2:y>=1860?1:0,r=mb32(hstr(G.set.seed+'|press'));
   [0,1].forEach(function(side){for(var i=0;i<nOwn;i++)P.R.push(newReporter(side,side,r));});for(var j=0;j<nNeu;j++)P.R.push(newReporter(-1,j%2,r));
   P.R.forEach(function(R){reporterEmbed(R,r);});[0,1].forEach(function(side){var pp=polSide(side).press||'control';if(pp==='coerce'){P.R.forEach(function(R){if(R.side!==side&&R.host===side&&rnd()<0.7){R.st='expelled';logE(side,'press',G.sides[side].name+'驅逐隨軍的'+R.org+'記者'+R.nm);}});}});}
-function newReporter(side,host,r){var st=side>=0?(SD(side).pst||'zh'):(r()<0.5?'west':'westzh'),nm=personName(r,st,r()<(G.set.y>=1940?0.3:0.1)),town=(G.map.set&&G.map.set.length?G.map.set[Math.floor(r()*G.map.set.length)].name:'');
-  var org=st==='west'?(side<0?'International ':'')+(town||'City')+' '+OUTLETW[Math.floor(r()*OUTLETW.length)]:(side<0?'國際':town)+OUTLETZ[Math.floor(r()*OUTLETZ.length)];return {id:(G.press.seq=(G.press.seq||0)+1),nm:nm,side:side,host:host,org:org,emb:0,st:'ok',x:0,y:0,n:0};}
+/* 媒體名稱：本國媒體以本國城市命名（依該方的命名風格），國際媒體以外國城市命名；不借用戰區的地名 */
+function newReporter(side,host,r){var st=side>=0?(SD(side).pst||'zh'):(r()<0.5?'west':'westzh'),nm=personName(r,st,r()<(G.set.y>=1940?0.3:0.1)),NG=nameGen(G.set.seed+'|press|'+side+'|'+Math.floor(r()*1e9),st==='west'||st==='westzh'?st:'zh'),town=NG.city();
+  var org=st==='west'?(side<0?'The ':'')+town+' '+OUTLETW[Math.floor(r()*OUTLETW.length)]:town+OUTLETZ[Math.floor(r()*OUTLETZ.length)];return {id:(G.press.seq=(G.press.seq||0)+1),nm:nm,side:side,host:host,org:org,emb:0,st:'ok',x:0,y:0,n:0};}
 function reporterEmbed(R,r){var L=G.units.filter(function(u){return u.side===R.host&&!isLeaf(u)&&alive(u)&&(u.ech||0)>=3&&(u.ech||0)<=5;});if(!L.length)L=G.units.filter(function(u){return u.side===R.host&&alive(u);});var u=L[Math.floor((r||rnd)()*L.length)];if(u){R.emb=u.id;var c=cOf(u)||[u.x,u.y];R.x=c[0];R.y=c[1];}}
 /* 每 10 分鐘：跟隨部隊、風險、例行報導 */
-function pressStep(){var P=G.press;if(!P)return;P.R.forEach(function(R){if(R.st!=='ok'&&R.st!=='wia')return;var u=uById(R.emb);if(!u||!alive(u)){reporterEmbed(R);return;}var c=cOf(u)||[u.x,u.y];R.x=c[0];R.y=c[1];
-    var L=leavesOf(u).filter(onMap),hot=L.filter(function(q){return G.t-(q.uf||-1e9)<600;}).length;if(hot&&rnd()<0.004*hot){var k=rnd();if(k<0.3){R.st='kia';logE(R.host,'press','隨軍記者'+R.nm+'（'+R.org+'）在'+placeTxt(R.x,R.y)+'採訪時陣亡');pressArt(R,'記者殉職','本社記者'+R.nm+'在前線採訪時遭砲火擊中身亡。','neutral',null);}else if(k<0.85){R.st='wia';logE(R.host,'press','記者'+R.nm+'負傷');}else{R.st='capt';logE(R.host,'press','記者'+R.nm+'被敵軍俘虜');}}
+function pressStep(){var P=G.press;if(!P)return;P.R.forEach(function(R){if(R.st==='wia'){if(G.t<(R.back||0))return;R.st='ok';logE(R.host,'press','記者'+R.nm+'（'+R.org+'）傷癒，回到前線');}if(R.st!=='ok')return;var u=uById(R.emb);if(!u||!alive(u)){reporterEmbed(R);return;}var c=cOf(u)||[u.x,u.y];R.x=c[0];R.y=c[1];
+    /* 風險依部隊接戰的比例（隨軍記者多在營團司令部附近）：整個編制都在交火時，每小時約 0.3% 出事 */var L=leavesOf(u).filter(onMap),hot=L.filter(function(q){return G.t-(q.uf||-1e9)<600;}).length,fr=L.length?hot/L.length:0;if(hot&&rnd()<0.0005*fr){var k=rnd();if(k<0.3){R.st='kia';logE(R.host,'press','隨軍記者'+R.nm+'（'+R.org+'）在'+placeTxt(R.x,R.y)+'採訪時陣亡');pressArt(R,'記者殉職','本社記者'+R.nm+'在前線採訪時遭砲火擊中身亡。','neutral',null);}else if(k<0.85){R.st='wia';R.back=G.t+24*3600;logE(R.host,'press','記者'+R.nm+'（'+R.org+'）負傷，後送治療');}else{R.st='capt';logE(R.host,'press','記者'+R.nm+'（'+R.org+'）被敵軍俘虜');}}
     if(polSide(R.host).press==='coerce'&&R.side!==R.host&&rnd()<0.01){R.st='det';var top=sideCmd(R.host);if(top){var e=warCrime(top,'press',1,G.sides[R.host].name+'以「散播不實消息」為由拘押記者'+R.nm+'（'+R.org+'）',true);civEv('crime',R.host,e.txt,R.x,R.y,top.id,{wc:1});}}});
   if(G.t-(P.digT||0)>=6*3600){P.digT=G.t;pressDigest();}}
 /* 事件 → 報導 */
-function pressOn(e,u){var P=G.press;if(!P||!e)return;var side=e.s,big=e.v>=20||/mass|refshot|exec|slav|deport/.test(e.dk||e.k||'');P.R.forEach(function(R){if(R.st!=='ok'&&R.st!=='wia')return;var near=dist(R.x,R.y,e.x||0,e.y||0)<(big?15000:6000);if(!near&&!(big&&rnd()<0.2))return;
+function pressOn(e,u){var P=G.press;if(!P||!e)return;var side=e.s,grp={},big=e.v>=20||/mass|refshot|exec|slav|deport/.test(e.dk||e.k||'');P.R.forEach(function(R){if(R.st!=='ok'&&R.st!=='wia')return;var near=dist(R.x,R.y,e.x||0,e.y||0)<(big?15000:6000);if(!near&&!(big&&rnd()<0.2))return;
     var pol=polSide(R.side>=0?R.side:R.host).press||'control',own=R.side===side,crime=!!e.wc;if(!crime)return;
-    if(own&&pol!=='free'){if(pol==='coerce'){pressArt(R,'敵方捏造暴行謠言','軍方發言人表示，有關本軍在'+placeTxt(e.x,e.y)+'的指控「純屬敵方宣傳」。','propaganda',e,false);return;}if(rnd()<0.8)return;pressArt(R,'前線發生個別違紀事件','據悉'+placeTxt(e.x,e.y)+'發生違紀事件，軍方表示已在調查。','neutral',e,true);return;}
-    var tone=R.side<0||own?'critical':'pro';if(rnd()<(own?0.7:0.85))pressArt(R,own?'本國部隊被控在'+placeTxt(e.x,e.y)+'犯下罪行':(G.sides[side].name+'部隊在'+placeTxt(e.x,e.y)+'的暴行'),e.txt,tone,e,true);});}
-function pressArt(R,head,body,tone,e,truth){var P=G.press,a={t:G.t,side:R.side,host:R.host,org:R.org,by:R.nm,head:head,body:body,tone:tone,ev:e?e.t:null,truth:truth!==false};P.A.push(a);if(P.A.length>600)P.A.shift();R.n++;
+    function art(h,b,t,tr){pressArt(R,h,b,t,e,tr,true);var gk=(R.side>=0?R.side:-1)+'|'+h;(grp[gk]=grp[gk]||{s:R.side>=0?R.side:-1,h:h,o:[]}).o.push(R.org);}
+    if(own&&pol!=='free'){if(pol==='coerce'){art('敵方捏造暴行謠言','軍方發言人表示，有關本軍在'+placeTxt(e.x,e.y)+'的指控「純屬敵方宣傳」。','propaganda',false);return;}if(rnd()<0.8)return;art('前線發生個別違紀事件','據悉'+placeTxt(e.x,e.y)+'發生違紀事件，軍方表示已在調查。','neutral',true);return;}
+    var tone=R.side<0||own?'critical':'pro';if(rnd()<(own?0.7:0.85))art(own?'本國部隊被控在'+placeTxt(e.x,e.y)+'犯下罪行':(G.sides[side].name+'部隊在'+placeTxt(e.x,e.y)+'的暴行'),e.txt,tone,true);});
+  /* 多家媒體同時報導同一事件：合併成一筆紀錄 */Object.keys(grp).forEach(function(k){var g=grp[k];logE(g.s,'press','【'+g.o.join('】【')+'】'+g.h+(g.o.length>1?'（'+g.o.length+' 家媒體報導）':''));});}
+function pressArt(R,head,body,tone,e,truth,quiet){var P=G.press,a={t:G.t,side:R.side,host:R.host,org:R.org,by:R.nm,head:head,body:body,tone:tone,ev:e?e.t:null,truth:truth!==false};P.A.push(a);if(P.A.length>600)P.A.shift();R.n++;
   /* 影響：揭露罪行降低後方支持與國際聲望；宣傳暫時提振 */if(e&&e.wc&&truth!==false&&e.s>=0){P.home[e.s]=clamp(P.home[e.s]-(R.side===e.s?3:1.5),0,100);if(G.civ)G.civ.rep[e.s]=clamp(G.civ.rep[e.s]-(R.side<0?2:1),0,100);var w=G.civ.wc.filter(function(q){return q.t===e.t&&q.side===e.s;})[0];if(w)w.known=true;}
-  if(tone==='propaganda'&&R.host>=0)P.home[R.host]=clamp(P.home[R.host]+0.5,0,100);logE(R.side>=0?R.side:-1,'press','【'+R.org+'】'+head);return a;}
+  if(tone==='propaganda'&&R.host>=0)P.home[R.host]=clamp(P.home[R.host]+0.5,0,100);if(!quiet)logE(R.side>=0?R.side:-1,'press','【'+R.org+'】'+head);return a;}
 /* 每六小時：戰況綜合報導 */
 function pressDigest(){var P=G.press;if(!P)return;[0,1].forEach(function(side){var R=P.R.filter(function(q){return q.host===side&&(q.st==='ok'||q.st==='wia');})[0];if(!R)return;var me=G.stats[side],en=G.stats[enemyOf(side)],pol=R.side<0?'free':polSide(side).press||'control',f=pol==='free'?[1,1]:pol==='control'?[0.6,1.5]:[0.25,2.5];
     var head=pol==='coerce'?'我軍節節勝利，敵軍潰不成軍':me.cas>en.cas*1.3&&pol==='free'?'前線傷亡慘重，戰局膠著':'前線激戰持續',body='據'+R.org+'報導，開戰以來我方傷亡約 '+fmt(me.cas*f[0])+' 人，敵軍傷亡約 '+fmt(en.cas*f[1])+' 人。'+(G.civ&&pol==='free'?'平民死亡約 '+fmt(G.civ.kill||0)+' 人，逃難者約 '+fmt(civSum().fled)+' 人。':'');
@@ -5385,7 +5390,7 @@ var REQN={fires:'火力支援',air:'空中支援',reinf:'增援',supply:'補給'
 function reqSend(from,to,k,d){if(!from||!to||!alive(to))return null;var h=hopDelay(from,to),m={id:(G.mid=(G.mid||0)+1),k:'req',rk:k,side:from.side,from:from.id,to:to.id,t0:G.t,ta:G.t+h.sec+60,via:[h.via],x:d&&d.x,y:d&&d.y,auto:d&&d.auto,txt:d&&d.txt||''};G.msgs.push(m);
   if(!(d&&d.auto)||!aiControls(from))logE(from.side,'req',uName(from)+'向'+uName(to)+'請求'+REQN[k]+'（約 '+durTxt(m.ta-G.t)+' 後送達）',from.x,from.y,from.id);return m;}
 function reqDeliver(m){var to=uById(m.to),from=uById(m.from);if(!to||!from)return;
-  if(m.k==='rep'){/* 回覆 */if(!aiControls(from)||!aiControls(to)){(G.inbox=G.inbox||[]).push({id:m.id,t:G.t,side:to.side,k:'rep',from:m.from,to:m.to,txt:m.txt,ok:m.ok});if(G.onPause&&G.set.autoPause.req)G.onPause('收到回覆');}logE(to.side,'req',uName(from)+'回覆'+uName(to)+'：'+m.txt,from.x,from.y,from.id);return;}
+  if(m.k==='rep'){/* 回覆：AI 部隊回覆玩家部隊時才進收件匣（玩家自己送出的回覆不必再顯示） */if(!aiControls(to)&&aiControls(from)){(G.inbox=G.inbox||[]).push({id:m.id,t:G.t,side:to.side,k:'rep',from:m.from,to:m.to,txt:m.txt,ok:m.ok});if(G.onPause&&G.set.autoPause.req)G.onPause('收到回覆');}logE(to.side,'req',uName(from)+'回覆'+uName(to)+'：'+m.txt,from.x,from.y,from.id);return;}
   if(m.k==='dir'){/* 上級指令 */if(aiControls(to)){to.aidir={k:m.dk,x:m.x,y:m.y,face:m.face,t:G.t,from:m.from};}else{(G.inbox=G.inbox||[]).push({id:m.id,t:G.t,side:to.side,k:'dir',from:m.from,to:m.to,dk:m.dk,x:m.x,y:m.y,txt:'上級指令：'+(ORDN[m.dk]||m.dk)+'（'+placeTxt(m.x,m.y)+'）'});if(G.onPause&&G.set.autoPause.req)G.onPause('收到上級指令');}return;}
   if(!aiControls(to)){(G.inbox=G.inbox||[]).push({id:m.id,t:G.t,side:to.side,k:'req',rk:m.rk,from:m.from,to:m.to,x:m.x,y:m.y,txt:uName(from)+'請求'+REQN[m.rk]+(m.x!==undefined?'（'+placeTxt(m.x,m.y)+'）':'')});if(G.onPause&&G.set.autoPause.req&&!m.auto)G.onPause('收到請求');return;}
   var r=reqDecide(to,from,m);reqReply(to,from,r[0],r[1]);}
@@ -5749,7 +5754,9 @@ function mpp(){return G.map.cs/VW.s;}
 function ensureImg(){var MP=G.map,mo=G.started?now().m:G.set.m,key=MP.seed+'|'+MP.GW+'|'+mo+'|'+(UI.contour?1:0);if(VW.img&&VW.imgKey===key&&VW.imgMap===MP){if(G.dirty&&G.dirty.length){var x0=1e9,y0=1e9,x1=-1,y1=-1;G.dirty.forEach(function(ks){ks.forEach(function(k){var x=k%MP.GW,y=(k/MP.GW)|0;if(x<x0)x0=x;if(y<y0)y0=y;if(x>x1)x1=x;if(y>y1)y1=y;});});G.dirty=[];if(x1>=0)renderMap(MP,{S:VW.img.S||2,month:mo,contour:UI.contour},VW.img,[x0-1,y0-1,x1+2,y1+2]);}return VW.img;}
   VW.img=renderMap(MP,{S:MP.GW*MP.GH>900000?1:2,month:mo,contour:UI.contour});VW.imgKey=key;VW.imgMap=MP;G.dirty=[];return VW.img;}
 /* ---------- 繪製 ---------- */
-function vDraw(full){if(!G||!G.map||!VW.cb||!VW.cw)return;if(full)drawBase();drawTop();}
+function vDraw(full){if(!G||!G.map||!VW.cb||!VW.cw)return;if(full){vClamp();drawBase();}drawTop();}
+/* 視窗不要漂離地圖：地圖比視窗大時邊緣最多內縮 24px，比視窗小時置中 */
+function vClamp(){var MP=G.map,W=MP.GW*VW.s,H=MP.GH*VW.s,m=24;if(!(W>0&&H>0))return;if(W+2*m<=VW.cw)VW.ox=(VW.cw-W)/2;else VW.ox=clamp(VW.ox,VW.cw-W-m,m);if(H+2*m<=VW.ch)VW.oy=(VW.ch-H)/2;else VW.oy=clamp(VW.oy,VW.ch-H-m,m);}
 function drawBase(){var c=VW.cb.getContext('2d'),d=VW.dpr,MP=G.map;c.setTransform(d,0,0,d,0,0);c.fillStyle='#2d3a46';c.fillRect(0,0,VW.cw,VW.ch);var im=ensureImg();c.imageSmoothingEnabled=VW.s<1.6;c.drawImage(im.cv,VW.ox,VW.oy,MP.GW*VW.s,MP.GH*VW.s);if(VW.s>=0.9&&MP.brg&&MP.brg.length)drawBridges(c);
   if(UI.lay.grid)drawGrid(c);if(UI.lay.lbl)drawLabels(c);VW.lastBase=Date.now();}
 function drawGrid(c){var MP=G.map,km=mpp()<8?500:mpp()<25?1000:mpp()<80?5000:10000;c.save();c.strokeStyle='rgba(20,30,40,.28)';c.lineWidth=1;c.font='10px sans-serif';c.fillStyle='rgba(20,30,40,.75)';
@@ -5960,7 +5967,8 @@ function drawEvt(c){var E=G.evt,MP=G.map;c.save();
   c.restore();}
 /* 地圖上方的事件橫幅 */
 function evtBanner(){if(!G.evt||!VW.wrap)return;var el=VW.wrap.querySelector('.lw-evb');if(!el){el=document.createElement('div');el.className='lw-evb';VW.wrap.appendChild(el);}var A=G.evt.A.filter(function(e){return e.k!=='monsoon'||true;});
-  el.innerHTML=A.map(function(e){return '<span>⚠ '+EVK[e.k]+(e.k==='quake'?' M'+fx(e.M,1):'')+(e.t1<1e12&&e.k!=='monsoon'?'・剩 '+durTxt(e.t1-G.t):'')+'</span>';}).join('');el.hidden=!A.length;}
+  el.innerHTML=A.map(function(e){return '<span>⚠ '+EVK[e.k]+(e.k==='quake'?' M'+fx(e.M,1):'')+(e.t1<1e12&&e.k!=='monsoon'?'・剩 '+durTxt(e.t1-G.t):'')+'</span>';}).join('');el.hidden=!A.length;
+  /* 放在圖層開關列的正下方（窄螢幕時開關列會換行，所以依實際高度定位） */if(A.length&&VW.ly)el.style.top=(VW.ly.offsetTop+VW.ly.offsetHeight+6)+'px';}
 /* ===================== 快速想定、自動部署、自動目標點 ===================== */
 var SCN=[
  {k:'s1631',n:'1631 年：長槍與火繩槍',ds:'十七世紀野戰軍在平原上對陣：長槍方陣、火繩槍輪射、胸甲騎兵衝鋒。命令全靠傳令騎兵。',y:1631,m:9,d:17,h:7,ter:'plain',clim:'continental',size:[16,12],cs:25,A:[['a1600',1,'新教聯軍']],B:[['a1600',1,'帝國軍']],names:['新教聯軍','帝國軍'],dur:14},
@@ -6226,7 +6234,7 @@ function sideV4Html(side){var S=SD(side),P=polSide(side),N=nmOf(side),lv=functio
   o+='<div class="lw-row"><button type="button" class="lw-btn sm" data-a="nmapply">套用命名規則</button><button type="button" class="lw-btn sm" data-a="polregen">重新產生各師團態度</button></div></details>';return o;}
 ACT.v4tog=function(b){OB.v4open=!OB.v4open;b.parentNode.open=!!OB.v4open;};
 CHG.spol=function(t){var s=OB.side,S=SD(s),P=polSide(s),f=t.getAttribute('data-f'),v=t.value;if(f==='fem'||f==='pst'){S[f]=v;}else P[f]=/^(pow|civ)$/.test(f)?+v:v;OB.v4open=1;
-  if(G.started)decLog(s,'玩家',G.sides[s].name+'修改政策：'+({doct:'方針',pow:'戰俘',civ:'平民',press:'新聞',show:'勞軍',leave:'輪休',sex:'性服務',fem:'女性服役',pst:'人名'})[f]+' → '+(t.options[t.selectedIndex]||{}).text);if(f==='doct'){polGen(s,true);}obTree();};
+  if(G.started)decLog(s,'玩家',G.sides[s].name+'修改政策：'+({doct:'方針',pow:'戰俘',civ:'平民',press:'新聞',show:'勞軍',leave:'輪休',sex:'性服務',fem:'女性服役',pst:'人名'})[f]+' → '+(t.options[t.selectedIndex]||{}).text);if(f==='doct'){var Dd=DOCT[v]||DOCT.mixed;P.pow=P.civ=clamp(Math.round(Dd[1]),0,5);polGen(s,true);}else if(f==='pow'||f==='civ')polGen(s,true);obTree();};
 CHG.snm=function(t){var S=SD(OB.side),N=S.nm||(S.nm={num:'seq',fmt:'arabic',ttl:'none',pre:true}),f=t.getAttribute('data-f');N[f]=t.type==='checkbox'?t.checked:t.value;OB.v4open=1;};
 ACT.nmapply=function(){renameSide(OB.side,nmOf(OB.side));OB.v4open=1;obTree();obDet();toast('已依命名規則重新命名「'+G.sides[OB.side].name+'」的部隊。');};
 ACT.polregen=function(){polGen(OB.side,true);OB.v4open=1;obTree();obDet();toast('已依方針與指揮官性格重新產生各師團的態度。');};
@@ -6238,7 +6246,7 @@ function formV4Html(u){var leaf=isLeaf(u),o='<h4 style="margin:10px 0 4px;font-s
   var lv=function(T){return [['','沿用上級（'+T[polOf(u.p>=0?uById(u.p)||u:u,T===POWP?'pow':'civ')][1]+'）']].concat(T.map(function(q,i){return [i,i+'：'+q[1],q[2]];}));};
   o+='<span>戰俘態度</span>'+selH('upol','pow',lv(POWP),u.pol&&u.pol.pow!==undefined?u.pol.pow:'')+'<span>平民態度</span>'+selH('upol','civ',lv(CIVP),u.pol&&u.pol.civ!==undefined?u.pol.civ:'')+'</div><div class="lw-note">'+esc(AIT[P.t][1])+'。打法：'+esc(AIT[P.t][2][P.v][1])+'。目前態度：戰俘「'+POWP[polOf(u,'pow')][1]+'」、平民「'+CIVP[polOf(u,'civ')][1]+'」。</div>';return o;}
 CHG.uai=function(t){var u=uById(OB.sel);if(!u)return;var a=u.aip||(u.aip={t:'auto',v:-1}),f=t.getAttribute('data-f');if(f==='t'){a.t=t.value;a.v=-1;}else a.v=+t.value;a._P=null;if(G.started)decLog(u.side,'玩家','設定'+uName(u)+'的 AI：'+aiName(u));obDet();};
-CHG.upol=function(t){var u=uById(OB.sel);if(!u)return;var f=t.getAttribute('data-f');u.pol=u.pol||{};if(t.value==='')delete u.pol[f];else u.pol[f]=+t.value;if(G.started)decLog(u.side,'玩家','設定'+uName(u)+'的'+(f==='pow'?'戰俘':'平民')+'態度：'+(t.value===''?'沿用上級':(f==='pow'?POWP:CIVP)[+t.value][1]));obDet();};
+CHG.upol=function(t){var u=uById(OB.sel);if(!u)return;var f=t.getAttribute('data-f');u.pol=u.pol||{};if(t.value==='')delete u.pol[f];else{u.pol[f]=+t.value;u.pol.man=1;}if(u.pol.pow===undefined&&u.pol.civ===undefined)delete u.pol.man;if(G.started)decLog(u.side,'玩家','設定'+uName(u)+'的'+(f==='pow'?'戰俘':'平民')+'態度：'+(t.value===''?'沿用上級':(f==='pow'?POWP:CIVP)[+t.value][1]));obDet();};
 INP.unm=function(t){var u=uById(OB.sel);if(!u)return;u.ttl=t.value;u.ttlAuto=0;};
 CHG.unm2=function(t){var u=uById(OB.sel);if(!u)return;var f=t.getAttribute('data-f');u[f]=t.type==='checkbox'?t.checked:f==='founded'?(+t.value||0):t.value;if(f==='hpre'){var base=(u.name||'').replace(/^(近衛|御林|禁衛|擲彈兵|突擊|皇家|鐵衛|先鋒|Guards |Royal |Grenadier |Assault |Life Guard |King's Own |Queen's Own |Highland )/,'');u.name=(t.value?(nmOf(u.side).fmt==='west'?t.value+' ':t.value):'')+base;dupNames();obTree();}obDet();};
 ACT.uttl=function(){var u=uById(OB.sel);if(!u)return;u.ttl=ttlGen(mb32(hstr('t|'+u.id+'|'+Date.now())),nmOf(u.side).fmt==='west'?'west':'zh');u.ttlAuto=0;obDet();obTree();};
@@ -6526,7 +6534,7 @@ ACT.rqnow=function(){var u=uById(UI.sel[0]);if(!u)return;var c=isLeaf(u)?[u.x,u.
 function reqFromUI(u,x,y){var to=reqTarget(u);if(!to||!alive(to)){toast('找不到請求對象。');return;}var m=reqSend(u,to,UI.ordOpt.rq,{x:x,y:y});decLog(u.side,'玩家',uName(u)+'向'+uName(to)+'請求'+REQN[UI.ordOpt.rq]+'（'+placeTxt(x,y)+'）');toast('請求已送出，約 '+durTxt(m.ta-G.t)+' 後送達'+uName(to)+'。');UI.tool='sel';modeBt();btLeft(true);}
 /* 收件匣 */
 function inboxHtml(){var side=UI.side>=0?UI.side:null,L=(G.inbox||[]).filter(function(m){return side===null||m.side===side;}).slice(-60).reverse();if(!L.length)return '<div class="lw-note">沒有待處理的請求或指令。玩家只扮演某一梯隊時，上級 AI 的指令與友軍的請求會出現在這裡。</div>';
-  return L.map(function(m){var f=uById(m.from),done=m.done;return '<div class="lw-msg'+(done?' done':'')+'"><div><span class="t">'+tTxt(m.t).slice(-5)+'</span>'+(m.k==='dir'?'<b>指令</b> ':m.k==='req'?'<b>請求</b> ':'<b>回覆</b> ')+esc(m.txt)+(f&&m.k!=='rep'?'<span class="lw-note">（'+esc(uName(f))+(aiControls(f)?'，'+esc(f.aip?aiName(f):'AI'):'')+'）</span>':'')+'</div>'+
+  return L.map(function(m){var f=uById(m.from),done=m.done;return '<div class="lw-msg'+(done?' done':'')+'"><div><span class="t">'+tTxt(m.t).slice(-5)+'</span>'+(m.k==='dir'?'<b>指令</b> ':m.k==='req'?'<b>請求</b> ':'<b>回覆</b> ')+esc(m.txt)+(f&&m.k==='dir'?'<span class="lw-note">（'+esc(uName(f))+(aiControls(f)?'，'+esc(aiName(f)):'')+'）</span>':f&&m.k==='req'&&aiControls(f)?'<span class="lw-note">（'+esc(aiName(f))+'）</span>':'')+'</div>'+
     (done?'<div class="lw-note">'+esc(done)+'</div>':m.k==='rep'?'<div class="lw-row"><button type="button" class="lw-btn sm" data-a="ibok" data-v="'+m.id+'">知道了</button></div>':'<div class="lw-row"><button type="button" class="lw-btn sm pri" data-a="ibok" data-v="'+m.id+'">'+(m.k==='dir'?'遵照執行':'同意')+'</button><button type="button" class="lw-btn sm" data-a="ibno" data-v="'+m.id+'">拒絕</button>'+(m.x!==undefined?'<button type="button" class="lw-btn sm" data-a="ibmap" data-v="'+m.id+'">地圖</button>':'')+'</div>')+'</div>';}).join('');}
 function ibGet(b){var id=+b.getAttribute('data-v');return (G.inbox||[]).filter(function(m){return m.id===id;})[0];}
 ACT.ibok=function(b){var m=ibGet(b);if(!m||m.done)return;var to=uById(m.to),from=uById(m.from);if(m.k==='rep'){m.done='已讀';btLeft(true);return;}
