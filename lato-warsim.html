@@ -7988,10 +7988,10 @@ var V6HELP='<h4>v6：海上部隊、砲兵試射與偵察</h4><ul><li>部署或�
  '<li>港口、鐵路車站、機場與城鎮倉庫依地形與聚落配置在戰場上，開戰時中立，部隊佔領後才能作為補給節點，被奪取時約一半存量損毀；補給頁列出所有設施。「補給節點」工具只能放置補給站與地圖外基地。</li></ul>';
 /* ===================== v7：戰場視覺效果（曳光彈、部隊圓點、砲口煙塵、飛機剪影、爆炸）與即時合成音效 =====================
    特效只讀取模擬狀態、只用 Math.random（不動模擬的亂數），開關特效不會改變戰局。 */
-var FX={lvl:2,dots:true,planes:true,P:[],nb:[],Q:[],ev:[],sc:[],cap:false,ip:{},clk:0,last:0,cv:null,cx:null,wc:{},pt:{},burn:{},drawn:0,g:null,st:{ev:0,sp:0,ex:0,pl:0,dot:0,tr:0}};
+var FX={lvl:2,smk:1,smA:1,smN:0,smNb:0,cs:null,sx:null,dots:true,planes:true,P:[],nb:[],Q:[],ev:[],sc:[],cap:false,ip:{},clk:0,last:0,cv:null,cx:null,wc:{},pt:{},burn:{},drawn:0,g:null,st:{ev:0,sp:0,ex:0,pl:0,dot:0,tr:0}};
 var SND={on:true,vol:0.6,ac:null,out:null,noise:null,brown:null,n:0,tok:{},eng:[],amb:null,heat:0,load:1,cap:28,idle:0,st:{play:0,drop:0}};
-(function(){try{var o=JSON.parse(localStorage.getItem('lato-warsim-fx')||'null');if(o){if(o.lvl!==undefined)FX.lvl=o.lvl;FX.dots=o.dots!==false;FX.planes=o.planes!==false;SND.on=o.son!==false;if(o.vol!==undefined)SND.vol=o.vol;}}catch(e){}})();
-function fxSave(){try{localStorage.setItem('lato-warsim-fx',JSON.stringify({lvl:FX.lvl,dots:FX.dots,planes:FX.planes,son:SND.on,vol:SND.vol}));}catch(e){}}
+(function(){try{var o=JSON.parse(localStorage.getItem('lato-warsim-fx')||'null');if(o){if(o.lvl!==undefined)FX.lvl=o.lvl;if(o.smk!==undefined)FX.smk=o.smk;FX.dots=o.dots!==false;FX.planes=o.planes!==false;SND.on=o.son!==false;if(o.vol!==undefined)SND.vol=o.vol;}}catch(e){}})();
+function fxSave(){try{localStorage.setItem('lato-warsim-fx',JSON.stringify({lvl:FX.lvl,smk:FX.smk,dots:FX.dots,planes:FX.planes,son:SND.on,vol:SND.vol}));}catch(e){}}
 /* 換了一場戰役（新局、讀檔）就清掉上一場留下的特效 */
 function fxReset(){FX.g=G;FX.P=[];FX.nb=[];FX.Q=[];FX.sc=[];FX.ip={};FX.burn={};FX.hold=0;}
 function fxWant(){return (FX.lvl>0||SND.on)&&!!G&&G.started&&!G.replay&&UI.tab==='battle';}
@@ -8038,27 +8038,30 @@ function fxPlanePos(u){var ip=u&&FX.ip[u.id];return ip?fxIpPos(ip,performance.no
 
 /* ---------- 粒子 ---------- */
 function fxCap(){return FX.lvl>=2?2600:900;}
-function fxP(o){if(FX.P.length+FX.nb.length<fxCap()||o.k==='nk'){FX.nb.push(o);if(o.k==='tr')FX.st.tr++;}}
+/* 煙：依「煙霧」設定縮短、變淡、縮小，並限制畫面上同時存在的數量，避免煙把戰場蓋住；校正試射的白色標定煙不受影響 */
+var SMK=[null,{d:0.55,a:0.55,r:0.75,cap:160},{d:0.85,a:0.85,r:0.95,cap:360}];
+function fxSmoke(o){if(o.mk)return true;var S=SMK[FX.smk];if(!S)return false;if(FX.smN+FX.smNb>=S.cap*(FX.lvl>=2?1:0.6))return false;FX.smNb++;o.d*=S.d;o.a*=S.a;o.r1=o.r0+(o.r1-o.r0)*S.r;if(o.p1!==undefined){o.p0*=S.r;o.p1*=S.r;}return true;}
+function fxP(o){if(o.k==='sm'&&!fxSmoke(o))return;if(FX.P.length+FX.nb.length<fxCap()||o.k==='nk'){FX.nb.push(o);if(o.k==='tr')FX.st.tr++;}}
 /* 爆炸：閃光、火球、衝擊環、碎屑、煙塵與留在地上的焦痕。大小以公尺計，但在畫面上有最小像素，拉遠時仍看得到 */
 function fxEx(x,y,sz,t0){t0=t0===undefined?FX.clk:t0;var m=mpp(),big=sz>=25;fxP({k:'fl',x:x,y:y,t0:t0,d:0.13,r:Math.max(sz*1.3/m,big?9:6),c:'#FFFDE7'});fxP({k:'fb',x:x,y:y,t0:t0,d:big?0.7:0.5,sz:sz});
   if(sz>=12)fxP({k:'rg',x:x,y:y,t0:t0,d:big?0.5:0.36,r0:Math.max(sz*0.5/m,3),r1:Math.max(sz*3/m,big?32:19)});
   if(FX.lvl>=2)for(var i=0;i<(big?7:4);i++){var a=Math.random()*2*PI,L=Math.max(sz*2.2,(big?16:10)*m)*(0.5+Math.random()*0.7),d=0.45+Math.random()*0.4;fxP({k:'db',x:x,y:y,vx:Math.cos(a)*L/d,vy:Math.sin(a)*L/d,t0:t0,d:d});}
-  for(var j=0;j<fxLv(1,big?3:2);j++)fxP({k:'sm',x:x+(Math.random()-0.5)*sz,y:y+(Math.random()-0.5)*sz,t0:t0+0.08+j*0.12,d:5+Math.random()*4,r0:sz*0.6,r1:sz*(2.2+Math.random()*1.2),p0:3,p1:big?20:13,a:0.5,c:j===0?'58,52,46':'122,112,98'});
+  for(var j=0;j<fxLv(1,big?3:2);j++)fxP({k:'sm',x:x+(Math.random()-0.5)*sz,y:y+(Math.random()-0.5)*sz,t0:t0+0.08+j*0.12,d:4+Math.random()*2.5,r0:sz*0.6,r1:sz*(2.2+Math.random()*1.2),p0:3,p1:big?20:13,a:0.5,c:j===0?'58,52,46':'122,112,98'});
   fxScorch(x,y,sz,t0);FX.st.ex++;}
 /* 子彈打在地上的塵土 */
 function fxKick(pt,t0,n,big){for(var j=0;j<n;j++){var x=pt[0]+(Math.random()-0.5)*90,y=pt[1]+(Math.random()-0.5)*90;fxP({k:'sm',x:x,y:y,t0:t0+Math.random()*0.4,d:1.5,r0:3,r1:big?22:12,p0:1.5,p1:big?8:5,a:0.4,c:'150,128,96'});}}
 /* 車輛被擊毀：起火、黑煙慢慢升起 */
-function fxWreck(x,y,t0){var n=fxLv(3,7);for(var j=0;j<n;j++){var t=t0+0.3+j*2.6;fxP({k:'fl',x:x,y:y,t0:t,d:0.5,r:2.6,c:j%2?'#FF8F00':'#FFB74D'});fxP({k:'sm',x:x,y:y,t0:t,d:9,r0:6,r1:40,p0:2.5,p1:13,a:0.55,c:'34,32,30'});}}
-/* 地上的焦痕：畫在部隊符號底下，約兩分半鐘（特效時鐘）後淡去 */
-function fxScorch(x,y,sz,t0){if(FX.lvl<2&&sz<20)return;FX.sc.push({x:x,y:y,r:sz*0.55,t0:t0,a:Math.min(0.3,0.13+sz/220)});if(FX.sc.length>500)FX.sc.splice(0,FX.sc.length-500);}
-function fxScorchDraw(c,m){if(!FX.sc.length)return;var T=FX.clk,keep=[];c.save();c.fillStyle='#2a2119';for(var i=0;i<FX.sc.length;i++){var q=FX.sc[i],age=T-q.t0;if(age>150)continue;keep.push(q);if(age<0)continue;var s=w2s(q.x,q.y),r=Math.max(q.r/m,2.2);if(s[0]<-r||s[1]<-r||s[0]>VW.cw+r||s[1]>VW.ch+r)continue;c.globalAlpha=q.a*(age>100?(150-age)/50:1);c.beginPath();c.arc(s[0],s[1],r,0,2*PI);c.fill();}FX.sc=keep;c.restore();}
+function fxWreck(x,y,t0){var n=fxLv(2,4);for(var j=0;j<n;j++){var t=t0+0.3+j*2.4;fxP({k:'fl',x:x,y:y,t0:t,d:0.5,r:2.6,c:j%2?'#FF8F00':'#FFB74D'});fxP({k:'sm',x:x,y:y,t0:t,d:6,r0:6,r1:36,p0:2.5,p1:11,a:0.5,c:'34,32,30'});}}
+/* 地上的焦痕：畫在部隊符號底下，約兩分鐘（特效時鐘）後淡去 */
+function fxScorch(x,y,sz,t0){if(FX.lvl<2&&sz<20)return;FX.sc.push({x:x,y:y,r:sz*0.55,t0:t0,a:Math.min(0.22,0.1+sz/260)});if(FX.sc.length>500)FX.sc.splice(0,FX.sc.length-500);}
+function fxScorchDraw(c,m){if(!FX.sc.length)return;var T=FX.clk,keep=[];c.save();c.fillStyle='#2a2119';for(var i=0;i<FX.sc.length;i++){var q=FX.sc[i],age=T-q.t0;if(age>110)continue;keep.push(q);if(age<0)continue;var s=w2s(q.x,q.y),r=Math.max(q.r/m,2.2);if(s[0]<-r||s[1]<-r||s[0]>VW.cw+r||s[1]>VW.ch+r)continue;c.globalAlpha=q.a*(age>70?(110-age)/40:1);c.beginPath();c.arc(s[0],s[1],r,0,2*PI);c.fill();}FX.sc=keep;c.restore();}
 var FXS={
  fire:function(e){var a=e.a,b=e.b,w=fxWpn(a),T=FX.clk,m=mpp(),i=fxEi(a),la=ST(a).dom==='land',lb=!!b&&ST(b).dom==='land',x0=e.x0,y0=e.y0,x1=e.x1,y1=e.y1;
    var q0=function(){return la?fxFront(a,x0,y0,x1,y1):fxJit(x0,y0,a);},q1=function(){return lb?fxFront(b,x1,y1,x0,y0):fxJit(x1,y1,b);};
    if(e.hid){/* 看不到的射手：只在目標附近畫出飛來的子彈 */var dd=Math.hypot(x1-x0,y1-y0),f=Math.min(1,Math.max(350,40*m)/Math.max(1,dd));x0=x1+(x0-x1)*f;y0=y1+(y0-y1)*f;q0=function(){return fxJit(x0,y0,null);};}
    var d=Math.hypot(x1-x0,y1-y0);
    if(w==='musket'||w==='cav'||w==='cannon0'){/* 火藥時代：齊射的閃光與大片白煙，鉛彈以淡色細線表示 */var cn=w==='cannon0',n=cn?fxLv(1,2):fxLv(3,6);
-     for(var j=0;j<n;j++){var p0=q0(),p1=q1(),t0=T+j*0.05+Math.random()*0.15;if(!e.hid){fxP({k:'fl',x:p0[0],y:p0[1],t0:t0,d:0.12,r:cn?5:3,c:'#FFF3C4'});fxP({k:'sm',x:p0[0],y:p0[1],t0:t0,d:7+Math.random()*5,r0:6,r1:(cn?55:32)+Math.random()*18,p0:3,p1:cn?18:11,a:0.55,c:'236,236,230'});}
+     for(var j=0;j<n;j++){var p0=q0(),p1=q1(),t0=T+j*0.05+Math.random()*0.15;if(!e.hid){fxP({k:'fl',x:p0[0],y:p0[1],t0:t0,d:0.12,r:cn?5:3,c:'#FFF3C4'});fxP({k:'sm',x:p0[0],y:p0[1],t0:t0,d:5+Math.random()*3,r0:6,r1:(cn?55:32)+Math.random()*18,p0:3,p1:cn?18:11,a:0.55,c:'236,236,230'});}
        fxP({k:'tr',x0:p0[0],y0:p0[1],x1:p1[0],y1:p1[1],t0:t0,d:clamp(d/(cn?1200:1600),0.12,0.7),c:cn?'#5D5A55':'#D7D2C4',w:cn?1.6:1,len:0.3,g:0,then:cn?{k:'ex',sz:12}:null});}
      if(!cn)fxKick(q1(),T+0.2,fxLv(1,2),false);return;}
    if(w==='atgm'||w==='fpv'){var a0=q0(),a1=q1();fxP({k:'rk',x0:a0[0],y0:a0[1],x1:a1[0],y1:a1[1],t0:T,d:clamp(d/(w==='fpv'?900:1500),0.4,2.2),c:'#FFE0B2',w:1.4,then:{k:'ex',sz:w==='fpv'?9:16}});if(!e.hid&&w==='atgm')fxP({k:'sm',x:a0[0],y:a0[1],t0:T,d:3,r0:4,r1:18,p0:2,p1:9,a:0.45,c:'225,222,215'});return;}
@@ -8073,7 +8076,7 @@ var FXS={
    if(i<=3){fxP({k:'fl',x:x,y:y,t0:t0,d:0.08,r:2.2,c:'#ECEFF1'});fxP({k:'sm',x:x,y:y,t0:t0,d:3,r0:4,r1:14,p0:2,p1:7,a:0.3,c:'165,150,120'});}else if(Math.random()<0.25)fxEx(x,y,7,t0);else fxP({k:'tr',x0:x,y0:y,x1:x+(Math.random()-0.5)*sp*0.8,y1:y+(Math.random()-0.5)*sp*0.8,t0:t0,d:0.12,c:fxTrC(e.a.side),w:1.2,len:0.45,g:1});}},
  art:function(e){var a=e.a,s=ST(a),i=fxEi(a),T=FX.clk,m=mpp(),rk=s.br==='rkt'||s.fl.indexOf('z')>=0,sea=s.dom==='sea',bp=i<=3,d=Math.hypot(e.x1-e.x0,e.y1-e.y0);
    if(!e.hid){var ng=rk?fxLv(2,4):fxLv(2,3);for(var j=0;j<ng;j++){var p=s.dom==='land'?fxFront(a,e.x0,e.y0,e.x1,e.y1):fxJit(e.x0,e.y0,a),t0=T+j*(rk?0.1:0.18);
-     fxP({k:'fl',x:p[0],y:p[1],t0:t0,d:0.14,r:rk?4:sea?7:5.5,c:'#FFE9B0'});fxP({k:'sm',x:p[0],y:p[1],t0:t0,d:bp?10:rk?7:5.5,r0:6,r1:bp?60:rk?50:32,p0:3,p1:bp?20:rk?16:12,a:bp?0.6:0.45,c:bp?'240,240,234':rk?'218,215,208':'176,166,150'});
+     fxP({k:'fl',x:p[0],y:p[1],t0:t0,d:0.14,r:rk?4:sea?7:5.5,c:'#FFE9B0'});fxP({k:'sm',x:p[0],y:p[1],t0:t0,d:bp?7:rk?5:4,r0:6,r1:bp?60:rk?50:32,p0:3,p1:bp?20:rk?16:12,a:bp?0.6:0.45,c:bp?'240,240,234':rk?'218,215,208':'176,166,150'});
      if(!bp&&!sea&&FX.lvl>=2)fxP({k:'rg',x:p[0],y:p[1],t0:t0,d:0.45,r0:2,r1:Math.max(10,30/m),c:'#C8B89A'});}}
    var nS=e.reg?1:clamp(Math.round((e.sat?3:1.4)*Math.sqrt(e.m||1)*fxLv(2,4)),1,10),fl=clamp(d/4500,0.6,2.2);
    for(var k=0;k<nS;k++){var ang=Math.random()*2*PI,rr=Math.sqrt(Math.random())*(e.r||300),tx=e.x1+Math.cos(ang)*rr,ty=e.y1+Math.sin(ang)*rr,t1=T+(rk?k*0.08:Math.random()*0.9),then={k:e.reg?'wp':'ex',sz:bp?14:sea?32:22};
@@ -8093,7 +8096,7 @@ var FXS={
  nuke:function(e){var c=Math.cbrt(Math.max(0.01,e.m||15)/1000);fxP({k:'nk',x:e.x1,y:e.y1,t0:FX.clk,d:40,fb:Math.max(60,900*c),r5:Math.max(400,6900*c)});}};
 FXS.storm=FXS.grapple=FXS.melee;
 function fxSpawn(e){if(FX.lvl>0){var f=FXS[e.k];if(f){try{f(e);if(e.dv>=0.6&&FX.lvl>=2&&e.b&&ST(e.b).dom==='land'){var w=fxFront(e.b,e.x1,e.y1,e.x0,e.y0);fxWreck(w[0],w[1],FX.clk+0.4);}}catch(x){}}}if(SND.on&&SND.ac){try{sndEv(e);}catch(x){}}FX.st.sp++;}
-function fxThen(p){var t=p.then,T=p.t0+p.d;if(t.k==='ex')fxEx(p.x1,p.y1,t.sz,T);else if(t.k==='wp'){fxP({k:'fl',x:p.x1,y:p.y1,t0:T,d:0.1,r:3,c:'#FFFFFF'});fxP({k:'sm',x:p.x1,y:p.y1,t0:T,d:7,r0:8,r1:45,a:0.6,c:'250,250,250'});}else if(t.k==='fk')fxP({k:'fk',x:p.x1,y:p.y1,t0:T,d:2.6,sz:t.sz||24});
+function fxThen(p){var t=p.then,T=p.t0+p.d;if(t.k==='ex')fxEx(p.x1,p.y1,t.sz,T);else if(t.k==='wp'){fxP({k:'fl',x:p.x1,y:p.y1,t0:T,d:0.1,r:3,c:'#FFFFFF'});fxP({k:'sm',x:p.x1,y:p.y1,t0:T,d:7,r0:8,r1:45,a:0.6,c:'250,250,250',mk:1});}else if(t.k==='fk')fxP({k:'fk',x:p.x1,y:p.y1,t0:T,d:2.6,sz:t.sz||24});
   if(p.k==='rk')fxP({k:'ln',x0:p.x0,y0:p.y0,x1:p.x1,y1:p.y1,t0:T,d:3,w:p.w||1.2});}
 
 /* ---------- 每一畫格：依特效時鐘產生排程中的事件、更新音效、繪製特效圖層 ---------- */
@@ -8102,16 +8105,17 @@ function fxFrame(ts){requestAnimationFrame(fxFrame);if(G&&FX.g!==G)fxReset();var
   if(FX.Q.length){var keep=[];for(var i=0;i<FX.Q.length;i++){var q=FX.Q[i];if(q.at<=FX.clk)fxSpawn(q.e);else keep.push(q);}FX.Q=keep;}
   if(!run&&G&&G.started&&UI.tab!=='battle'&&FX.Q.length)FX.Q=[];
   try{sndFrame(dt,run);}catch(e){}try{fxDraw(now);}catch(e){if(!FX.err2){FX.err2=1;if(window.console)console.warn('fxdraw',e);}}}
-function fxDraw(now){var cv=FX.cv,c=FX.cx;if(!cv||!c||!cv.isConnected)return;var on=G&&G.started&&!G.replay&&UI.tab==='battle'&&FX.lvl>0&&UI.lay.fx!==0,d=VW.dpr||1;c.setTransform(d,0,0,d,0,0);
-  if(!on){if(FX.drawn){c.clearRect(0,0,VW.cw,VW.ch);FX.drawn=0;FX.P=[];FX.nb=[];}return;}
-  if(FX.nb.length){FX.P=FX.P.concat(FX.nb);FX.nb=[];}/* 沒有東西可畫、畫布也已經是空的：不要每一格都清除（會讓瀏覽器重新合成整個圖層） */if(!FX.P.length&&!FX.drawn&&!(G.msl&&G.msl.length)&&!Object.keys(FX.burn).length)return;c.clearRect(0,0,VW.cw,VW.ch);c.lineCap='round';var m=mpp(),T=FX.clk,P=FX.P,keep=[],W=G.env||{},wd=W.wd===undefined?0.6:W.wd;
+function fxDraw(now){var cv=FX.cv,c=FX.cx;if(!cv||!c||!cv.isConnected)return;var on=G&&G.started&&!G.replay&&UI.tab==='battle'&&FX.lvl>0&&UI.lay.fx!==0,d=VW.dpr||1;c.setTransform(d,0,0,d,0,0);var c2=FX.sx&&FX.cs&&FX.cs.isConnected?FX.sx:null;if(c2)c2.setTransform(d,0,0,d,0,0);
+  /* 暫停時煙霧在約一秒內淡到兩成，方便觀察戰局；繼續播放後恢復 */var dtR=FX.ld?Math.min(0.1,now-FX.ld):0;FX.ld=now;FX.smA+=((UI.run||FX.hold>0?1:0.2)-FX.smA)*Math.min(1,dtR*3.5);
+  if(!on){if(FX.drawn){c.clearRect(0,0,VW.cw,VW.ch);if(c2)c2.clearRect(0,0,VW.cw,VW.ch);FX.drawn=0;FX.P=[];FX.nb=[];FX.smN=0;}FX.smNb=0;return;}
+  if(FX.nb.length){FX.P=FX.P.concat(FX.nb);FX.nb=[];}FX.smNb=0;/* 沒有東西可畫、畫布也已經是空的：不要每一格都清除（會讓瀏覽器重新合成整個圖層） */if(!FX.P.length&&!FX.drawn&&!(G.msl&&G.msl.length)&&!Object.keys(FX.burn).length)return;c.clearRect(0,0,VW.cw,VW.ch);if(c2)c2.clearRect(0,0,VW.cw,VW.ch);c.lineCap='round';var m=mpp(),T=FX.clk,P=FX.P,keep=[],W=G.env||{},wd=W.wd===undefined?0.6:W.wd;
   /* 飛彈飛行軌跡上的煙、受損飛機冒煙 */if(FX.lvl>=2&&UI.run&&Math.random()<0.5){(G.msl||[]).forEach(function(S){if(UI.side>=0&&S.side!==UI.side&&!S.det&&G.set.fog)return;var f=clamp((G.t-S.t0)/Math.max(1,S.eta-S.t0),0,1);fxP({k:'sm',x:S.x0+(S.x-S.x0)*f,y:S.y0+(S.y-S.y0)*f,t0:T,d:2.5,r0:5,r1:22,a:0.35,c:'230,228,222'});});
     for(var id in FX.burn){if(FX.burn[id]<T){delete FX.burn[id];continue;}var u=uById(+id);if(u&&u.st==='air'){var pp=fxPlanePos(u);fxP({k:'sm',x:pp[0],y:pp[1],t0:T,d:2.2,r0:6,r1:24,a:0.5,c:'40,38,36'});}}}
-  var nd=0;for(var i=0;i<P.length;i++){var p=P[i],f=(T-p.t0)/p.d;if(f>=1){if(p.then)fxThen(p);continue;}keep.push(p);if(f<0)continue;fxDrawP(c,p,f,m,T,wd);nd++;}FX.P=keep;FX.drawn=nd>0?1:0;c.globalAlpha=1;}
+  var nd=0,ns=0;for(var i=0;i<P.length;i++){var p=P[i],f=(T-p.t0)/p.d;if(f>=1){if(p.then)fxThen(p);continue;}keep.push(p);if(p.k==='sm')ns++;if(f<0)continue;fxDrawP(p.k==='sm'&&c2?c2:c,p,f,m,T,wd);nd++;}FX.P=keep;FX.smN=ns;FX.drawn=nd>0?1:0;c.globalAlpha=1;if(c2)c2.globalAlpha=1;}
 function fxDrawP(c,p,f,m,T,wd){var s,r,a;switch(p.k){
   case 'tr':{var hx=p.x0+(p.x1-p.x0)*f,hy=p.y0+(p.y1-p.y0)*f,g=Math.max(0,f-p.len),s0=w2s(p.x0+(p.x1-p.x0)*g,p.y0+(p.y1-p.y0)*g),s1=w2s(hx,hy);c.strokeStyle=p.c;if(p.g!==0){c.globalAlpha=0.3;c.lineWidth=p.w+2.8;c.beginPath();c.moveTo(s0[0],s0[1]);c.lineTo(s1[0],s1[1]);c.stroke();}c.globalAlpha=p.g===0?0.7:1;c.lineWidth=p.w;c.beginPath();c.moveTo(s0[0],s0[1]);c.lineTo(s1[0],s1[1]);c.stroke();return;}
   case 'fl':s=w2s(p.x,p.y);c.globalAlpha=1-f;c.fillStyle=p.c;c.beginPath();c.arc(s[0],s[1],p.r*(1+f*0.6),0,2*PI);c.fill();return;
-  case 'sm':{var dr=(T-p.t0)*7;s=w2s(p.x+Math.cos(wd)*dr,p.y+Math.sin(wd)*dr);var sf=Math.sqrt(f);r=clamp(Math.max((p.r0+(p.r1-p.r0)*sf)/m,p.p0===undefined?0:p.p0+(p.p1-p.p0)*sf),1.5,120);a=p.a*(1-f)*(f<0.08?f/0.08:1);c.globalAlpha=1;c.fillStyle='rgba('+p.c+','+a.toFixed(3)+')';c.beginPath();c.arc(s[0],s[1],r,0,2*PI);c.fill();return;}
+  case 'sm':{var dr=(T-p.t0)*7;s=w2s(p.x+Math.cos(wd)*dr,p.y+Math.sin(wd)*dr);var sf=Math.sqrt(f);/* 拉遠時縮小最小尺寸、淡一些，免得一團團煙蓋住整個戰區 */r=clamp(Math.max((p.r0+(p.r1-p.r0)*sf)/m,p.p0===undefined?0:(p.p0+(p.p1-p.p0)*sf)*clamp(16/m,0.45,1)),1.5,90);a=p.a*(1-f)*(f<0.08?f/0.08:1)*(p.mk?Math.max(FX.smA,0.6):FX.smA)*(m>20?clamp(1-(m-20)/100,0.6,1):1);if(a<0.004)return;c.globalAlpha=1;c.fillStyle='rgba('+p.c+','+a.toFixed(3)+')';c.beginPath();c.arc(s[0],s[1],r,0,2*PI);c.fill();return;}
   case 'fb':{s=w2s(p.x,p.y);var R=Math.max(p.sz/m,p.sz>=25?10:6.5);r=clamp(R*(0.45+0.55*Math.min(1,f*3)),2,70);c.globalAlpha=(1-f)*0.95;c.fillStyle=f<0.3?'#FFB300':f<0.6?'#F4511E':'#6D2400';c.beginPath();c.arc(s[0],s[1],r,0,2*PI);c.fill();if(f<0.35){c.globalAlpha=1-f/0.35;c.fillStyle='#FFF59D';c.beginPath();c.arc(s[0],s[1],r*0.5,0,2*PI);c.fill();}return;}
   case 'rg':{s=w2s(p.x,p.y);r=p.r0+(p.r1-p.r0)*(1-Math.pow(1-f,2.2));c.globalAlpha=0.6*(1-f);c.strokeStyle=p.c||'#FFFFFF';c.lineWidth=1.6;c.beginPath();c.arc(s[0],s[1],r,0,2*PI);c.stroke();return;}
   case 'db':s=w2s(p.x+p.vx*f*p.d,p.y+p.vy*f*p.d);c.globalAlpha=1-f*f;c.fillStyle='#2b2520';c.fillRect(s[0]-1.1,s[1]-1.1,2.2,2.2);return;
@@ -8177,8 +8181,8 @@ function fxPlane(c,o){var u=o.u,s=ST(u),ty=fxPType(u),x=o.x,y=o.y,sz=clamp((o.h|
 (function(){var b=visItems;visItems=function(){var L=b();if(FX.planes&&FX.lvl>0)L.forEach(function(it){if(it.u&&it.u.st==='air'&&FX.ip[it.u.id]){var p=fxPlanePos(it.u);it.x=p[0];it.y=p[1];}});return L;};})();
 
 /* ---------- 特效圖層的畫布 ---------- */
-function fxMount(){if(!VW.wrap||!VW.ct)return;var cv=document.createElement('canvas');cv.className='lw-fx';cv.style.pointerEvents='none';VW.ct.insertAdjacentElement('afterend',cv);FX.cv=cv;FX.cx=cv.getContext('2d');fxSize();}
-function fxSize(){if(!FX.cv||!VW.cw)return;var d=VW.dpr||1;FX.cv.width=Math.round(VW.cw*d);FX.cv.height=Math.round(VW.ch*d);}
+function fxMount(){if(!VW.wrap||!VW.ct)return;/* 煙畫在部隊符號、標籤與命令底下的獨立圖層：遮住地形但不遮住部隊 */var cs=document.createElement('canvas');cs.className='lw-fxs';cs.style.pointerEvents='none';VW.ct.insertAdjacentElement('beforebegin',cs);FX.cs=cs;FX.sx=cs.getContext('2d');var cv=document.createElement('canvas');cv.className='lw-fx';cv.style.pointerEvents='none';VW.ct.insertAdjacentElement('afterend',cv);FX.cv=cv;FX.cx=cv.getContext('2d');fxSize();}
+function fxSize(){if(!FX.cv||!VW.cw)return;var d=VW.dpr||1;[FX.cv,FX.cs].forEach(function(x){if(x){x.width=Math.round(VW.cw*d);x.height=Math.round(VW.ch*d);}});}
 (function(){var b=viewMount;viewMount=function(host){b(host);fxMount();};})();
 (function(){var b=vResize;vResize=function(fit){b(fit);fxSize();};})();
 requestAnimationFrame(fxFrame);
@@ -8253,6 +8257,7 @@ function sndFrame(dt,run){var ac=SND.ac;if(!ac)return;
 
 /* ---------- 設定：工具列的音效按鈕與面板、設定頁 ---------- */
 function fxCtl(){return '<span>畫面效果</span><select data-c="fxlvl">'+[[0,'關閉'],[1,'簡化'],[2,'完整']].map(function(q){return '<option value="'+q[0]+'"'+(FX.lvl===q[0]?' selected':'')+'>'+q[1]+'</option>';}).join('')+'</select>'+
+  '<span>煙霧</span><select data-c="fxsmk">'+[[0,'關閉'],[1,'淡（容易看清戰場）'],[2,'標準']].map(function(q){return '<option value="'+q[0]+'"'+(FX.smk===q[0]?' selected':'')+'>'+q[1]+'</option>';}).join('')+'</select>'+
   '<span>部隊圓點</span><label><input type="checkbox" data-c="fxdots"'+(FX.dots?' checked':'')+'>交戰時以圓點（步兵）與方點（車輛）表示</label>'+
   '<span>飛機圖示</span><label><input type="checkbox" data-c="fxpl"'+(FX.planes?' checked':'')+'>飛行中的航空器畫成機型剪影</label>'+
   '<span>音效</span><label><input type="checkbox" data-c="fxson"'+(SND.on?' checked':'')+'>交火、砲擊、爆炸、呼嘯與引擎聲</label>'+
@@ -8260,6 +8265,7 @@ function fxCtl(){return '<span>畫面效果</span><select data-c="fxlvl">'+[[0,'
 function fxSetCard(){return '<div class="lw-card"><h3>畫面效果與音效<small>只影響畫面與聲音，不會改變戰局</small></h3><div class="lw-opt">'+fxCtl()+'</div><div class="lw-note">音效在瀏覽器裡即時合成，不需要下載音檔；瀏覽器規定點擊或按鍵之後才會出聲。拉遠地圖時，個別的槍聲會併成遠方的戰場聲。這些設定只存在這台電腦的瀏覽器裡。</div></div>';}
 function fxSync(){barRender();var P=document.querySelector('.lw-fxpop .lw-opt');if(P)P.innerHTML=fxCtl();if(G&&G.map&&typeof vDraw==='function')vDraw(false);}
 CHG.fxlvl=function(t){FX.lvl=+t.value;fxSave();fxSync();};
+CHG.fxsmk=function(t){FX.smk=+t.value;fxSave();fxSync();};
 CHG.fxdots=function(t){FX.dots=t.checked;fxSave();fxSync();};
 CHG.fxpl=function(t){FX.planes=t.checked;fxSave();fxSync();};
 CHG.fxson=function(t){SND.on=t.checked;if(SND.on)sndGesture();if(SND.ac&&SND.out)SND.out.gain.setTargetAtTime(sndVol(),SND.ac.currentTime,0.05);fxSave();fxSync();};
@@ -8271,10 +8277,10 @@ ACT.fxpop=function(b){var P=document.querySelector('.lw-fxpop');if(P){P.remove()
 
 var V7HELP='<h4>v7：戰場畫面效果與音效</h4><ul><li>交戰中的部隊在符號前方、朝向敵人的正面上畫出部隊：步兵每個圓點約一個班（十人上下），車輛每個方點約一輛，戰車在前、裝甲運兵車與卡車在步兵後面。進攻時圓點分兩組交互躍進，潰散時往後散開；兵力減少，圓點也跟著變少。地圖拉遠到每像素 30 公尺以上時不畫圓點。</li>'+
  '<li>子彈互射：曳光彈從射手的正面飛向目標的正面，顏色取各方代表色。第一次大戰的機槍與第二次大戰以後才有曳光彈；更早的子彈與鉛彈以淡色細線表示，火藥時代的齊射另有閃光與大片白煙。戰車砲、艦砲、反戰車飛彈與自殺無人機各有樣式。</li>'+
- '<li>砲兵開火時砲口有閃光、煙與揚起的塵土，砲彈在空中飛行，落點有火光、衝擊環、碎屑與煙，地上留下焦痕（約兩分半鐘後淡去）；車輛被擊毀時起火冒黑煙。校正試射的彈著是白色標定煙。效果以公尺計算大小，但在畫面上有最小尺寸，拉遠時仍看得到交戰位置。</li>'+
+ '<li>砲兵開火時砲口有閃光、煙與揚起的塵土，砲彈在空中飛行，落點有火光、衝擊環、碎屑與煙，地上留下焦痕（約兩分鐘後淡去）；車輛被擊毀時起火冒黑煙。煙畫在部隊符號、標籤與命令底下，不會遮住部隊；暫停時煙會淡去，方便觀察戰局。校正試射的彈著是白色標定煙。效果以公尺計算大小，但在畫面上有最小尺寸，拉遠時仍看得到交戰位置。</li>'+
  '<li>飛行中的航空器畫成機型剪影：螺旋槳戰機、噴射機、轟炸機與運輸機、直升機（旋翼會轉）、無人機、飛艇，機隊以編隊表示，地面有影子，噴射機拖著凝結尾，受損的飛機冒黑煙。投彈、火箭、防空砲的黑色爆煙、防空飛彈與空對空飛彈的煙跡、地毯式轟炸的連串爆炸與核爆都有對應的效果。</li>'+
  '<li>音效在瀏覽器裡即時合成：步槍與機槍（依年代不同）、火繩槍與燧發槍的齊射、戰車砲、遠方砲聲、爆炸、砲彈與炸彈的呼嘯、飛彈發射、防空砲、冷兵器的撞擊，以及螺旋槳、噴射機、直升機與無人機的引擎聲（隨距離、左右位置與接近遠離變化）。聲音依畫面位置決定左右與遠近，拉遠地圖時個別槍聲併成遠方的戰場聲；畫面變慢時自動減少同時播放的聲音，暫停時音效引擎會休息。</li>'+
- '<li>暫停時按「單步」也會播出那一步的交火。工具列的 🔊 按鈕與「設定」頁可以調整畫面效果（關閉、簡化、完整）、部隊圓點、飛機圖示、音效開關與音量；地圖圖層的「火力」也會一併隱藏這些效果。特效只讀取模擬結果，開或關都不會改變戰局；戰場迷霧下看不到的敵方射手不會顯示砲口與彈道起點，看不到的敵機也不會發出引擎聲。</li></ul>';
+ '<li>暫停時按「單步」也會播出那一步的交火。工具列的 🔊 按鈕與「設定」頁可以調整畫面效果（關閉、簡化、完整）、煙霧濃度（關閉、淡、標準）、部隊圓點、飛機圖示、音效開關與音量；地圖圖層的「火力」也會一併隱藏這些效果。特效只讀取模擬結果，開或關都不會改變戰局；戰場迷霧下看不到的敵方射手不會顯示砲口與彈道起點，看不到的敵機也不會發出引擎聲。</li></ul>';
 /* ===================== 戰報頁：戰區總覽、分級篩選（戰區／戰役／衝突／交火）、巢狀戰鬥、兵力與損失、傷亡原因、經過、匯出 ===================== */
 var REP={tiers:[1,1,1,1],flat:false,open:{},sel:0,st:'all'};
 PAGES.rep=function(host){var V=theaterView(),o='<div class="lw-main"><div class="lw-card"><h3>'+esc(V.name)+'<small>'+tTxt(0)+' 起，已進行 '+durTxt(G.t)+'</small></h3><div class="lw-grid">'+V.sides.map(function(s,i){var bk=G.stats[i].byK||{};return '<div><b style="color:'+s.color+'">'+esc(s.name)+'</b><div class="lw-kv"><span>傷亡</span><span>'+fmt(s.cas)+' 人</span><span>裝備損失</span><span>'+fmt(s.vl)+'</span><span>被俘</span><span>'+fmt(s.capt)+(s.surr?'（投降 '+s.surr+' 個單位）':'')+'</span><span>剩餘戰力</span><span>'+pct(s.f*100)+'</span></div>'+causeBars(bk)+'</div>';}).join('')+'</div>';
@@ -8767,13 +8773,14 @@ ACT.v8facsel=function(b){var F=facById(+b.getAttribute('data-v'));if(!F)return;U
 (function(){var b=lgLoss;lgLoss=function(V,frac,captor,why,by){var n0=V.n;b.apply(null,arguments);if(FX.cap&&V.n<n0&&FX.ev.length<5000&&lgSeen(V))FX.ev.push({k:'lghit',x1:V.x,y1:V.y,m:n0-V.n,air:!!(LGM[V.m]||{}).air});};})();
 FXS.fboom=function(e){var T=FX.clk,R=e.R||boomR(e.m),r1=R[1],n=e.sec?2:clamp(Math.round(Math.cbrt(e.m/1000)*2)+2,3,9),fuel=e.kind==='fuel';
   for(var i=0;i<n;i++){var a=Math.random()*2*PI,d=Math.random()*r1*0.5;fxEx(e.x1+Math.cos(a)*d,e.y1+Math.sin(a)*d,clamp(r1*(i?0.35:0.6),25,600),T+i*0.09);}
-  for(var j=0;j<fxLv(3,7);j++)fxP({k:'sm',x:e.x1+(Math.random()-0.5)*r1*0.4,y:e.y1+(Math.random()-0.5)*r1*0.4,t0:T+0.3+j*0.25,d:14+Math.random()*10,r0:r1*0.3,r1:r1*(1.2+Math.random()*0.8),p0:8,p1:40,a:fuel?0.65:0.5,c:fuel?'28,24,22':'70,64,58'});};
+  var rs=Math.min(r1,450);for(var j=0;j<fxLv(2,4);j++)fxP({k:'sm',x:e.x1+(Math.random()-0.5)*rs*0.4,y:e.y1+(Math.random()-0.5)*rs*0.4,t0:T+0.3+j*0.3,d:8+Math.random()*4,r0:rs*0.3,r1:rs*(1+Math.random()*0.5),p0:6,p1:24,a:fuel?0.5:0.4,c:fuel?'28,24,22':'70,64,58'});};
 FXS.lghit=function(e){var T=FX.clk;for(var i=0;i<Math.min(3,e.m);i++){fxEx(e.x1+(Math.random()-0.5)*160,e.y1+(Math.random()-0.5)*160,20,T+i*0.15);if(!e.air&&FX.lvl>=2)fxWreck(e.x1+(Math.random()-0.5)*160,e.y1+(Math.random()-0.5)*160,T+0.3+i*0.2);}};
 (function(){var b=sndEv;sndEv=function(e){if(e.k!=='fboom'&&e.k!=='lghit')return b(e);var ac=SND.ac;if(!ac||ac.state!=='running')return;var t=ac.currentTime+0.02,P=sndAt(e.x1,e.y1,true);SND.heat+=e.k==='fboom'?4:1;if(P.g<0.02)return;
   if(e.k==='lghit'){if(sndTok('expl'))SNDF.expl(t,P.pan,P.g*0.7,0.4,P.far);return;}var n=e.sec?1:3;for(var i=0;i<n;i++)if(sndTok('expl'))SNDF.expl(t+i*0.16,P.pan,Math.min(1,P.g*(e.sec?0.7:1.1)),e.sec?0.6:1,P.far);if(!e.sec&&sndTok('boom'))SNDF.boom(t,P.pan,Math.min(1,P.g),P.far);};})();
-(function(){var b=fxIngest;fxIngest=function(){b();if(!G.fac||FX.lvl<1||UI.lay.fx===0)return;var T=FX.clk,W=UI.run?DT/Math.max(1,UI.speed):0.6;G.fac.forEach(function(F){var big=F.fire&&G.t<F.fire;if(!big&&!(F.burn&&G.t<F.burn))return;var p=w2s(F.x,F.y);if(p[0]<-200||p[1]<-200||p[0]>VW.cw+200||p[1]>VW.ch+200)return;var R=facR(F);
-    for(var i=0;i<(big?2:1);i++)fxP({k:'sm',x:F.x+(Math.random()-0.5)*R,y:F.y+(Math.random()-0.5)*R,t0:T+Math.random()*W,d:18+Math.random()*12,r0:R*0.2,r1:R*(1.5+Math.random()),p0:5,p1:big?36:22,a:big?0.55:0.4,c:big?'30,26,24':'60,56,52'});
-    if(Math.random()<0.6)fxP({k:'fl',x:F.x+(Math.random()-0.5)*R*0.6,y:F.y+(Math.random()-0.5)*R*0.6,t0:T+Math.random()*W,d:0.7,r:big?5:3,c:'#FF8F00'});});};})();
+(function(){var b=fxIngest;fxIngest=function(){b();if(!G.fac||FX.lvl<1||UI.lay.fx===0)return;var T=FX.clk,W=UI.run?DT/Math.max(1,UI.speed):0.6;G.fac.forEach(function(F){var big=F.fire&&G.t<F.fire;if(!big&&!(F.burn&&G.t<F.burn))return;var p=w2s(F.x,F.y);if(p[0]<-200||p[1]<-200||p[0]>VW.cw+200||p[1]>VW.ch+200)return;
+    /* 每座設施最多每 1～1.6 秒（特效時鐘）冒一團煙：高速播放時不會越積越厚 */if(F._smT!==undefined&&T-F._smT<(big?1:1.6)&&F._smT<=T)return;F._smT=T;var R=Math.min(facR(F),250);
+    fxP({k:'sm',x:F.x+(Math.random()-0.5)*R,y:F.y+(Math.random()-0.5)*R,t0:T+Math.random()*W,d:8+Math.random()*4,r0:R*0.2,r1:R*(1.2+Math.random()*0.6),p0:4,p1:big?16:11,a:big?0.38:0.28,c:big?'30,26,24':'60,56,52'});
+    fxP({k:'fl',x:F.x+(Math.random()-0.5)*R*0.6,y:F.y+(Math.random()-0.5)*R*0.6,t0:T+Math.random()*W,d:0.7,r:big?5:3,c:'#FF8F00'});});};})();
 
 /* ---------- 說明 ---------- */
 var V8HELP='<h4>v8：油料、看得見的補給運輸、民用設施與平民</h4><ul>'+
