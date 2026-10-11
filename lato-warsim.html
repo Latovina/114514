@@ -3206,6 +3206,59 @@ FP.push(
  {k:'ijd1942',n:'步兵師團（太平洋戰爭）',era:'e1940',ech:5,br:'inf',kids:[['@r1940',3,'第{i}步兵聯隊'],['fa1940',4,'第{i}山砲中隊'],['en1940',1,'工兵中隊'],['md1940',1,'野戰病院'],['sp1940',1,'輜重中隊']]},
  {k:'iaw1942',n:'島嶼航空隊（二戰）',era:'e1940',ech:4,br:'air',kids:[['fi1940',2,'第{i}戰鬥機中隊'],['dbm1940',2,'第{i}俯衝轟炸機中隊'],['tbm1940',1,'魚雷轟炸機中隊']]});
 FP.forEach(function(p){FPI[p.k]=p;});
+/* ===================== v6 資料：空中偵察與無人機、空中預警、匿蹤機、防空壓制機、地對空飛彈、岸置反艦飛彈 ===================== */
+/* 新旗標：a 空中預警（長程監視雷達）、t 匿蹤（雷達截面積極小）、j 反輻射與防空壓制 */
+var UTR6=[
+ /* 空中偵察 */
+ ['rp1914','偵察機中隊（一戰）','e1914','air','air',16,8,'架','air',150,150, 0,0,0,0,0, 0.1,0,0,1,0,12000,1,0,64,60,0,'Br',0.3,'雙翼偵察機：空中照相與砲兵觀測',3,0],
+ ['rp1970','戰術偵察機中隊','e1970','air','air',24,12,'架','air',1300,1300, 0,0,0,0,0, 0.3,1,0,1,0,60000,0.9,1,72,72,0,'Br',0,'高速低空照相與側視雷達偵察',2.5,0],
+ ['sv1970','高空偵察機分隊','e1970','air','air',6,2,'架','air',800,800, 0,0,0,0,0, 0.2,0,0,1,0,150000,0.6,2,74,78,0,'Br',0,'在多數防空武器射程以上的高空偵察',9,0],
+ ['aw1970','空中預警機分隊','e1970','air','air',40,2,'架','air',750,750, 0,0,0,0,0, 0.2,0,0,1,0,15000,2,2,72,74,0,'Ba',0,'機背雷達監視數百公里內的飛機，引導己方戰機與防空',8,0],
+ ['aw2000','空中預警管制機分隊','e2000','air','air',40,2,'架','air',800,800, 0,0,0,0,0, 0.2,0,0,1,0,15000,2,2,74,78,0,'Ba',0,'長程雷達與資料鏈，整合己方空戰與防空',10,0],
+ ['jst2000','空中地面監視機分隊','e2000','air','air',30,2,'架','air',800,800, 0,0,0,0,0, 0.2,0,0,1,0,200000,2,2,72,76,0,'Br',0,'合成孔徑雷達監視地面移動目標',10,0],
+ ['uq1995','長航時偵察無人機中隊','e2000','uav','uav',30,4,'架','air',200,200, 0,0,0,0,0, 0.1,0,0,0.5,0,20000,0.3,2,60,70,0,'Br',0,'日夜持續監視，可為砲兵與飛彈指示目標',24,0],
+ ['uq2020','戰術偵察無人機排','e2020','uav','uav',12,6,'架','air',120,120, 0,0,0,0,0, 0,0,0,0.5,0,15000,0.15,2,60,70,0,'Ar',0,'小型無人機：難以察覺與擊落，為前線與砲兵提供即時影像',5,0],
+ /* 匿蹤與防空壓制 */
+ ['sa1983','匿蹤攻擊機中隊','e1970','air','air',20,10,'架','air',1000,1000, 14,8,0,0,0, 0.3,1,0,1,0,30000,0.5,2,76,80,0,'Bpt',0,'雷達截面積極小；夜間以雷射導引炸彈打擊防空、指揮與橋梁',3,0],
+ ['sf2005','匿蹤戰鬥機中隊','e2000','air','air',24,12,'架','air',1900,1900, 2,1,60000,120000,0, 0.4,2,0,1,0,120000,0.4,2,80,84,0,'Bt',18,'超音速巡航與匿蹤：先看到、先開火',2.5,0],
+ ['sf2015','匿蹤多用途戰機中隊','e2020','air','air',24,12,'架','air',1900,1900, 16,8,50000,100000,0, 0.4,2,0,1,0,150000,0.4,2,78,82,0,'Bpty',15,'匿蹤與感測器融合，可深入防空網打擊並為友軍標定目標',2.5,0],
+ ['sb1997','匿蹤戰略轟炸機分隊','e2000','air','air',8,4,'架','air',900,900, 150,10,0,1000,0, 0.3,2,0,1,0,60000,0.5,2,78,82,0,'Bvypt',0,'匿蹤長程轟炸，可穿透防空網投擲精準炸彈',12,0],
+ ['wd1978','防空壓制機中隊（野鼬鼠）','e1970','air','air',24,12,'架','air',1300,1300, 6,4,8000,25000,0, 0.3,1,0,1,0,60000,1,1,74,76,0,'Bj',6,'以反輻射飛彈獵殺開機中的防空雷達',2.5,0],
+ ['wd2000','電子攻擊與防空壓制中隊','e2000','air','air',24,12,'架','air',1600,1600, 8,6,40000,80000,0, 0.4,2,0,1,0,100000,1,2,76,80,0,'BjE',10,'干擾敵方雷達，並以反輻射飛彈攻擊防空網',2.5,0],
+ /* 地對空飛彈 */
+ ['sm1960','地對空飛彈營（SA-2 級）','e1970','ad','ad',200,6,'座發射架','wheel',40,10, 0,0,0,0,0, 0.1,0,0.5,1,0,5000,1.6,2,64,64,2,'g',9,'大型半固定防空飛彈；雷達開機時會被反輻射飛彈鎖定'],
+ ['sm1970','機動防空飛彈連（SA-6 級）','e1970','ad','ad',80,4,'輛','track',45,25, 0,0,0,0,0, 0.3,1,0.5,1,0,5000,1.3,2,66,66,1,'',10,'履帶機動、可快速轉移陣地的中程防空飛彈'],
+ ['sh1980','短程防空飛彈連','e1970','ad','ad',60,4,'輛','wheel',60,30, 0,0,0,0,0, 0.3,1,0.5,1,0,5000,1.1,2,66,68,1,'',8,'伴隨部隊的短程防空飛彈，掩護前線免受直升機與攻擊機威脅'],
+ ['sm1985','遠程防空飛彈營（愛國者／S-300 級）','e1970','ad','ad',120,8,'輛','wheel',60,20, 0,0,0,0,0, 0.1,0,0.5,1,0,5000,1.5,2,70,74,1,'g',13,'遠程防空與有限的反彈道飛彈能力'],
+ ['sm2010','遠程防空飛彈營（S-400 級）','e2000','ad','ad',120,8,'輛','wheel',60,20, 0,0,0,0,0, 0.1,0,0.5,1,0,5000,1.5,2,72,76,1,'g',15,'超長程防空與反彈道飛彈'],
+ ['sh2005','彈砲合一防空連','e2000','ad','ad',50,4,'輛','wheel',70,30, 3,1,1500,4000,0, 0.3,1,0.5,1,0,5000,1.1,2,70,74,1,'U',11,'飛彈與機砲並用，可攔截巡弋飛彈與無人機'],
+ /* 岸置反艦飛彈 */
+ ['cs1970','岸置反艦飛彈連（冷戰）','e1970','rkt','rkt',70,4,'輛發射車','wheel',50,15, 0,0,0,0,0, 0.1,0,0.5,1,0,25000,1.2,1,64,64,0,'xy',0,'以岸置雷達鎖定海上目標的反艦飛彈'],
+ ['cs2000','岸置反艦飛彈連','e2000','rkt','rkt',60,4,'輛發射車','wheel',70,25, 0,0,0,0,0, 0.1,0,0.5,1,0,25000,1.1,2,66,70,0,'xpy',0,'機動岸置反艦飛彈，可分散隱蔽、射後轉移'],
+ /* 電子偵察 */
+ ['si1940','無線電偵聽連','e1940','ew','ew',60,8,'輛','wheel',50,15, 0,0,0,0,0, 0.3,0,0.5,1.5,0,6000,0.9,0,58,62,0,'',0,'截收與測向敵方無線電通訊，找出司令部的位置'],
+ ['ew1970','電子作戰連','e1970','ew','ew',50,8,'輛','wheel',60,20, 0,0,0,0,0, 0.3,1,0.5,1.5,0,6000,0.9,1,60,66,0,'E',0,'測向與干擾敵方通訊，偵測防空雷達的位置'],
+ ['cs2020','超音速岸置反艦飛彈連','e2020','rkt','rkt',60,4,'輛發射車','wheel',70,25, 0,0,0,0,0, 0.1,0,0.5,1,0,25000,1.1,2,68,72,0,'xpy',0,'超音速反艦飛彈：留給防空的反應時間極短']];
+UTR6.forEach(function(r){UTR.push(r);UT[r[0]]=utFromRow(r);});
+/* 額外參數：sam 雷達導引防空飛彈（有開關機，雷達開機才能導引）、rng 攔截射程、rad 雷達偵測距離（對一般飛機）、abm 可攔截彈道飛彈、rcs 雷達截面係數（1＝一般飛機）、arm 反輻射飛彈 */
+Object.assign(UTX,{si1940:{sigint:1},sm1960:{sam:1,rng:30000,rad:70000,y0:1957},sm1970:{sam:1,rng:24000,rad:60000,y0:1967},sh1980:{sam:1,rng:12000,rad:30000,y0:1972},sm1985:{sam:1,rng:90000,rad:160000,abm:1,y0:1984},sm2010:{sam:1,rng:150000,rad:250000,abm:1,y0:2007},sh2005:{sam:1,rng:20000,rad:40000,y0:2003},
+  ad1970:{rng:8000},ad2000:{rng:10000},ad2020:{rng:12000},aw1970:{rad:350000},aw2000:{rad:450000},
+  sa1983:{rcs:0.2},sf2005:{rcs:0.12},sf2015:{rcs:0.15},sb1997:{rcs:0.12},uq2020:{rcs:0.3},ua2000:{rcs:0.35},uq1995:{rcs:0.5},md2020:{rcs:0.5},
+  wd1978:{arm:{n:2,r:50000,v:700,mem:0}},wd2000:{arm:{n:2,r:120000,v:750,mem:1}}});
+Object.assign(MSLT,{cs1970:{n:2,v:300,r:80000,y0:1967,kind:'asm',w:500,pk:0.7,ship:1,nm:'岸置反艦飛彈'},cs2000:{n:4,v:260,r:150000,y0:1990,kind:'asm',w:220,pk:0.8,ship:1,nm:'反艦飛彈'},cs2020:{n:2,v:900,r:300000,y0:2010,kind:'asm',w:250,pk:0.85,ship:1,nm:'超音速反艦飛彈'}});
+FP.push(
+ {k:'sig1940',n:'情報偵測群（二戰）',era:'e1940',ech:3,br:'ew',kids:[['si1940',1,'無線電偵聽連'],['rc1940',2,'第{i}裝甲偵察連']]},
+ {k:'sig1970',n:'電子偵察群（冷戰）',era:'e1970',ech:3,br:'ew',kids:[['ew1970',1,'電子作戰連'],['rc1970',2,'第{i}偵察連']]},
+ {k:'rcn1940',n:'偵察航空隊（二戰）',era:'e1940',ech:3,br:'air',kids:[['rp1940',2,'第{i}偵察機中隊']]},
+ {k:'rcn1970',n:'偵察與預警航空隊（冷戰）',era:'e1970',ech:4,br:'air',kids:[['rp1970',2,'第{i}戰術偵察機中隊'],['sv1970',1,'高空偵察機分隊'],['aw1970',1,'空中預警機分隊']]},
+ {k:'rcn2000',n:'情監偵航空隊（現代）',era:'e2000',ech:4,br:'air',kids:[['uq1995',2,'第{i}無人機中隊'],['jst2000',1,'空中地面監視機分隊'],['aw2000',1,'空中預警管制機分隊']]},
+ {k:'sead1980',n:'防空壓制打擊群（冷戰）',era:'e1970',ech:4,br:'air',kids:[['wd1978',2,'第{i}防空壓制機中隊'],['fi1970',1,'護航戰鬥機中隊'],['sa1983',1,'匿蹤攻擊機中隊'],['aw1970',1,'空中預警機分隊']]},
+ {k:'sead2010',n:'匿蹤與防空壓制聯隊（現代）',era:'e2000',ech:4,br:'air',kids:[['sf2005',1,'匿蹤戰鬥機中隊'],['sf2015',2,'第{i}匿蹤多用途戰機中隊'],['wd2000',1,'電子攻擊中隊'],['aw2000',1,'空中預警管制機分隊']]},
+ {k:'iads1985',n:'防空飛彈旅（冷戰後期）',era:'e1970',ech:4,br:'ad',kids:[['sm1985',1,'遠程防空飛彈營'],['sm1970',2,'第{i}機動防空飛彈連'],['sh1980',2,'第{i}短程防空飛彈連'],['ad1970',2,'第{i}防空砲連']]},
+ {k:'iads2010',n:'整合防空旅（現代）',era:'e2000',ech:4,br:'ad',kids:[['sm2010',1,'遠程防空飛彈營'],['sm1985',1,'中遠程防空飛彈營'],['sh2005',3,'第{i}彈砲合一防空連']]},
+ {k:'cdb2000',n:'岸防飛彈旅（現代）',era:'e2000',ech:4,br:'rkt',kids:[['cs2000',3,'第{i}岸置反艦飛彈連'],['sm1985',1,'防空飛彈營'],['sh2005',1,'彈砲合一防空連']]},
+ {k:'cdb2020',n:'岸防飛彈旅（當代）',era:'e2020',ech:4,br:'rkt',kids:[['cs2020',3,'第{i}超音速反艦飛彈連'],['sm2010',1,'遠程防空飛彈營'],['uq2020',2,'第{i}偵察無人機排']]});
+FP.forEach(function(p){FPI[p.k]=p;});
 /* ===================== 區域作戰地圖：由世界地圖（或程序產生的大尺度場）放大成寫實的作戰地圖 =====================
    取樣器 S 提供大尺度資料（座標為區域內公尺，原點在左上）：elev、relief、clim、hab、land、lake、nation、rivers、lat */
 var ERAYEAR_POP=[[1600,0.25],[1700,0.33],[1800,0.42],[1860,0.55],[1900,0.68],[1916,0.74],[1943,0.85],[1980,1],[2005,1.1],[2030,1.15]];
@@ -3898,13 +3951,13 @@ function aRng(u){var E=uEra(u);return E.bp?110:E.i<=5?150:200;}
 function marchSafe(u){var E=uEra(u);return E.i<=3?2500:E.i<=5?4000:E.i<=7?8000:12000;}
 /* ---------- 路徑請求（每步最多處理數條，避免卡頓） ---------- */
 function wantPath(u,x,y){u.goal=[x,y];u.path=null;var s=ST(u),d=dist(u.x,u.y,x,y);if(s.dom==='air'||(d<(isLeaf(u)?1500:4000)&&lineOK(s,u.x,u.y,x,y))){u.path={pts:[u.x,u.y,x,y],i:2};u.pq=0;return;}
-  /* 同一目標最近才找不到路（城牆、包圍圈、斷橋）：一段時間內不重算，避免反覆搜尋整張地圖 */var F=u.noPath;if(F&&G.t-F.t<(F.n>=3?3600:900)&&dist(F.x,F.y,x,y)<400&&dist(F.ux,F.uy,u.x,u.y)<300&&F.v===(G._mapv||0)){u.goal=null;return;}if(!u.pq){u.pq=1;G.pq.push(u.id);}}
+  /* 同一目標最近才找不到路（城牆、包圍圈、斷橋）：一段時間內不重算，避免反覆搜尋整張地圖 */var F=u.noPath;if(F&&G.t-F.t<(F.n>=3?3600:900)&&dist(F.x,F.y,x,y)<400&&dist(F.ux,F.uy,u.x,u.y)<300&&F.v===(G._mapv||0)){u.goal=null;u.pq=0;return;}if(!u.pq){u.pq=1;G.pq.push(u.id);}}
 var PCH={},PCN=0;
 /* 同一粗格出發、前往同一粗格的部隊（例如同一個營的各連）共用最近算出的路線，只重算頭尾兩段 */
 function pathShare(u,s,av){var MP=G.map,GW=MP.GW,B=Math.max(6,Math.round(2500/MP.cs)),a=cellAt(u.x,u.y),b=cellAt(u.goal[0],u.goal[1]),pf=s.dom==='land'?pfFor(s.mobi):null,key=(pf?pf.key:s.dom+(s.dr||0))+'|'+s.vr+'|'+s.vx+'|'+u.side+'|'+(av?1:0)+'|'+(((a/GW)|0)/B|0)+','+((a%GW)/B|0)+'>'+(((b/GW)|0)/B|0)+','+((b%GW)/B|0);return key;}
 function pathReuse(u,s,key){var C=PCH[key];if(!C||G.t-C.t>1200||C.rdi!==G.rdi||C.v!==(G._mapv||0))return null;var P=C.pts,n=P.length;if(n<4)return null;var mid=P.slice(2,n-2),gx=u.goal[0],gy=u.goal[1];
   if(!mid.length)return lineOK(s,u.x,u.y,gx,gy)?{pts:[u.x,u.y,gx,gy],sec:C.sec}:null;if(!lineOK(s,u.x,u.y,mid[0],mid[1])||!lineOK(s,mid[mid.length-2],mid[mid.length-1],gx,gy))return null;return {pts:[u.x,u.y].concat(mid,[gx,gy]),sec:C.sec};}
-function pathStep(){var n=0,t0=Date.now(),bud=G._pfMs||40;while(G.pq.length&&n<12&&Date.now()-t0<bud){var u=uById(G.pq.shift());if(!u||!alive(u)||!u.pq)continue;u.pq=0;n++;var s=ST(u),av=s.dom==='land'?roadAvoid(u):null,pk=pathShare(u,s,av),R=pathReuse(u,s,pk);if(R)n-=0.75;else{R=findPath(s,u.x,u.y,u.goal[0],u.goal[1],{w:clamp(0.6*s.vr/Math.max(1,s.vx)+0.9,1.5,3),max:G.map.GW*G.map.GH,avoid:av});if(R&&R.pts.length>=4){if(PCN>600){PCH={};PCN=0;}if(!PCH[pk])PCN++;PCH[pk]={pts:R.pts,sec:R.sec,t:G.t,rdi:G.rdi,v:G._mapv||0};}}
+function pathStep(){var n=0,t0=Date.now(),bud=G._pfMs||40;while(G.pq.length&&n<12&&Date.now()-t0<bud){var u=uById(G.pq.shift());if(!u||!alive(u)||!u.pq)continue;u.pq=0;if(!u.goal)continue;n++;var s=ST(u),av=s.dom==='land'?roadAvoid(u):null,pk=pathShare(u,s,av),R=pathReuse(u,s,pk);if(R)n-=0.75;else{R=findPath(s,u.x,u.y,u.goal[0],u.goal[1],{w:clamp(0.6*s.vr/Math.max(1,s.vx)+0.9,1.5,3),max:G.map.GW*G.map.GH,avoid:av});if(R&&R.pts.length>=4){if(PCN>600){PCH={};PCN=0;}if(!PCH[pk])PCN++;PCH[pk]={pts:R.pts,sec:R.sec,t:G.t,rdi:G.rdi,v:G._mapv||0};}}
     if(R&&R.pts.length>=4){u.path={pts:R.pts,i:2};u.eta=G.t+R.sec;u.stuck=0;}else{var F0=u.noPath;u.noPath={x:u.goal[0],y:u.goal[1],ux:u.x,uy:u.y,t:G.t,v:G._mapv||0,n:F0&&dist(F0.x,F0.y,u.goal[0],u.goal[1])<400?F0.n+1:1};u.path=null;u.stuck=(u.stuck||0)+1;if(u.stuck===1)logE(u.side,'path',uName(u)+'找不到可行路線（'+placeTxt(u.goal[0],u.goal[1])+'），原地待命',u.x,u.y,u.id);u.goal=null;}}}
 /* ---------- 速度（公尺／秒） ---------- */
 function speedAt(u,s,pf){var dom=s.dom,v;if(dom==='air')return s.vr/3.6;if(dom==='sea'||dom==='sub'){v=(u.ord&&/attack|withdraw/.test(u.ord.k)?s.vr:s.vx);return v/3.6*(1-u.sup/250)*(u.ms==='rout'?1.1:1);}
@@ -4056,10 +4109,10 @@ function spotOf(u,s){var r=s.spot*(hasQ(offOf(u),'scout')?1.2:1)*paceOf(u)[4];if
 function sigOf(t,ts,air){var MP=G.map,k=cellAt(t.x,t.y),c=MP.lc[k],f=ts.sig;if(ts.dom==='land')f*=LC[c][5];var fired=G.t-(t.fired||-1e9)<70;
   if(ts.fl.indexOf('S')>=0&&!fired)f*=0.25;if(G.t-(t.movedAt||-1e9)<70)f*=1.4;if(fired)f*=G.env.light<0.3?4:2.5;if(t.ent>0.5&&!fired)f*=0.7;if(t.form==='march')f*=1.3;if(air&&ts.dom==='land')f*=0.8;var op=optOf(t);if(!fired&&t.ord){if(t.ord.k==='attack'&&op.tac==='infil')f*=0.45;if(op.post==='ambush'&&!t.ambT||op.post==='hide')f*=0.4;}return f;}
 function spotStep(){gridBuild();var MP=G.map,best={},seen0=[{},{}],light=G.env.light;G.units.forEach(function(u){u._seen=null;u._ed=1e9;u._eid=0;u._ep=0;u._cav=0;});
-  G.units.forEach(function(o){if(!onMap(o)||o.ms==='rout'&&ST(o).dom!=='air')return;var s=ST(o),R0=spotOf(o,s);if(R0<=0)return;var air=s.dom==='air',vm=visMul(s.nv,air),h0=hgtOf(o),Rmax=R0*vm*3.2,seen=[];
+  G.units.forEach(function(o){if(!onMap(o)||o.ms==='rout'&&ST(o).dom!=='air')return;var s=ST(o),R0=spotOf(o,s);if(R0<=0)return;var air=s.dom==='air',vm=visMul(s.nv,air),h0=hgtOf(o),Rmax=R0*vm*3.2,seen=[],qk=s.fl.indexOf('r')>=0||s.br==='rec'?0.85:0.5;
     gridNear(o.x,o.y,Math.min(Rmax,60000),function(t){if(t.side===o.side||!onMap(t))return;var ts=ST(t),d=dist(o.x,o.y,t.x,t.y);if(d>Rmax)return;var R=R0*vm*sigOf(t,ts,air);if(ts.dom==='air')R=Math.max(R,R0*Math.max(0.35,vm)*ts.sig*(air?1.2:0.9));
       if(ts.dom==='sub'&&!air&&s.dom!=='sea'&&s.dom!=='sub')return;if(d>500&&optOf(t).post==='reverse'&&t.ord&&/defend|screen/.test(t.ord.k))R*=0.5;if(d>R)return;var th=hgtOf(t);if(!(air||ts.dom==='air')&&d>MP.cs*2&&!los(o.x,o.y,h0,t.x,t.y,th))return;
-      seen.push(t.id);var q=d<R*0.5?1:0.5,id=t.id,cur=best[o.side+':'+id];if(!cur||cur.q<q)best[o.side+':'+id]={side:o.side,t:t,q:q,obs:o};
+      seen.push(t.id);var q=d<R*qk?1:0.5,id=t.id,cur=best[o.side+':'+id];if(!cur||cur.q<q)best[o.side+':'+id]={side:o.side,t:t,q:q,obs:o};
       if(d<o._ed){o._ed=d;o._eid=t.id;}if(d<2000)o._ep+=t.men;if(d<700&&ts.fl.indexOf('c')>=0)o._cav=1;});o._seen=seen;});
   /* 回報：觀測到的接觸依指揮鏈回報延遲送入本方情報圖（同一目標取最快者） */
   for(var key in best){var b=best[key],t=b.t,o=b.obs,rd=reportDelay(o);G.rq[b.side].push({at:G.t+rd,id:t.id,x:t.x+(b.q<1?(rnd()-0.5)*400:0),y:t.y+(b.q<1?(rnd()-0.5)*400:0),t:G.t,q:b.q,by:o.id});
@@ -4161,12 +4214,12 @@ function cbStep(){var keep=[];G.cbq.forEach(function(q){if(G.t<q.at){keep.push(q
 function aaRange(aa){return aa<3?2500:aa<6?4000:aa<9?8000:aa<12?15000:40000;}
 function airFight(){var A=G.units.filter(function(u){return u.st==='air'&&alive(u);});if(!A.length)return;var dm=DT/60;
   /* 防空 */
-  G.units.forEach(function(g){if(!onMap(g)||g.st==='air'||g.ms==='rout')return;var s=ST(g),AA=aaOf(g,s);if(!(AA>0)||g.ammo<=0)return;var R=aaRange(AA),vis=G.env.light<0.3&&s.nv<1&&uEra(g).i<6?0.3:1,best=null,bd=R;
-    A.forEach(function(a){if(a.side===g.side)return;var d=dist(g.x,g.y,a.x,a.y);if(d<bd){bd=d;best=a;}});if(!best)return;var es=ST(best),F=AA*0.03*dm*strFrac(g)*vis*(1-g.sup/150)*clamp(es.sig,0.3,3)/(1+es.arm/3)*AAK*(0.7+0.6*rnd())*ctrMul(g,best,'aa');
+  G.units.forEach(function(g){if(!onMap(g)||g.st==='air'||g.ms==='rout')return;var s=ST(g),AA=aaOf(g,s);if(!(AA>0)||g.ammo<=0)return;var R=aaRangeU(g,AA),sam=samOf(g),vis=!sam&&G.env.light<0.3&&s.nv<1&&uEra(g).i<6?0.3:1,best=null,bd=R;
+    A.forEach(function(a){if(a.side===g.side)return;var d=dist(g.x,g.y,a.x,a.y);if(d<bd&&aaSees(g,a,d)){bd=d;best=a;}});if(!best)return;var es=ST(best),F=AA*0.03*dm*strFrac(g)*vis*(1-g.sup/150)*clamp(es.sig,0.3,3)/(1+es.arm/3)*AAK*(0.7+0.6*rnd())*ctrMul(g,best,'aa')*(sam?clamp(1.5-bd/R,0.5,1):1);
     hit(best,g,F*best.men/Math.max(1,best.veh),F,6,'aa');g.ammo=Math.max(0,g.ammo-0.1);});
   /* 空戰 */
   A.forEach(function(f){var s=ST(f);if(!(s.aa>0)||f.ms==='rout'||f.task==='rtb'&&s.fl.indexOf('Y')<0)return;var R=Math.max(3000,Math.min(Math.max(s.rE,3000),s.spot*0.6)),best=null,bd=R;
-    A.forEach(function(e){if(e.side===f.side)return;var d=dist(f.x,f.y,e.x,e.y);if(d<bd){bd=d;best=e;}});if(!best)return;var es=ST(best),rel=clamp(1+0.12*(s.aa-es.aa),0.3,2.5),F=s.aa*0.05*dm*strFrac(f)*rel*AAK/(1+es.arm/4)*(G.env.light<0.3&&s.nv<1?0.3:1)*(0.7+0.6*rnd())*ctrMul(f,best,'air');
+    A.forEach(function(e){if(e.side===f.side)return;var d=dist(f.x,f.y,e.x,e.y);if(d<bd&&airSees(f,e,d)){bd=d;best=e;}});if(!best)return;var es=ST(best),rel=clamp(1+0.12*(s.aa-es.aa),0.3,2.5),F=s.aa*0.05*dm*strFrac(f)*rel*AAK/(1+es.arm/4)*(G.env.light<0.3&&s.nv<1?0.3:1)*(0.7+0.6*rnd())*ctrMul(f,best,'air')*firstLook(f,best,bd);
     hit(best,f,F*best.men/Math.max(1,best.veh),F,10,'air');});
   /* 對地攻擊 */
   A.forEach(function(a){var s=ST(a),o=a.ord,SA=saOf(a,s),HA=haOf(a,s);if(!o||a.task!=='loiter'||a.ammo<=0||a.ms==='rout')return;if(!/strike|bomb|attack|bombard/.test(o.k)&&!(o.k==='patrol'&&s.fl.indexOf('Y')>=0))return;if(SA<=0&&HA<=0)return;
@@ -4237,7 +4290,7 @@ function simStep(){if(G.over)return;G.t+=DT;G.step++;envStep(DT);
   G.units.forEach(function(u){if(u.st==='off'&&u.arr&&reinfDue(u)&&(u.p<0||uById(u.p).st!=='off'))arriveUnit(u);});
   hqRebuild();msgStep();pendStep();pathStep();if(G.step%2===1||G.step<3)spotStep();else gridBuild();reportStep();
   G.units.forEach(function(u){if(!alive(u))return;if(isLeaf(u))leafStep(u);else if(!u.hqLost)hqStep(u);else{var L=leavesOf(u).filter(onMap);if(L.length){var c=centroid(L);u.x=c[0];u.y=c[1];}}});
-  fireStep();assaultStep();artyStep();airFight();projStep();if(typeof v5Step==='function')v5Step();applyDamage();moraleStep();fatigueStep();cbStep();if(G.civ)civStep();if(G.evt)evtStep();if(G.step%20===15){trebStep();sgStep();}if(G.step%20===7)polDyn();if(G.step%20===13)roadStep();if(G.step%20===17&&typeof drawSweep==='function')drawSweep();if(G.meets&&G.step%10===3)meetStep();if(G.press&&G.step%20===10)pressStep();
+  fireStep();assaultStep();artyStep();if(typeof v6Pre==='function')v6Pre();airFight();projStep();if(typeof v5Step==='function')v5Step();if(typeof v6Step==='function')v6Step();applyDamage();moraleStep();fatigueStep();cbStep();if(G.civ)civStep();if(G.evt)evtStep();if(G.step%20===15){trebStep();sgStep();}if(G.step%20===7)polDyn();if(G.step%20===13)roadStep();if(G.step%20===17&&typeof drawSweep==='function')drawSweep();if(G.meets&&G.step%10===3)meetStep();if(G.press&&G.step%20===10)pressStep();
   if(G.step%20===0)logStep();if(G.step%4===0)objStep();if(G.set.ini&&G.step%20===10)initiativeStep();
   G.sides.forEach(function(S,i){if(S.ai&&G.step%40===(i*20+5)%40){if(G.set.ai2===false)aiStep(i);else cmdrStep(i);}});btStep();if(G.step%20===0)frontStep();recStep();checkEnd();}
 /* ---------- 士氣：傷亡、壓制、恐懼光環、孤立、失去司令部；脫離接觸後回復 ---------- */
@@ -4278,7 +4331,7 @@ function surrounded(u){var q=[0,0,0,0];gridNear(u.x,u.y,2000,function(e){if(e.si
 var TIERN=['交火','衝突','戰役','戰區'],TIERC=['#8A8F98','#C98A1E','#C0462B','#7B2CBF'],TIERD=['小部隊之間的接觸與射擊','數個營到旅級的戰鬥','師級以上的大規模作戰','多個戰役連成的整個戰區'];
 function touch(a,b,kind){(G._touch||(G._touch=[])).push(a.id,b.id,kind);}
 function btGet(id){return G.bt.list[id-1]||null;}
-function btTop(R){while(R&&R.parent)R=btGet(R.parent);return R;}
+/* 上層戰役（最多 64 層，防止舊存檔裡的循環造成無限迴圈） */function btTop(R){var n=0;while(R&&R.parent&&n++<64)R=btGet(R.parent);return R;}
 function btAct(uid){var r=G.bt.byUnit[uid];if(!r)return null;var R=btTop(btGet(r));return R&&R.active?R:null;}
 function btTier(R){var m=R.men[0]+R.men[1],T=G.set.tiers||[2000,20000,200000];return m>=T[2]?3:m>=T[1]?2:m>=T[0]?1:0;}
 function placeName(x,y){var MP=G.map,best=null,bd=1e18;(MP.set||[]).forEach(function(s){var d=dist(x,y,s.x*MP.cs,s.y*MP.cs)/(s.kind==='city'?3:s.kind==='town'?1.8:1);if(d<bd){bd=d;best=s;}});if(best&&bd<6000)return best.name;
@@ -4290,7 +4343,7 @@ function btAdd(R,u,kind){var S=R.u[u.side],e=S[u.id];if(!e){var s=ST(u);e=S[u.id
     if(e.late)R.later[u.side]+=u.men;else R.init[u.side]+=u.men;if(u.isReinf)R.reinf[u.side]+=u.men;if(e.late&&u.men+u.veh*8>=150)R.ev.push({t:G.t,txt:G.sides[u.side].name+'投入'+uName(u)+'（'+fmt(u.men)+' 人）'+(u.isReinf?'〔增援〕':'')});}
   G.bt.byUnit[u.id]=R.id;if(kind)R.n[kind]=(R.n[kind]||0)+1;}
 function btNear(x,y){var best=null,bd=1e18;G.bt.list.forEach(function(R){if(!R.active||R.parent||G.t-R.t1>900)return;var L=1200+600*R.tier,dx=Math.max(R.bb[0]-x,0,x-R.bb[2]),dy=Math.max(R.bb[1]-y,0,y-R.bb[3]),d=Math.sqrt(dx*dx+dy*dy);if(d<=L&&d<bd){bd=d;best=R;}});return best;}
-function btMerge(A,B){if(A===B)return A;var big=A.men[0]+A.men[1]>=B.men[0]+B.men[1]?A:B,sm=big===A?B:A;btFreeze(sm);
+function btMerge(A,B){A=btTop(A);B=btTop(B);if(!A||!B||A===B)return A||B;var big=A.men[0]+A.men[1]>=B.men[0]+B.men[1]?A:B,sm=big===A?B:A;btFreeze(sm);
   for(var s=0;s<2;s++)for(var id in sm.u[s]){var e=sm.u[s][id];if(!big.u[s][id]){big.u[s][id]=Object.assign({},e,{m1:undefined,v1:undefined,fate:undefined});big.men[s]+=e.m0;big.veh[s]+=e.v0;if(e.late||sm.t0>big.t0+600)big.later[s]+=e.m0;else big.init[s]+=e.m0;if(e.reinf)big.reinf[s]+=e.m0;}G.bt.byUnit[id]=big.id;}
   big.t0=Math.min(big.t0,sm.t0);big.t1=Math.max(big.t1,sm.t1);big.bb=[Math.min(big.bb[0],sm.bb[0]),Math.min(big.bb[1],sm.bb[1]),Math.max(big.bb[2],sm.bb[2]),Math.max(big.bb[3],sm.bb[3])];for(var k in sm.n)big.n[k]=(big.n[k]||0)+sm.n[k];
   big.kids.push(sm.id);sm.parent=big.id;sm.active=false;sm.end=G.t;sm.res=btOutcome(sm);big.ev.push({t:G.t,txt:sm.name+'與本戰鬥連成一片，併入'});return big;}
@@ -4309,7 +4362,7 @@ function btStep(){var T=G._touch||[];G._touch=[];for(var i=0;i<T.length;i+=3){va
     btAdd(R,a,T[i+2]);btAdd(R,b,null);R.t1=G.t;R.bb=[Math.min(R.bb[0],x),Math.min(R.bb[1],y),Math.max(R.bb[2],x),Math.max(R.bb[3],y)];}
   if(G.step%10!==0)return;G.bt.list.forEach(function(R){if(!R.active)return;
     /* 後續投入：進入戰場範圍、帶著作戰命令（攻擊、防禦、支援、砲擊、預備）的部隊 */
-    var M=Math.max(1500,0.5*Math.max(R.bb[2]-R.bb[0],R.bb[3]-R.bb[1])+800);G.units.forEach(function(u){if(!onMap(u)||G.bt.byUnit[u.id]===R.id)return;if(u.x<R.bb[0]-M||u.x>R.bb[2]+M||u.y<R.bb[1]-M||u.y>R.bb[3]+M)return;var o=u.ord;
+    var M=Math.max(1500,0.5*Math.max(R.bb[2]-R.bb[0],R.bb[3]-R.bb[1])+800);G.units.forEach(function(u){/* 本戰鬥已併入別的戰鬥：不再加入部隊 */if(!R.active||R.parent)return;if(!onMap(u)||G.bt.byUnit[u.id]===R.id)return;if(u.x<R.bb[0]-M||u.x>R.bb[2]+M||u.y<R.bb[1]-M||u.y>R.bb[3]+M)return;var o=u.ord;
       var cm=(o&&/attack|defend|support|bombard|reserve|strike|screen/.test(o.k))||(u._ed<1500);if(!cm)return;var ra=btAct(u.id);if(ra&&ra!==R){btMerge(ra,R);return;}btAdd(R,u,null);});
     var nt=btTier(R);if(nt>R.tier){var old=R.name;R.tier=nt;R.name=btName(R);R.ev.push({t:G.t,txt:'雙方累計投入 '+fmt(R.men[0]+R.men[1])+' 人，規模升級為「'+TIERN[nt]+'」'});logE(-1,'bt',old+'規模擴大，升級為'+R.name+'（雙方投入 '+fmt(R.men[0]+R.men[1])+' 人）',(R.bb[0]+R.bb[2])/2,(R.bb[1]+R.bb[3])/2);}
     if(G.t-R.t1>1800)btClose(R);});}
@@ -5614,6 +5667,164 @@ function clock(t){var c=dateOf(G.set.y,G.set.m,G.set.d,t+G.set.h*3600+(G.set.mi|
 LIFTN.ship='運輸船';
 (function(){var b=arriveMode;arriveMode=function(F,A,x,y){if((A.mode||'edge')==='ship'){arriveShip(F,A,x,y);return;}b(F,A,x,y);};})();
 function v5Step(){if(G.step%4===1)cvStep();cvyStep();mslStep();snkStep();if(G.fo&&G.fo.length&&G.step%4===2)foStep();if(G.step%10===4)nosurStep();if(G.step%40===25)v5AI();if(G.step%120===7)mslReload();if(G.step%4===3)ditchStep();}
+/* ===================== v6：海上部隊自動配船、砲兵試射校正、偵察與情報來源、雷達與匿蹤、防空壓制、岸置反艦飛彈、長期作戰、民用補給設施 ===================== */
+APDEF.fac=false;APDEF.sead=false;
+function uxOf(u){return u&&u.mix&&u.mix.length?utx(u.mix[0][0]):{};}
+
+/* ---------- 在海上的陸軍單位：配屬運輸艦；接到以陸地為目標的命令後，運輸艦駛往最近的海岸讓部隊登陸 ---------- */
+function onWater(x,y){var MP=G.map,k=cellAt(x,y);return isWater(MP.lc[k])&&!MP.rd[k];}
+function landNear(x,y,R){var MP=G.map,cs=MP.cs,GW=MP.GW,GH=MP.GH,cx=Math.floor(x/cs),cy=Math.floor(y/cs),Rc=Math.ceil((R||40000)/cs);
+  for(var r=1;r<=Rc;r++){var best=null,bd=1e18;for(var i=-r;i<=r;i++){var P=[[cx+i,cy-r],[cx+i,cy+r],[cx-r,cy+i],[cx+r,cy+i]];for(var j=0;j<4;j++){var X=P[j][0],Y=P[j][1];if(X<0||Y<0||X>=GW||Y>=GH)continue;var k=Y*GW+X;if(isWater(MP.lc[k]))continue;var d=(X-cx)*(X-cx)+(Y-cy)*(Y-cy);if(d<bd){bd=d;best=[(X+0.5)*cs,(Y+0.5)*cs];}}}if(best)return best;}return null;}
+/* 緊鄰海面的陸地格（灘頭候選），依地圖版本快取 */
+function coastList(){var MP=G.map;if(MP._coast&&MP._coastV===(G._mapv||0))return MP._coast;var GW=MP.GW,GH=MP.GH,L=[],st=Math.max(1,Math.round(250/MP.cs)),DX=[1,1,0,-1,-1,-1,0,1],DY=[0,1,1,1,0,-1,-1,-1];
+  for(var y=1;y<GH-1;y+=st)for(var x=1;x<GW-1;x+=st){var k=y*GW+x;if(isWater(MP.lc[k]))continue;for(var d=0;d<8;d++){if(seaWater(MP.lc[(y+DY[d])*GW+x+DX[d]])){L.push(k);break;}}}MP._coast=L;MP._coastV=G._mapv||0;return L;}
+function beachFor(tx,ty){var L=coastList(),best=-1,bd=1e18;for(var i=0;i<L.length;i++){var p=cellXY(L[i]),d=(p[0]-tx)*(p[0]-tx)+(p[1]-ty)*(p[1]-ty);if(d<bd){bd=d;best=L[i];}}return best>=0?cellXY(best):null;}
+/* 自動配屬、仍在海上待命或航行中的運輸艦（u 可以是運輸艦本身或船上的部隊） */
+function autoCvyOf(u){var C=u.cvy?u:u.st==='ship'?uById(u.cvyId):null;return C&&C.cvy&&C.cvy.auto&&!C.cvy.done&&/^(hold|sail|go)$/.test(C.cvy.ph)?C:null;}
+function autoTransport(L){if(!L.length)return null;var side=L[0].side,c=centroid(L),top=topOf(L[0]),tk=cvyType({}),t=UT[tk],X=utx(tk),men=sum(L,function(u){return u.men;}),veh=sum(L,function(u){return u.veh;}),
+    ships=Math.max(1,Math.ceil(Math.max(men/(X.pax||1000),X.pv?veh/X.pv:0))),m=Math.max(1,Math.ceil(ships/Math.max(1,t.veh)));
+  var C=addLeaf(side,tk,m,uName(top)+'運輸艦',-1,mb32(hstr('atr'+L[0].id+'|'+G.t))),p=validPos(ST(C),c[0],c[1]);C.x=p[0];C.y=p[1];C.hd=0;C.home=[p[0],p[1]];C.placed=1;C.form='march';C.ms='ok';C.task='hold';if(!C.lg)logInit(C);
+  C.cvy={auto:1,ph:'hold',pax:L.map(function(u){return u.id;}),vp:C.veh,t0:G.t,nx:0,i:0,ex:p[0],ey:p[1]};C.cargoN=men;
+  L.forEach(function(u){u.st='ship';u.cvyId=C.id;u.x=C.x;u.y=C.y;u.path=null;u.pq=0;u.goal=null;u.task=null;u.pend=[];u.mis=null;});
+  /* 陸上兵力全部在船上的上級編制一起登船 */var seen={};L.forEach(function(u){ancestors(u).forEach(function(F){if(seen[F.id])return;seen[F.id]=1;var LL=leavesOf(F).filter(function(z){return alive(z)&&ST(z).dom==='land';});if(LL.length&&LL.every(function(z){return z.st==='ship';})){F.st='ship';F.cvyId=C.id;F.x=C.x;F.y=C.y;F.path=null;}});});
+  reix();logE(side,'amph',uName(top)+'有 '+L.length+' 個單位位在海上，配屬 '+fmt(m*t.veh)+' 艘'+t.n.replace(/(分隊|船隊|隊)$/,'')+'：對船上部隊下達以陸地為目標的命令後，運輸艦會駛往最近的海岸讓部隊登陸',p[0],p[1],C.id);return C;}
+function autoGo(C,tx,ty){var Q=C.cvy;if(!Q||!Q.auto||Q.done)return;if(onWater(tx,ty)){Q.ph='sail';Q.sx=tx;Q.sy=ty;Q.t0=G.t;cvyGo(C,tx,ty);return;}
+  var b=beachFor(tx,ty),o=b?offshore(b[0],b[1]):null;if(!b||!o){if(!Q.noB||G.t-Q.noB>1800){Q.noB=G.t;logE(C.side,'amph',uName(C)+'找不到可以靠近的海岸',C.x,C.y,C.id);}return;}
+  Q.bx=b[0];Q.by=b[1];Q.ox=o[0];Q.oy=o[1];Q.ph='go';Q.t0=G.t;Q.lx=C.x;Q.ly=C.y;Q.lt=G.t;cvyGo(C,o[0],o[1]);logE(C.side,'amph',uName(C)+'駛往'+placeTxt(b[0],b[1])+'外海，準備讓部隊登陸',C.x,C.y,C.id);}
+/* 航行到海上目標後回到待命；駛不近灘頭（沒有航路）時就近以小艇送部隊上岸 */
+function autoCvyStep(){G.units.forEach(function(C){var Q=C.cvy;if(!Q||!Q.auto||Q.done||C.st==='dead')return;var near=Math.max(900,G.map.cs*3);
+  if(Q.ph==='sail'){if(dist(C.x,C.y,Q.sx,Q.sy)<near||(!C.path&&!C.pq&&G.t-Q.t0>600)){Q.ph='hold';C.task='hold';C.path=null;}return;}
+  if(Q.ph==='go'){if(dist(C.x,C.y,Q.lx,Q.ly)>300){Q.lx=C.x;Q.ly=C.y;Q.lt=G.t;return;}if(G.t-Q.lt>1200&&dist(C.x,C.y,Q.ox,Q.oy)>=near){var p=landNear(C.x,C.y,60000);if(p){Q.bx=p[0];Q.by=p[1];}C.hd=Math.atan2(Q.by-C.y,Q.bx-C.x);Q.ph='unl';Q.nx=G.t;C.path=null;C.task='hold';logE(C.side,'amph',uName(C)+'無法駛近預定的灘頭，就近以小艇送部隊到'+placeTxt(Q.bx,Q.by)+'上岸',C.x,C.y,C.id);}}});}
+/* 卸載完畢：自動配屬的運輸艦不附載補給，直接返航駛離 */
+(function(){var b=cvyDone;cvyDone=function(C){var Q=C.cvy;if(!Q||!Q.auto){b(C);return;}var E=seaEntry(C.side,C.x,C.y);Q.ph='ret';Q.tr=G.t;logE(C.side,'amph',uName(C)+'卸載完畢，返航駛離戰區',C.x,C.y,C.id);if(E){Q.ex=E[0];Q.ey=E[1];cvyGo(C,E[0],E[1]);}else{C.st='off';C.gone=1;Q.done=1;}};})();
+/* 編制在船上收到的命令：轄下部隊全部上岸後重新下達 */
+(function(){var b=cvyLand;cvyLand=function(C,z,ax,ay){var A=ancestors(z);b(C,z,ax,ay);A.forEach(function(F){var o=F.ord;if(!o||!o.held||F.st==='ship'||!alive(F))return;if(leavesOf(F).some(function(l){return alive(l)&&l.st==='ship';}))return;o.held=0;activate(F,o);});};})();
+(function(){var b=activate;activate=function(u,o){
+  if(u.cvy&&u.cvy.auto&&!u.cvy.done&&o&&!o.cvySys){var Q=u.cvy;if(Q.ph==='unl'||Q.ph==='ret')return;if(o.x!==undefined&&!/^(halt|rest|reserve)$/.test(o.k)){u.ord=o;o.st='exec';o.t1=G.t;autoGo(u,o.x,o.y);return;}Q.ph='hold';b(u,o);return;}
+  b(u,o);if(u.st==='ship'&&o){o.held=1;var C=autoCvyOf(u);if(C&&o.x!==undefined&&!/^(halt|rest|reserve)$/.test(o.k)&&(C.cvy.ph==='hold'||C.cvy.ph==='sail'))autoGo(C,o.x,o.y);}};})();
+function embarkStuck(only){var MP=G.map,grp={};G.units.forEach(function(u){if(!alive(u)||u.st==='off'||u.st==='ship'||u.st==='lift'||u.amph||u.cvy||u.lift)return;if(only&&!only[u.id])return;var s=ST(u);if(s.dom!=='land'||!onWater(u.x,u.y))return;
+    if(!isLeaf(u)){var LL=leavesOf(u).filter(function(z){return onMap(z)&&ST(z).dom==='land'&&!onWater(z.x,z.y);});if(LL.length){var cc=centroid(LL);u.x=cc[0];u.y=cc[1];u.path=null;}return;}
+    /* 行進中（沿道路、橋梁）或正在規劃路線的部隊，只是位置暫時落在水面上 */if(u.path||u.pq)return;
+    /* 緊鄰岸邊：直接移到陸上 */var nb=landNear(u.x,u.y,MP.cs*2);if(nb){var vp=validPos(s,nb[0],nb[1]);u.x=vp[0];u.y=vp[1];return;}
+    /* 湖泊與河道：以舟船擺渡到最近的岸邊 */if(!seaWater(MP.lc[cellAt(u.x,u.y)])){var p=landNear(u.x,u.y,15000);if(p){u.x=p[0];u.y=p[1];u.path=null;u.goal=null;u.pq=0;logE(u.side,'amph',uName(u)+'以舟船擺渡到岸邊（'+placeTxt(u.x,u.y)+'）',u.x,u.y,u.id);}return;}
+    var key=u.side+'|'+topOf(u).id;(grp[key]||(grp[key]=[])).push(u);});
+  Object.keys(grp).forEach(function(k){var L=grp[k],C=autoTransport(L);if(!C)return;/* 已經有命令的部隊：直接出發 */var o=L.map(function(u){return u.ord;}).filter(function(q){return q&&q.x!==undefined&&q.st!=='done'&&!/^(halt|rest|reserve)$/.test(q.k);})[0];if(o){L.forEach(function(u){if(u.ord)u.ord.held=1;});autoGo(C,o.x,o.y);}});}
+(function(){var b=arriveUnit;arriveUnit=function(F){b(F);var ids={};treeNodes(F).forEach(function(z){ids[z.id]=1;});embarkStuck(ids);};})();
+
+/* ---------- 冷戰以前的砲兵：先試射校正（前進觀測、空中觀測或砲兵自己看得到），完成後才轉入效力射；預先標定的射擊點可直接效力射 ---------- */
+function regNeed(u,s){var E=uEra(u);return E.i<=6&&!E.fan&&s.dom!=='air';}
+function regTime(u,obs){var i=uEra(u).i,t=i<=3?240:i===4?900:i===5?1200:420;if(!obs)t*=2.5;if(hasQ(offOf(u),'arty'))t*=0.7;return t*clamp(1.25-0.005*(u.trn===undefined?60:u.trn),0.75,1.25);}
+function regKnown(side,x,y){var R=G.reg&&G.reg[side];if(!R)return false;for(var i=R.length-1;i>=0;i--){var q=R[i];if(G.t-q.t<24*3600&&dist(q.x,q.y,x,y)<450)return true;}return false;}
+function regAdd(side,x,y){G.reg=G.reg||[[],[]];var R=G.reg[side];R.push({x:Math.round(x),y:Math.round(y),t:G.t});if(R.length>400)R.splice(0,R.length-400);}
+/* 開戰前已標定的防禦射擊點：各部隊陣地前方 */
+function regSeed(){G.reg=[[],[]];G.units.forEach(function(u){if(!isLeaf(u)||!onMap(u)||ST(u).dom!=='land'||roleOf(u)!=='man')return;var h=u.hd||0;regAdd(u.side,u.x+Math.cos(h)*900,u.y+Math.sin(h)*900);});}
+/* 觀測者看的是彈著的煙柱（離地約 10 公尺）；火藥時代砲兵要直接瞄準，必須看得到目標本身 */
+function regObs(u,M){var i=uEra(u).i,R=i<=3?1200:2200,best=null;if(dist(u.x,u.y,M.x,M.y)<(i<=3?2500:5000)&&los(u.x,u.y,hgtOf(u)+2,M.x,M.y,i<=3?3:10))return u;
+  if(!G._grid)gridBuild();gridNear(M.x,M.y,6000,function(o){if(best||o.side!==u.side||!onMap(o)||o===u)return;var s=ST(o),d=dist(o.x,o.y,M.x,M.y);if(s.dom==='air'){if(o.st==='air'&&s.fl.indexOf('r')>=0&&d<6000)best=o;return;}if(s.dom!=='land'||d>=R)return;if(los(o.x,o.y,hgtOf(o)+2,M.x,M.y,10))best=o;});return best;}
+(function(){var b=artyFire;artyFire=function(u,s,M){if(M.reg||!regNeed(u,s)||(M.kind==='cb'&&uEra(u).i>=6)){b(u,s,M);return;}
+    if(!M.rg){if(regKnown(u.side,M.x,M.y)){M.reg=1;b(u,s,M);return;}var ob=regObs(u,M);
+      if(!ob&&uEra(u).i<=3){if(!u.noObsLog||G.t-u.noObsLog>1800){u.noObsLog=G.t;logE(u.side,'arty',uName(u)+'看不到目標，沒有觀測無法射擊（'+placeTxt(M.x,M.y)+'）',u.x,u.y,u.id);}return;}
+      var need=regTime(u,ob);M.rg={t0:G.t,need:need,obs:ob?ob.id:0};M.until+=need;
+      if(!u.rgLog||G.t-u.rgLog>900){u.rgLog=G.t;logE(u.side,'arty',uName(u)+'開始試射校正'+(ob?(ob===u?'（直接觀測）':'（由'+uName(ob)+'觀測修正）'):'（沒有前進觀測，只能依地圖概略修正）')+'，約 '+durTxt(need)+' 後轉入效力射',u.x,u.y,u.id);}}
+    if(G.t-M.rg.t0<M.rg.need){/* 試射：零星的校正彈，殺傷很小，但會讓目標警覺、也會暴露砲兵陣地 */if(G.step%3===0)b(u,s,Object.assign({},M,{mul:(M.mul||1)*0.15,kind:M.kind==='sat'?'bombard':M.kind}));return;}
+    M.reg=1;regAdd(u.side,M.x,M.y);logE(u.side,'arty',uName(u)+'校正完成，轉入效力射（'+placeTxt(M.x,M.y)+'）',u.x,u.y,u.id);b(u,s,M);};})();
+
+/* ---------- 偵察：偵察單位更隱蔽、看得更遠、識別更準、回報更快；另有電子偵測、民眾通報與雷達監視網等情報來源 ---------- */
+function isRcn(u){var s=ST(u);return s.fl.indexOf('r')>=0||s.br==='rec';}
+(function(){var b=spotOf;spotOf=function(u,s){var r=b(u,s);if(r>0&&(s.fl.indexOf('r')>=0||s.br==='rec'))r*=s.dom==='air'?1.15:1.35;return r;};
+  var b2=sigOf;sigOf=function(t,ts,air){var f=b2(t,ts,air);if((ts.fl.indexOf('r')>=0||ts.br==='rec')&&G.t-(t.fired||-1e9)>=70)f*=0.55;return f;};
+  var b3=reportDelay;reportDelay=function(o){var d=b3(o);return isRcn(o)?d*0.5:d;};})();
+/* 電子偵測：電子戰與無線電偵聽單位以測向找出敵方司令部的通信，以及開機中的防空雷達（雷達可精確識別） */
+function sigintStep(){var y=G.set.y||0;if(y<1915)return;[0,1].forEach(function(side){var E=G.units.filter(function(u){return u.side===side&&onMap(u)&&isLeaf(u)&&(ST(u).fl.indexOf('E')>=0||uxOf(u).sigint);});if(!E.length)return;var R=y>=1970?60000:30000,Q=G.rq[side];
+  G.units.forEach(function(t){if(t.side===side||!onMap(t))return;var rad=!!samOf(t)&&radarOK(t)&&t.emcon===0,hq=isLeaf(t)?ST(t).fl.indexOf('h')>=0:true;if(!rad&&!hq)return;var e=null;for(var i=0;i<E.length;i++)if(dist(E[i].x,E[i].y,t.x,t.y)<R){e=E[i];break;}if(!e||rnd()>(rad?0.8:0.35))return;
+    var err=rad?400:1500;Q.push({at:G.t+(rad?60:600),id:t.id,x:t.x+(rnd()-0.5)*err,y:t.y+(rnd()-0.5)*err,t:G.t,q:rad?1:0.5,by:e.id});});});}
+/* 民眾通報：對本方友善的聚落回報附近的敵軍（半小時到一個半小時後才傳到） */
+function humintStep(){if(!G.civ)return;G.civ.S.forEach(function(g){if(g.loy!==0&&g.loy!==1)return;if(civPresent(g)<50)return;var side=g.loy,Q=G.rq[side],R=g.r+2500;gridNear(g.x,g.y,R,function(t){if(t.side===side||!onMap(t)||!isLeaf(t))return;var ts=ST(t);if(ts.dom!=='land'||ts.fl.indexOf('G')>=0||dist(t.x,t.y,g.x,g.y)>R||rnd()>0.25)return;Q.push({at:G.t+1800+rnd()*3600,id:t.id,x:t.x+(rnd()-0.5)*1200,y:t.y+(rnd()-0.5)*1200,t:G.t,q:0.5,by:0});});});}
+
+/* ---------- 空中監視網：防空飛彈雷達、空中預警機、艦艇與戰機雷達；匿蹤縮短被偵測的距離，電子干擾再打折 ---------- */
+function rcsOf(a){var r=1;(a.mix||[]).forEach(function(m){var x=utx(m[0]);if(x.rcs!==undefined)r=Math.min(r,x.rcs);});if(ST(a).fl.indexOf('A')>=0)r*=0.6;return r;}
+function samOf(u){var x=uxOf(u);return x.sam?x:null;}
+function radarOK(g){return !(g.radDmg&&G.t<g.radDmg);}
+function aaRangeU(g,AA){var x=uxOf(g);return x.rng||aaRange(AA);}
+function jamF(side,x,y){var J=G._jam&&G._jam[1-side];if(!J||!J.length)return 1;for(var i=0;i<J.length;i++)if(dist(J[i].x,J[i].y,x,y)<40000)return 0.6;return 1;}
+function sensorR(g){var s=ST(g),x=uxOf(g),y=G.set.y||1943;if(x.sam)return onMap(g)&&radarOK(g)&&g.emcon===0?x.rad:0;if(s.fl.indexOf('a')>=0)return g.st==='air'?(x.rad||300000):0;if(s.dom==='sea'&&s.aa>=9&&y>=1940&&onMap(g))return s.spot;if(s.dom==='air'&&g.st==='air'&&s.aa>=8&&y>=1960)return s.spot;return 0;}
+function trkStep(){var A=G.units.filter(function(u){return u.st==='air'&&alive(u);});G._trk=[{},{}];G._jam=[[],[]];G._air=A;if(!A.length)return;A.forEach(function(a){if(ST(a).fl.indexOf('E')>=0)G._jam[a.side].push(a);});
+  G.units.forEach(function(g){if(!alive(g)||g.st==='off'||g.st==='ship')return;var R=sensorR(g);if(!R)return;var tr=G._trk[g.side],jf=jamF(g.side,g.x,g.y);A.forEach(function(a){if(a.side===g.side||tr[a.id])return;if(dist(g.x,g.y,a.x,a.y)<=R*rcsOf(a)*jf)tr[a.id]=g.id;});});
+  /* 雷達航跡回報到本方情報圖：1975 年後有資料鏈，幾乎即時 */
+  if(G.step%4===0){var yr=G.set.y||0;[0,1].forEach(function(side){var tr=G._trk[side],Q=G.rq[side];for(var id in tr){var a=uById(+id);if(a)Q.push({at:G.t+(yr>=1975?30:yr>=1940?120:300),id:a.id,x:a.x,y:a.y,t:G.t,q:yr>=1975?1:0.5,by:tr[id]});}});}}
+/* 地面防空能否攻擊這架飛機：雷達導引飛彈要自己的雷達開機、放列完成並鎖定；艦艇有搜索雷達；火砲與光學、紅外線瞄準只看得到近處的匿蹤機 */
+function aaSees(g,a,d){var x=samOf(g),rc=rcsOf(a);if(x){if(!radarOK(g)||g.emcon!==0||g.form==='march'||g.formTo)return false;return d<=Math.min(x.rng,x.rad*rc*jamF(g.side,g.x,g.y));}if(rc>=0.9)return true;var s=ST(g);if(s.dom==='sea'&&s.aa>=9&&(G.set.y||0)>=1960)return d<=Math.max(3000,s.spot*rc*jamF(g.side,g.x,g.y));return d<=3000;}
+/* 空戰：目視距離內，或自己的雷達、預警機與資料鏈看得到，才能接戰 */
+function airSees(f,e,d){var rc=rcsOf(e),s=ST(f),yr=G.set.y||1943,vis=(G.env.light>=0.3?5000:s.nv>=1?3000:1500)*clamp(rc*1.5,0.5,1);if(d<=vis)return true;if(yr>=1960&&s.aa>=8&&d<=s.spot*rc*jamF(f.side,f.x,f.y))return true;if(yr>=1975&&G._trk&&G._trk[f.side]&&G._trk[f.side][e.id])return true;return false;}
+/* 先看到、先開火：對方看不到自己時，命中率提高 */
+function firstLook(f,e,d){return airSees(e,f,d)?1:1.6;}
+/* 防空飛彈雷達（自動、常開、靜默）：自動模式在本方情報圖或雷達網發現敵機接近時才開機；偵測到反輻射飛彈時關機規避 */
+function samStep(){var A=G._air||[];G.units.forEach(function(g){var x=samOf(g);if(!x||!alive(g)||g.st==='off')return;if(!radarOK(g)){g.emcon=1;return;}var mode=g.radMode||'auto',was=g.emcon;
+    if(mode==='off'||g.form==='march'&&!g.formTo)g.emcon=1;else if(mode==='on')g.emcon=0;else if(g.emT&&G.t<g.emT)g.emcon=1;else{var R=x.rng*1.6,C=G.ct[g.side],thr=false,tr=G._trk&&G._trk[g.side];for(var id in C){var c=C[id];if(c.dom!=='air'||c.dead||G.t-c.t>150)continue;if(dist(c.x,c.y,g.x,g.y)<R){thr=true;break;}}
+      if(!thr&&tr)for(var i=0;i<A.length;i++){var a=A[i];if(a.side!==g.side&&tr[a.id]&&dist(a.x,a.y,g.x,g.y)<R){thr=true;break;}}g.emcon=thr?0:1;}
+    if(was!==0&&g.emcon===0&&(!g.emLog||G.t-g.emLog>1800)){g.emLog=G.t;logE(g.side,'aa',uName(g)+'雷達開機，追蹤來襲的敵機',g.x,g.y,g.id);}});}
+/* 反輻射飛彈：防空壓制機以雷達告警與定位系統鎖定開機中的雷達；雷達關機會讓飛彈失去導引（新型有座標記憶） */
+function armStep(){if(G.step%2===0)(G._air||[]).forEach(function(a){var x=uxOf(a);if(!x.arm||!alive(a)||a.ms==='rout'||a.task==='rtb')return;if(a.armN===undefined)a.armN=x.arm.n*Math.max(1,Math.round(a.veh0||1));if(a.armN<=0||G.t-(a.armT||-1e9)<300)return;
+    var best=null,bd=x.arm.r;G.units.forEach(function(g){if(g.side===a.side||!onMap(g)||!samOf(g)||!radarOK(g)||g.emcon!==0)return;var d=dist(a.x,a.y,g.x,g.y);if(d<bd){bd=d;best=g;}});if(!best)return;
+    var n=Math.min(a.armN,Math.max(2,Math.round(a.veh*0.5)));a.armN-=n;a.armT=G.t;(G.arm=G.arm||[]).push({side:a.side,src:a.id,tid:best.id,x:best.x,y:best.y,n:n,x0:a.x,y0:a.y,t0:G.t,eta:G.t+Math.max(DT,bd/x.arm.v),mem:x.arm.mem});var st=G.stats[a.side];st.arm=(st.arm||0)+n;
+    logE(a.side,'air','⚡ '+uName(a)+'對'+uName(best)+'的雷達發射 '+n+' 枚反輻射飛彈',a.x,a.y,a.id);if(G.onPause&&apOn('sead'))G.onPause('反輻射飛彈發射');
+    if(best.radMode!=='on'&&rnd()<clamp((best.trn||60)/100*0.85,0.2,0.85)){best.emT=G.t+600+rnd()*600;best.emcon=1;logE(best.side,'aa',uName(best)+'偵測到反輻射飛彈來襲，關閉雷達規避',best.x,best.y,best.id);}});
+  if(!G.arm||!G.arm.length)return;var keep=[];G.arm.forEach(function(M){if(G.t<M.eta){keep.push(M);return;}var t=uById(M.tid);if(!t||!alive(t))return;var on=radarOK(t)&&t.emcon===0,moved=dist(t.x,t.y,M.x,M.y)>300,p=on?0.75:(M.mem&&!moved?0.45:0.06),h=0,src=uById(M.src);for(var i=0;i<M.n;i++)if(rnd()<p)h++;
+    if(h){t.radDmg=G.t+(4+2*h)*3600;t.emcon=1;hit(t,src,Math.min(t.men,t.men*0.04*h),Math.min(t.veh,t.veh*0.15*h),40,'msl');logE(M.side,'air','⚡ 反輻射飛彈命中'+uName(t)+'的雷達（'+h+' 枚），防空網出現缺口',t.x,t.y,t.id);logE(t.side,'aa',uName(t)+'的雷達被反輻射飛彈擊毀，約 '+durTxt(t.radDmg-G.t)+' 後才能修復或換裝',t.x,t.y,t.id);if(G.onPause&&apOn('sead'))G.onPause('防空雷達被擊毀');}
+    else logE(M.side,'air','反輻射飛彈沒有命中'+uName(t)+(on?'':'（雷達已關機）'),t.x,t.y,t.id);G._mslv=(G._mslv||[]).concat([{t:G.t,x:M.x,y:M.y,x0:M.x0,y0:M.y0,side:M.side,n:M.n,h:h,s:0}]).slice(-30);});G.arm=keep;}
+function armReload(){G.units.forEach(function(a){var x=uxOf(a);if(x.arm&&a.st==='base'&&alive(a)&&(!a.readyT||G.t>=a.readyT))a.armN=x.arm.n*Math.max(1,Math.round(a.veh||1));});}
+/* 岸置反艦飛彈：自動攻擊射程內、情報圖上已知的敵艦（電腦指揮的艦艇也會自動攻擊） */
+function asmAuto(){G.units.forEach(function(u){if(!isLeaf(u)||!onMap(u)||u.ms==='rout')return;var q=mslSpec(u);if(!q||!q.ship||!mslLeft(u))return;var s=ST(u);if(s.dom!=='land'&&!SD(u.side).ai)return;if(G.t-(u.asmT||-1e9)<1800||(u.ord&&u.ord.k==='msl'&&u.ord.st!=='done'))return;
+  var C=G.ct[u.side],best=null,bd=q.r;for(var id in C){var c=C[id];if(c.dead||c.dom!=='sea'||G.t-c.t>600)continue;var d=dist(u.x,u.y,c.x,c.y);if(d<bd){bd=d;best=c;}}if(!best)return;u.asmT=G.t;mslLaunch(u,{x:best.x,y:best.y,n:Math.min(s.dom==='land'?2:4,mslLeft(u))});});}
+
+/* ---------- 長期作戰：補充兵與裝備修復（脫離戰鬥六小時以上並在補給線內；補充兵需有通往後方的補給樞紐）；回放紀錄自動降低密度 ---------- */
+function sustainStep(){var y=G.set.y||1943,rate=(y<1800?0.006:y<1900?0.01:0.015)/24;[0,1].forEach(function(side){var S=SD(side);if(S.repl===undefined){var m0=0;G.units.forEach(function(u){if(u.side===side&&isLeaf(u)&&!u.irr)m0+=u.men0||0;});S.repl=m0*0.15;S.replIn=m0*0.01/24;}
+  /* 補充兵要從後方送來：必須有地圖外基地，或控制港口、鐵路車站、機場；孤立的守軍只能靠劇本的增援 */var hub=nodesOf(side).some(function(N){return N.k!=='depot';});if(hub)S.repl+=S.replIn;G.units.forEach(function(u){if(u.side!==side||!isLeaf(u)||!alive(u)||u.st==='off'||u.irr||!u.insup)return;var s=ST(u);if(s.dom==='sea'||s.dom==='sub'||s.fl.indexOf('G')>=0)return;if(s.dom==='air'?u.st!=='base':!onMap(u))return;if(G.t-(u.uf||-1e9)<6*3600||G.t-(u.fired||-1e9)<6*3600)return;
+    var dm=hub?Math.min(u.men0-u.men,u.men0*rate,S.repl):0;if(dm>1e-3){var t0=u.trn===undefined?s.trn:u.trn;u.trn=(t0*u.men+Math.min(t0,45)*dm)/(u.men+dm);u.men+=dm;S.repl-=dm;u.repl=(u.repl||0)+dm;S.replT=(S.replT||0)+dm;}
+    var lim=(u.veh0||0)*0.4-(u.vrep||0),dv=Math.min(u.veh0-u.veh,(u.veh0||0)*0.004,lim);if(dv>0.001){u.veh+=dv;u.vrep=(u.vrep||0)+dv;S.vrepT=(S.vrepT||0)+dv;}});});}
+(function(){var b=recStep;recStep=function(){b();var R=G.rec;if(!R||!R.fr)return;var cap=clamp(Math.round(4e7/Math.max(1,G.units.length*12)),600,3000);if(R.fr.length>cap){var n=R.fr.length,keep=Math.floor(n*0.75);R.fr=R.fr.filter(function(f,i){return i>=keep||i%2===0;});R.dt=Math.min(1800,Math.round(R.dt*1.5));}};})();
+
+/* ---------- 民用補給設施：港口、鐵路車站、機場、倉庫。依地形與聚落配置在戰場上，開戰時中立，部隊佔領後才可作為補給節點 ---------- */
+var FACN={port:'港口',rail:'鐵路車站',air:'機場',depot:'倉庫'};
+function facById(id){return (G.fac||[]).filter(function(F){return F.id===id;})[0]||null;}
+function facGen(MP,y){var cs=MP.cs,GW=MP.GW,GH=MP.GH,lc=MP.lc,out=[],id=0,DX=[1,1,0,-1,-1,-1,0,1],DY=[0,1,1,1,0,-1,-1,-1];y=y||1943;
+  function near(x,yy,R,pred){var cx=Math.floor(x/cs),cy=Math.floor(yy/cs),Rc=Math.max(1,Math.ceil(R/cs)),best=-1,bd=1e18;for(var b=-Rc;b<=Rc;b++)for(var a=-Rc;a<=Rc;a++){var X=cx+a,Y=cy+b;if(X<0||Y<0||X>=GW||Y>=GH)continue;var d=a*a+b*b;if(d>Rc*Rc||d>=bd)continue;var k=Y*GW+X;if(pred(k)){bd=d;best=k;}}return best;}
+  /* 臨水：海面；大型（big）另含大河與湖泊 */function adjW(k,big){var x=k%GW,yy=(k/GW)|0;for(var d=0;d<8;d++){var X=x+DX[d],Y=yy+DY[d];if(X<0||Y<0||X>=GW||Y>=GH)continue;var q=Y*GW+X,c=lc[q];if(c===LCI.sea||c===LCI.shal)return true;if(big&&(c===LCI.lake||c===LCI.riv&&MP.rv[q]>=3))return true;}return false;}
+  function xy(k){return [(k%GW+0.5)*cs,(((k/GW)|0)+0.5)*cs];}
+  function add(k,p,name,s,ex){out.push(Object.assign({id:++id,k:k,x:p[0],y:p[1],name:name,set:s?s.name:'',own:-1,cand:-1,ct:0,kn:[-1,-1],st0:facStock(k,s,y)},ex||{}));}
+  var SS=(MP.set||[]).slice().sort(function(a,b){return b.pop-a.pop;});
+  SS.forEach(function(s){var sx=s.x*cs,sy=s.y*cs,R=Math.max(400,s.r||300),big=s.kind!=='village';
+    /* 倉庫：城鎮的糧倉、市場倉儲與油庫 */if(big||s.pop>=1500){var wk=near(sx,sy,R,function(k){return isUrban(lc[k]);});if(wk<0)wk=near(sx,sy,R,function(k){return !isWater(lc[k]);});if(wk>=0)add('depot',xy(wk),s.name+(y<1850?'糧倉':'倉庫'),s);}
+    /* 港口：港區碼頭；沒有碼頭的臨海（河港、雙子城另含大河與湖泊）市鎮在 1600 年後有小港 */var pk=near(sx,sy,R*1.3,function(k){return lc[k]===LCI.port&&adjW(k,true);});
+    if(pk<0&&big&&y>=1600)pk=near(sx,sy,R*1.1,function(k){return !isWater(lc[k])&&adjW(k,s.sty==='river'||s.sty==='twin');});if(pk>=0)add('port',xy(pk),s.name+'港',s);
+    /* 鐵路車站：鐵路經過的聚落（1830 年起），優先調車場 */if(y>=1830){var rk=near(sx,sy,R*1.2,function(k){return lc[k]===LCI.rly&&(MP.rl[k]&1);});if(rk<0&&(big||s.pop>=600))rk=near(sx,sy,R,function(k){return (MP.rl[k]&1)&&!isWater(lc[k]);});if(rk>=0)add('rail',xy(rk),s.name+'車站',s);}});
+  /* 機場：1914 年起，在較大市鎮外找平坦開闊、長度足夠、沒有河流與道路穿越的跑道地；數量依地圖面積 */
+  if(y>=1914){var maxA=clamp(Math.round(MP.Wm*MP.Hm/1e6/700),1,6),nA=0,L=y<1930?500:y<1950?1400:2400;SS.filter(function(s){return s.kind!=='village'&&(y>=1930||s.kind==='city'||s.pop>=4000);}).forEach(function(s){if(nA>=maxA)return;var site=airSite(MP,s.x*cs,s.y*cs,L);if(site&&!out.some(function(f){return f.k==='air'&&dist(f.x,f.y,site[0],site[1])<8000;})){add('air',[site[0],site[1]],s.name+'機場',s,{ang:site[2],len:L});nA++;}});}
+  return out;}
+function facStock(k,s,y){var p=s?s.pop:1000,fuel=y>=1910;return k==='depot'?{food:p*0.015,ammo:0,fuel:fuel?p*0.006:0,fod:y<1950?p*0.01:0}:k==='port'?{food:p*0.01+20,ammo:0,fuel:fuel?p*0.008+10:0,fod:0}:k==='rail'?{food:15,ammo:0,fuel:fuel?10:0,fod:y<1950?10:0}:{food:5,ammo:0,fuel:30,fod:0};}
+/* 跑道地：開闊地（農田、草地、灌叢、沙漠、苔原、樹籬農田）、坡度小、高差小；離市鎮 1.5～7 公里，以 3 公里左右為佳 */
+function airSite(MP,x,y,L){var cs=MP.cs,GW=MP.GW,GH=MP.GH,OPEN={},best=null,bs=1e18,stp=Math.max(cs*0.7,60);['field','mead','scrub','desert','tund','hedge'].forEach(function(n){if(LCI[n]!==undefined)OPEN[LCI[n]]=1;});
+  function ok(px,py,e0){var X=Math.floor(px/cs),Y=Math.floor(py/cs);if(X<1||Y<1||X>=GW-1||Y>=GH-1)return false;var k=Y*GW+X;if(!OPEN[MP.lc[k]]||MP.rv[k]||MP.ft[k]||MP.rd[k]||(MP.rl[k]&1))return false;var e=MP.el[k];return Math.abs(MP.el[k+1]-e)<cs*0.025&&Math.abs(MP.el[k+GW]-e)<cs*0.025&&Math.abs(e-e0)<12;}
+  for(var r=1500;r<=7000&&!(best&&r>4000);r+=500)for(var a=0;a<16;a++){var ang=a/16*2*PI,cx=x+Math.cos(ang)*r,cy=y+Math.sin(ang)*r;if(cx<cs*3||cy<cs*3||cx>MP.Wm-cs*3||cy>MP.Hm-cs*3)continue;var e0=MP.el[Math.floor(cy/cs)*GW+Math.floor(cx/cs)];
+    for(var o=0;o<4;o++){var t=o/4*PI,dx=Math.cos(t),dy=Math.sin(t),good=true;for(var s=-L/2;s<=L/2&&good;s+=stp)for(var w=-60;w<=60&&good;w+=60)if(!ok(cx+dx*s-dy*w,cy+dy*s+dx*w,e0))good=false;if(good){var sc=Math.abs(r-3000);if(sc<bs){bs=sc;best=[cx,cy,t];}}}}return best;}
+function facNode(F){if(!F||F.own<0)return null;return (SD(F.own).nodes||[]).filter(function(n){return n.fac===F.id;})[0]||null;}
+function facTake(F,side,quiet){var prev=F.own,N=facNode(F),st=N?N.st:F.st0,keep=prev>=0?0.5:1;if(N)SD(prev).nodes=SD(prev).nodes.filter(function(q){return q!==N;});
+  addNode(side,F.k,F.x,F.y,{name:F.name,fac:F.id,st:{food:(st.food||0)*keep,ammo:(st.ammo||0)*keep,fuel:(st.fuel||0)*keep,fod:(st.fod||0)*keep}});F.own=side;F.cand=-1;F.tOwn=G.t;F.kn=F.kn||[-1,-1];F.kn[side]=side;F.knT=F.knT||[0,0];F.knT[side]=G.t;
+  /* 第一次被軍隊佔領：徵用城鎮的民間存糧與燃料，居民的存糧減少、不滿升高 */
+  if(prev<0&&G.civ&&F.set){var g=null,bd=1e18;G.civ.S.forEach(function(q){if(q.n!==F.set)return;var d=dist(q.x,q.y,F.x,F.y);if(d<bd){bd=d;g=q;}});if(g&&(F.k==='depot'||F.k==='port')){g.food=Math.max(0,(g.food||0)-(F.k==='depot'?6:2));g.unrest=clamp((g.unrest||0)+5,0,100);var v=(g.val0||0)*(F.k==='depot'?0.01:0.004);if(v>0){g.loss=(g.loss||0)+v;G.civ.prop.other+=v;G.civ.cs[side].prop+=v;}}}
+  if(!quiet){logE(side,'log',(prev<0?'佔領':'奪取')+FACN[F.k]+'「'+F.name+'」'+(prev<0?(F.k==='depot'||F.k==='port'?'，徵用其中的民間物資':'')+'，啟用為補給節點':'（敵軍撤離前約一半物資損毀），改為本方補給節點'),F.x,F.y);if(prev>=0){logE(prev,'log',FACN[F.k]+'「'+F.name+'」落入敵手',F.x,F.y);if(G.onPause&&apOn('fac'))G.onPause('補給設施易手');}}}
+/* 佔領判定：設施附近只有一方的地面部隊，持續 10 分鐘；4 公里內有部隊的一方會得知設施目前由誰控制 */
+function facStep(){(G.fac||[]).forEach(function(F){var R=F.k==='air'?1800:F.k==='port'?1300:1000,n=[0,0],sn=[0,0];gridNear(F.x,F.y,4000,function(u){if(!onMap(u)||!isLeaf(u))return;var s=ST(u);if(s.dom!=='land')return;var d=dist(u.x,u.y,F.x,F.y);if(d>4000)return;sn[u.side]=1;if(d>R||u.ms==='rout'||s.fl.indexOf('u')>=0)return;n[u.side]+=u.men+u.veh*4;});
+  F.kn=F.kn||[-1,-1];F.knT=F.knT||[0,0];for(var i=0;i<2;i++)if(sn[i]){F.kn[i]=F.own;F.knT[i]=G.t;}
+  var hold=n[0]>15&&n[1]<1?0:n[1]>15&&n[0]<1?1:-1;F.cont=n[0]>0&&n[1]>0;if(hold>=0&&hold!==F.own){if(F.cand!==hold){F.cand=hold;F.ct=G.t;}else if(G.t-F.ct>=600)facTake(F,hold);}else F.cand=-1;});}
+/* 想定指定某方一開始就控制的設施（附近沒有同類設施就在該處建立） */
+function facClaim(side,k,x,y,name,st){G.fac=G.fac||facGen(G.map,G.set.y);var F=null,bd=3500;G.fac.forEach(function(f){if(f.k!==k)return;var d=dist(f.x,f.y,x,y);if(d<bd){bd=d;F=f;}});
+  if(!F){F={id:G.fac.reduce(function(m,f){return Math.max(m,f.id);},0)+1,k:k,x:x,y:y,name:name||FACN[k],set:'',own:-1,cand:-1,ct:0,kn:[-1,-1],st0:facStock(k,null,G.set.y)};G.fac.push(F);}
+  if(name)F.name=name;if(st)F.st0=st;if(F.own!==side)facTake(F,side,true);F.kn=[side,side];return F;}
+(function(){var b=prepareBattle;prepareBattle=function(){b.apply(null,arguments);if(!G||!G.map)return;if(!G.fac)G.fac=facGen(G.map,G.set.y);if(G.set.sustain===undefined)G.set.sustain=true;embarkStuck();regSeed();};})();
+
+function v6Pre(){trkStep();if(G.step%2===1)samStep();}
+function v6Step(){/* v6 以前的存檔：補上民用設施 */if(!G.fac&&G.map)G.fac=facGen(G.map,G.set.y);autoCvyStep();armStep();if(G.step%10===6)asmAuto();if(G.step%4===2)facStep();if(G.step%10===8)sigintStep();if(G.step%20===12)humintStep();if(G.step%20===16)embarkStuck();if(G.step%120===60&&G.set.sustain!==false)sustainStep();if(G.step%120===9)armReload();}
 /* ===================== AI 指揮官（同樣受指揮鏈延遲與戰場迷霧限制）與下級指揮官的主動性 ===================== */
 function busyF(F){if(F.pend&&F.pend.length)return true;if(G.msgs.some(function(m){return m.to===F.id;}))return true;var o=F.ord;if(!o||o.st==='done')return false;var age=G.t-(o.t1||o.ti);return age<(o.k==='attack'?3:o.k==='defend'?6:1.5)*3600;}
 function aiGroups(side){var top=sideCmd(side);if(!top)return [];var other=tops(side).filter(function(t){return t!==top&&alive(t)&&t.st!=='off'&&!t.irr;});if(isLeaf(top))return [top].concat(other);var kids=kidsOf(top).filter(alive);while(kids.length===1&&!isLeaf(kids[0])){top=kids[0];kids=kidsOf(top).filter(alive);}return kids.filter(function(k){return k.st!=='off';}).concat(other);}
@@ -5989,9 +6200,10 @@ function defaultNodes(side){var p=edgePoint(side,0.5);addNode(side,'off',p[0],p[
 function nodesOf(side){return (SD(side).nodes||[]).filter(function(n){return n.status!=='captured';});}
 /* 節點條件：港口須臨水域；鐵路站須在鐵路上且鐵路通往地圖邊緣；機場受天氣、夜間、敵方空優影響 */
 function nodeOK(N){var MP=G.map,k=cellAt(N.x,N.y);if(N.k==='port'){var R=Math.ceil(600/MP.cs),gx=k%MP.GW,gy=(k/MP.GW)|0;for(var b=-R;b<=R;b++)for(var a=-R;a<=R;a++){var X=gx+a,Y=gy+b;if(X<0||Y<0||X>=MP.GW||Y>=MP.GH)continue;var c=MP.lc[Y*MP.GW+X];if(c===LCI.sea||c===LCI.shal||c===LCI.lake||c===LCI.riv)return true;}return false;}
-  if(N.k==='rail'){if(N._railV===G._mapv)return N._railOK;N._railV=G._mapv;N._railOK=railToEdge(k);return N._railOK;}return true;}
-function railToEdge(k0){var MP=G.map,GW=MP.GW,GH=MP.GH,R=Math.ceil(400/MP.cs),gx=k0%GW,gy=(k0/GW)|0,st=[],seen=new Uint8Array(GW*GH);for(var b=-R;b<=R;b++)for(var a=-R;a<=R;a++){var X=gx+a,Y=gy+b;if(X<0||Y<0||X>=GW||Y>=GH)continue;var q=Y*GW+X;if(MP.rl[q]&1){seen[q]=1;st.push(q);}}
-  while(st.length){var c=st.pop(),x=c%GW,y=(c/GW)|0;if(x===0||y===0||x===GW-1||y===GH-1)return true;for(var d=0;d<8;d++){var X2=x+[1,1,0,-1,-1,-1,0,1][d],Y2=y+[0,1,1,1,0,-1,-1,-1][d];if(X2<0||Y2<0||X2>=GW||Y2>=GH)continue;var q2=Y2*GW+X2;if(!seen[q2]&&(MP.rl[q2]&1)){seen[q2]=1;st.push(q2);}}}return false;}
+  if(N.k==='rail'){if(N._railV===G._mapv)return N._railOK;N._railV=G._mapv;N._railOK=railToEdge(k,N.fac?SD(N.side).edge||'W':null);return N._railOK;}return true;}
+/* edge：指定時鐵路必須通往該側的地圖邊緣（奪取的車站要連回本方後方才有運量） */
+function railToEdge(k0,edge){var MP=G.map,GW=MP.GW,GH=MP.GH,R=Math.ceil(400/MP.cs),gx=k0%GW,gy=(k0/GW)|0,st=[],seen=new Uint8Array(GW*GH);for(var b=-R;b<=R;b++)for(var a=-R;a<=R;a++){var X=gx+a,Y=gy+b;if(X<0||Y<0||X>=GW||Y>=GH)continue;var q=Y*GW+X;if(MP.rl[q]&1){seen[q]=1;st.push(q);}}
+  while(st.length){var c=st.pop(),x=c%GW,y=(c/GW)|0;if(edge?(edge==='W'&&x===0||edge==='E'&&x===GW-1||edge==='N'&&y===0||edge==='S'&&y===GH-1):(x===0||y===0||x===GW-1||y===GH-1))return true;for(var d=0;d<8;d++){var X2=x+[1,1,0,-1,-1,-1,0,1][d],Y2=y+[0,1,1,1,0,-1,-1,-1][d];if(X2<0||Y2<0||X2>=GW||Y2>=GH)continue;var q2=Y2*GW+X2;if(!seen[q2]&&(MP.rl[q2]&1)){seen[q2]=1;st.push(q2);}}}return false;}
 function enemyNear(side,x,y,R,dom){var n=0;gridNear(x,y,R,function(u){if(u.side!==side&&onMap(u)&&u.ms!=='rout'&&(!dom||ST(u).dom===dom)&&dist(u.x,u.y,x,y)<=R)n+=u.men+u.veh*8;});return n;}
 function friendNear(side,x,y,R){var n=0;gridNear(x,y,R,function(u){if(u.side===side&&onMap(u)&&ST(u).dom!=='air'&&dist(u.x,u.y,x,y)<=R)n+=u.men+u.veh*8;});return n;}
 /* 上游節點：指定者或最近的非補給站節點 */
@@ -6000,7 +6212,7 @@ var LCLS=['food','ammo','fuel','fod'],LCN={food:'糧秣飲水',ammo:'彈藥',fue
 /* ---------- 補給循環（每 10 分鐘）：節點進貨 → 補給部隊裝載 → 單位領取 → 消耗與匱乏效應 ---------- */
 function logStep(){var dt=600;[0,1].forEach(function(side){var S=SD(side),L=nodesOf(side),hq=sideCmd(side),E=hq?uEra(hq):ERA[6];if(!L.length)return;
     var dem=sideDemand(side);/* 本方每日需求，用來分配各類物資比例 */
-    L.forEach(function(N){var en=enemyNear(side,N.x,N.y,2000),fr=friendNear(side,N.x,N.y,2000);N.status=N.k==='off'?'ok':en>0&&fr===0?'captured':en>0?'contested':'ok';
+    L.forEach(function(N){var en=enemyNear(side,N.x,N.y,2000,'land'),fr=friendNear(side,N.x,N.y,2000);/* 民用設施的易手由佔領判定處理（facStep） */N.status=N.k==='off'?'ok':en>0&&fr===0?(N.fac?'contested':'captured'):en>0?'contested':'ok';
       if(N.status==='captured'&&N.k!=='off'){logE(side,'log','補給節點「'+N.name+'」被敵軍佔領，存量損失',N.x,N.y);N.st={food:0,ammo:0,fuel:0,fod:0};return;}
       if(N.k==='off')return;var inflow=0,why='';
       if(N.k==='depot'){var U=upOf(N);if(!U){why='無上游節點';}else{var d=dist(U.x,U.y,N.x,N.y)/1000,spd=E.i<=4?4:E.i<=5?15:30,trip=2*d/spd+2,tr=24/Math.max(2,trip),cap=N.cv.n*N.cv.pay*tr*dt/86400;var cut=convoyCut(side,U,N);cap*=cut;inflow=cap;if(cut<1)why='運補路線遭敵威脅';N.trips=tr;N.dist=d;
@@ -6113,7 +6325,7 @@ function uIco(u){var s=ST(u);return '<img class="lw-ico" alt="" src="'+symIco(s.
 var UI={tab:'start',side:0,sel:[],selC:0,selB:0,tool:'sel',ord:null,lay:{lbl:1,grid:0,units:1,ord:1,ct:1,bt:1,fr:1,sup:1,fx:1,civ:1,evt:1},lvl:'auto',run:false,speed:60,contour:true,allOrd:false,showOld:false,logF:'all',brush:3,acc:0,realSp:0,hudT:0,drawT:0,
   ordOpt:{tac:'frontal',post:'hasty',roe:'free',pace:'normal',fm:'line',prep:0,tol:35,road:false,r:600,dur:30,Y:10,sr:0,bk:'pos',xk:'boat',bt:'auto',rk:'auto',ck:'ladder',cn:10,jp:60,rq:'fires',rqTo:'up'}};
 var TABS=[['start','開始'],['map','地圖編修'],['orbat','兵力編成'],['deploy','部署'],['battle','作戰'],['logi','後勤'],['rep','戰報'],['replay','回放'],['set','設定'],['help','說明']];
-var SPEEDS=[1,10,30,60,120,300,600,1800];
+var SPEEDS=[1,10,30,60,120,300,600,1800,3600,10800];
 function boot(){root.classList.add('lato-tool');root.innerHTML='<div class="lw-bar"></div><div class="lw-tabs"></div><div class="lw-body"></div>';UI.bar=root.querySelector('.lw-bar');UI.tabs=root.querySelector('.lw-tabs');UI.body=root.querySelector('.lw-body');
   root.addEventListener('click',onAct);root.addEventListener('change',onChg);root.addEventListener('input',onInp);UI.redraw=function(full){vDraw(full);};
   barRender();tabsRender();show('start');requestAnimationFrame(loop);document.addEventListener('keydown',onKey);try{autoLoadList();}catch(e){}}
@@ -6121,8 +6333,8 @@ function onKey(e){if(!G||!G.started||/INPUT|SELECT|TEXTAREA/.test((e.target.tagN
 /* ---------- 頂列 ---------- */
 function barRender(){var o='<span class="lw-ttl">作戰模擬</span><span class="lw-scn">'+(G&&G.replay?'▶ 回放：':'')+esc(G&&G.map?G.map.name:'尚未建立作戰')+'</span>';
   if(G&&G.map){o+='<span class="lw-clock"><b data-k="clock"></b><span class="lw-wx" data-k="wx"></span></span><span class="lw-sp"></span>';
-    var narrow=(root.clientWidth||window.innerWidth)<700;if(G.started&&narrow){o+='<span class="lw-tc"><button type="button" data-a="run">'+(UI.run?'⏸':'▶')+'</button><select data-c="spd">'+SPEEDS.map(function(s){return '<option value="'+s+'"'+(UI.speed===s?' selected':'')+'>'+(s>=60?'每秒 '+(s/60)+' 分':s+' 倍')+'</option>';}).join('')+'</select><button type="button" data-a="step">+30秒</button><button type="button" data-a="appop" title="自動暫停的條件">⏸⚙</button><span class="lw-rt" data-k="rt"></span></span>';}
-    else if(G.started){o+='<span class="lw-tc"><button type="button" data-a="run" title="開始／暫停（空白鍵）">'+(UI.run?'⏸':'▶')+'</button>'+SPEEDS.map(function(s){return '<button type="button" data-a="spd" data-v="'+s+'" class="'+(UI.speed===s?'on':'')+'" title="每秒 '+durTxt(s)+' 遊戲時間">'+(s>=60?(s/60)+'分':s+'×')+'</button>';}).join('')+'<button type="button" data-a="step" title="前進 30 秒">+30秒</button><button type="button" data-a="appop" title="自動暫停的條件">⏸ 自動暫停</button><span class="lw-rt" data-k="rt"></span></span>';}
+    var narrow=(root.clientWidth||window.innerWidth)<700;if(G.started&&narrow){o+='<span class="lw-tc"><button type="button" data-a="run">'+(UI.run?'⏸':'▶')+'</button><select data-c="spd">'+SPEEDS.map(function(s){return '<option value="'+s+'"'+(UI.speed===s?' selected':'')+'>'+(s>=3600?'每秒 '+(s/3600)+' 小時':s>=60?'每秒 '+(s/60)+' 分':s+' 倍')+'</option>';}).join('')+'</select><button type="button" data-a="step">+30秒</button><button type="button" data-a="appop" title="自動暫停的條件">⏸⚙</button><span class="lw-rt" data-k="rt"></span></span>';}
+    else if(G.started){o+='<span class="lw-tc"><button type="button" data-a="run" title="開始／暫停（空白鍵）">'+(UI.run?'⏸':'▶')+'</button>'+SPEEDS.map(function(s){return '<button type="button" data-a="spd" data-v="'+s+'" class="'+(UI.speed===s?'on':'')+'" title="每秒 '+durTxt(s)+' 遊戲時間">'+(s>=3600?(s/3600)+'時':s>=60?(s/60)+'分':s+'×')+'</button>';}).join('')+'<button type="button" data-a="step" title="前進 30 秒">+30秒</button><button type="button" data-a="appop" title="自動暫停的條件">⏸ 自動暫停</button><span class="lw-rt" data-k="rt"></span></span>';}
     o+='<select data-c="view" title="以哪一方的視角觀看（戰場迷霧）">'+[[0,G.sides[0].name+'視角'],[1,G.sides[1].name+'視角'],[-1,'上帝視角']].map(function(q){return '<option value="'+q[0]+'"'+(UI.side===q[0]?' selected':'')+'>'+esc(q[1])+'</option>';}).join('')+'</select>'+
       '<button type="button" class="lw-btn sm" data-a="save" style="min-height:28px">存檔</button>';}
   UI.bar.innerHTML=o;hudTick(true);layoutVar();}
@@ -6156,7 +6368,7 @@ function dlg(html,wide){var d=document.createElement('div');d.className='lw-dlg'
 ACT.x=function(){};
 /* ---------- 主迴圈：依速度推進模擬、重繪 ---------- */
 function loop(ts){requestAnimationFrame(loop);if(!G||!G.started)return;var t=performance.now(),dt=UI.lastTs?Math.min(0.25,(t-UI.lastTs)/1000):0;UI.lastTs=t;
-  if(UI.run&&!G.over){G._pfMs=12;UI.acc+=dt*UI.speed;var n=Math.floor(UI.acc/DT),done=0;if(n>0){var t0=performance.now();while(done<n&&performance.now()-t0<30){simStep();done++;if(UI.pauseReq||G.over)break;}UI.acc-=done*DT;if(UI.acc>DT*3)UI.acc=DT*3;}
+  if(UI.run&&!G.over){G._pfMs=12;UI.acc+=dt*UI.speed;var n=Math.floor(UI.acc/DT),done=0;if(n>0){var t0=performance.now();while(done<n&&performance.now()-t0<(UI.speed>=3600?40:30)){simStep();done++;if(UI.pauseReq||G.over)break;}UI.acc-=done*DT;if(UI.acc>DT*3)UI.acc=DT*3;}
     UI.spHist=(UI.spHist||[]).concat([[t,done*DT]]).filter(function(q){return t-q[0]<2000;});UI.realSp=sum(UI.spHist,function(q){return q[1];})/2;
     if(UI.pauseReq||G.over){UI.run=false;var why=UI.pauseReq||('作戰結束：'+G.over.why);UI.pauseReq=null;barRender();toast(why,4500);UI.after(true);return;}}
   if(UI.run&&t-UI.drawT>45){UI.drawT=t;UI.after(false);}else if(!UI.run&&UI.dirty){UI.dirty=false;UI.after(false);}
@@ -6473,11 +6685,11 @@ function scnJoint(){var MP=G.map,top=sideCmd(0);if(!top)return;var bx=MP.Wm*0.55
     else if(F.pk==='ad1944'||F.pk==='aab2000'){(function w(z){z.st='off';kidsOf(z).forEach(w);})(F);F.arr={k:'time',t:900,x:dz[0]+(Math.random()-0.5)*5000,y:dz[1]+(Math.random()-0.5)*5000,mode:F.pk==='aab2000'?'heli':'para',ord:{k:'defend',x:dz[0],y:dz[1]}};}});
   var c=MP.set.filter(function(s){return s.kind!=='village';}).sort(function(a,b){return Math.abs(a.x*MP.cs-MP.Wm*0.7)-Math.abs(b.x*MP.cs-MP.Wm*0.7);})[0];if(c)G.obj=[{id:1,name:c.name,x:c.x*MP.cs,y:c.y*MP.cs,pts:30,own:1,r:1500}].concat(G.obj.slice(0,1));}
 SCN.push(
- {k:'sg1683',n:'1683 年：圍城（城牆與攻城器具）',ds:'火藥時代的要塞城市：攻方需要伐木打造雲梯與攻城槌、以攻城砲轟開缺口；守軍與市民困守城內。長期圍城會帶來飢餓與疾病。',y:1683,m:7,d:14,h:6,ter:'valley',clim:'continental',size:[16,12],cs:25,bf:'fortress',cstyle:'fort',A:[['sg1650',1,'圍城軍']],B:[['gc1650',1,'城防守軍']],names:['帝國軍','城防軍'],dur:96,post:function(){scnSiege();},set:{evac:'none',wealth:'mid'}},
- {k:'urb1942',n:'1942 年：大城市攻防（平民與難民）',ds:'人口稠密的大城市：兩個步兵師攻擊據守城區的守軍。平民來不及撤離，難民湧上道路；巷戰與砲擊造成大量平民傷亡與財產損失。',y:1942,m:9,d:13,h:5,ter:'plain',clim:'continental',size:[26,20],cs:50,bf:'urban',A:[['d1940',2,'第{i}步兵師'],['rr1940',1,'後方勤務群']],B:[['d1940',1,'城防師'],['vg1940',4,'第{i}民兵營']],names:['攻方','守方'],dur:48,post:function(){scnCity();},set:{evac:'part',loy:'s1',mob:'high'}},
- {k:'occ1943',n:'1943 年：佔領與游擊',ds:'佔領軍以高壓政策控制一片敵對地區：民怨升高後游擊隊出現，伏擊補給、破壞橋梁；治安部隊掃蕩、民事部隊安撫，報復只會讓民怨更高。',y:1943,m:10,d:2,h:6,ter:'hills',clim:'temperate',size:[30,22],cs:50,A:[['d1940',1,'佔領軍步兵師'],['rr1940',1,'佔領區後方勤務群']],B:[['r1940',1,'殘餘步兵團'],['g1940',1,'游擊支隊']],names:['佔領軍','抵抗軍'],dur:96,set:{loy:'s1',evac:'none',evt:{on:true,freq:2,clim:true,quake:'auto',disc:true,dis:true,gue:true,short:true,pers:true,wel:true}},pol:[{pow:3,civ:3,doct:'harsh',press:'control',show:'occ',leave:'rot',sex:'tol'},{pow:1,civ:1,doct:'mixed',press:'free',show:'none',leave:'none',sex:'ban'}]},
- {k:'jl1944',n:'1944 年：聯合登陸（方面軍級）',ds:'大型聯合作戰：兩個登陸軍正面進攻，陸戰隊由海上登陸、兩個空降師在敵後傘降，特遣艦隊與航空聯隊支援；守方以步兵軍據守海岸、裝甲軍為預備隊。地圖 120×90 公里。',y:1944,m:6,d:6,h:4,ter:'coast',clim:'maritime',size:[120,90],cs:200,lat:49,bf:'beach',A:[['th1944',1,'聯合登陸作戰群',null,'rgt']],B:[['k1940',1,'海岸防衛軍',null,'rgt'],['pk1940',1,'裝甲預備軍',null,'rgt'],['w1940',1,'守方航空聯隊',null,'co']],names:['盟軍','守軍'],dur:72,post:function(){scnJoint();}},
- {k:'th2024',n:'2024 年：戰區聯合作戰',ds:'多域聯合作戰：三個師、空中突擊旅、兩棲突擊旅、兩個水面作戰群與航空聯隊對抗兩個防衛師。無人機、電子戰、精準火力與大量平民。地圖 160×120 公里。',y:2024,m:4,d:20,h:5,ter:'coast',clim:'temperate',size:[160,120],cs:250,lat:24,bf:'beach',A:[['th2024',1,'戰區聯合司令部',null,'rgt']],B:[['d2020',2,'第{i}防衛師',null,'rgt'],['rr2000',1,'後方勤務群',null,'co'],['g2000',2,'第{i}地方武裝',null,'co']],names:['藍軍','紅軍'],dur:72,post:function(){scnJoint();},set:{evac:'most',wealth:'rich'}});
+ {k:'sg1683',n:'1683 年：圍城（城牆與攻城器具）',ds:'火藥時代的要塞城市：攻方需要伐木打造雲梯與攻城槌、以攻城砲轟開缺口；守軍與市民困守城內。長期圍城會帶來飢餓與疾病。',y:1683,m:7,d:14,h:6,ter:'valley',clim:'continental',size:[16,12],cs:25,bf:'fortress',cstyle:'fort',A:[['sg1650',1,'圍城軍']],B:[['gc1650',1,'城防守軍']],names:['帝國軍','城防軍'],dur:720,post:function(){scnSiege();},set:{evac:'none',wealth:'mid'}},
+ {k:'urb1942',n:'1942 年：大城市攻防（平民與難民）',ds:'人口稠密的大城市：兩個步兵師攻擊據守城區的守軍。平民來不及撤離，難民湧上道路；巷戰與砲擊造成大量平民傷亡與財產損失。',y:1942,m:9,d:13,h:5,ter:'plain',clim:'continental',size:[26,20],cs:50,bf:'urban',A:[['d1940',2,'第{i}步兵師'],['rr1940',1,'後方勤務群']],B:[['d1940',1,'城防師'],['vg1940',4,'第{i}民兵營']],names:['攻方','守方'],dur:720,post:function(){scnCity();},set:{evac:'part',loy:'s1',mob:'high'}},
+ {k:'occ1943',n:'1943 年：佔領與游擊',ds:'佔領軍以高壓政策控制一片敵對地區：民怨升高後游擊隊出現，伏擊補給、破壞橋梁；治安部隊掃蕩、民事部隊安撫，報復只會讓民怨更高。',y:1943,m:10,d:2,h:6,ter:'hills',clim:'temperate',size:[30,22],cs:50,A:[['d1940',1,'佔領軍步兵師'],['rr1940',1,'佔領區後方勤務群']],B:[['r1940',1,'殘餘步兵團'],['g1940',1,'游擊支隊']],names:['佔領軍','抵抗軍'],dur:720,set:{loy:'s1',evac:'none',evt:{on:true,freq:2,clim:true,quake:'auto',disc:true,dis:true,gue:true,short:true,pers:true,wel:true}},pol:[{pow:3,civ:3,doct:'harsh',press:'control',show:'occ',leave:'rot',sex:'tol'},{pow:1,civ:1,doct:'mixed',press:'free',show:'none',leave:'none',sex:'ban'}]},
+ {k:'jl1944',n:'1944 年：聯合登陸（方面軍級）',ds:'大型聯合作戰：兩個登陸軍正面進攻，陸戰隊由海上登陸、兩個空降師在敵後傘降，特遣艦隊與航空聯隊支援；守方以步兵軍據守海岸、裝甲軍為預備隊。地圖 120×90 公里。',y:1944,m:6,d:6,h:4,ter:'coast',clim:'maritime',size:[120,90],cs:200,lat:49,bf:'beach',A:[['th1944',1,'聯合登陸作戰群',null,'rgt']],B:[['k1940',1,'海岸防衛軍',null,'rgt'],['pk1940',1,'裝甲預備軍',null,'rgt'],['w1940',1,'守方航空聯隊',null,'co']],names:['盟軍','守軍'],dur:720,post:function(){scnJoint();}},
+ {k:'th2024',n:'2024 年：戰區聯合作戰',ds:'多域聯合作戰：三個師、空中突擊旅、兩棲突擊旅、兩個水面作戰群與航空聯隊對抗兩個防衛師。無人機、電子戰、精準火力與大量平民。地圖 160×120 公里。',y:2024,m:4,d:20,h:5,ter:'coast',clim:'temperate',size:[160,120],cs:250,lat:24,bf:'beach',A:[['th2024',1,'戰區聯合司令部',null,'rgt']],B:[['d2020',2,'第{i}防衛師',null,'rgt'],['rr2000',1,'後方勤務群',null,'co'],['g2000',2,'第{i}地方武裝',null,'co']],names:['藍軍','紅軍'],dur:720,post:function(){scnJoint();},set:{evac:'most',wealth:'rich'}});
 /* ===================== v5 想定：太平洋戰爭（瓜達康納爾島、塞班島） ===================== */
 function coastY(x){var MP=G.map;for(var y=MP.cs;y<MP.Hm;y+=MP.cs){if(!isWater(MP.lc[cellAt(x,y)]))return y;}return null;}
 function westCoastX(y){var MP=G.map;for(var x=MP.cs;x<MP.Wm;x+=MP.cs){if(!isWater(MP.lc[cellAt(x,y)]))return x;}return null;}
@@ -6492,7 +6704,7 @@ function scnGuadal(){var MP=G.map,r=mb32(hstr(MP.seed+'|gc')),ax=MP.Wm*0.58,cy=c
   var US=topBy(0,'mdv1942'),CA=topBy(0,'iaw1942'),TF=topBy(0,'cbg1940'),JD=topBy(1,'ijd1942'),SU=topBy(1,'r1940'),KB=topBy(1,'cbg1940'),BA=topBy(1,'mbw1940');
   /* 陸戰師：機場周圍的環形防線，已經構工兩個月 */
   if(US){deployTree(US,ax,ay,PI/2,0);garrison(US,ax,ay+600,4200);leavesOf(US).forEach(function(u){u.ent=Math.max(u.ent||0,0.55);u.hd=Math.atan2(u.y-ay,u.x-ax);});}
-  if(CA)airBaseAt(CA,ax,ay);G.sides[0].nodes=[];addNode(0,'off',MP.Wm-MP.cs*4,(cy||MP.Hm*0.3)-3000,{name:'海上補給線'});addNode(0,'air',ax,ay,{name:'韓德森機場'});
+  if(CA)airBaseAt(CA,ax,ay);G.sides[0].nodes=[];addNode(0,'off',MP.Wm-MP.cs*4,(cy||MP.Hm*0.3)-3000,{name:'海上補給線'});facClaim(0,'air',ax,ay,'韓德森機場');
   if(TF){var tp=seaNear(MP.Wm*0.9,(coastY(MP.Wm*0.9)||cy)-7000);scnPlace(TF,tp[0],tp[1],PI);}
   /* 日軍：第二師團在機場西南方叢林、住吉支隊沿西部海岸；航艦在西北外海，陸基轟炸機自地圖外的基地出擊 */
   var j=validPos({dom:'land'},MP.Wm*0.34,ay+9000);if(JD)scnPlace(JD,j[0],j[1],Math.atan2(ay-j[1],ax-j[0]));
@@ -6517,19 +6729,19 @@ function scnSaipan(){var MP=G.map,r=mb32(hstr(MP.seed+'|sp')),cells=[],sx=0,sy=0
   [['第二陸戰師',-1700,1800,{k:'attack',x:town.x,y:town.y}],['第四陸戰師',1700,2700,{k:'attack',x:sc[0],y:sc[1]}],['陸軍第二十七步兵師',0,30*3600,{k:'attack',x:sc[0],y:sc[1]}]].forEach(function(q,i){var F=buildPreset(0,i<2?'mdv1942':'d1940',q[0],-1,r,'co');offTree(F);var b=validPos({dom:'land'},(westCoastX(by+q[1])||bxw)+500,by+q[1]);F.arr={k:'time',t:q[2],x:b[0],y:b[1],mode:'ship',ord:q[3]};});
   var NG=topBy(0,'bbg1942');if(NG){var np=seaNear(bxw-6000,by);scnPlace(NG,np[0],np[1],0);}var TF=topBy(0,'cbg1940');if(TF){var tp=seaNear(MP.cs*8,by-6000);scnPlace(TF,tp[0],tp[1],0);}
   /* 守軍與平民沒有退路：沒有地圖外補給，只有島上的倉庫 */
-  G.sides[1].nodes=[];addNode(1,'depot',town.x,town.y,{name:town.n+'倉庫',st:{food:260,ammo:380,fuel:40,fod:0}});reix();
+  G.sides[1].nodes=[];addNode(1,'depot',town.x,town.y,{name:town.n+'守備隊補給庫',st:{food:260,ammo:380,fuel:40,fod:0}});facClaim(1,'air',sc[0],sc[1],'阿斯里多機場');reix();
   G.obj=[{id:1,name:'阿斯里多機場',x:sc[0],y:sc[1],pts:30,own:1,r:1300},{id:2,name:town.n,x:town.x,y:town.y,pts:20,own:1,r:1200},{id:3,name:'塔波喬山',x:peak.x,y:peak.y,pts:20,own:1,r:900}];
   G.sides[1].nosur=true;G.sides[1].post='defend';dupNames();}
 SCN.push(
  {k:'gc1942',n:'1942 年：瓜達康納爾島（機場爭奪）',ds:'以瓜島韓德森機場爭奪戰為藍本：陸戰師在機場周圍據守環形防線，島嶼航空隊從機場起降；日軍步兵師團穿越叢林攻擊，夜間以高速運輸驅逐艦運來援兵與補給，戰鬥艦趁夜砲擊機場，雙方航艦在外海交鋒。補給斷絕的一方會陷入飢餓，瘧疾與痢疾造成的減員不亞於戰鬥。地圖 48×36 公里。',
   y:1942,m:10,d:23,h:16,ter:'coast',sea:-PI/2,coff:-0.2,isl:[[0.8,0.06,0.13,0.05,1,0.2,80],[0.45,1.0,0.75,0.62,1,0,420]],clim:'tropical',size:[48,36],cs:100,lat:9.4,dens:0.15,edges:['E','W'],
   A:[['mdv1942',1,'第一陸戰師',null,'co'],['iaw1942',1,'仙人掌航空隊',null,'co'],['cbg1940',1,'第十六特遣艦隊',null,'co']],B:[['ijd1942',1,'第二師團',null,'co'],['r1940',1,'住吉支隊',null,'co'],['cbg1940',1,'機動部隊',null,'co'],['mbw1940',1,'基地航空隊',null,'co']],
-  names:['美軍','日軍'],dur:72,post:function(){scnGuadal();},set:{evac:'none',wealth:'poor',evt:{on:true,freq:1.5,clim:true,quake:'auto',disc:true,dis:true,gue:false,short:true,pers:true,wel:true}},
+  names:['美軍','日軍'],dur:720,post:function(){scnGuadal();},set:{evac:'none',wealth:'poor',evt:{on:true,freq:1.5,clim:true,quake:'auto',disc:true,dis:true,gue:false,short:true,pers:true,wel:true}},
   pol:[{pow:2,civ:1,doct:'mixed',press:'control'},{pow:3,civ:2,doct:'harsh',press:'control'}]},
  {k:'sp1944',n:'1944 年：塞班島（島嶼登陸與平民）',ds:'以塞班島戰役為藍本：兩個陸戰師由運輸船團載運，在艦砲與艦載機掩護下於西岸登陸，陸軍步兵師隨後增援；守軍步兵師團、混成旅團與戰車聯隊散布全島，奉行不投降教條。島上兩萬多名平民無處可逃，困在洞穴與戰火之間，守軍的宣傳與脅迫讓許多人在最後選擇自殺。地圖 30×24 公里。',
   y:1944,m:6,d:15,h:5,ter:'island',isl:[[0.55,0.5,0.16,0.44,1,0.25,420]],clim:'tropical',size:[30,24],cs:50,lat:15.2,dens:3,edges:['W','E'],
   A:[['bbg1942',1,'艦砲支援群',null,'co'],['cbg1940',1,'第五十八特遣艦隊',null,'co']],B:[['ijd1942',1,'第四十三師團',null,'co'],['r1940',1,'獨立混成第四十七旅團',null,'co'],['tb1940',1,'戰車第九聯隊',null,'co']],
-  names:['美軍','日軍'],dur:96,post:function(){scnSaipan();},set:{evac:'none',wealth:'mid',loy:'s1',evt:{on:true,freq:1,clim:true,quake:'auto',disc:true,dis:true,gue:false,short:true,pers:true,wel:true}},
+  names:['美軍','日軍'],dur:600,post:function(){scnSaipan();},set:{evac:'none',wealth:'mid',loy:'s1',evt:{on:true,freq:1,clim:true,quake:'auto',disc:true,dis:true,gue:false,short:true,pers:true,wel:true}},
   pol:[{pow:2,civ:1,doct:'mixed',press:'control'},{pow:3,civ:3,doct:'harsh',press:'control'}]});
 /* ===================== 開始：快速想定、自訂作戰地區（程序產生／內建示範世界／上傳地圖參數檔／作戰地圖檔）、讀取存檔 ===================== */
 var ST0={src:'proc',ter:'mixed',clim:'temperate',W:30,H:22,cs:50,y:1943,m:6,d:6,h:5,name:'',seed:'',dens:1,rail:true,dev:'auto',hsr:true,lat:48,lon0:null,lat0:null,busy:false,
@@ -6786,7 +6998,7 @@ PAGES.logi=function(host){if(UI.side>=0)LG.side=UI.side;var side=LG.side,S=G.sid
   o+='<div class="lw-grid"><div class="lw-card"><h3>每日需求<small>以中等戰鬥強度估算</small></h3><table class="lw-tbl"><tr><th>類別</th><th class="n">需求（噸／日）</th><th class="n">節點存量（噸）</th><th class="n">可支撐</th></tr>'+
     [['food','糧秣'+(aridMap()?'（含飲水）':'')],['water','其中飲水'],['fod','草料（馬匹與奇幻生物）'],['ammo','彈藥'],['fuel','燃料']].filter(function(q){return q[0]!=='water'||aridMap();}).map(function(q){var need=sm.need[q[0]],st=q[0]==='water'?0:sm.stock[q[0]]||0,offOnly=!sm.nodes.some(function(N){return N.k!=='off';});return '<tr><td>'+q[1]+'</td><td class="n">'+fmt(need,1)+'</td><td class="n">'+(q[0]==='water'||offOnly?'—':fmt(st,1))+'</td><td class="n">'+(q[0]==='water'||!need?'—':offOnly?'地圖外基地直接補給':fx(st/need,1)+' 日')+'</td></tr>';}).join('')+
     '</table>'+(aridMap()?'':'<div class="lw-note">此地區有河流、湖泊與聚落，飲水可就地取得。</div>')+'<div class="lw-note">兵員 '+fmt(sm.men[0])+' 名士兵、'+fmt(sm.men[1])+' 名士官、'+fmt(sm.men[2])+' 名軍官。'+(G.started?'脫離補給線的單位 '+sm.oos+' 個，飢餓的單位 '+sm.hungry+' 個。':'')+'</div></div>';void del;
-  o+='<div class="lw-card"><h3>補給鏈<small>地圖外基地 → 港口／機場／鐵路站 → 補給站 → 補給部隊 → 前線</small></h3><div class="lw-note">在「部署」頁的「補給節點」工具點選地圖即可新增節點。港口必須臨水域，鐵路站必須在通往地圖邊緣的鐵路上，機場吞吐量受天氣、夜間與敵方空優影響；補給站由上游節點以車隊運補，運量＝車輛數 × 載重 × 每日往返趟次。敵軍逼近運補路線或節點時運量會大減，節點被佔領則存量全失。</div></div></div>';
+  o+='<div class="lw-card"><h3>補給鏈<small>地圖外基地 → 港口／機場／鐵路站 → 補給站 → 補給部隊 → 前線</small></h3><div class="lw-note">補給站與地圖外基地可用「部署」頁的「補給節點」工具新增；港口、鐵路車站與機場是戰場上既有的民用設施（見下方「民用補給設施」），開戰時中立，部隊佔領後才能啟用。港口必須臨水域，奪取的鐵路車站要有鐵路通往本方地圖邊緣，機場吞吐量受天氣、夜間與敵方空優影響；補給站由上游節點以車隊運補，運量＝車輛數 × 載重 × 每日往返趟次。敵軍逼近運補路線或節點時運量會大減；補給站被敵軍地面部隊佔領則存量全失，民用設施被奪取時約一半存量損毀。</div></div></div>';
   o+='<div class="lw-card"><h3>補給節點</h3><div class="lw-sc"><table class="lw-tbl"><tr><th>名稱</th><th>種類</th><th>位置</th><th class="n">吞吐量（噸／日）</th><th class="n">儲量上限</th><th>上游</th><th class="n">車隊（輛 × 噸）</th><th class="n">近 24 時進貨</th><th>存量（糧／彈／油／草）</th><th>狀態</th><th></th></tr>'+
     (S.nodes||[]).map(function(N,i){var ups=(S.nodes||[]).filter(function(q){return q!==N&&q.k!=='depot';}),day=sum(N.hist.slice(-144),function(v){return v;});
       return '<tr><td><input type="text" value="'+esc(N.name)+'" data-i="nd" data-f="name" data-v="'+i+'" style="width:8em"></td><td>'+LOGK[N.k][0]+'</td><td>'+esc(placeTxt(N.x,N.y))+'</td><td class="n">'+(N.k==='off'?'無限':N.k==='depot'?'（依車隊）':'<input type="number" min="0" value="'+N.thr+'" data-c="nd" data-f="thr" data-v="'+i+'">')+'</td><td class="n">'+(N.k==='off'?'—':'<input type="number" min="0" value="'+N.cap+'" data-c="nd" data-f="cap" data-v="'+i+'">')+'</td>'+
@@ -6849,11 +7061,11 @@ function dpTree(){var el=UI.body.querySelector('[data-k="dptree"]');if(!el)retur
     o+='<div class="lw-n'+(DP.placeId===u.id?' on':'')+'" data-a="dpsel" data-id="'+u.id+'"><span class="tg"></span>'+uIco(u)+'<span class="nm">'+esc(u.name)+'</span><span class="st">'+(u.st==='off'?'⏳增援':unplaced?'未部署':'')+'</span></div>';if(!isLeaf(u)&&dispEch(u)>=3){o+='<div class="lw-k">';kidsOf(u).forEach(function(k){if(!isLeaf(k))walk(k);});o+='</div>';}});el.innerHTML=o+'</div>';}
 ACT.dpsel=function(b){DP.placeId=+b.getAttribute('data-id');UI.sel=[DP.placeId];dpTree();dpPanel();var u=uById(DP.placeId);if(u&&u.placed)vDraw(false);};
 function dpPanel(){var el=UI.body.querySelector('[data-k="dpside"]');if(!el)return;var o='<div class="lw-ob" style="grid-template-columns:repeat(2,1fr)">'+[['drag','拖曳調整'],['place','放置編制'],['obj','目標點'],['node','補給節點'],['entry','增援進場點']].map(function(q){return '<button type="button" data-a="dptool" data-v="'+q[0]+'" class="'+(DP.tool===q[0]?'on':'')+'">'+q[1]+'</button>';}).join('')+'</div>';
-  if(DP.tool==='node')o+='<div class="lw-row"><label>種類 <select data-c="dpnode">'+Object.keys(LOGK).map(function(k){return '<option value="'+k+'"'+(DP.nodeK===k?' selected':'')+'>'+LOGK[k][0]+'</option>';}).join('')+'</select></label></div>';
+  if(DP.tool==='node')o+='<div class="lw-row"><label>種類 <select data-c="dpnode">'+['depot','off'].map(function(k){return '<option value="'+k+'"'+(DP.nodeK===k?' selected':'')+'>'+LOGK[k][0]+'</option>';}).join('')+'</select></label></div><div class="lw-note">港口、鐵路車站與機場是戰場上既有的民用設施（地圖上的灰色虛線框），開戰時中立，部隊佔領後才能啟用，不必手動放置。</div>';
   var u=DP.placeId?uById(DP.placeId):null;if(u){o+='<div class="lw-card"><h3>'+uIco(u)+' '+esc(u.name)+'</h3><div class="lw-row"><button type="button" class="lw-btn sm" data-a="dprot" data-v="-1">↺ 轉向</button><button type="button" class="lw-btn sm" data-a="dprot" data-v="1">↻ 轉向</button><button type="button" class="lw-btn sm" data-a="dpcenter">置中</button></div>'+(u.st==='off'?'<div class="lw-note">增援部隊：'+(u.arr&&u.arr.x!==undefined?'進場點 '+esc(placeTxt(u.arr.x,u.arr.y)):'由本方後方進場')+'。</div>':'')+'</div>';}
   o+='<div class="lw-row"><button type="button" class="lw-btn" data-a="dpauto">自動部署'+esc(G.sides[DP.side].name)+'</button></div>';
   o+='<div class="lw-card"><h3>目標點</h3>'+((G.obj||[]).length?'<table class="lw-tbl">'+G.obj.map(function(ob,i){return '<tr><td><input type="text" value="'+esc(ob.name)+'" data-i="obn" data-v="'+i+'" style="width:7em"></td><td><input type="number" min="1" max="100" value="'+(ob.pts||10)+'" data-c="obp" data-v="'+i+'" style="width:52px"> 分</td><td><button type="button" class="lw-btn sm dng" data-a="obdel" data-v="'+i+'">刪除</button></td></tr>';}).join('')+'</table>':'<div class="lw-note">尚無目標點。</div>')+'</div>';
-  o+='<div class="lw-card"><h3>開戰</h3><div class="lw-kv"><span>開戰時間</span><span>'+clockTxt({y:G.set.y,m:G.set.m,d:G.set.d,h:G.set.h,mi:G.set.mi||0})+'</span><span>作戰時限</span><span>'+G.set.dur+' 小時</span><span>玩家</span><span>'+[0,1].filter(function(s){return !G.sides[s].ai;}).map(function(s){return esc(G.sides[s].name);}).join('、')+(G.sides.every(function(S){return S.ai;})?'（雙方皆由電腦指揮）':'')+'</span></div>'+
+  o+='<div class="lw-card"><h3>開戰</h3><div class="lw-kv"><span>開戰時間</span><span>'+clockTxt({y:G.set.y,m:G.set.m,d:G.set.d,h:G.set.h,mi:G.set.mi||0})+'</span><span>作戰時限</span><span>'+(typeof durH==='function'?durH(G.set.dur):G.set.dur+' 小時')+'</span><span>玩家</span><span>'+[0,1].filter(function(s){return !G.sides[s].ai;}).map(function(s){return esc(G.sides[s].name);}).join('、')+(G.sides.every(function(S){return S.ai;})?'（雙方皆由電腦指揮）':'')+'</span></div>'+
     (G.started?'<div class="lw-note">作戰進行中。</div>':'<div class="lw-row"><button type="button" class="lw-btn pri" data-a="begin">開始作戰</button></div><div class="lw-note">開戰後時間預設暫停，按 ▶ 或空白鍵開始，可隨時切換速度。</div>')+'</div>';el.innerHTML=o;}
 ACT.dptool=function(b){DP.tool=b.getAttribute('data-v');UI.tool=DP.tool==='place'?'place':'sel';dpPanel();modeTip();};
 CHG.dpnode=function(t){DP.nodeK=t.value;modeTip();};
@@ -6869,7 +7081,7 @@ function dpPlace(x,y,hd){var u=uById(DP.placeId);if(!u){toast('請先在左側�
   var e=G.sides[u.side].edge,h=hd!==null&&hd!==undefined?hd:(e==='W'?0:e==='E'?PI:e==='N'?PI/2:-PI/2);deployTree(u,x,y,h,0);(function w(z){if(isLeaf(z)&&ST(z).dom==='air'){z.base=[z.x,z.y];}kidsOf(z).forEach(w);})(u);dpTree();}
 function dpClick(x,y,sx,sy){if(DP.tool==='obj'){var o=hitObj(sx,sy);if(o){var nm=prompt('目標名稱（清空即刪除）',o.name);if(nm===null)return;if(!nm.trim())G.obj=G.obj.filter(function(q){return q!==o;});else{o.name=nm.trim();var pt=prompt('分數',o.pts||10);if(pt!==null)o.pts=clamp(+pt||10,1,100);}dpPanel();return;}
     var nm2=prompt('目標名稱',placeName(x,y));if(!nm2)return;G.obj.push({id:(G.obj.reduce(function(m,q){return Math.max(m,q.id);},0))+1,name:nm2,x:x,y:y,pts:10,own:-1,r:800});dpPanel();return;}
-  if(DP.tool==='node'){var N=hitNode(sx,sy);if(N){if(confirm('刪除補給節點「'+N.name+'」？')){var S=G.sides[N.side];S.nodes=S.nodes.filter(function(q){return q!==N;});}return;}var nd=addNode(DP.side,DP.nodeK,x,y,{name:placeName(x,y)+LOGK[DP.nodeK][0]});if(nd.k!=='depot'&&nd.k!=='off'&&!nodeOK(nd))toast(nd.k==='port'?'提醒：港口必須鄰近海岸、湖泊或大河。':'提醒：鐵路站必須在通往地圖邊緣的鐵路上。',4500);return;}
+  if(DP.tool==='node'){var N=hitNode(sx,sy);if(N&&N.fac){toast('這是民用設施，不能刪除。');return;}if(N){if(confirm('刪除補給節點「'+N.name+'」？')){var S=G.sides[N.side];S.nodes=S.nodes.filter(function(q){return q!==N;});}return;}var nd=addNode(DP.side,DP.nodeK,x,y,{name:placeName(x,y)+LOGK[DP.nodeK][0]});if(nd.k!=='depot'&&nd.k!=='off'&&!nodeOK(nd))toast(nd.k==='port'?'提醒：港口必須鄰近海岸、湖泊或大河。':'提醒：鐵路站必須在通往地圖邊緣的鐵路上。',4500);return;}
   if(DP.tool==='entry'){var u=uById(DP.placeId);if(!u||u.st!=='off'){toast('請先選取一支增援部隊（在「兵力編成」設定為增援）。');return;}u.arr.x=x;u.arr.y=y;toast('已設定「'+u.name+'」的進場位置。');dpPanel();return;}
   if(DP.tool==='place'){dpPlace(x,y,null);return;}var it=hitAt(sx,sy);if(it&&it.u){DP.placeId=it.u.id;UI.sel=[it.u.id];dpTree();dpPanel();}}
 ACT.begin=function(){var miss=[];[0,1].forEach(function(s){var tps=G.units.filter(function(u){return u.side===s&&u.p<0&&u.st!=='off'&&(isLeaf(u)?[u]:leavesOf(u)).some(function(x){return !x.placed&&x.st!=='off';});});if(tps.length){autoDeploy(s,tps);miss.push(G.sides[s].name);}});
@@ -7069,7 +7281,7 @@ ARRM.push(['ship','運輸船（海運卸載）']);
 var ARRN={para:'在地圖上指定空降場；部隊由後方乘運輸機飛抵後傘降，會遭沿途防空火力射擊，落地後需要集結。',heli:'在地圖上指定降落區；部隊由直升機運抵，散布小、集結快。',sea:'在地圖上指定灘頭（陸地）；部隊從最近的外海出發，登陸前非常脆弱。',fly:'只適用航空器：由地圖外基地起飛，直接飛往指定地點巡邏或打擊。',
   ship:'在地圖上指定灘頭（陸地）。部隊搭乘運輸船由地圖邊緣的海面駛來，在灘頭外海以小艇或登陸艇分批卸載；船被擊沉時船上官兵隨船落海。可選「趁夜駛入」以避開敵機（夜間卸載較慢）。'};
 var SHIPT=[['','依年代自動'],['trs1800','運輸帆船'],['trs1914','運輸船（徵用商船）'],['trs1940','運輸艦（二戰）'],['dxt1940','高速運輸驅逐艦（夜間運兵，無法載重裝備）'],['trs1970','戰車登陸艦（冷戰）'],['trs2000','船塢登陸艦（現代）']];
-(function(){var base=canOrd;canOrd=function(u,k){if(u.cvy||u.st==='ship')return false;if(k==='sat')return canSat(u);if(k==='carpet')return canCarpet(u);if(k==='msl')return canMsl(u);return base(u,k);};})();
+(function(){var base=canOrd;canOrd=function(u,k){if(u.cvy||u.st==='ship'){/* 自動配屬的運輸艦：船上部隊可接受命令（上岸後執行），運輸艦本身可移動或停止 */var A=typeof autoCvyOf==='function'?autoCvyOf(u):null;if(!A)return false;if(u.cvy)return k==='move'||k==='halt';if(k==='sat'||k==='carpet'||k==='msl')return false;return base(u,k);}if(k==='sat')return canSat(u);if(k==='carpet')return canCarpet(u);if(k==='msl')return canMsl(u);return base(u,k);};})();
 function v5Leaves(us,f){var o=[];us.forEach(function(u){(isLeaf(u)?[u]:leavesOf(u)).forEach(function(l){if(alive(l)&&f(l)&&o.indexOf(l)<0)o.push(l);});});return o;}
 /* 命令面板的選項 */
 (function(){var b=v4Opts;v4Opts=function(k,O,us){var o=b(k,O,us);
@@ -7081,12 +7293,12 @@ function v5Leaves(us,f){var o=[];us.forEach(function(u){(isLeaf(u)?[u]:leavesOf(
   if(UI.tool==='ord'&&UI.ord&&/^(sat|carpet|msl)$/.test(UI.ord.k)){VW.mode.hidden=false;VW.mode.innerHTML='「'+ORDN[UI.ord.k]+'」：'+({sat:'點選飽和打擊的目標',carpet:'點選轟炸瞄準點（虛線為危險區）',msl:'點選要打擊的目標'})[UI.ord.k]+'<button type="button" data-a="ordx">取消</button>';}};})();
 (function(){var b=ACT.ordx;ACT.ordx=function(e){if(UI.tool==='snk'){UI.tool='sel';SNK.hv=null;modeBt();vDraw(false);return;}return b(e);};})();
 /* 船上與船團 */
-(function(){var b=btOrd;btOrd=function(){var us=UI.sel.map(uById).filter(Boolean),el=btEl('bord');if(el&&us.length&&us.every(function(u){return u.cvy||u.st==='ship';})){var u=us[0];el.innerHTML='<div class="lw-note">'+(u.cvy?'運輸船團依航行計畫自動駛往灘頭外海、卸載後返航，不接受其他命令。':'部隊正在運輸船上，上岸後才能接受命令（已收到的命令會在上岸後執行）。')+'</div>';return;}b();};})();
+(function(){var b=btOrd;btOrd=function(){var us=UI.sel.map(uById).filter(Boolean),el=btEl('bord');if(el&&us.length&&us.every(function(u){return (u.cvy||u.st==='ship')&&!(typeof autoCvyOf==='function'&&autoCvyOf(u));})){var u=us[0];el.innerHTML='<div class="lw-note">'+(u.cvy?'運輸船團依航行計畫自動駛往灘頭外海、卸載後返航，不接受其他命令。':'部隊正在運輸船上，上岸後才能接受命令（已收到的命令會在上岸後執行）。')+'</div>';return;}b();};})();
 (function(){var b=v4Status;v4Status=function(u,leaf,L){var o=b(u,leaf,L);if(!leaf)return o;var s=ST(u);
   if(isCV(u)){var A=G.units.filter(function(a){return a.baseU===u.id&&alive(a);}),n=sum(A,function(a){return a.veh;});o+='<span>艦載機</span><span>'+A.length+' 個中隊、約 '+fmt(n)+' 架／容量 '+fmt(cvCap(u))+' 架；飛行甲板'+(cvDeck(u)?'可用':'<b style="color:#b3261e">受損，無法起降</b>')+'</span>';}
   if(u.baseU){var c=uById(u.baseU);if(c)o+='<span>母艦</span><span>'+esc(uName(c))+'</span>';}
   var q=mslSpec(u);if(q)o+='<span>飛彈</span><span>'+q.nm+' '+mslLeft(u)+' 枚（射程 '+kmTxt(q.r)+'）</span>';
-  if(u.cvy){var Q=u.cvy,ab=Q.pax.map(uById).filter(function(z){return z&&z.st==='ship';});o+='<span>船團</span><span>'+({wait:'等待天黑',go:'航向灘頭',unl:'卸載中',ret:'返航'})[Q.ph]+'；船上 '+ab.length+' 個單位、約 '+fmt(sum(ab,function(z){return z.men;}))+' 人'+(Q.drown?'；已有約 '+fmt(Q.drown)+' 人隨船落海':'')+'</span>';}
+  if(u.cvy){var Q=u.cvy,ab=Q.pax.map(uById).filter(function(z){return z&&z.st==='ship';});o+='<span>船團</span><span>'+({wait:'等待天黑',go:'航向灘頭',unl:'卸載中',ret:'返航',hold:'在海上待命，等待登陸命令',sail:'航行中'})[Q.ph]+'；船上 '+ab.length+' 個單位、約 '+fmt(sum(ab,function(z){return z.men;}))+' 人'+(Q.drown?'；已有約 '+fmt(Q.drown)+' 人隨船落海':'')+'</span>';}
   if(u.st==='ship'){var C=uById(u.cvyId);o+='<span>位置</span><span>乘船中'+(C?'（'+esc(uName(C))+'）':'')+'</span>';}
   if(SD(u.side).nosur&&s.dom==='land')o+='<span>教條</span><span class="lw-note">不投降'+(u.banzai?'；已發動自殺式衝鋒':'')+'</span>';return o;};})();
 /* 下令：區域外飛彈的發射數、飽和打擊的彈著時間 */
@@ -7113,9 +7325,12 @@ function v5Prev(c,hv){var k=UI.ord.k,us=UI.sel.map(uById).filter(function(u){ret
   (G.fo||[]).forEach(function(z){if(!see(z.side,1))return;var p=w2s(z.x,z.y),r=Math.max(3,z.r/mpp()),arr=G.t>=z.ta;c.fillStyle='rgba(130,119,23,'+(arr?(0.08+0.22*z.I).toFixed(3):'0.04')+')';c.strokeStyle='rgba(130,119,23,.7)';c.lineWidth=1;c.setLineDash(arr?[]:[4,4]);c.beginPath();c.arc(p[0],p[1],r,0,2*PI);c.fill();c.stroke();c.setLineDash([]);});
   var fz=(G.fo||[]).filter(function(z){return z.I>0.5;})[0];if(fz){var pz=w2s(fz.x,fz.y);txtHalo(c,'☢ 放射性落塵'+(G.t<fz.ta?'（約 '+durTxt(fz.ta-G.t)+' 後落下）':''),pz[0],pz[1]-fz.r/mpp()-8,'bold 11px sans-serif','#6D6A12');}
   (G.nukes||[]).forEach(function(n){if(!n.str)return;var p=w2s(n.x,n.y),age=G.t-n.t;c.strokeStyle='rgba(183,28,28,.55)';c.lineWidth=1.2;c.setLineDash([2,4]);[n.R[1],n.th].forEach(function(r){if(r){c.beginPath();c.arc(p[0],p[1],Math.max(3,r/mpp()),0,2*PI);c.stroke();}});c.setLineDash([]);if(age>1500)txtHalo(c,'☢ 爆心（'+yTxt(n.Y)+'）',p[0],p[1],'bold 11px sans-serif','#7F0000');});
-  (G._cpv||[]).forEach(function(q){var age=G.t-q.t;if(age>2400||!see(q.side,1))return;var k=1-age/2400,fx=Math.cos(q.a),fy=Math.sin(q.a),P=[[-1,-1],[1,-1],[1,1],[-1,1]].map(function(s){return w2s(q.x+fx*s[0]*q.L/2-fy*s[1]*q.W/2,q.y+fy*s[0]*q.L/2+fx*s[1]*q.W/2);});c.fillStyle='rgba(62,39,35,'+(0.35*k).toFixed(3)+')';c.beginPath();P.forEach(function(p,i){if(i)c.lineTo(p[0],p[1]);else c.moveTo(p[0],p[1]);});c.closePath();c.fill();});
+  /* 地毯式轟炸：細虛線框出落彈帶，沿帶狀區域畫爆炸圖示（不填滿，以免蓋住地圖） */
+  (G._cpv||[]).forEach(function(q){var age=G.t-q.t;if(age>2400||!see(q.side,1))return;var k=1-age/2400,fx=Math.cos(q.a),fy=Math.sin(q.a),P=[[-1,-1],[1,-1],[1,1],[-1,1]].map(function(s){return w2s(q.x+fx*s[0]*q.L/2-fy*s[1]*q.W/2,q.y+fy*s[0]*q.L/2+fx*s[1]*q.W/2);});c.strokeStyle='rgba(109,36,0,'+(0.6*k).toFixed(3)+')';c.lineWidth=1;c.setLineDash([3,4]);c.beginPath();P.forEach(function(p,i){if(i)c.lineTo(p[0],p[1]);else c.moveTo(p[0],p[1]);});c.closePath();c.stroke();c.setLineDash([]);
+    var Lp=q.L/mpp(),n=clamp(Math.round(Lp/28),1,9);c.globalAlpha=k;for(var i=0;i<n;i++){var f=n===1?0:i/(n-1)-0.5,e=w2s(q.x+fx*f*q.L*0.85,q.y+fy*f*q.L*0.85);if(typeof boomPath==='function'){boomPath(c,e[0],e[1],7,7,i*0.9);c.fillStyle='#E64A19';c.fill();c.lineWidth=1;c.strokeStyle='#4E1A00';c.stroke();}}c.globalAlpha=1;});
   (G.msl||[]).forEach(function(S){if(!see(S.side,S.det))return;var f=clamp((G.t-S.t0)/Math.max(1,S.eta-S.t0),0,1),x=lerp(S.x0,S.x,f),y=lerp(S.y0,S.y,f),p=w2s(x,y),q=w2s(S.x,S.y),col=sideCol(S.side);c.strokeStyle=col;c.globalAlpha=0.6;c.setLineDash([3,5]);c.lineWidth=1.2;c.beginPath();c.moveTo(p[0],p[1]);c.lineTo(q[0],q[1]);c.stroke();c.setLineDash([]);c.globalAlpha=1;c.fillStyle=col;c.beginPath();c.arc(p[0],p[1],3.5,0,2*PI);c.fill();if(VW.s>0.6)txtHalo(c,'➶'+S.n,p[0]+6,p[1]-6,'10.5px sans-serif',col);});
-  (G._mslv||[]).forEach(function(q){var age=G.t-q.t;if(age>600)return;var p=w2s(q.x,q.y),k=1-age/600;c.strokeStyle='rgba(40,53,147,'+k.toFixed(3)+')';c.lineWidth=2;c.beginPath();c.arc(p[0],p[1],6+10*(1-k),0,2*PI);c.stroke();});
+  /* 飛彈落點：爆炸圖示，十分鐘內淡出；全數被攔截時畫成灰色 */
+  (G._mslv||[]).forEach(function(q){var age=G.t-q.t;if(age>600)return;var p=w2s(q.x,q.y),k=1-age/600;c.globalAlpha=k;if(typeof boomPath==='function'){boomPath(c,p[0],p[1],8+3*(1-k),8,0.2);c.fillStyle=q.s>=q.n?'#9E9E9E':'#FF7043';c.fill();c.lineWidth=1.2;c.strokeStyle=q.s>=q.n?'#424242':'#5D1A00';c.stroke();}c.globalAlpha=1;});
   (G.snq||[]).forEach(function(Q){if(!see(Q.side,Q.det))return;var t=w2s(Q.x,Q.y),col='#B71C1C';c.strokeStyle=col;c.lineWidth=1.5;c.beginPath();c.arc(t[0],t[1],9,0,2*PI);c.moveTo(t[0]-14,t[1]);c.lineTo(t[0]+14,t[1]);c.moveTo(t[0],t[1]-14);c.lineTo(t[0],t[1]+14);c.stroke();
     if(Q.ex!==undefined&&G.t>=Q.ta){var p=w2s(Q.px,Q.py);c.setLineDash([4,4]);c.beginPath();c.moveTo(p[0],p[1]);c.lineTo(t[0],t[1]);c.stroke();c.setLineDash([]);c.fillStyle=col;c.beginPath();c.arc(p[0],p[1],4,0,2*PI);c.fill();}
     txtHalo(c,'☢ '+(Q.side===me||UI.side<0?SNKD[Q.del].n+' '+yTxt(Q.Y)+'，':'')+(Q.ex!==undefined&&G.t>=Q.ta?'飛行中':'約 '+durTxt(Math.max(0,Q.eta-G.t))+' 後抵達'),t[0],t[1]-18,'bold 11px sans-serif',col);});
@@ -7182,6 +7397,81 @@ var V5HELP='<h4>v5：轟炸機、航艦與運輸船</h4><ul><li>新單位：重�
  '<h4>v5：太平洋戰爭與其他</h4><ul><li>新劇本「瓜達康納爾島（機場爭奪）」與「塞班島（島嶼登陸與平民）」，以及「島嶼」地形。</li><li>不投降教條（陣營政策）：部隊極少投降，絕境時發動自殺式衝鋒，並以宣傳與脅迫使平民寧死不降；這些平民的死亡會列入戰後總結。</li>'+
  '<li>越古老的軍隊越沒有國際法與人道的概念：時代下限限制可選的政策、軍紀更難維持，1850 年以前沒有戰地記者。</li><li>所有自動暫停條件整合在「設定」與工具列的「⏸ 自動暫停」。大型聯合作戰的尋路改為共用路線並分段計算，減少卡頓。</li></ul>';
 (function(){var b=tipAt;tipAt=function(sx,sy,w){if(UI.tool==='snk')return '';return b(sx,sy,w);};})();
+/* ===================== v6 介面：爆炸圖示的砲擊區、民用補給設施、防空雷達控制與射程圈、時間加速與作戰時限、自動配船的命令 ===================== */
+/* ---------- 砲擊區：以小型爆炸圖示代替會蓋住地圖的實心圓；選取砲兵時才畫出影響範圍 ---------- */
+function boomPath(c,x,y,r,n,rot){c.beginPath();for(var i=0;i<n*2;i++){var a=rot+i*PI/n,rr=i%2?r*0.48:r*(i%4===0?1:0.82);c.lineTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr);}c.closePath();}
+drawMissions=function(c){var tt=Date.now()/1000;c.save();drawRings(c);G.units.forEach(function(u){if(!u.mis||!alive(u))return;if(UI.side>=0&&u.side!==UI.side&&!seeAll())return;var M=u.mis,p=w2s(M.x,M.y);if(p[0]<-40||p[1]<-40||p[0]>VW.cw+40||p[1]>VW.ch+40)return;
+    var act=G.t>=M.start,reg=!!(M.rg&&!M.reg),firing=act&&G.t-(u.lastArt||-1e9)<DT*2,sel=UI.sel.indexOf(u.id)>=0,r=reg?7:M.kind==='sat'?13:10;if(firing&&!reg)r*=1+0.12*Math.sin(tt*9+u.id);
+    if(sel){c.strokeStyle='rgba(230,81,0,.75)';c.lineWidth=1.2;c.setLineDash([4,4]);c.beginPath();c.arc(p[0],p[1],Math.max(4,M.r/mpp()),0,2*PI);c.stroke();c.setLineDash([]);}
+    if(firing&&UI.lay.fx){var q=w2s(u.x,u.y);c.strokeStyle='rgba(230,81,0,.55)';c.lineWidth=1;c.setLineDash([2,6]);c.beginPath();c.moveTo(q[0],q[1]);c.lineTo(p[0],p[1]);c.stroke();c.setLineDash([]);}
+    c.globalAlpha=act?(firing?1:0.8):0.45;boomPath(c,p[0],p[1],r,reg?6:8,(u.id%7)*0.37);c.fillStyle=reg?'#FFE082':M.kind==='sat'?'#F4511E':'#FB8C00';c.fill();c.lineWidth=1.4;c.strokeStyle=reg?'#8D6E00':'#6D2400';c.stroke();
+    if(act&&!reg){c.beginPath();c.arc(p[0],p[1],r*0.3,0,2*PI);c.fillStyle='#FFF59D';c.fill();}c.globalAlpha=1;if(reg&&VW.s>0.4)txtHalo(c,'試射',p[0],p[1]-r-7,'10px sans-serif','#6D4C00');});c.restore();};
+/* 選取的防空飛彈單位：實線為攔截射程、虛線為雷達偵測距離；岸置反艦飛彈：射程 */
+function drawRings(c){if(!UI.sel.length)return;var m=mpp();UI.sel.map(uById).forEach(function(u){if(!u||!alive(u)||!onMap(u))return;var p=w2s(u.x,u.y),x=samOf(u),q=mslSpec(u);
+  if(x){c.strokeStyle='rgba(198,40,40,.8)';c.lineWidth=1.5;c.beginPath();c.arc(p[0],p[1],x.rng/m,0,2*PI);c.stroke();c.setLineDash([6,5]);c.strokeStyle='rgba(198,40,40,.45)';c.beginPath();c.arc(p[0],p[1],x.rad/m,0,2*PI);c.stroke();c.setLineDash([]);txtHalo(c,'攔截 '+kmTxt(x.rng)+(u.emcon===0?'（雷達開機）':'（雷達關機）'),p[0],p[1]-x.rng/m-6,'10px sans-serif','#b71c1c');}
+  else if(q&&q.ship){c.strokeStyle='rgba(21,101,192,.7)';c.lineWidth=1.4;c.setLineDash([8,5]);c.beginPath();c.arc(p[0],p[1],q.r/m,0,2*PI);c.stroke();c.setLineDash([]);txtHalo(c,q.nm+' '+kmTxt(q.r),p[0],p[1]-q.r/m-6,'10px sans-serif','#0d47a1');}});}
+
+/* ---------- 民用補給設施：中立為灰色虛線框，已知由敵方控制為敵方顏色；本方控制的設施以補給節點顯示 ---------- */
+/* 開戰前（部署階段）先依目前年代預覽設施位置；開戰時以相同規則正式產生 */
+function facList(){if(G.fac)return G.fac;if(!G.map)return [];var k=(G.set.y||0)+'|'+(G._mapv||0);if(!G._facP||G._facPk!==k){G._facP=facGen(G.map,G.set.y);G._facPk=k;}return G._facP;}
+function facView(F){var me=UI.side;if(me<0||seeAll())return F.own;if(F.own===me)return me;return F.kn?F.kn[me]:-1;}
+function drawFac(c){var L=facList();if(!L.length)return;var me=UI.side;c.save();L.forEach(function(F){F._sx=undefined;var v=facView(F);if(v>=0&&(me<0||seeAll()||v===me)&&facNode(F))return;var p=w2s(F.x,F.y);if(p[0]<-20||p[1]<-20||p[0]>VW.cw+20||p[1]>VW.ch+20)return;var col=v>=0?sideCol(v):'#6E6E6E';
+    c.fillStyle='rgba(255,255,255,.85)';c.strokeStyle=col;c.lineWidth=1.6;c.setLineDash(v>=0?[]:[3,2]);c.beginPath();c.rect(p[0]-9,p[1]-9,18,18);c.fill();c.stroke();c.setLineDash([]);c.font='12px sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillStyle=col;c.fillText(NODEI[F.k]||'■',p[0],p[1]+1);
+    if(F.cand>=0&&F.cand!==F.own&&G.started&&(me<0||seeAll()||F.cand===me)){c.strokeStyle=sideCol(F.cand);c.lineWidth=2;c.beginPath();c.arc(p[0],p[1],13,-PI/2,-PI/2+2*PI*clamp((G.t-F.ct)/600,0,1));c.stroke();}
+    if(VW.s>1.8)txtHalo(c,F.name,p[0],p[1]+17,'10px sans-serif','#555');F._sx=p[0];F._sy=p[1];});c.restore();}
+(function(){var b=drawNodes;drawNodes=function(c){drawFac(c);b(c);};})();
+var FACU={port:'佔領後成為港口節點：可由海上運補，並加快登陸部隊卸載',rail:'佔領後成為鐵路節點：鐵路必須通往本方的地圖邊緣才有運量',air:'佔領後成為機場節點：可空運補給，附近的飛機可以整補',depot:'佔領後成為倉庫節點：徵用城鎮的存糧與燃料，之後由上游節點運補'};
+function hitFac(sx,sy){var o=null;facList().forEach(function(F){if(F._sx!==undefined&&dist(sx,sy,F._sx,F._sy)<11)o=F;});return o;}
+function facTip(F){var me=UI.side,v=facView(F),st=F.st0||{},o='民用設施：'+FACN[F.k]+'「'+F.name+'」';
+  o+='\n'+(v<0?'中立：尚未被任何一方佔領':(me<0||seeAll()||v===me)?G.sides[v].name+'控制':'敵方控制'+(F.knT&&F.knT[me]?'（'+durTxt(G.t-F.knT[me])+'前確認）':''));
+  if(v<0){var S=LCLS.filter(function(c){return st[c]>0;});if(S.length)o+='\n民間存量：'+S.map(function(c){return LCN[c]+' '+fmt(st[c],1);}).join('、')+' 噸';}
+  o+='\n'+FACU[F.k];if(F.cand>=0&&F.cand!==F.own&&G.started&&(me<0||seeAll()||F.cand===me))o+='\n'+G.sides[F.cand].name+'正在佔領，約 '+durTxt(Math.max(0,600-(G.t-F.ct)))+'後完成';return o;}
+(function(){var b=cellTip;cellTip=function(x,y){var p=w2s(x,y),F=hitFac(p[0],p[1]);if(F)return facTip(F);return b(x,y);};})();
+(function(){var b=nodeTip;nodeTip=function(N){var t=b(N);if(N.fac){var F=facById(N.fac);if(F)t+='\n民用'+FACN[F.k]+'：'+(F.tOwn?durTxt(Math.max(0,G.t-F.tOwn))+'前佔領':'開戰時即控制')+'；被敵軍佔領時約一半存量損毀';}return t;};})();
+
+/* ---------- 單位面板：防空雷達模式、匿蹤、反輻射飛彈、空中預警、偵察、自動配屬的運輸艦 ---------- */
+var RADM={auto:'自動（敵機接近才開機）',on:'常開（警戒最高，容易被反輻射飛彈鎖定）',off:'靜默（關機隱蔽，無法導引飛彈）'};
+(function(){var b=v4Status;v4Status=function(u,leaf,L){var o=b(u,leaf,L);if(!leaf)return o;var s=ST(u),x=samOf(u),X=uxOf(u),rc=rcsOf(u);
+  if(x){var dmg=!radarOK(u);o+='<span>防空雷達</span><span>'+(dmg?'<b style="color:#b3261e">損毀，約 '+durTxt(u.radDmg-G.t)+' 後修復</b>':u.emcon===0?'開機中':'關機')+'；攔截射程 '+kmTxt(x.rng)+'、雷達偵測 '+kmTxt(x.rad)+'（對一般飛機）</span>';
+    if(mySide()===null||u.side===mySide())o+='<span>雷達模式</span><span><select data-c="radm" data-u="'+u.id+'">'+Object.keys(RADM).map(function(k){return '<option value="'+k+'"'+((u.radMode||'auto')===k?' selected':'')+'>'+RADM[k]+'</option>';}).join('')+'</select></span>';}
+  else if(X.rng&&aaOf(u,s)>0)o+='<span>防空</span><span>火砲與紅外線飛彈，射程 '+kmTxt(X.rng)+'；匿蹤機要接近到 3 公里內才打得到</span>';
+  if(s.dom==='air'&&rc<0.9)o+='<span>匿蹤</span><span>雷達截面約一般飛機的 '+Math.round(rc*100)+'%，敵方雷達要更接近才偵測得到</span>';
+  if(X.arm)o+='<span>反輻射飛彈</span><span>'+(u.armN===undefined?X.arm.n*Math.max(1,Math.round(u.veh0||1)):u.armN)+' 枚（射程 '+kmTxt(X.arm.r)+'）；自動攻擊開機中的敵方防空雷達</span>';
+  if(s.fl.indexOf('a')>=0)o+='<span>空中預警</span><span>雷達監視約 '+kmTxt(X.rad||300000)+'，以資料鏈引導本方戰機與防空</span>';
+  if(isRcn(u))o+='<span>偵察</span><span>觀測距離'+(s.dom==='air'?'＋15%':'＋35%')+'、識別較準、回報快一倍；沒有開火時不易被發現</span>';
+  var C=autoCvyOf(u);if(C&&u.cvy)o+='<span>運輸</span><span>自動配屬：載運 '+u.cvy.pax.map(uById).filter(function(z){return z&&z.st==='ship';}).length+' 個單位；對船上部隊或本艦下達以陸地為目標的命令，就會駛往最近的海岸卸載</span>';
+  if(u.repl>0.5||u.vrep>0.05)o+='<span>補充</span><span>'+(u.repl>0.5?'補充兵 '+fmt(u.repl)+' 名':'')+(u.vrep>0.05?(u.repl>0.5?'、':'')+'修復裝備 '+fmt(u.vrep,1)+' '+(s.vn||'件'):'')+'</span>';return o;};})();
+CHG.radm=function(t){var u=uById(+t.getAttribute('data-u')),v=t.value;if(!u)return;var us=UI.sel.map(uById).filter(function(z){return z&&samOf(z)&&z.side===u.side;});if(us.indexOf(u)<0)us.push(u);us.forEach(function(z){z.radMode=v;});logE(u.side,'aa',uName(u)+(us.length>1?'等 '+us.length+' 個防空單位':'')+'的雷達改為'+RADM[v].replace(/（.*$/,''),u.x,u.y,u.id);btStatus();vDraw(false);};
+
+/* ---------- 時間：時限快速設定與天數顯示、長期作戰設定 ---------- */
+var DURP=[[24,'1 天'],[72,'3 天'],[168,'1 週'],[336,'2 週'],[720,'1 個月'],[1440,'2 個月'],[2160,'3 個月']];
+function durH(h){h=+h||0;return fmt(h)+' 小時'+(h>=48?'（約 '+(h%24===0?fmt(h/24):fx(h/24,1))+' 天）':'');}
+function durpHtml(){return '<select data-c="durp" title="快速設定作戰時限"><option value="0">快速設定…</option>'+DURP.map(function(q){return '<option value="'+q[0]+'">'+q[1]+'</option>';}).join('')+'</select>';}
+CHG.durp=function(t){var v=+t.value;if(!v)return;G.set.dur=v;var inp=document.querySelector('input[data-c="setv"][data-f="dur"]');if(inp)inp.value=v;t.value='0';if(G.over&&G.t<v*3600){G.over=null;toast('已延長作戰時限，可繼續作戰。');}else toast('作戰時限設為 '+durH(v)+'。');barRender();};
+CHG.setsus=function(t){G.set.sustain=t.checked;};
+
+/* ---------- 補給頁：民用設施一覽 ---------- */
+(function(){var b=PAGES.logi;PAGES.logi=function(host){b(host);var main=host.querySelector('.lw-main');if(!main)return;var L=facList();if(!L.length)return;var d=document.createElement('div');d.className='lw-card';d.innerHTML=facCard(L);main.appendChild(d);};})();
+function facCard(L){var me=UI.side>=0?UI.side:LG.side,n={own:0,en:0,neu:0},kk={port:0,rail:0,air:0,depot:0};
+  var rows=L.slice().sort(function(a,b){return ['port','rail','air','depot'].indexOf(a.k)-['port','rail','air','depot'].indexOf(b.k);}).map(function(F){var v=UI.side<0||seeAll()?F.own:F.own===me?me:F.kn?F.kn[me]:-1;kk[F.k]++;if(v===me)n.own++;else if(v>=0)n.en++;else n.neu++;
+    var N=F.own===me?facNode(F):null,stt=v<0?'中立':v===me?'本方':'敵方'+(F.knT&&F.knT[me]?'（'+durTxt(G.t-F.knT[me])+'前）':'');
+    return '<tr><td>'+NODEI[F.k]+' '+esc(F.name)+'</td><td>'+FACN[F.k]+'</td><td>'+esc(placeTxt(F.x,F.y))+'</td><td>'+stt+'</td><td class="n">'+(N?LCLS.map(function(c){return fmt(N.st[c]||0);}).join('／'):v<0?LCLS.map(function(c){return fmt((F.st0||{})[c]||0);}).join('／'):'—')+'</td></tr>';}).join('');
+  return '<h3>民用補給設施<small>港口 '+kk.port+'、鐵路車站 '+kk.rail+'、機場 '+kk.air+'、倉庫 '+kk.depot+'；本方 '+n.own+'、敵方 '+n.en+'、中立 '+n.neu+'</small></h3><div class="lw-note">依地形與聚落配置在戰場上：港口在港區碼頭或臨海市鎮，鐵路車站在鐵路經過的聚落，機場在較大市鎮外平坦開闊的地方，倉庫在城鎮裡。開戰時都是中立的；地面部隊在設施附近停留十分鐘、而且附近沒有敵軍，就能佔領並啟用為補給節點（第一次佔領會徵用民間存糧，居民的糧食減少、不滿升高）。被敵軍奪走時約一半存量損毀。</div>'+
+    '<div class="lw-sc"><table class="lw-tbl"><tr><th>名稱</th><th>種類</th><th>位置</th><th>控制</th><th class="n">存量（糧／彈／油／草，噸）</th></tr>'+rows+'</table></div>';}
+
+/* ---------- 自動配屬的運輸艦：命令面板說明 ---------- */
+(function(){var b=btOrd;btOrd=function(){b();var us=UI.sel.map(uById).filter(Boolean),el=btEl('bord');if(!el||!us.length||!us.some(function(u){return autoCvyOf(u);}))return;var d=document.createElement('div');d.className='lw-note';d.textContent='部隊在自動配屬的運輸艦上：下達以陸地為目標的命令後，運輸艦會駛往離目標最近的海岸讓部隊登陸，上岸後執行命令；對運輸艦下達移動命令也會讓它駛往該處附近的海岸卸載。';el.insertBefore(d,el.firstChild);};})();
+
+var V6HELP='<h4>v6：海上部隊、砲兵試射與偵察</h4><ul><li>部署或增援時落在海上的陸軍單位會自動配屬運輸艦（依年代為帆船、徵用商船、運輸艦或登陸艦）。對船上的部隊或運輸艦下達以陸地為目標的命令，運輸艦會駛往離目標最近的海岸，以小艇或登陸艇分批送部隊上岸，上岸後執行原本的命令；卸載完畢的運輸艦返航駛離。落在湖泊或河道上的部隊以舟船擺渡到最近的岸邊。</li>'+
+ '<li>冷戰以前的砲兵要先試射校正才進入效力射：火藥時代約 4 分鐘且必須看得到目標；1900 年前後約 15 分鐘、一次大戰約 20 分鐘、二次大戰約 7 分鐘（有前進觀測員、空中觀測或砲兵自己看得到目標時）。沒有觀測只能依地圖概略修正，時間約 2.5 倍。試射彈殺傷很小，卻會讓敵人警覺、也會暴露砲兵陣地。開戰前已標定的陣地前方，以及已經校正過的地點（24 小時內），可以直接效力射。地圖上的砲擊區改用爆炸圖示：淡黃色是試射中、橘色是效力射、紅色是飽和打擊；選取砲兵才畫出影響範圍。地毯式轟炸的落彈帶只畫細虛線框與沿線的爆炸圖示，飛彈落點也以爆炸圖示表示（全數被攔截時為灰色），不再用實心色塊蓋住地圖。</li>'+
+ '<li>偵察：偵察單位的觀測距離較遠（地面＋35%、空中＋15%），識別敵軍番號與兵種的距離較遠，回報快一倍，沒有開火時也比較不容易被發現。新增偵察機（一戰、冷戰戰術偵察、高空偵察）、空中預警機、空中地面監視機與偵察無人機，以「偵察」或「巡邏」命令在指定空域盤旋。其他情報來源：電子戰單位以測向找出敵方司令部與開機中的雷達；對本方友善的城鎮居民會通報附近的敵軍（延遲半小時以上）；雷達監視網的空中航跡會自動回報。</li></ul>'+
+ '<h4>v6：匿蹤、防空與反艦飛彈</h4><ul><li>新增匿蹤攻擊機、匿蹤戰鬥機、匿蹤多用途戰機、匿蹤戰略轟炸機，防空壓制機（野鼬鼠）與電子攻擊機，地對空飛彈營與連（SA-2、SA-6、短程、愛國者／S-300、S-400 級、彈砲合一），以及岸置反艦飛彈連。新編制：偵察航空隊、防空壓制打擊群、匿蹤聯隊、防空飛彈旅、整合防空旅、岸防飛彈旅。</li>'+
+ '<li>防空飛彈必須雷達開機、完成放列才能導引；雷達偵測距離乘上目標的雷達截面，匿蹤機要接近得多才會被發現，電子干擾機附近再打折扣。火砲與紅外線飛彈打不到 3 公里外的匿蹤機與小型無人機。雷達模式可選自動、常開或靜默，選取防空單位時地圖上畫出攔截射程與雷達偵測範圍。</li>'+
+ '<li>空戰需要先發現對方：目視距離內，或靠自己的雷達、空中預警機與資料鏈（1975 年後）。對方看不到自己時命中率提高。防空壓制機在空中時會對開機中的敵方雷達發射反輻射飛彈；訓練好的防空部隊會關機規避，舊型飛彈因此失去目標，新型有座標記憶。雷達被擊毀後要數小時才能修復或換裝。</li>'+
+ '<li>岸置反艦飛彈連自動攻擊射程內、情報圖上已知的敵艦（由電腦指揮的艦艇也會自動攻擊）；防空艦可以攔截。</li></ul>'+
+ '<h4>v6：長期作戰與民用補給設施</h4><ul><li>作戰時限可設到 3 個月（設定頁有快速設定），時間加速增加每秒 1 小時與 3 小時。方面軍級的劇本改為以月計：聯合登陸、戰區聯合作戰、瓜達康納爾島、圍城、大城市攻防、佔領與游擊各約一個月，塞班島約 25 天。</li>'+
+ '<li>長期作戰時，脫離戰鬥六小時以上、而且在補給線內的部隊會逐步補充兵員（補充兵訓練較差，會拉低平均訓練）並修復受損裝備；每方的補充兵來源有限，而且要有地圖外基地或控制港口、鐵路車站、機場才送得進來，孤立的守軍只能靠增援。回放紀錄在作戰拉長時自動降低密度，記憶體不會無限增加。</li>'+
+ '<li>港口、鐵路車站、機場與城鎮倉庫依地形與聚落配置在戰場上，開戰時中立，部隊佔領後才能作為補給節點，被奪取時約一半存量損毀；補給頁列出所有設施。「補給節點」工具只能放置補給站與地圖外基地。</li></ul>';
 /* ===================== 戰報頁：戰區總覽、分級篩選（戰區／戰役／衝突／交火）、巢狀戰鬥、兵力與損失、傷亡原因、經過、匯出 ===================== */
 var REP={tiers:[1,1,1,1],flat:false,open:{},sel:0,st:'all'};
 PAGES.rep=function(host){var V=theaterView(),o='<div class="lw-main"><div class="lw-card"><h3>'+esc(V.name)+'<small>'+tTxt(0)+' 起，已進行 '+durTxt(G.t)+'</small></h3><div class="lw-grid">'+V.sides.map(function(s,i){var bk=G.stats[i].byK||{};return '<div><b style="color:'+s.color+'">'+esc(s.name)+'</b><div class="lw-kv"><span>傷亡</span><span>'+fmt(s.cas)+' 人</span><span>裝備損失</span><span>'+fmt(s.vl)+'</span><span>被俘</span><span>'+fmt(s.capt)+(s.surr?'（投降 '+s.surr+' 個單位）':'')+'</span><span>剩餘戰力</span><span>'+pct(s.f*100)+'</span></div>'+causeBars(bk)+'</div>';}).join('')+'</div>';
@@ -7310,7 +7600,7 @@ var MAPTA=['el','lc','rv','rd','rl','ft','nat','dmg','tn'];
 function resetCaches(){PF={};CG={};AS={};if(G)G._slope=null;VW.img=null;}
 async function packMap(MP){var m={};Object.keys(MP).forEach(function(k){if(MAPTA.indexOf(k)<0&&k!=='sd')m[k]=MP[k];});m.format='LatoWarMap';for(var i=0;i<MAPTA.length;i++){var k=MAPTA[i];if(MP[k])m[k]=await packTA(MP[k]);}return m;}
 async function unpackMap(m){if(!m||m.format!=='LatoWarMap')throw new Error('這不是作戰地圖檔。');var MP={};Object.keys(m).forEach(function(k){MP[k]=m[k];});for(var i=0;i<MAPTA.length;i++){var k=MAPTA[i];if(typeof m[k]==='string')MP[k]=await unpackTA(m[k]);}var N=MP.GW*MP.GH;if(!MP.ft)MP.ft=new Uint8Array(N);if(!MP.nat)MP.nat=new Uint8Array(N);MP.set=MP.set||[];MP.lbl=MP.lbl||[];MP.brg=MP.brg||[];return MP;}
-var GKEYS=['types','sides','set','t','step','log','msgs','ct','rq','cbq','obj','reinfLog','bt','stats','nid','oid','mid','lgSeq','tseq','started','over','env','firstContact','_mapv','imgs','wpns','wseq','nukes','rad','nq','sieges','lq','xings','xid','civ','press','draw','dseq','inbox','resH','meets','meetSeq','msl','mslSeq','snq','snSeq','fo','snS','snHit'];
+var GKEYS=['types','sides','set','t','step','log','msgs','ct','rq','cbq','obj','reinfLog','bt','stats','nid','oid','mid','lgSeq','tseq','started','over','env','firstContact','_mapv','imgs','wpns','wseq','nukes','rad','nq','sieges','lq','xings','xid','civ','press','draw','dseq','inbox','resH','meets','meetSeq','msl','mslSeq','snq','snSeq','fo','snS','snHit','fac','reg','arm'];
 async function packGame(){var o={format:'LatoWarsim',v:1,saved:new Date().toISOString(),map:await packMap(G.map)};GKEYS.forEach(function(k){o[k]=G[k];});o.log=G.log.slice(-3000);if(G.evt)o.evt=Object.assign({},G.evt,{fl:G.evt.fl?b64enc(G.evt.fl):null,fire:G.evt.fire?b64enc(G.evt.fire):null});if(G.rdd)o.rdd=b64enc(G.rdd);try{o.rec=await packRec(G.rec);}catch(e){o.rec=null;}o.front=packFront(G.front);
   o.units=G.units.map(function(u){var c={};for(var k in u){if(k.charAt(0)==='_'||k==='path'&&!u.path)continue;c[k]=u[k];}return c;});return o;}
 async function loadGame(o){if(!o||o.format!=='LatoWarsim')throw new Error('這不是作戰模擬存檔。');var MP=await unpackMap(o.map);G=newGame(MP,o.set);GKEYS.forEach(function(k){if(o[k]!==undefined)G[k]=o[k];});G.units=o.units||[];G.pq=[];G._inc={};G._fx=[];G.dirty=[];if(!G.set.nuke)G.set.nuke={on:false,n:2,y:10,ai:false};if(G.set.autoPause.nuke===undefined)G.set.autoPause.nuke=true;G.rec=o.rec?await unpackRec(o.rec):null;if(o.evt){G.evt=o.evt;if(typeof G.evt.fl==='string')G.evt.fl=b64dec(G.evt.fl);if(typeof o.rdd==='string')G.rdd=b64dec(o.rdd);if(typeof G.evt.fire==='string')G.evt.fire=b64dec(G.evt.fire);}G.front=o.front?unpackFront(o.front):null;
@@ -7335,7 +7625,7 @@ PAGES.set=function(host){var S=G.set,o='<div class="lw-main"><div class="lw-grid
   o+='<span>戰場迷霧</span><label><input type="checkbox" data-c="setb" data-f="fog"'+(S.fog?' checked':'')+'>只顯示偵察到的敵軍</label><span>下級主動性</span><label><input type="checkbox" data-c="setb" data-f="ini"'+(S.ini?' checked':'')+'>各級指揮官會自行反擊或請求火力</label>';
   o+='<span>電腦指揮</span><select data-c="setv" data-f="aiLvl">'+[[0,'被動（只防守）'],[1,'一般'],[2,'積極']].map(function(q){return '<option value="'+q[0]+'"'+(S.aiLvl===q[0]?' selected':'')+'>'+q[1]+'</option>';}).join('')+'</select>';
   o+='<span>天氣</span><select data-c="sets" data-f="wxMode"><option value="auto"'+(S.wxMode!=='fixed'?' selected':'')+'>依氣候自動變化</option><option value="fixed"'+(S.wxMode==='fixed'?' selected':'')+'>固定</option></select>'+(S.wxMode==='fixed'?'<span>固定天氣</span><select data-c="setwx">'+WX.map(function(w){return '<option value="'+w[0]+'"'+(S.wx===w[0]?' selected':'')+'>'+w[1]+'</option>';}).join('')+'</select>':'');
-  o+='<span>作戰時限</span><span><input type="number" min="1" max="2000" value="'+S.dur+'" data-c="setv" data-f="dur" style="width:70px"> 小時</span><span>結束條件</span><select data-c="sets" data-f="end"><option value="time"'+(S.end!=='obj'?' selected':'')+'>時限或一方崩潰</option><option value="obj"'+(S.end==='obj'?' selected':'')+'>另加：一方控制全部目標兩小時</option></select>';
+  o+='<span>作戰時限</span><span><input type="number" min="1" max="2200" value="'+S.dur+'" data-c="setv" data-f="dur" style="width:70px"> 小時 '+(typeof durpHtml==='function'?durpHtml():'')+'</span><span>長期作戰</span><label><input type="checkbox" data-c="setsus"'+(S.sustain!==false?' checked':'')+'> 補充兵與裝備修復（脫離戰鬥六小時以上、在補給線內）</label><span>結束條件</span><select data-c="sets" data-f="end"><option value="time"'+(S.end!=='obj'?' selected':'')+'>時限或一方崩潰</option><option value="obj"'+(S.end==='obj'?' selected':'')+'>另加：一方控制全部目標兩小時</option></select>';
   if(!G.started)o+='<span>開戰時間</span><span><input type="number" value="'+S.y+'" data-c="setv" data-f="y" style="width:70px"> 年 <input type="number" min="1" max="12" value="'+S.m+'" data-c="setv" data-f="m" style="width:48px"> 月 <input type="number" min="1" max="31" value="'+S.d+'" data-c="setv" data-f="d" style="width:48px"> 日 <input type="number" min="0" max="23" value="'+S.h+'" data-c="setv" data-f="h" style="width:48px"> 時</span>';
   o+='</div></div><div class="lw-card"><h3>戰報分級門檻<small>雙方累計投入人數</small></h3><div class="lw-opt"><span>衝突</span><span>≥ <input type="number" min="10" value="'+S.tiers[0]+'" data-c="settier" data-v="0" style="width:90px"> 人</span><span>戰役</span><span>≥ <input type="number" min="10" value="'+S.tiers[1]+'" data-c="settier" data-v="1" style="width:90px"> 人</span><span>戰區</span><span>≥ <input type="number" min="10" value="'+S.tiers[2]+'" data-c="settier" data-v="2" style="width:90px"> 人</span></div><div class="lw-note">低於「衝突」門檻者為交火。</div></div>';
   o+='<div class="lw-card"><h3>自動暫停<small>發生下列情況時暫停，方便你下決定</small></h3>'+apHtml()+'</div>';
@@ -7352,8 +7642,8 @@ CHG.settier=function(t){G.set.tiers[+t.getAttribute('data-v')]=Math.max(10,+t.va
 CHG.setnk=function(t){var f=t.getAttribute('data-f'),N=G.set.nuke;if(f==='on'||f==='ai')N[f]=t.checked;else N[f]=Math.max(0,+t.value||0);if(f==='n'&&G.started)G.sides.forEach(function(S){S.nk=N.n;});if(f==='on')show('set');};
 CHG.setap=function(t){G.set.autoPause[t.getAttribute('data-f')]=t.checked;document.querySelectorAll('input[data-c="setap"][data-f="'+t.getAttribute('data-f')+'"]').forEach(function(q){q.checked=t.checked;});};
 /* 自動暫停：分組清單（設定頁與作戰頁工具列共用） */
-var APK=[['戰況',[['contact','首次接觸'],['meet','遭遇戰'],['rout','部隊潰散'],['hq','司令部被摧毀'],['obj','目標易手'],['reinf','增援抵達'],['end','作戰結束']]],
-  ['火力與打擊',[['nuke','戰術核打擊'],['snuke','戰略核武：偵測到發射、核爆'],['strike','飽和打擊、地毯式轟炸、飛彈打擊'],['convoy','運輸船遭擊沉']]],
+var APK=[['戰況',[['contact','首次接觸'],['meet','遭遇戰'],['rout','部隊潰散'],['hq','司令部被摧毀'],['obj','目標易手'],['reinf','增援抵達'],['fac','民用補給設施易手'],['end','作戰結束']]],
+  ['火力與打擊',[['nuke','戰術核打擊'],['snuke','戰略核武：偵測到發射、核爆'],['strike','飽和打擊、地毯式轟炸、飛彈打擊'],['convoy','運輸船遭擊沉'],['sead','反輻射飛彈發射、防空雷達被擊毀']]],
   ['事件與罪行',[['evt','重大天災'],['crime','戰爭罪行'],['att','部隊對戰俘或平民的態度惡化']]],['指揮',[['req','收到請求或指令']]]];
 function apHtml(){var A=G.set.autoPause||(G.set.autoPause={});return '<div class="lw-apg">'+APK.map(function(g){return '<div><b>'+g[0]+'</b>'+g[1].map(function(q){var on=A[q[0]]!==undefined?A[q[0]]:APDEF[q[0]];return '<label><input type="checkbox" data-c="setap" data-f="'+q[0]+'"'+(on?' checked':'')+'>'+q[1]+'</label>';}).join('')+'</div>';}).join('')+'</div><div class="lw-row"><button type="button" class="lw-btn sm" data-a="apall" data-v="1">全部開啟</button><button type="button" class="lw-btn sm" data-a="apall" data-v="0">全部關閉</button><button type="button" class="lw-btn sm" data-a="apall" data-v="d">恢復預設</button></div>';}
 ACT.apall=function(b){var v=b.getAttribute('data-v'),A=G.set.autoPause||(G.set.autoPause={});Object.keys(APDEF).forEach(function(k){A[k]=v==='d'?APDEF[k]:v==='1';});document.querySelectorAll('input[data-c="setap"]').forEach(function(q){var k=q.getAttribute('data-f');q.checked=!!A[k];});toast(v==='d'?'已恢復自動暫停的預設值。':v==='1'?'已開啟所有自動暫停。':'已關閉所有自動暫停。');};
@@ -7412,7 +7702,7 @@ ACT.evgo=function(b){var k=b.getAttribute('data-v'),o={};if(k==='quake'){var m=t
  '<h4>v4：資源與攻城</h4><ul><li>「收集資源」伐木、採石、拆解廢鐵；「打造器材」可做木筏、浮橋組件（任何部隊都能架浮橋）、木架便橋、雲梯、攻城槌、攻城塔、盾車、柴捆、鹿砦、投石機、沙包、石籠。</li><li>舊城常有城牆（城門在道路上），火藥時代的大城市有稜堡。攻城器具降低城牆防護；攻城砲、重砲與投石機可轟開缺口。</li></ul>'+
  '<h4>v4：城市與戰場生成</h4><ul><li>城市依建城年代逐時代生長：舊城核心（可能有城牆或城堡）、沿道路帶狀擴張、城牆拆除後的環城大道、車站與工業區、河港與海港、計畫街廓、戰後郊區與公園；每座城市有河港、海港、城堡、十字路口、計畫城市、要塞、鐵路樞紐、工業城、帶狀谷城、雙子城等特色。</li><li>戰場類型：城市攻防、灘岸登陸、渡河作戰、山地、森林、平原、沙漠、要塞帶；地名可選中文或西方命名規則（原文或中譯）。地圖最大可達 800 公里、格網 1 公里。</li></ul>'+
  '<h4>v4：AI 指揮官與聯合作戰</h4><ul><li>AI 個性：指揮型、均衡型、智謀型、魯莽型、謹慎型、過度保守型、游擊型、後勤型、火力型、機動型、防禦反擊型；每種有三種打法變體，參數再加上隨機偏差。</li><li>行為樹：危急時後撤 → 執行上級指令 → 支援危急友軍 → 驗證情報（派偵察）→ 攻擊突破口（敵軍接合部、側翼、動搖或薄弱處、後方高價值目標）→ 補給 → 勸降 → 防禦。情報不足時估計會有偏差，可能選錯主攻方向；完全沒有敵情時會隨機試探。</li><li>指揮鏈：最高司令部的 AI 對下級下令，下級的 AI 依自己的風格改寫（魯莽者正面猛攻、謹慎者加長砲火準備、機動型改為包圍或突破）；下級也會自行請求火力、增援與補給，或勸降被圍的敵軍、準備攻城器具與渡河器材。</li><li>玩家可以只扮演一個集團軍、軍、師、旅、團或連（作戰頁「編制」頂端的「我的指揮」），其餘交給 AI；上級的指令與友軍的請求會送到「收件匣」，你也可以向上級或友軍請求支援，全部受指揮鏈延遲影響。</li><li>聯合作戰命令：同步 H 時的地面主攻、空降與機降、兩棲登陸、砲兵與艦砲、航空打擊。新增方面軍梯隊與大型聯合編制（步兵軍、裝甲軍、集團軍、聯合登陸作戰群、聯合特遣部隊、戰區聯合司令部）。</li></ul>'+
- '<h4>v4：手繪作戰圖、記者與戰後總結</h4><ul><li>作戰頁的「手繪作戰圖」：選取部隊後按工具，在地圖上按住拖曳手繪進攻箭頭、移動路線、登陸線、前線、防禦線，或封閉的遲滯區、包圍區、佔領區、空降區；部隊會沿著你畫的路線行動或在範圍內部署。進攻箭頭、移動路線、登陸線、包圍區、佔領區、空降區在該次作戰與交戰都結束後自動移除（可按「保留」）；前線、防禦線、遲滯區常駐，兩者都能手動刪除。</li><li>遭遇戰：行軍縱隊在道路上快速移動時，若近距離發現敵軍或遭到射擊，雙方附近仍在行軍的部隊會就地急速展開、停下交戰。AI 依指揮官個性與兵力比立刻決定進攻、駐紮或脫離；玩家會在收件匣收到「遭遇戰」通知（可在設定中自動暫停），選擇「進攻」或「駐紮」，15 分鐘內沒有指示則由現地指揮官依性格處置。</li><li>動態路況：洪水、泥濘中被車輛輾爛的土路、山崩、地震與砲擊留下的彈坑和瓦礫、障礙與工事、難民潮與部隊壅塞都會堵住道路（地圖上以橘色、紅色標示）；部隊發現前方路段受阻會改走野外繞行，非攻擊性的移動也會避開已知敵軍封鎖的路段。彈坑與瓦礫會在數小時內逐漸清除。</li><li>新聞政策（放任、控制、脅迫）決定記者能報導什麼；記者可能傷亡、被俘或遭拘押。戰報頁的「戰後總結」列出雙方軍人與平民的傷亡（含性別與年齡）、戰俘、戰爭罪行與負責的編制與指揮官、財產損失、天災、政策、所有人的決定紀錄、各方媒體的戰後報導與後果，可以匯出。</li><li>番號可依序或隨機，格式可用中文、中文數字或西式；精英與歷史悠久的部隊可以加稱號（超過一千種組合）。</li></ul>'+(typeof V5HELP==='string'?V5HELP:'');
+ '<h4>v4：手繪作戰圖、記者與戰後總結</h4><ul><li>作戰頁的「手繪作戰圖」：選取部隊後按工具，在地圖上按住拖曳手繪進攻箭頭、移動路線、登陸線、前線、防禦線，或封閉的遲滯區、包圍區、佔領區、空降區；部隊會沿著你畫的路線行動或在範圍內部署。進攻箭頭、移動路線、登陸線、包圍區、佔領區、空降區在該次作戰與交戰都結束後自動移除（可按「保留」）；前線、防禦線、遲滯區常駐，兩者都能手動刪除。</li><li>遭遇戰：行軍縱隊在道路上快速移動時，若近距離發現敵軍或遭到射擊，雙方附近仍在行軍的部隊會就地急速展開、停下交戰。AI 依指揮官個性與兵力比立刻決定進攻、駐紮或脫離；玩家會在收件匣收到「遭遇戰」通知（可在設定中自動暫停），選擇「進攻」或「駐紮」，15 分鐘內沒有指示則由現地指揮官依性格處置。</li><li>動態路況：洪水、泥濘中被車輛輾爛的土路、山崩、地震與砲擊留下的彈坑和瓦礫、障礙與工事、難民潮與部隊壅塞都會堵住道路（地圖上以橘色、紅色標示）；部隊發現前方路段受阻會改走野外繞行，非攻擊性的移動也會避開已知敵軍封鎖的路段。彈坑與瓦礫會在數小時內逐漸清除。</li><li>新聞政策（放任、控制、脅迫）決定記者能報導什麼；記者可能傷亡、被俘或遭拘押。戰報頁的「戰後總結」列出雙方軍人與平民的傷亡（含性別與年齡）、戰俘、戰爭罪行與負責的編制與指揮官、財產損失、天災、政策、所有人的決定紀錄、各方媒體的戰後報導與後果，可以匯出。</li><li>番號可依序或隨機，格式可用中文、中文數字或西式；精英與歷史悠久的部隊可以加稱號（超過一千種組合）。</li></ul>'+(typeof V5HELP==='string'?V5HELP:'')+(typeof V6HELP==='string'?V6HELP:'');
  card.appendChild(d);};})();
 /* ---------- 戰報：v4 區塊 ---------- */
 (function(){var base=PAGES.rep;PAGES.rep=function(host){base(host);var main=host.querySelector('.lw-main');if(!main||!G.civ)return;var d=document.createElement('div');d.innerHTML=v4RepHtml();main.insertBefore(d,main.children[1]||null);};})();
