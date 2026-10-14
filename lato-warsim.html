@@ -12403,7 +12403,8 @@ var RMC=[['mv','機動','➜',['move','withdraw','reserve','recon','screen','pat
 var FMI={line:'═',column:'║',skirmish:'⋯',wedge:'▲',echelon:'⟋',allround:'◯',dispersed:'⁘'};
 var RM={on:false,cat:null,key:'',el:null,R:128};
 if(UIP.rm===undefined)UIP.rm=1;
-function rmUnits(){var me=mySide();return UI.sel.map(uById).filter(function(u){return u&&alive(u)&&(me===null||u.side===me)&&u.st!=='off'&&!u.irr;});}
+/* 只有玩家能指揮的部隊：本方（上帝視角時任一方）、不是交給 AI 指揮的部隊 */
+function rmUnits(){var me=mySide();return UI.sel.map(uById).filter(function(u){return u&&alive(u)&&(me===null||u.side===me)&&u.st!=='off'&&!u.irr&&!aiControls(u);});}
 function rmOrdName(k){var q=ORDB.filter(function(r){return r[0]===k;})[0];return q?q[1]:(ORDN[k]||k);}
 function rmCatName(c){var q=RMC.filter(function(r){return r[0]===c;})[0];return q?q[1]:'';}
 /* 每一項：[代號, 名稱, 圖示, 可用, 說明] */
