@@ -7190,6 +7190,7 @@ function mpDiff(s,full){var X=mpX(s);if(full){X.B={c:{},v:{}};X.lg=null;X.lgT=-1
   if(VD){D.v=VD;any=true;}if(VR){D.vr=VR;any=true;}
   var lgf=function(e){return s<0||e.s===s||!(e.s>=0);},LG=G.log||[],nl;if(full){nl=LG.filter(lgf).slice(-1500);}else nl=mpTail(LG,X.lg,X.lgT,function(e){return e.t||0;}).filter(lgf);
   if(LG.length){X.lg=LG[LG.length-1];X.lgT=X.lg.t||0;}if(nl.length){D.lg=nl;any=true;}
+  if(full)X.fen=MPFXN;else if(MPFXB.length){var fe=mpFxFor(s,O,K,X);if(fe.length){D.fe=fe;any=true;}}
   var FXL=G._fx||[];if(!full){var nf=mpTail(FXL,X.fx,X.fxT,function(f){return f[5]||0;}).filter(function(f){return s<0||mpSeen(O,f[0],f[1])||mpSeen(O,f[2],f[3]);});if(nf.length){D.fx=nf.slice(-400);any=true;}}if(FXL.length){X.fx=FXL[FXL.length-1];X.fxT=X.fx[5]||0;}
   var FH=s<0?G.front&&G.front.hist:X.F&&X.F.hist;if(FH&&FH.length!==X.fh){var nh=FH.length>X.fh?FH.slice(X.fh):FH.slice();D.fh=FH.length>X.fh?nh:{all:nh};X.fh=FH.length;any=true;}
   if(G.map&&(G.started||full)){if(full){if(!X.KM)mpKnownInit(X);}else{var ly=mpLayers(s,X,O);if(ly.length){D.ly=ly;any=true;}}}
@@ -7365,6 +7366,24 @@ function mpPatch(s,cm,P){var rej=[],n=0;if(!P||typeof P!=='object')return {rej:[
 /* 被拒絕的欄位：從基準移除，下一次差異會把伺服器的值送回去 */
 function mpUnbase(s,rej){var X=mpX(s);(rej||[]).forEach(function(k){var m=/^u(\d+)(?:\.(\w+))?/.exec(k);if(m){var P=X.B.c.u&&X.B.c.u[m[1]];if(P){if(m[2])delete P[m[2]];else for(var f in P)delete P[f];}}else if(/^s\./.test(k)){delete X.B.v['sides.'+s];}else if(/^c\./.test(k)){delete X.B.v['sides.'+s];}else if(/^dr/.test(k)){X.B.c.dr={};}});}
 
+/* ---------- 九、戰鬥音效與畫面特效：伺服器記下每一步的交火、砲擊、飛彈、轟炸、核爆，依視野送給各方 ---------- */
+var MPFXB=[],MPFXN=0,MPFXON=false;
+function mpFxBrief(u){if(!u)return null;return {id:u.id,side:u.side,mix:u.mix,hq:u.hq,men:Math.round(u.men||0),veh:Math.round(u.veh||0),st:u.st,x:Math.round(u.x),y:Math.round(u.y),hd:u.hd};}
+function mpFxOn(){if(MPFXON||typeof FX==='undefined')return;MPFXON=true;FX.cap=true;
+  (function(){var b=hit;hit=function(t,src,dm,dv,sup,kind){b(t,src,dm,dv,sup,kind);if(src&&t&&kind!=='art'&&FX.ev.length<5000)FX.ev.push({k:kind,a:src,b:t,x0:src.x,y0:src.y,x1:t.x,y1:t.y,m:dm+dv*8,dv:dv});};})();
+  (function(){var b=artyFire;artyFire=function(u,s,M){b(u,s,M);if(u.lastArt===G.t&&FX.ev.length<5000)FX.ev.push({k:'art',a:u,x0:u.x,y0:u.y,x1:M.x,y1:M.y,r:M.r||300,m:M.mul||1,reg:!!(M.rg&&!M.reg),sat:M.kind==='sat'});};})();
+  (function(){var b=mslLaunch;mslLaunch=function(u,o){var r=b(u,o);if(r)FX.ev.push({k:'mlaunch',a:u,x0:u.x,y0:u.y,x1:o.x,y1:o.y,m:o.n||2});return r;};})();
+  (function(){var b=carpetHit;carpetHit=function(side,src,cx,cy,ang,L,W,tons,o){var r=b.apply(null,arguments);FX.ev.push({k:'carpet',a:src,x1:cx,y1:cy,ang:ang,L:L,W:W,m:tons});return r;};})();
+  (function(){var b=nukeAt;nukeAt=function(side,x,y,Y){var r=b.apply(null,arguments);if(G&&G.started)FX.ev.push({k:'nuke',x1:x,y1:y,m:Y});return r;};})();
+  (function(){var b=simStep;simStep=function(){FX.cap=true;b();mpFxDrain();};})();}
+function mpFxDrain(){if(typeof FX==='undefined'||!FX.ev.length)return;FX.ev.forEach(function(e){var c={};for(var k in e){var v=e[k];if(k==='a'||k==='b')c[k]=mpFxBrief(v);else if(typeof v==='number'||typeof v==='string'||typeof v==='boolean')c[k]=v;}MPFXB.push({n:++MPFXN,e:c});});FX.ev.length=0;if(MPFXB.length>4000)MPFXB.splice(0,MPFXB.length-3000);}
+/* 這一方看得到的事件；看不到的敵方射擊者只留下方向（位置改成落點） */
+function mpFxFor(s,O,K,X){var out=[],from=X.fen||0;for(var i=MPFXB.length-1;i>=0&&MPFXB[i].n>from;i--){var e=MPFXB[i].e,a=e.a,b=e.b;
+    if(s>=0&&e.k!=='nuke'&&!(a&&a.side===s)&&!(b&&b.side===s)&&!mpSeen(O,e.x1,e.y1)&&!(e.x0!==undefined&&mpSeen(O,e.x0,e.y0)))continue;
+    if(s>=0&&a&&a.side!==s&&!K[a.id]){e=Object.assign({},e,{a:Object.assign({},a,{id:0,x:e.x1,y:e.y1}),x0:e.x1,y0:e.y1});}
+    if(s>=0&&b&&b.side!==s&&!K[b.id])e=Object.assign({},e,{b:Object.assign({},b,{id:0})});
+    out.push(e);if(out.length>=600)break;}X.fen=MPFXN;return out.reverse();}
+
 var MAPTA=['el','lc','rv','rd','rl','ft','nat','dmg','tn'];
 async function packMap(MP){var m={};Object.keys(MP).forEach(function(k){if(MAPTA.indexOf(k)<0&&k!=='sd')m[k]=MP[k];});m.format='LatoWarMap';for(var i=0;i<MAPTA.length;i++){var k=MAPTA[i];if(MP[k])m[k]=await packTA(MP[k]);}return m;}
 async function unpackMap(m){if(!m||m.format!=='LatoWarMap')throw new Error('這不是作戰地圖檔。');var MP={};Object.keys(m).forEach(function(k){MP[k]=m[k];});for(var i=0;i<MAPTA.length;i++){var k=MAPTA[i];if(typeof m[k]==='string')MP[k]=await unpackTA(m[k]);}var N=MP.GW*MP.GH;if(!MP.ft)MP.ft=new Uint8Array(N);if(!MP.nat)MP.nat=new Uint8Array(N);MP.set=MP.set||[];MP.lbl=MP.lbl||[];MP.brg=MP.brg||[];return MP;}
@@ -7375,5 +7394,8 @@ if(typeof GKEYS!=='undefined')GKEYS.push('dirs','dirSeq');
 if(typeof GKEYS!=='undefined')GKEYS.push('cbx','cbgr','cbUse','cbSeq');
 function wpnChanged(){G._tv=(G._tv||1)+1;G.units.forEach(function(u){if(u.lg)logRecalc(u);});}
 function wfTxt(u){if(!u.lg||!u.lg.wpnF)return '';var f=u.lg.wpnF,p=[];if(Math.abs(f.p-1)>0.02)p.push('對人 ×'+fx(f.p,2));if(Math.abs(f.a-1)>0.02)p.push('對裝甲 ×'+fx(f.a,2));if(f.pAdd)p.push('對人 +'+fx(f.pAdd,2));if(f.aAdd)p.push('對裝甲 +'+fx(f.aAdd,2));if(Math.abs(f.penD)>0.05)p.push('穿甲 '+sg(f.penD,1));if(f.penAbs)p.push('穿甲 '+fx(f.penAbs,1));if(Math.abs(f.sup-1)>0.02)p.push('壓制 ×'+fx(f.sup,2));if(Math.abs(f.rng-1)>0.02)p.push('射程 ×'+fx(f.rng,2));if(Math.abs(f.ind-1)>0.02)p.push('間接射程 ×'+fx(f.ind,2));if(f.indAbs)p.push('間接射程 '+kmTxt(f.indAbs));if(f.aaD>0.05)p.push('防空 +'+fx(f.aaD,1));return p.length?p.join('、'):'與時代標準配備相同';}
+
+/* 伺服器沒有畫面特效模組：只用來收集交戰事件 */
+var FX={cap:false,ev:[]};
 
 ;module.exports={E:function(s){return eval(s);},setG:function(g){G=g;},getG:function(){return G;}};

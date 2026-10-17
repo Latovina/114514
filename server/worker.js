@@ -5,7 +5,7 @@ const zlib=require('zlib');
 const path=require('path');
 const SIM=require(path.join(__dirname,'simcore.js'));
 const E=SIM.E;
-const F={};['mpLoad','mpPack','mpQuick','mpTeams','mpBegin','mpDiff','mpFull','mpCmd','mpPatch','mpUnbase','mpDepOp','mpOrbIn','mpForcePts','simStep','replayPack','cmList'].forEach(function(k){F[k]=E(k);});
+const F={};['mpFxOn','mpLoad','mpPack','mpQuick','mpTeams','mpBegin','mpDiff','mpFull','mpCmd','mpPatch','mpUnbase','mpDepOp','mpOrbIn','mpForcePts','simStep','replayPack','cmList'].forEach(function(k){F[k]=E(k);});
 const DT=E('DT');
 let running=false,speed=60,acc=0,lastTick=Date.now(),snapMs=(workerData&&workerData.snapMs)||500,lastSnap=0,dirty=true,overSent=false,depth=0.4,realSp=0,spHist=[];
 const subs=new Map();/* 連線編號 → {view:-1|0|1,cm,need:true} */
@@ -35,8 +35,8 @@ let lastStat=0;
 setInterval(tick,50);
 function res(m,r){post({op:'res',conn:m.conn,id:m.id,r:r});dirty=true;}
 parentPort.on('message',async function(m){try{switch(m.op){
-  case 'load':{await F.mpLoad(typeof m.save==='string'?JSON.parse(m.save):m.save);const g=G();g.set.fog=true;overSent=!!g.over;sendInfo();post({op:'loaded',info:info()});break;}
-  case 'quick':{await F.mpQuick(m.k,m.seed);overSent=false;sendInfo();post({op:'loaded',info:info()});break;}
+  case 'load':{F.mpFxOn();F.simStep=E('simStep');await F.mpLoad(typeof m.save==='string'?JSON.parse(m.save):m.save);const g=G();g.set.fog=true;overSent=!!g.over;sendInfo();post({op:'loaded',info:info()});break;}
+  case 'quick':{F.mpFxOn();F.simStep=E('simStep');await F.mpQuick(m.k,m.seed);overSent=false;sendInfo();post({op:'loaded',info:info()});break;}
   case 'teams':{(m.teams||[]).forEach(function(T,i){F.mpTeams(i,T.n,T.human);});dirty=true;sendInfo();break;}
   case 'cfg':{const g=G();if(!g)break;const c=m.cfg||{};if(c.dur>0)g.set.dur=c.dur;['rp','tech','rp0','rpDay','tp0','tpDay','leth','cbrn','ff'].forEach(function(k){if(c[k]!==undefined)g.set[k]=c[k];});if(c.depth)depth=c.depth;if(c.snapMs)snapMs=c.snapMs;dirty=true;sendInfo();break;}
   case 'begin':{const r=F.mpBegin(depth);if(r.ok){running=false;acc=0;}post({op:'begun',r:r,info:info()});dirty=true;break;}
