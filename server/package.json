@@ -1,0 +1,13 @@
+{
+  "name": "lato-warsim-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "LatoWarsim 作戰模擬聯機伺服器（不需要安裝任何套件）",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -9373,7 +9373,8 @@ var MPWS={ration:'o',ldoc:'s',mopp:'n',moppSet:'n',nosur:'n',lgXc:'n',lgVeh:'o',
 var MPWC={n:'s',ms:'s',dd:'s',oa:'s',rs:'s',ai:'b'};
 function mpOkVal(t,v){if(v===null)return true;var j;try{j=JSON.stringify(v);}catch(e){return false;}if(j&&j.length>60000)return false;if(t==='s')return typeof v==='string'&&v.length<=400||v===undefined;if(t==='n')return v===undefined||typeof v==='number'&&isFinite(v)||typeof v==='boolean';if(t==='b')return v===undefined||typeof v==='boolean'||v===0||v===1;return v===undefined||typeof v==='object'||typeof v==='string'||typeof v==='number';}
 var MPHOOK={quar:function(u,v){if(v){u.ord=null;u.task='hold';u.pend=[];}},ration:function(u){logRecalc(u);},noTurn:function(u,v){if(!v)delete u.hdM;},hdM:function(u,v){if(typeof v==='number'&&u.ord&&/defend|screen|halt/.test(u.ord.k))u.ord.face=v;}};
-function mpPatch(s,cm,P){var rej=[],n=0;if(!P||typeof P!=='object')return {rej:['格式錯誤'],n:0};
+function mpSafe(v,d){d=d||0;if(v===null||typeof v!=='object')return v;if(d>8)return null;if(Array.isArray(v))return v.map(function(x){return mpSafe(x,d+1);});var o={};for(var k in v){if(k==='__proto__'||k==='constructor'||k==='prototype')continue;o[k]=mpSafe(v[k],d+1);}return o;}
+function mpPatch(s,cm,P){var rej=[],n=0;if(!P||typeof P!=='object')return {rej:['格式錯誤'],n:0};P=mpSafe(P);
   if(P.u)for(var id in P.u){var u=uById(+id),ch=P.u[id];if(!u||u.side!==s){rej.push('u'+id);continue;}if(!mpCanCmd(u,s,cm)){rej.push('u'+id+':ctl');continue;}
     for(var f in ch){var t=MPWU[f],v=ch[f];if(!t||!mpOkVal(t,v)||f==='arr'&&u.st!=='off'){rej.push('u'+id+'.'+f);continue;}if(v===null&&t!=='o'&&t!=='s')delete u[f];else if(v===undefined)delete u[f];else u[f]=v;n++;if(MPHOOK[f])try{MPHOOK[f](u,v);}catch(e){}}}
   if(P.s){var S=G.sides[s];for(var f2 in P.s){var t2=MPWS[f2],v2=P.s[f2];if(!t2||!mpOkVal(t2,v2)){rej.push('s.'+f2);continue;}if(v2===undefined)delete S[f2];else S[f2]=v2;n++;}}
@@ -13357,7 +13358,7 @@ function mpReq(t,o){var id=++MPS.rseq;o=Object.assign({t:t,id:id},o||{});return 
 function mpRes(r){if(!r)return;if(r.err){toast(r.err,4500);return;}var v=r.val;if(v&&v.err)toast(v.err,4500);else if(v&&v.msg)toast(v.msg,3500);else if(r.msg)toast(r.msg,3500);}
 /* ---------- 二、伺服器訊息 ---------- */
 function mpOn(o){switch(o.t){
-  case 'hello':MPS.user=o.user;MPS.srv=o.srv;mpRefresh();break;
+  case 'hello':MPS.user=o.user;MPS.srv=o.srv;if(MPS.inRoom)mpSend({t:'join',id:MPS.inRoom,pass:MPS.rpass||''});mpRefresh();break;
   case 'auth':if(o.err){toast(o.err,5000);MPS.noRetry=true;mpTokSave('');MPS.user=null;mpRefresh();}break;
   case 'lobby':MPS.lobby=o;if(!MPS.inRoom)mpRefresh();break;
   case 'joined':MPS.inRoom=o.id;MPS.chat=o.chat||[];MPS.marks={0:[],1:[]};if(UI.tab!=='online')show('online');else mpRefresh();break;
@@ -13368,7 +13369,7 @@ function mpOn(o){switch(o.t){
   case 'marks':MPS.marks[o.side]=o.list||[];if(mpActive()){UI.dirty=true;}mpChatRender();break;
   case 'tick':MPS.gt=o.gt;MPS.running=!!o.running;MPS.real=o.real||0;if(mpActive()){UI.realSp=MPS.real;if(UI.run!==MPS.running){UI.run=MPS.running;barRender();}}var tk=root.querySelector('[data-k="mpgt"]');if(tk)tk.textContent=mpClock();break;
   case 'res':{var f=MPS.rq[o.id];if(f){delete MPS.rq[o.id];f(o.r||{});}break;}
-  case 'err':toast(o.msg,4500);if(o.need==='pass'&&o.id){var pw=prompt('這個房間需要密碼：');if(pw!==null)mpSend({t:'join',id:o.id,pass:pw});}break;
+  case 'err':toast(o.msg,4500);if(o.need==='pass'&&o.id){var pw=prompt('這個房間需要密碼：');if(pw!==null){MPS.rpass=pw;mpSend({t:'join',id:o.id,pass:pw});}else if(MPS.inRoom===o.id){MPS.inRoom=null;mpRefresh();}}else if(/房間不存在/.test(o.msg)&&MPS.inRoom){MPS.inRoom=null;MPS.room=null;if(mpActive())mpExit(true);else mpRefresh();}break;
   case 'kicked':toast(o.msg||'你離開了房間。',4500);MPS.inRoom=null;MPS.room=null;MPS.me=null;if(mpActive())mpExit(true);else mpRefresh();break;
   case 'toast':toast(o.msg);break;}}
 function mpClock(){var g=MPS.gt||0;return durTxt(g)+(MPS.running?'（進行中 ×'+fmt(MPS.real||0)+'）':'（暫停）');}
@@ -13569,8 +13570,8 @@ ACT.mplogin=function(){var n=(root.querySelector('[data-k="mpn"]')||{}).value,p=
 ACT.mpreg=function(){var n=(root.querySelector('[data-k="mpn"]')||{}).value,p=(root.querySelector('[data-k="mpp"]')||{}).value,i=(root.querySelector('[data-k="mpi"]')||{}).value;mpApi('/api/register',{name:n,pass:p,invite:i}).then(function(j){mpTokSave(j.token);MPS.user=j.user;toast('註冊成功'+(j.user.admin?'：你是這台伺服器的管理員。':'。'),4500);mpConnect();mpRefresh();}).catch(function(e){toast(e.message,4500);});};
 ACT.mplogout=function(){mpApi('/api/logout',{}).catch(function(){});MPS.noRetry=true;try{MPS.ws&&MPS.ws.close();}catch(e){}mpTokSave('');MPS.user=null;MPS.inRoom=null;MPS.room=null;if(mpActive())mpExit(true);mpRefresh();};
 ACT.mppw=function(){var o=prompt('目前的密碼');if(o===null)return;var n=prompt('新密碼（至少 6 個字元）');if(!n)return;mpApi('/api/password',{old:o,pass:n}).then(function(){toast('密碼已更新。');}).catch(function(e){toast(e.message,4500);});};
-ACT.mpmkroom=function(){mpSend({t:'mkroom',name:(root.querySelector('[data-k="mprn"]')||{}).value||'',pass:(root.querySelector('[data-k="mprp"]')||{}).value||''});};
-ACT.mpjoin=function(b){var id=b.getAttribute('data-v'),pw='';if(b.getAttribute('data-l')==='1'){pw=prompt('房間密碼');if(pw===null)return;}mpSend({t:'join',id:id,pass:pw});};
+ACT.mpmkroom=function(){MPS.rpass=(root.querySelector('[data-k="mprp"]')||{}).value||'';mpSend({t:'mkroom',name:(root.querySelector('[data-k="mprn"]')||{}).value||'',pass:MPS.rpass});};
+ACT.mpjoin=function(b){var id=b.getAttribute('data-v'),pw='';if(b.getAttribute('data-l')==='1'){pw=prompt('房間密碼');if(pw===null)return;}MPS.rpass=pw;mpSend({t:'join',id:id,pass:pw});};
 ACT.mpleave=function(){if(MPS.room&&MPS.room.phase==='run'&&MPS.me&&MPS.me.side>=0&&!confirm('離開後你的部隊會交給電腦指揮（之後可以重新加入）。確定離開？'))return;mpSend({t:'leave'});MPS.inRoom=null;MPS.room=null;MPS.me=null;if(mpActive())mpExit(true);else mpRefresh();};
 ACT.mplsend=function(){var el=root.querySelector('[data-k="mplin"]');if(!el||!el.value.trim())return;mpSend({t:'chat',ch:'lobby',txt:el.value.trim()});el.value='';};
 ACT.mprsend=function(){var el=root.querySelector('[data-k="mprin"]'),ch=root.querySelector('[data-k="mprcc"]');if(!el||!el.value.trim())return;mpSend({t:'chat',ch:ch?ch.value:'room',txt:el.value.trim()});el.value='';};

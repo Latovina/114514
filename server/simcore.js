@@ -7353,7 +7353,8 @@ var MPWS={ration:'o',ldoc:'s',mopp:'n',moppSet:'n',nosur:'n',lgXc:'n',lgVeh:'o',
 var MPWC={n:'s',ms:'s',dd:'s',oa:'s',rs:'s',ai:'b'};
 function mpOkVal(t,v){if(v===null)return true;var j;try{j=JSON.stringify(v);}catch(e){return false;}if(j&&j.length>60000)return false;if(t==='s')return typeof v==='string'&&v.length<=400||v===undefined;if(t==='n')return v===undefined||typeof v==='number'&&isFinite(v)||typeof v==='boolean';if(t==='b')return v===undefined||typeof v==='boolean'||v===0||v===1;return v===undefined||typeof v==='object'||typeof v==='string'||typeof v==='number';}
 var MPHOOK={quar:function(u,v){if(v){u.ord=null;u.task='hold';u.pend=[];}},ration:function(u){logRecalc(u);},noTurn:function(u,v){if(!v)delete u.hdM;},hdM:function(u,v){if(typeof v==='number'&&u.ord&&/defend|screen|halt/.test(u.ord.k))u.ord.face=v;}};
-function mpPatch(s,cm,P){var rej=[],n=0;if(!P||typeof P!=='object')return {rej:['格式錯誤'],n:0};
+function mpSafe(v,d){d=d||0;if(v===null||typeof v!=='object')return v;if(d>8)return null;if(Array.isArray(v))return v.map(function(x){return mpSafe(x,d+1);});var o={};for(var k in v){if(k==='__proto__'||k==='constructor'||k==='prototype')continue;o[k]=mpSafe(v[k],d+1);}return o;}
+function mpPatch(s,cm,P){var rej=[],n=0;if(!P||typeof P!=='object')return {rej:['格式錯誤'],n:0};P=mpSafe(P);
   if(P.u)for(var id in P.u){var u=uById(+id),ch=P.u[id];if(!u||u.side!==s){rej.push('u'+id);continue;}if(!mpCanCmd(u,s,cm)){rej.push('u'+id+':ctl');continue;}
     for(var f in ch){var t=MPWU[f],v=ch[f];if(!t||!mpOkVal(t,v)||f==='arr'&&u.st!=='off'){rej.push('u'+id+'.'+f);continue;}if(v===null&&t!=='o'&&t!=='s')delete u[f];else if(v===undefined)delete u[f];else u[f]=v;n++;if(MPHOOK[f])try{MPHOOK[f](u,v);}catch(e){}}}
   if(P.s){var S=G.sides[s];for(var f2 in P.s){var t2=MPWS[f2],v2=P.s[f2];if(!t2||!mpOkVal(t2,v2)){rej.push('s.'+f2);continue;}if(v2===undefined)delete S[f2];else S[f2]=v2;n++;}}

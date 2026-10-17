@@ -15,7 +15,7 @@ function mkdirp(p){try{fs.mkdirSync(p,{recursive:true});}catch(e){}}
 mkdirp(DATA);mkdirp(path.join(DATA,'rooms'));mkdirp(path.join(DATA,'replays'));
 function readJ(f,d){try{return JSON.parse(fs.readFileSync(path.join(DATA,f),'utf8'));}catch(e){return d;}}
 function writeJ(f,o){const p=path.join(DATA,f),tmp=p+'.tmp';fs.writeFileSync(tmp,JSON.stringify(o,null,1));fs.renameSync(tmp,p);}
-const CFG0={port:8080,host:'0.0.0.0',serverName:'LatoWarsim 聯機伺服器',allowRegister:true,invite:'',maxRooms:20,maxRoomsPerUser:2,motd:'歡迎！建立房間或加入一場作戰。',snapMs:500,autosaveMin:5,replayKeep:200,aiGraceSec:90};
+const CFG0={port:8080,host:'0.0.0.0',trustProxy:false,serverName:'LatoWarsim 聯機伺服器',allowRegister:true,invite:'',maxRooms:20,maxRoomsPerUser:2,motd:'歡迎！建立房間或加入一場作戰。',snapMs:500,autosaveMin:5,replayKeep:200,aiGraceSec:90};
 let CFG=Object.assign({},CFG0,readJ('config.json',{}));writeJ('config.json',CFG);
 if(process.env.PORT)CFG.port=+process.env.PORT;if(process.env.HOST)CFG.host=process.env.HOST;
 const argv=process.argv.slice(2);for(let i=0;i<argv.length;i++){if(argv[i]==='--port')CFG.port=+argv[++i];if(argv[i]==='--host')CFG.host=argv[++i];}
@@ -34,6 +34,10 @@ function validName(n){n=String(n||'').trim();return n.length>=2&&n.length<=20&&!
 function newToken(uid){const t=crypto.randomBytes(24).toString('hex');SESS[t]={uid:uid,exp:Date.now()+30*86400000};saveSess();return t;}
 function auth(tok){const s=tok&&SESS[tok];if(!s)return null;if(s.exp<Date.now()){delete SESS[tok];saveSess();return null;}const u=userById(s.uid);if(!u||u.banned)return null;return u;}
 const RL=new Map();function rateOK(key,n,ms){const now=Date.now(),a=(RL.get(key)||[]).filter(t=>now-t<ms);if(a.length>=n){RL.set(key,a);return false;}a.push(now);RL.set(key,a);return true;}
+/* 命令列工具：node server.js --reset-password 名稱 ／ --make-admin 名稱 */
+(function(){const i=argv.indexOf('--reset-password'),j=argv.indexOf('--make-admin');if(i<0&&j<0)return;const name=argv[(i>=0?i:j)+1],u=userByName(name);if(!u){console.log('找不到使用者：'+name);process.exit(1);}
+  if(i>=0){const pw=crypto.randomBytes(5).toString('hex'),h=hashPw(pw);u.salt=h.salt;u.hash=h.hash;u.banned=false;for(const t in SESS)if(SESS[t].uid===u.id)delete SESS[t];writeJ('sessions.json',SESS);console.log(u.name+' 的新密碼：'+pw);}
+  if(j>=0){u.admin=true;u.banned=false;console.log(u.name+' 已設為管理員。');}writeJ('users.json',USERS);process.exit(0);})();
 /* ---------- 網頁與 API ---------- */
 let PAGE=null,PAGEZ=null,PAGEM=0;
 const PUB=path.resolve(process.env.LATO_PUBLIC||path.join(ROOT,'public'));
@@ -41,7 +45,7 @@ function page(){const f=path.join(PUB,'index.html');try{const st=fs.statSync(f);
 function sendJ(res,code,o){const b=Buffer.from(JSON.stringify(o));res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Content-Length':b.length,'Cache-Control':'no-store'});res.end(b);}
 function readBody(req,max){return new Promise(function(ok,no){let n=0,a=[];req.on('data',function(d){n+=d.length;if(n>max){no(new Error('too large'));req.destroy();return;}a.push(d);});req.on('end',function(){try{ok(a.length?JSON.parse(Buffer.concat(a).toString('utf8')):{});}catch(e){no(e);}});req.on('error',no);});}
 function bearer(req,q){const h=req.headers.authorization||'';const m=/^Bearer\s+(\S+)/.exec(h);return m?m[1]:q.get('token');}
-function ip(req){return (req.headers['x-forwarded-for']||'').split(',')[0].trim()||req.socket.remoteAddress||'';}
+function ip(req){return (CFG.trustProxy&&(req.headers['x-forwarded-for']||'').split(',')[0].trim())||req.socket.remoteAddress||'';}
 const server=http.createServer(async function(req,res){const U=new URL(req.url,'http://x'),p=U.pathname,q=U.searchParams;
   try{
     if(req.method==='GET'&&(p==='/'||p==='/index.html')){const pg=page(),gz=PAGEZ&&/\bgzip\b/.test(req.headers['accept-encoding']||'');res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-cache','Content-Length':gz?PAGEZ.length:pg.length,...(gz?{'Content-Encoding':'gzip'}:{})});res.end(gz?PAGEZ:pg);return;}
