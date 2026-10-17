@@ -1969,13 +1969,41 @@ function supportTarget(u,s,o,IR){IR=IR||indOf(u,s);var F=o.sup?uById(o.sup):null
   /* 未指定支援對象：只需要目標附近 2.5 公里內最近的友軍（更遠的不影響判斷），用空間格網查，不必逐一比對全軍 */var nf=function(x){if(!onMap(x)||!isLeaf(x))return;var dd=dist(x.x,x.y,cx,cy);if(dd<near)near=dd;};
   for(var id in C){var c=C[id];if(c.dead||c.dom==='air'||G.t-c.t>(c.cb?900:180))continue;var d=dist(u.x,u.y,c.x,c.y);if(d>IR*0.98)continue;near=1e9;if(frs){for(var i=0;i<frs.length;i++){var dd=dist(frs[i].x,frs[i].y,c.x,c.y);if(dd<near)near=dd;}}else{cx=c.x;cy=c.y;gridNearS(cx,cy,3100,u.side,nf);if(near>=2500)near=1e9;}
     if(near<(s.fl.indexOf('p')>=0?150:350))continue;/* 太近：避免誤擊 */var v=(near<2500?3/(1+near/600):0)+(c.cb?1.2:0)+(c.men||100)/2000;if(v>bv){bv=v;best=c;}}return bv>0.15?best:null;}
-function artyFire(u,s,M){var R=M.r,MM=(M.mul||1)*(M.kind==='sat'&&!M.f1?2:1),dm=DT/60*MM,fr=strFrac(u),fm=firerMod(u,s)/(u.form==='deployed'?1:1),obs=false;if(M.kind==='sat'&&!M.f1){M.f1=1;if(G.onPause&&apOn('strike')&&!G._satP){G._satP=G.t;G.onPause('飽和打擊');}}if(G._satP&&G.t-G._satP>600)G._satP=0;
-  var C=G.ct[u.side];for(var id in C){var c=C[id];if(G.t-c.t<=180&&dist(c.x,c.y,M.x,M.y)<R+300){obs=true;break;}}
-  var acc=(obs?1:0.4)*(s.fl.indexOf('p')>=0?1.6:1)*(0.75+0.25*G.env.light),pen=penE(u,s),SA=saOf(u,s),HA=haOf(u,s),SF=WF(u).sup;
-  gridNear(M.x,M.y,R+400,function(t){if(!onMap(t))return;var ts=ST(t);if(ts.dom==='air')return;var d=dist(t.x,t.y,M.x,M.y),fp=Math.sqrt(frontW(t)*120/PI);if(d>R+fp)return;var fren=t.side===u.side?0.1:1,shr=clamp(frontW(t)*120/(PI*R*R),0.12,1)*(d<R?1:0.5),cov=covInd(t),dens=uEra(t).dens||1,rr=0.7+0.6*rnd();
+/* 砲兵散布：每次射擊任務有一個「平均彈著點」，和瞄準點的差距是系統誤差（測地、氣象、裝藥溫度、地圖），沒有觀測時會一直偏在同一邊；
+   有人觀測時每一次修正都把它拉近。各發砲彈以平均彈著點為中心呈常態分布，沿射向（遠近）的散布大於左右；砲連各砲並排射擊，彈幕有寬度。
+   面積射擊時，射擊指揮所把火力有系統地逐點轉移（一排一排來回），而不是在圓圈裡隨機亂落。 */
+var ARTB=[60,55,45,40,320,260,170,90,45,120,30];/* 各時代未經觀測、未經標定的系統誤差（公尺，射程約 10 公里時） */
+var ARTP=[0.02,0.018,0.014,0.008,0.006,0.005,0.0042,0.0036,0.003,0.01,0.0028];/* 各時代單發散布的距離公算偏差（占射程的比例） */
+var ARTL=null;/* 最近一次射擊的散布，給畫面特效用 */
+function artDisp(u,s,M,obs){var E=uEra(u),i=E.i,D=Math.max(300,dist(u.x,u.y,M.x,M.y)),ux=(M.x-u.x)/D,uy=(M.y-u.y)/D,rk=s.br==='rkt'||s.fl.indexOf('z')>=0,pg=s.fl.indexOf('p')>=0,pt=M.kind==='support'||M.kind==='cb';
+  if(!(ux*ux+uy*uy>0.25)){ux=Math.cos(u.hd||0);uy=Math.sin(u.hd||0);}
+  var pr=Math.max(12,ARTP[i]*D*(rk?2.6:1)*(s.dom==='sea'?1.4:1)*(pg?0.35:1)),pd=Math.max(8,pr*(rk?0.6:0.35)),sr=pr/0.6745,sd=pd/0.6745,
+    tubes=clamp(Math.round(u.veh||u.men/20),1,72),sw=clamp(30*Math.sqrt(tubes),15,220)*(pt?0.6:1),
+    key=Math.round(M.x)+','+Math.round(M.y)+','+Math.round(M.start||0),A=u._adj,fo=obs||!!(M.rg&&M.rg.obs);
+  if(!A||A.k!==key){var reg=!!M.reg||!!(G.reg&&regKnown(u.side,M.x,M.y)),B=ARTB[i]*clamp(0.55+D/22000,0.6,1.5)*(pg?0.15:1)*(reg?0.35:1)*(hasQ(offOf(u),'arty')?0.8:1),br,bd;
+    if(A&&G.t-A.t<900&&dist(A.x,A.y,M.x,M.y)<1500){/* 從剛修正好的點轉移射擊：保留大部分修正，只多了轉移的誤差 */br=A.br*1.2+gauss(rnd)*B*0.25;bd=A.bd*1.2+gauss(rnd)*B*0.12;}
+    else{br=gauss(rnd)*B*0.85;bd=gauss(rnd)*B*0.45;}
+    A=u._adj={k:key,x:M.x,y:M.y,br:br,bd:bd,n:0,t:G.t,t0:G.t,ta:G.t};}
+  if(G.t-A.ta>=(i>=8?DT:DT*2)){A.ta=G.t;if(fo){var f=i>=7?0.4:i>=4?0.55:0.6;A.br*=f;A.bd*=f;A.n++;}else if(M.rg&&!M.reg){A.br*=0.9;A.bd*=0.9;}else{A.br+=gauss(rnd)*pr*0.08;A.bd+=gauss(rnd)*pd*0.08;}}
+  A.t=G.t;var ax=M.x,ay=M.y,R=M.r||300;
+  if((M.kind==='bombard'||M.kind==='sat')&&R>sw*1.3){/* 面積射擊：把目標區分成幾排瞄準點，逐點、逐排來回轉移 */var dR=Math.max(2.2*sr,90,R*0.3),dD=Math.max(2*sw,90,R*0.3),L=[],nr=Math.floor(0.8*R/dR),nd=Math.floor(0.8*R/dD);
+    for(var r0=-nr;r0<=nr;r0++){var row=[];for(var c0=-nd;c0<=nd;c0++){var aa=r0*dR,bb=c0*dD;if(aa*aa+bb*bb<=0.64*R*R)row.push([aa,bb]);}if((r0+nr)%2)row.reverse();L=L.concat(row);}
+    if(L.length>1){var q=L[Math.floor((G.t-A.t0)/DT+1e-6)%L.length];ax+=ux*q[0]-uy*q[1];ay+=uy*q[0]+ux*q[1];}}
+  return {x:ax+ux*A.br-uy*A.bd,y:ay+uy*A.br+ux*A.bd,ax:ax,ay:ay,ux:ux,uy:uy,sr:sr,sd:sd,sw:sw};}
+/* 依散布抽一發砲彈的落點 */
+function artPt(D){var a=gauss(rnd)*D.sr,b=gauss(rnd)*D.sd+(rnd()*2-1)*D.sw;return [D.x+D.ux*a-D.uy*b,D.y+D.uy*a+D.ux*b];}
+function artyFire(u,s,M){var MM=(M.mul||1)*(M.kind==='sat'&&!M.f1?2:1),dm=DT/60*MM,fr=strFrac(u),fm=firerMod(u,s)/(u.form==='deployed'?1:1),obs=false;if(M.kind==='sat'&&!M.f1){M.f1=1;if(G.onPause&&apOn('strike')&&!G._satP){G._satP=G.t;G.onPause('飽和打擊');}}if(G._satP&&G.t-G._satP>600)G._satP=0;
+  var C=G.ct[u.side];for(var id in C){var c=C[id];if(G.t-c.t<=180&&dist(c.x,c.y,M.x,M.y)<(M.r||300)+300){obs=true;break;}}
+  var D=artDisp(u,s,M,obs),sP2=D.sd*D.sd+D.sw*D.sw/3,sR2=D.sr*D.sr,Re=clamp(1.2*Math.sqrt(sR2+sP2),50,450);
+  var acc=(obs?1:0.6)*(s.fl.indexOf('p')>=0?1.6:1)*(0.75+0.25*G.env.light),pen=penE(u,s),SA=saOf(u,s),HA=haOf(u,s),SF=WF(u).sup;
+  gridNear(D.x,D.y,3*Math.sqrt(Math.max(sR2,sP2))+600,function(t){if(!onMap(t))return;var ts=ST(t);if(ts.dom==='air')return;var fp2=frontW(t)*120/PI,dx=t.x-D.x,dy=t.y-D.y,a=dx*D.ux+dy*D.uy,b=dy*D.ux-dx*D.uy,R2=sR2+fp2/2,P2=sP2+fp2/2,q=a*a/R2+b*b/P2;if(q>16)return;
+    /* 落在部隊所佔範圍內的砲彈比例：部隊視為圓形，與散布的常態分布疊合 */var shr=Math.min(1,fp2/(2*Math.sqrt(R2*P2))*Math.exp(-0.5*q))*ART_D,sup=18*Math.min(1,shr)+6*Math.exp(-q/8);if(shr<0.002&&sup<1)return;
+    var fren=t.side===u.side?0.1:1,cov=covInd(t),dens=uEra(t).dens||1,rr=0.7+0.6*rnd();
     var ba=infDef(typeOf((t.mix||[[t.hq]])[0][0])||{}).ba||0,cm=t.side===u.side?1:ctrMul(u,t,'art'),F=SA*fr*fm*acc*dm*FIRE_K*ART_K*shr*cov*dens*fren*rr*lgFire(u)*(1-0.07*ba)*cm,Fv=HA*fr*fm*acc*dm*FIRE_K*ART_K*shr*cov*penF(pen,ts.arm)*fren*rr*(s.fl.indexOf('p')>=0?2:1)*cm;
-    hit(t,t.side===u.side?null:u,F*(1-0.9*ts.hard),Fv*ts.hard+F*(1-ts.hard)*(t.veh/Math.max(1,t.men))*0.25,(18*shr+6)*fren*SF,'art');if(t.side===u.side&&F>0.01&&!t.ffLog){t.ffLog=1;logE(u.side,'ff','誤擊！'+uName(u)+'的砲火落在'+uName(t)+'附近',t.x,t.y,t.id);}});
-  urbanDamage(M.x,M.y,R,clamp(2+SA*0.4,2,30),u.side);roadDmg(M.x,M.y,Math.min(R,250),clamp(SA*0.15,1,8));if(G.civ)civArt(u,s,M,SA,fr,dm);wallHit(u,s,M.x,M.y,Math.min(R,300));if(G.evt&&rnd()<0.05)fireChance(M.x+(rnd()-0.5)*R,M.y+(rnd()-0.5)*R);u.ammo=Math.max(0,u.ammo-(s.fl.indexOf('x')>=0?30:0.8)*(M.mul||1));u.fired=G.t;u.lastArt=G.t;cbNotice(u);}
+    hit(t,t.side===u.side?null:u,F*(1-0.9*ts.hard),Fv*ts.hard+F*(1-ts.hard)*(t.veh/Math.max(1,t.men))*0.25,sup*fren*SF,'art');if(t.side===u.side&&F>0.01&&!t.ffLog){t.ffLog=1;logE(u.side,'ff','誤擊！'+uName(u)+'的砲火落在'+uName(t)+'附近',t.x,t.y,t.id);}});
+  var amt=clamp(2+SA*0.4,2,30);for(var k=0;k<2;k++){var p=artPt(D);urbanDamage(p[0],p[1],Math.min(Re,80),amt*0.5,u.side);}roadDmg(D.x,D.y,Math.min(Re,250),clamp(SA*0.15,1,8));if(G.civ)civArt(u,s,Object.assign({},M,{x:D.x,y:D.y,r:Re}),SA,fr,dm);wallHit(u,s,D.x,D.y,Math.min(Re,300));if(G.evt&&rnd()<0.05){var pf=artPt(D);fireChance(pf[0],pf[1]);}
+  u.ammo=Math.max(0,u.ammo-(s.fl.indexOf('x')>=0?30:0.8)*(M.mul||1));u.fired=G.t;u.lastArt=G.t;ARTL=u._art={id:u.id,t:G.t,x:D.x,y:D.y,fa:Math.atan2(D.uy,D.ux),sr:D.sr,sd:D.sd,sw:D.sw,n:u._adj.n};cbNotice(u);}
+var ART_D=0.7;
 /* 城鎮受砲擊累積損毀，達門檻變成廢墟（廢墟提供更好的掩護，但車輛難以通行） */
 function dmgArr(){var MP=G.map,N=MP.GW*MP.GH;if(!MP.dmg||MP.dmg.length!==N)MP.dmg=new Uint8Array(N);return MP.dmg;}
 function urbanDamage(x,y,R,amt,side,cause){var MP=G.map,D=dmgArr();for(var i=0;i<6;i++){var a=rnd()*2*PI,r=Math.sqrt(rnd())*R,k=cellAt(x+Math.cos(a)*r,y+Math.sin(a)*r),c=MP.lc[k];if(!isUrban(c)||c===LCI.rubble)continue;var d0=D[k],v=d0+amt*(0.5+rnd());if(v>=200){D[k]=255;MP.lc[k]=LCI.rubble;(G._rubK=G._rubK||[]).push(k);v=255;}else D[k]=v;if(G.civ)civProp(k,(v-d0)/255,cause||'set',side===undefined?-1:side);}}
@@ -7371,7 +7399,7 @@ var MPFXB=[],MPFXN=0,MPFXON=false;
 function mpFxBrief(u){if(!u)return null;return {id:u.id,side:u.side,mix:u.mix,hq:u.hq,men:Math.round(u.men||0),veh:Math.round(u.veh||0),st:u.st,x:Math.round(u.x),y:Math.round(u.y),hd:u.hd};}
 function mpFxOn(){if(MPFXON||typeof FX==='undefined')return;MPFXON=true;FX.cap=true;
   (function(){var b=hit;hit=function(t,src,dm,dv,sup,kind){b(t,src,dm,dv,sup,kind);if(src&&t&&kind!=='art'&&FX.ev.length<5000)FX.ev.push({k:kind,a:src,b:t,x0:src.x,y0:src.y,x1:t.x,y1:t.y,m:dm+dv*8,dv:dv});};})();
-  (function(){var b=artyFire;artyFire=function(u,s,M){b(u,s,M);if(u.lastArt===G.t&&FX.ev.length<5000)FX.ev.push({k:'art',a:u,x0:u.x,y0:u.y,x1:M.x,y1:M.y,r:M.r||300,m:M.mul||1,reg:!!(M.rg&&!M.reg),sat:M.kind==='sat'});};})();
+  (function(){var b=artyFire;artyFire=function(u,s,M){b(u,s,M);if(u.lastArt===G.t&&FX.ev.length<5000){var L=ARTL&&ARTL.id===u.id&&ARTL.t===G.t?ARTL:null;FX.ev.push({k:'art',a:u,x0:u.x,y0:u.y,x1:L?L.x:M.x,y1:L?L.y:M.y,r:M.r||300,m:M.mul||1,reg:!!(M.rg&&!M.reg),sat:M.kind==='sat',fa:L?L.fa:Math.atan2(M.y-u.y,M.x-u.x),sr:L?Math.round(L.sr):0,sd:L?Math.round(L.sd):0,sw:L?Math.round(L.sw):0});}};})();
   (function(){var b=mslLaunch;mslLaunch=function(u,o){var r=b(u,o);if(r)FX.ev.push({k:'mlaunch',a:u,x0:u.x,y0:u.y,x1:o.x,y1:o.y,m:o.n||2});return r;};})();
   (function(){var b=carpetHit;carpetHit=function(side,src,cx,cy,ang,L,W,tons,o){var r=b.apply(null,arguments);FX.ev.push({k:'carpet',a:src,x1:cx,y1:cy,ang:ang,L:L,W:W,m:tons});return r;};})();
   (function(){var b=nukeAt;nukeAt=function(side,x,y,Y){var r=b.apply(null,arguments);if(G&&G.started)FX.ev.push({k:'nuke',x1:x,y1:y,m:Y});return r;};})();
