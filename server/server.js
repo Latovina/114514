@@ -36,7 +36,8 @@ function auth(tok){const s=tok&&SESS[tok];if(!s)return null;if(s.exp<Date.now())
 const RL=new Map();function rateOK(key,n,ms){const now=Date.now(),a=(RL.get(key)||[]).filter(t=>now-t<ms);if(a.length>=n){RL.set(key,a);return false;}a.push(now);RL.set(key,a);return true;}
 /* ---------- 網頁與 API ---------- */
 let PAGE=null,PAGEZ=null,PAGEM=0;
-function page(){const f=path.join(ROOT,'public','index.html');try{const st=fs.statSync(f);if(!PAGE||st.mtimeMs!==PAGEM){PAGE=fs.readFileSync(f);PAGEZ=zlib.gzipSync(PAGE,{level:9});PAGEM=st.mtimeMs;}}catch(e){PAGE=Buffer.from('<!DOCTYPE html><meta charset="utf-8"><p>找不到 public/index.html。</p>');PAGEZ=null;}return PAGE;}
+const PUB=path.resolve(process.env.LATO_PUBLIC||path.join(ROOT,'public'));
+function page(){const f=path.join(PUB,'index.html');try{const st=fs.statSync(f);if(!PAGE||st.mtimeMs!==PAGEM){PAGE=fs.readFileSync(f);PAGEZ=zlib.gzipSync(PAGE,{level:9});PAGEM=st.mtimeMs;}}catch(e){PAGE=Buffer.from('<!DOCTYPE html><meta charset="utf-8"><p>找不到 public/index.html。</p>');PAGEZ=null;}return PAGE;}
 function sendJ(res,code,o){const b=Buffer.from(JSON.stringify(o));res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Content-Length':b.length,'Cache-Control':'no-store'});res.end(b);}
 function readBody(req,max){return new Promise(function(ok,no){let n=0,a=[];req.on('data',function(d){n+=d.length;if(n>max){no(new Error('too large'));req.destroy();return;}a.push(d);});req.on('end',function(){try{ok(a.length?JSON.parse(Buffer.concat(a).toString('utf8')):{});}catch(e){no(e);}});req.on('error',no);});}
 function bearer(req,q){const h=req.headers.authorization||'';const m=/^Bearer\s+(\S+)/.exec(h);return m?m[1]:q.get('token');}
@@ -103,7 +104,7 @@ server.on('upgrade',function(req,sock,head){const U=new URL(req.url,'http://x');
 setInterval(function(){CONNS.forEach(function(c){if(!c.alive){c.close(1001);return;}c.alive=false;c.raw(9,Buffer.alloc(0));});},30000);
 /* ---------- 房間 ---------- */
 const ROOMS=new Map();let RSEQ=readJ('rooms.json',{seq:0}).seq||0;
-const SPEEDS=[10,30,60,120,300,600,1800,3600];
+const SPEEDS=[1,10,30,60,120,300,600,1800,3600,10800];
 function rid(){return (++RSEQ).toString(36)+crypto.randomBytes(2).toString('hex');}
 function defCfg(){return {name:'',pass:'',speed:60,depth:0.4,teams:[1,1],aiFill:true,aiTake:true,pause:'host',spect:false,rp:false,tech:false,rp0:800,rpDay:'auto',tp0:30,tpDay:20,dur:0,maxSpec:8};}
 function mkSlots(R){const T=R.cfg.teams;R.slots=[0,1].map(function(s){const old=R.slots&&R.slots[s]||[],L=[];for(let i=0;i<T[s];i++)L.push(old[i]||{kind:'open',uid:0,name:'',auto:false});return L;});}

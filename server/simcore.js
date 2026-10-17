@@ -7145,6 +7145,7 @@ function mpValList(s,O,K,X){var V=[],add=function(p,v){V.push([p,v]);},e=1-s;
   if(G.bt){add('bt.seq',G.bt.seq);var bu=G.bt.byUnit||{};if(s>=0){var o2={};for(var bk in bu){var bx=uById(+bk);if(bx&&bx.side===s||K[bk])o2[bk]=bu[bk];}bu=o2;}add('bt.byUnit',bu);}
   [0,1].forEach(function(i){var S=G.sides[i];add('sides.'+i,s<0||i===s?mpClean(S):mpPubSide(S,i));});
   if(s>=0&&X&&X.F&&X.F.init)add('front',{cs:X.F.cs,W:X.F.W,H:X.F.H,own:rleEnc(X.F.own),nextH:X.F.nextH||0,init:1});else if(s<0&&G.front&&G.front.init)add('front',{cs:G.front.cs,W:G.front.W,H:G.front.H,own:rleEnc(G.front.own),nextH:G.front.nextH||0,init:1});
+  if(s>=0){var tl=0;try{var a=sideStr(s).f,b=sideStr(1-s).f,Ob=G.obj||[],tot=0,mine=0;Ob.forEach(function(o){var pp=o.pts||10;tot+=pp;if(o.own===s)mine+=pp;else if(o.own<0)mine+=pp/2;});tl=(a-b)+(tot?(mine/tot-0.5)*0.6:0);}catch(e){}add('tilt',Math.round(tl*10)/10);}
   add('ri',(function(){var L=G.rdiL,I=G.rdi;if(!L||!I||!L.length)return null;var o=[],MP=G.map;for(var i=0;i<L.length&&o.length<6000;i++){var k=L[i],x=(k%MP.GW+0.5)*MP.cs,y=((k/MP.GW|0)+0.5)*MP.cs;if(s<0||mpSeen(O,x,y))o.push(k,I[k]);}return o;})());
   void e;return V;}
 
@@ -7214,7 +7215,7 @@ function mpCollApply(name,D,side,touched){var key=MPKEY[name],isMap=name==='ct',
   if(D.d&&D.d.length){var del={};D.d.forEach(function(id){del[id]=1;});if(isMap)D.d.forEach(function(id){delete cont[id];});else{var keep=cont.filter(function(o){return !o||!del[o[key]];});cont.length=0;keep.forEach(function(o){cont.push(o);});}touched.push([name,null,-1]);}}
 /* 套用一份差異；回傳變動摘要（介面據此決定重畫、重建索引） */
 function mpApply(D,side){var touched=[],R={units:false,add:false,map:false,ly:[]};
-  if(D.v){var keys=Object.keys(D.v);keys.sort(function(a,b){return (a==='set'?-1:0)-(b==='set'?-1:0);});keys.forEach(function(k){var v=D.v[k];if(k==='mapv'){G._mapv=v;return;}if(k==='front'||k==='ri'||k==='lyOn'){MPCLI[k]=mpPA(MPCLI[k],v);return;}if(k==='lgLoad'){G._lgLoad=mpPA(G._lgLoad,v);return;}if(k.indexOf('sides.')===0){var i=+k.slice(6);G.sides[i]=mpPA(G.sides[i],v);return;}mpPathSet(k,v);});}
+  if(D.v){var keys=Object.keys(D.v);keys.sort(function(a,b){return (a==='set'?-1:0)-(b==='set'?-1:0);});keys.forEach(function(k){var v=D.v[k];if(k==='mapv'){G._mapv=v;return;}if(k==='front'||k==='ri'||k==='lyOn'||k==='tilt'){MPCLI[k]=mpPA(MPCLI[k],v);return;}if(k==='lgLoad'){G._lgLoad=mpPA(G._lgLoad,v);return;}if(k.indexOf('sides.')===0){var i=+k.slice(6);G.sides[i]=mpPA(G.sides[i],v);return;}mpPathSet(k,v);});}
   (D.vr||[]).forEach(function(k){if(k==='front'||k==='ri'||k==='lyOn'){MPCLI[k]=null;return;}mpPathDel(k);});
   if(D.c)for(var n in D.c)mpCollApply(n,D.c[n],side,touched);
   if(D.lg){G.log=G.log||[];D.lg.forEach(function(e){G.log.push(e);});if(G.log.length>4000)G.log.splice(0,G.log.length-3000);if(G.onLog)G.onLog();}
@@ -7222,17 +7223,19 @@ function mpApply(D,side){var touched=[],R={units:false,add:false,map:false,ly:[]
   if(D.fh){MPCLI.fh=MPCLI.fh||[];if(D.fh.all)MPCLI.fh=D.fh.all.slice();else D.fh.forEach(function(h){MPCLI.fh.push(h);});}
   if(D.ly&&D.ly.length){var MP=G.map,g=mpBlkGeom();D.ly.forEach(function(q){var k=q[0],kind=q[1],b=q[2],bytes=b64dec(q[3]),a=mpLyGet(k);if(!a||a.length!==MP.GW*MP.GH||taK(a)!==kind){a=new TA[kind](MP.GW*MP.GH);mpLySet(k,a);}var bx=b%g.BW,by=(b/g.BW)|0;mpBlkPut(a,bx,by,bytes);R.ly.push([k,bx,by]);});R.map=true;}
   touched.forEach(function(q){if(q[0]==='u'){R.units=true;if(q[2])R.add=true;if(q[2]===-1)R.add=true;var u=q[1];if(u&&q[3]&&(q[3].mix||q[3].hq||q[3].type)){delete u._s;delete u._sv;}}});
-  if(D.t!==undefined)G.t=D.t;if(D.st!==undefined)G.step=D.st;return R;}
+  if(D.t!==undefined)G.t=D.t;if(D.st!==undefined)G.step=D.st;if(D.v)mpEnsure();return R;}
 var MPCLI={front:null,ri:null,lyOn:null,fh:null};
 /* 戰線與道路擁塞：由客戶端重建成介面使用的結構 */
 function mpCliDerive(){var f=MPCLI.front;if(f&&f.own){var F=G.front;if(!F||F.W!==f.W||F.H!==f.H||!F.wet){var g0=G.front;G.front=null;F=frontInit();G.front=g0;}F.own=rleDec(f.own,f.W*f.H);F.init=1;F.nextH=f.nextH||0;F.hist=MPCLI.fh||[];F.ver=(F.ver||0)+1;G.front=F;}else if(!f)G.front=null;
   var ri=MPCLI.ri,MP=G.map;if(ri&&ri.length&&MP){var N=MP.GW*MP.GH;if(!G.rdi||G.rdi.length!==N)G.rdi=new Uint8Array(N);else G.rdi.fill(0);var L=[];for(var i=0;i+1<ri.length;i+=2){G.rdi[ri[i]]=ri[i+1];L.push(ri[i]);}G.rdiL=L;}else{G.rdiL=null;}
   var on=MPCLI.lyOn;if(on){if(!on.fl&&G.evt)G.evt.fl=null;if(!on.fire&&G.evt)G.evt.fire=null;}}
+/* 介面預期存在的容器（伺服器上是空的就不會送來） */
+function mpEnsure(){['msgs','lgv','fac','tp','meets','inbox','draw'].forEach(function(k){if(!Array.isArray(G[k]))G[k]=[];});if(G.civ){['S','R','P'].forEach(function(k){if(!Array.isArray(G.civ[k]))G.civ[k]=[];});}if(G.press&&!Array.isArray(G.press.R))G.press.R=[];if(G.press&&!Array.isArray(G.press.A))G.press.A=[];if(!G.bt)G.bt={list:[],byUnit:{},seq:0};if(!G.bt.list)G.bt.list=[];if(!G.bt.byUnit)G.bt.byUnit={};if(!G.ct)G.ct=[{},{}];}
 /* 完整內容：建立客戶端的作戰狀態 */
 async function mpLoadFull(F){var m=Object.assign({},F.map);MPLY.forEach(function(k){if(F.lyF&&F.lyF[k]&&MAPTA.indexOf(k)>=0)m[k]=F.lyF[k];});var MP=await unpackMap(m);var set=F.v&&F.v.set||{};G=newGame(MP,set);
   G.ct=[{},{}];G.units=[];G.msgs=[];G.log=[];G._fx=[];G.dirty=[];G.pq=[];G._inc={};MPCLI={front:null,ri:null,lyOn:null,fh:null};
   ['rdd','rld','fl','fire'].forEach(function(k){if(F.lyF&&F.lyF[k]){var mm=String(F.lyF[k]).match(/^(\w+):raw:(.*)$/);if(mm){var u8=b64dec(mm[2]),a=new TA[mm[1]](u8.buffer,0,u8.byteLength/TA[mm[1]].BYTES_PER_ELEMENT);if(k==='fl'||k==='fire'){G.evt=G.evt||{};}mpLySet(k,a);}}});
-  var R=mpApply(F,F.side<0?0:F.side);G.set.fog=F.side>=0;reix();G._tv=(G._tv||1)+1;G._pv=(G._pv||0)+1;
+  var R=mpApply(F,F.side<0?0:F.side);G.set.fog=F.side>=0;mpEnsure();reix();G._tv=(G._tv||1)+1;G._pv=(G._pv||0)+1;
   if(G.evt&&MPCLI.lyOn){['fl','fire'].forEach(function(k){if(!MPCLI.lyOn[k])G.evt[k]=null;});}mpCliDerive();void R;return G;}
 
 /* ---------- 六、伺服器：讀檔、存檔、快速想定 ---------- */
@@ -7256,7 +7259,7 @@ async function mpQuick(key,seed){var sc=SCN.filter(function(q){return q.k===key;
 /* 每一方的指揮官人數與 AI／玩家；human[i] 為真表示第 i 位指揮官由玩家擔任 */
 function mpTeams(side,n,human){var S=G.sides[side];n=clamp(n|0,1,3);var cur=cmList(side);if(cur.length!==n){if(!G.started)teamSetup(side,n,'split');else n=cur.length;}var L=cmList(side);
   L.forEach(function(R,i){R.ai=!human[i];});if(L.length===1){S.ai=!human[0];L[0].ai=S.ai;}else{S.ai=L.some(function(R){return R.ai;});cmSync(side);}S.pu=0;cmBump();return L.map(function(R){return {n:R.n,ai:R.ai,roots:R.roots.length};});}
-function mpCanCmd(u,s,cm){if(!u||u.side!==s)return false;var S=G.sides[s],L=S.cm||[];if(L.length>1){var i=cmOf(u);if(cm>=0&&i!==cm)return false;return !(L[i]&&L[i].ai);}return !S.ai;}
+function mpCanCmd(u,s,cm){if(!u||u.side!==s)return false;var S=G.sides[s],L=S.cm||[];if(L.length>1){var i=cmOf(u);if(cm>=0&&i!==cm)return false;return !(L[i]&&L[i].ai);}if(!S.ai)return true;return S.pu>0&&inTree(u,S.pu);}
 function mpZone(side,dep){var MP=G.map,e=G.sides[side].edge||(side?'E':'W'),f=clamp(dep||0.4,0.15,0.6);return {e:e,f:f,x0:e==='E'?MP.Wm*(1-f):0,x1:e==='W'?MP.Wm*f:MP.Wm,y0:e==='S'?MP.Hm*(1-f):0,y1:e==='N'?MP.Hm*f:MP.Hm};}
 function mpInZone(Z,x,y){return x>=Z.x0&&x<=Z.x1&&y>=Z.y0&&y<=Z.y1;}
 function mpClampZ(Z,x,y){return [clamp(x,Z.x0+G.map.cs,Z.x1-G.map.cs),clamp(y,Z.y0+G.map.cs,Z.y1-G.map.cs)];}
@@ -7298,7 +7301,7 @@ var MPFN={
   tacSwitch:[MPOWN(0),function(a){return tacSwitch(a[0],a[1]);}],postSwitch:[MPOWN(0),function(a){return postSwitch(a[0],a[1]);}],
   fmSet:[MPOWN(0),function(a){return fmSet(a[0],a[1]);}],femSet:[MPOWN(0),function(a){return femSet(a[0],a[1]);}],
   refitReturn:[MPOWN(0),function(a){return refitReturn(a[0]);}],arriveUnit:[MPOWN(0),function(a){return a[0]&&a[0].st==='off'?arriveUnit(a[0]):null;}],
-  cbDeconStart:[MPOWN(0),function(a){return cbDeconStart(a[0]);}],cbVax:[MPOWN(0),function(a){return cbVax(a[0],a[1],Math.min(+a[2]||4000,8000));}],
+  cbDeconStart:[MPOWN(0),function(a){var r=cbDeconStart(a[0]);a[0].ord=null;a[0].task='hold';return r;}],cbVax:[MPOWN(0),function(a){return cbVax(a[0],a[1],Math.min(+a[2]||4000,8000));}],
   cbCylinder:[MPOWN(0),function(a){return cbCylinder(a[0],a[1],+a[2],+a[3]);}],cbCatapult:[MPOWN(0),function(a){return cbCatapult(a[0],+a[1],+a[2]);}],
   cbRelease:[function(s,cm,a){return a[0]===s&&mpCanCmd(a[6],s,cm)?'':'只能由本方部隊施放。';},function(a){return cbRelease(a[0],a[1],+a[2],+a[3],Math.min(+a[4]||1,3),Math.min(+a[5]||400,1500),a[6],a[7]);}],
   powRaise:[MPOWN(0),function(a){return powRaise(a[0],a[1],a[2]);}],powEvac:[MPOWN(0),function(a){return powEvac(a[0]);}],
@@ -7314,7 +7317,17 @@ var MPFN={
   cmAssign:[function(s,cm,a){return a[0]===s&&(cm<0||a[2]===cm||mpCanCmd(uById(a[1]),s,cm))?'':'只能把自己的編制交給隊友。';},function(a){return cmAssign(a[0],a[1],a[2]);}],
   mpRf:[MPSIDE(0),function(a){return mpRf(a[0],a[1]);}],
   mpSupRouteDel:[MPSIDE(0),function(a){if(!G.sup)return null;G.sup.routes=(G.sup.routes||[]).filter(function(q){return !(q.id===a[1]&&q.side===a[0]);});return {ok:1};}],
-  mpDrawSet:[MPSIDE(0),function(a){return mpDrawSet(a[0],a[1]);}]};
+  mpDrawSet:[MPSIDE(0),function(a){return mpDrawSet(a[0],a[1]);}],
+  mpNode:[MPSIDE(0),function(a){return mpNode(a[0],+a[1],String(a[2]),+a[3]);}],
+  mpMyCmd:[function(s,cm,a){return a[0]===s&&(cm<0||a[1]===cm)?'':'只能設定自己的指揮。';},function(a){return mpMyCmd(a[0],a[1],+a[2]);}]};
+/* 補給節點的吞吐量、容量、車隊（增援點數模式下擴充要付點數） */
+var MPNDC={thr:0.5,cap:0.02,cvn:4};
+function mpNode(side,i,f,v){var N=(G.sides[side].nodes||[])[i];if(!N)return {err:'找不到補給節點。'};if(['thr','cap','up','cvn','cvp'].indexOf(f)<0||!isFinite(v))return {err:'無效的設定'};
+  if(rpOn()&&G.started&&MPNDC[f]){var old=f==='cvn'?(N.cv?N.cv.n:0):N[f]||0,nv=Math.max(0,v),cost=Math.max(0,(nv-old)*MPNDC[f]);if(cost>0&&!rpSpend(side,cost,'node',N.name))return {err:'增援點數不足：擴充需要 '+fmt(Math.ceil(cost))+' 點'};}
+  if(f==='thr')N.thr=Math.max(0,v);else if(f==='cap')N.cap=Math.max(0,v);else if(f==='up')N.up=v;else if(f==='cvn'){N.cv=N.cv||{n:0,pay:3};N.cv.n=Math.max(0,Math.round(v));}else if(f==='cvp'){N.cv=N.cv||{n:0,pay:3};N.cv.pay=Math.max(0.1,v);}return {ok:1};}
+/* 「我的指揮」：全軍、只指揮某一個編制（其餘交給 AI）、全部交給 AI；多位指揮官時只切換自己的席位 */
+function mpMyCmd(s,cm,v){var S=G.sides[s],L=S.cm||[];if(L.length>1){var R=L[cm<0?0:cm];if(!R)return {err:'找不到指揮官。'};R.ai=v<0;S.ai=L.some(function(Q){return Q.ai;});cmBump();decLog(s,'玩家',R.ai?'把'+R.n+'的部隊交給 AI 指揮':'親自指揮'+R.n+'的部隊');return {ok:1};}
+  if(v>0){var u=uById(v);if(!u||u.side!==s)return {err:'找不到這個編制。'};}S.ai=v!==0;S.pu=v>0?v:0;if(L[0])L[0].ai=S.ai;decLog(s,'玩家',v===0?'親自指揮全軍':v<0?'把全軍交給 AI 指揮':'只指揮'+uName(uById(v))+'，其餘由 AI 指揮');return {ok:1};}
 /* 增援派遣（與單機版「增援」對話框相同的流程，在伺服器上執行） */
 function mpRf(side,RF){RF=RF||{};var src=RF.src,T=null,cost=0,lock=[];if(!G.started)return {err:'作戰尚未開始。'};
   if(src==='rft'){T=rftOf(side).filter(function(q){return q.id===RF.rft;})[0];if(!T||!(T.items||[]).some(function(q){return typeOf(q[0])&&q[1]>0;}))return {err:'先建立或選擇自訂範本。'};cost=rftCost(T);lock=rftLock(side,T);}
@@ -7339,7 +7352,7 @@ var MPWU={name:'s',nmLock:'b',ttl:'s',ttlAuto:'n',ration:'o',noTurn:'n',hdM:'n',
 var MPWS={ration:'o',ldoc:'s',mopp:'n',moppSet:'n',nosur:'n',lgXc:'n',lgVeh:'o',stpl:'o',callQ:'o',vax0:'o',pol:'o',rft:'o',snk:'o',lgRk:'o',lgBad:'n',lgAm:'n'};
 var MPWC={n:'s',ms:'s',dd:'s',oa:'s',rs:'s',ai:'b'};
 function mpOkVal(t,v){if(v===null)return true;var j;try{j=JSON.stringify(v);}catch(e){return false;}if(j&&j.length>60000)return false;if(t==='s')return typeof v==='string'&&v.length<=400||v===undefined;if(t==='n')return v===undefined||typeof v==='number'&&isFinite(v)||typeof v==='boolean';if(t==='b')return v===undefined||typeof v==='boolean'||v===0||v===1;return v===undefined||typeof v==='object'||typeof v==='string'||typeof v==='number';}
-var MPHOOK={quar:function(u,v){if(v){u.ord=null;u.task='hold';u.pend=[];}},ration:function(u){logRecalc(u);},noTurn:function(u,v){if(!v)delete u.hdM;}};
+var MPHOOK={quar:function(u,v){if(v){u.ord=null;u.task='hold';u.pend=[];}},ration:function(u){logRecalc(u);},noTurn:function(u,v){if(!v)delete u.hdM;},hdM:function(u,v){if(typeof v==='number'&&u.ord&&/defend|screen|halt/.test(u.ord.k))u.ord.face=v;}};
 function mpPatch(s,cm,P){var rej=[],n=0;if(!P||typeof P!=='object')return {rej:['格式錯誤'],n:0};
   if(P.u)for(var id in P.u){var u=uById(+id),ch=P.u[id];if(!u||u.side!==s){rej.push('u'+id);continue;}if(!mpCanCmd(u,s,cm)){rej.push('u'+id+':ctl');continue;}
     for(var f in ch){var t=MPWU[f],v=ch[f];if(!t||!mpOkVal(t,v)||f==='arr'&&u.st!=='off'){rej.push('u'+id+'.'+f);continue;}if(v===null&&t!=='o'&&t!=='s')delete u[f];else if(v===undefined)delete u[f];else u[f]=v;n++;if(MPHOOK[f])try{MPHOOK[f](u,v);}catch(e){}}}
