@@ -1986,9 +1986,10 @@ function artDisp(u,s,M,obs){var E=uEra(u),i=E.i,D=Math.max(300,dist(u.x,u.y,M.x,
     A=u._adj={k:key,x:M.x,y:M.y,br:br,bd:bd,n:0,t:G.t,t0:G.t,ta:G.t};}
   if(G.t-A.ta>=(i>=8?DT:DT*2)){A.ta=G.t;if(fo){var f=i>=7?0.4:i>=4?0.55:0.6;A.br*=f;A.bd*=f;A.n++;}else if(M.rg&&!M.reg){A.br*=0.9;A.bd*=0.9;}else{A.br+=gauss(rnd)*pr*0.08;A.bd+=gauss(rnd)*pd*0.08;}}
   A.t=G.t;var ax=M.x,ay=M.y,R=M.r||300;
-  if((M.kind==='bombard'||M.kind==='sat')&&R>sw*1.3){/* 面積射擊：把目標區分成幾排瞄準點，逐點、逐排來回轉移 */var dR=Math.max(2.2*sr,90,R*0.3),dD=Math.max(2*sw,90,R*0.3),L=[],nr=Math.floor(0.8*R/dR),nd=Math.floor(0.8*R/dD);
+  if(M.kind==='sat'){/* 飽和打擊：火力計畫讓各砲分別瞄準目標區內不同的點，同一齊射就鋪滿整個區域 */sr=Math.sqrt(sr*sr+0.16*R*R);sw=Math.max(sw,0.6*R);}
+  else if(M.kind==='bombard'&&R>sw*1.3){/* 面積射擊：把目標區分成幾排瞄準點，逐點、逐排來回轉移 */var dR=Math.max(2.2*sr,90,R*0.3),dD=Math.max(2*sw,90,R*0.3),L=[],nr=Math.floor(0.8*R/dR),nd=Math.floor(0.8*R/dD);
     for(var r0=-nr;r0<=nr;r0++){var row=[];for(var c0=-nd;c0<=nd;c0++){var aa=r0*dR,bb=c0*dD;if(aa*aa+bb*bb<=0.64*R*R)row.push([aa,bb]);}if((r0+nr)%2)row.reverse();L=L.concat(row);}
-    if(L.length>1){var q=L[Math.floor((G.t-A.t0)/DT+1e-6)%L.length];ax+=ux*q[0]-uy*q[1];ay+=uy*q[0]+ux*q[1];}}
+    if(L.length>1){var q=L[(Math.floor((G.t-A.t0)/DT+1e-6)+(u.id*7919)%L.length)%L.length];/* 各砲連分到不同的起始瞄準點，同時彈著時不會全落在同一處 */ax+=ux*q[0]-uy*q[1];ay+=uy*q[0]+ux*q[1];}}
   return {x:ax+ux*A.br-uy*A.bd,y:ay+uy*A.br+ux*A.bd,ax:ax,ay:ay,ux:ux,uy:uy,sr:sr,sd:sd,sw:sw};}
 /* 依散布抽一發砲彈的落點 */
 function artPt(D){var a=gauss(rnd)*D.sr,b=gauss(rnd)*D.sd+(rnd()*2-1)*D.sw;return [D.x+D.ux*a-D.uy*b,D.y+D.uy*a+D.ux*b];}
@@ -1998,12 +1999,13 @@ function artyFire(u,s,M){var MM=(M.mul||1)*(M.kind==='sat'&&!M.f1?2:1),dm=DT/60*
   var acc=(obs?1:0.6)*(s.fl.indexOf('p')>=0?1.6:1)*(0.75+0.25*G.env.light),pen=penE(u,s),SA=saOf(u,s),HA=haOf(u,s),SF=WF(u).sup;
   gridNear(D.x,D.y,3*Math.sqrt(Math.max(sR2,sP2))+600,function(t){if(!onMap(t))return;var ts=ST(t);if(ts.dom==='air')return;var fp2=frontW(t)*120/PI,dx=t.x-D.x,dy=t.y-D.y,a=dx*D.ux+dy*D.uy,b=dy*D.ux-dx*D.uy,R2=sR2+fp2/2,P2=sP2+fp2/2,q=a*a/R2+b*b/P2;if(q>16)return;
     /* 落在部隊所佔範圍內的砲彈比例：部隊視為圓形，與散布的常態分布疊合 */var shr=Math.min(1,fp2/(2*Math.sqrt(R2*P2))*Math.exp(-0.5*q))*ART_D,sup=18*Math.min(1,shr)+6*Math.exp(-q/8);if(shr<0.002&&sup<1)return;
-    var fren=t.side===u.side?0.1:1,cov=covInd(t),dens=uEra(t).dens||1,rr=0.7+0.6*rnd();
+    /* 奇襲：五分鐘內沒挨過砲的部隊還沒掩蔽，第一輪齊射（同一步內各砲連一起落下）殺傷加倍 */var sp=1;if(t.side!==u.side){if(t._sfT===G.t)sp=2;else if(!(G.t-(t.uf===undefined?-1e9:t.uf)<=300)){sp=2;t._sfT=G.t;}}
+    var fren=t.side===u.side?0.1:1,cov=covInd(t),dens=uEra(t).dens||1,rr=(0.7+0.6*rnd())*sp;
     var ba=infDef(typeOf((t.mix||[[t.hq]])[0][0])||{}).ba||0,cm=t.side===u.side?1:ctrMul(u,t,'art'),F=SA*fr*fm*acc*dm*FIRE_K*ART_K*shr*cov*dens*fren*rr*lgFire(u)*(1-0.07*ba)*cm,Fv=HA*fr*fm*acc*dm*FIRE_K*ART_K*shr*cov*penF(pen,ts.arm)*fren*rr*(s.fl.indexOf('p')>=0?2:1)*cm;
     hit(t,t.side===u.side?null:u,F*(1-0.9*ts.hard),Fv*ts.hard+F*(1-ts.hard)*(t.veh/Math.max(1,t.men))*0.25,sup*fren*SF,'art');if(t.side===u.side&&F>0.01&&!t.ffLog){t.ffLog=1;logE(u.side,'ff','誤擊！'+uName(u)+'的砲火落在'+uName(t)+'附近',t.x,t.y,t.id);}});
   var amt=clamp(2+SA*0.4,2,30);for(var k=0;k<2;k++){var p=artPt(D);urbanDamage(p[0],p[1],Math.min(Re,80),amt*0.5,u.side);}roadDmg(D.x,D.y,Math.min(Re,250),clamp(SA*0.15,1,8));if(G.civ)civArt(u,s,Object.assign({},M,{x:D.x,y:D.y,r:Re}),SA,fr,dm);wallHit(u,s,D.x,D.y,Math.min(Re,300));if(G.evt&&rnd()<0.05){var pf=artPt(D);fireChance(pf[0],pf[1]);}
   u.ammo=Math.max(0,u.ammo-(s.fl.indexOf('x')>=0?30:0.8)*(M.mul||1));u.fired=G.t;u.lastArt=G.t;ARTL=u._art={id:u.id,t:G.t,x:D.x,y:D.y,fa:Math.atan2(D.uy,D.ux),sr:D.sr,sd:D.sd,sw:D.sw,n:u._adj.n};cbNotice(u);}
-var ART_D=0.7;
+var ART_D=0.9;
 /* 城鎮受砲擊累積損毀，達門檻變成廢墟（廢墟提供更好的掩護，但車輛難以通行） */
 function dmgArr(){var MP=G.map,N=MP.GW*MP.GH;if(!MP.dmg||MP.dmg.length!==N)MP.dmg=new Uint8Array(N);return MP.dmg;}
 function urbanDamage(x,y,R,amt,side,cause){var MP=G.map,D=dmgArr();for(var i=0;i<6;i++){var a=rnd()*2*PI,r=Math.sqrt(rnd())*R,k=cellAt(x+Math.cos(a)*r,y+Math.sin(a)*r),c=MP.lc[k];if(!isUrban(c)||c===LCI.rubble)continue;var d0=D[k],v=d0+amt*(0.5+rnd());if(v>=200){D[k]=255;MP.lc[k]=LCI.rubble;(G._rubK=G._rubK||[]).push(k);v=255;}else D[k]=v;if(G.civ)civProp(k,(v-d0)/255,cause||'set',side===undefined?-1:side);}}
@@ -3325,7 +3327,7 @@ function cvyDone(C){var Q=C.cvy,X=utx(C.mix[0][0]),tons=(X.sup||0)*Math.max(0,C.
 function satCount(u){return (isLeaf(u)?[u]:leavesOf(u)).filter(function(l){return alive(l)&&indOf(l,ST(l))>0&&roleOf(l)!=='air';}).length;}
 function canSat(u){var L=isLeaf(u)?[u]:leavesOf(u);if(L.some(function(l){return alive(l)&&ST(l).fl.indexOf('z')>=0&&indOf(l,ST(l))>0;}))return true;return !isLeaf(u)&&satCount(u)>=3;}
 function satAct(u,o){var s=ST(u);if(!(indOf(u,s)>0)){logE(u.side,'arty',uName(u)+'沒有間接火力，無法參加飽和打擊',u.x,u.y,u.id);u.task='hold';return true;}var z=s.fl.indexOf('z')>=0;
-  var no=newOrder('bombard',{x:o.x,y:o.y,r:o.r||(z?520:Math.max(300,missionR(s))),dur:z?DT*2:(o.dur||240),mul:z?6:3,sat:1,tot:o.tot||0,then:'support',sup:o.sup!==undefined?o.sup:(u.p>=0?u.p:undefined)});no.parent=o.parent;activate(u,no);return true;}
+  var no=newOrder('bombard',{x:o.x,y:o.y,r:o.r||(z?600:Math.max(500,missionR(s))),dur:z?DT*2:(o.dur||240),mul:z?6:3,sat:1,tot:o.tot||0,then:'support',sup:o.sup!==undefined?o.sup:(u.p>=0?u.p:undefined)});no.parent=o.parent;activate(u,no);return true;}
 
 /* ---------- 地毯式轟炸：重型與中型轟炸機在帶狀區域內密集投彈；落彈誤差大、常有向進場方向「前伸不足」的誤炸 ---------- */
 function cpSpec(u){var a=0,t=0,c=0,n=0;(u.mix||[]).forEach(function(m){var x=utx(m[0]);if(x.bt){var k=m[1]||1;n+=k;a+=x.ba*k;t+=x.bt*k;c=Math.max(c,x.cep);}});return n?{ba:a/n,bt:t/n,cep:c}:null;}
