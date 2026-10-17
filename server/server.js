@@ -170,6 +170,8 @@ async function autosave(R){if(!R.w||R.phase==='setup')return;try{const P=await w
 setInterval(function(){ROOMS.forEach(R=>{if(R.w&&(R.phase==='run'||R.phase==='deploy'))autosave(R);});},Math.max(1,CFG.autosaveMin)*60000);
 /* 斷線太久的玩家：由 AI 暫代 */
 setInterval(function(){const now=Date.now();ROOMS.forEach(R=>{if(R.phase!=='run'||!R.cfg.aiTake)return;let ch=false;R.mem.forEach(m=>{if(m.conns.size||!m.off||m.side<0)return;if(now-m.off>CFG.aiGraceSec*1000){const S=R.slots[m.side]&&R.slots[m.side][m.cm];if(S&&!S.auto){S.auto=true;ch=true;sysChat(R,m.name+' 斷線超過 '+CFG.aiGraceSec+' 秒，暫由 AI 代為指揮。');}}});if(ch){teamsToWorker(R);roomAll(R);}
+  /* 房間裡的人都離線：作戰自動暫停 */
+  if(R.phase==='run'&&R.running&&R.w&&![...R.mem.values()].some(x=>x.conns.size)){R.running=false;R.w.postMessage({op:'run',on:false,speed:R.cfg.speed});sysChat(R,'房間裡的人都已離線，作戰自動暫停。');roomAll(R);}
   /* 沒有人在線上的房間：尚未載入想定的十分鐘後關閉；有作戰的保留一天（可重新進入） */
   const on=[...R.mem.values()].some(x=>x.conns.size);if(!on){if(!R.empty)R.empty=now;else if(now-R.empty>(R.phase==='setup'?600000:86400000))closeRoom(R,'閒置');}else R.empty=0;});},5000);
 /* ---------- 訊息處理 ---------- */

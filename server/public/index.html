@@ -13363,7 +13363,8 @@ function mpOn(o){switch(o.t){
   case 'lobby':MPS.lobby=o;if(!MPS.inRoom)mpRefresh();break;
   case 'joined':MPS.inRoom=o.id;MPS.chat=o.chat||[];MPS.marks={0:[],1:[]};if(UI.tab!=='online')show('online');else mpRefresh();break;
   case 'room':{var old=MPS.room;MPS.room=o.room;MPS.me=o.me;if(o.room&&o.room.cfg)UI.speed=o.room.cfg.speed;MPS.running=!!(o.room.run&&o.room.run.on);if(mpActive()&&UI.run!==MPS.running){UI.run=MPS.running;barRender();}
-    if(old&&old.phase!==o.room.phase&&o.room.phase==='run'&&mpActive()){toast('作戰開始！',3000);if(UI.tab==='deploy'||UI.tab==='online')show('battle');}mpBarSync();if(UI.tab==='online')mpRefresh();else if(UI.tab==='deploy'&&mpActive())mpDepCard();mpChatRender();break;}
+    if(old&&old.phase!==o.room.phase&&o.room.phase==='run'&&mpActive()){toast('作戰開始！',3000);if(UI.tab==='deploy'||UI.tab==='online')show('battle');}
+    if(o.room.phase==='setup'&&mpActive()){mpExit(true);}mpBarSync();if(UI.tab==='online')mpRefresh();else if(UI.tab==='deploy'&&mpActive())mpDepCard();mpChatRender();break;}
   case 'view':if(o.view===null&&mpActive())mpExit(false);break;
   case 'chat':{var x={ch:o.ch,from:o.from,txt:o.txt,time:o.time,att:o.att,side:o.side};if(o.ch==='lobby'){MPS.lchat.push(x);if(MPS.lchat.length>200)MPS.lchat.shift();}else{MPS.chat.push(x);if(MPS.chat.length>300)MPS.chat.shift();if(!MPS.chOpen)MPS.unread++;}mpChatRender();if(UI.tab==='online')mpChatList();break;}
   case 'marks':MPS.marks[o.side]=o.list||[];if(mpActive()){UI.dirty=true;}mpChatRender();break;
@@ -13375,7 +13376,7 @@ function mpOn(o){switch(o.t){
 function mpClock(){var g=MPS.gt||0;return durTxt(g)+(MPS.running?'（進行中 ×'+fmt(MPS.real||0)+'）':'（暫停）');}
 /* ---------- 三、快照：完整內容建立作戰狀態，差異套用到目前狀態 ---------- */
 async function mpSnap(kind,D){if(kind===1){var first=!mpActive();if(first){MPS.localG=G;MPS.localSide=UI.side;}mpCheckLocal();await mpLoadFull(D);G.mp=1;G.onPause=function(){};G.onLog=function(){UI.logDirty=true;};
-    MPS.view=D.side;MPS.cm=D.cm===undefined?-1:D.cm;UI.side=D.side;UI.sel=[];UI.selC=0;UI.run=MPS.running;UI.tool='sel';UI.ord=null;resetCaches();VW.fit=false;VW.img=null;MPS.ipL=[];mpMirror();MPS.lastSnap=performance.now();
+    MPS.overSeen=G.over?1:0;MPS.view=D.side;MPS.cm=D.cm===undefined?-1:D.cm;UI.side=D.side;UI.sel=[];UI.selC=0;UI.run=MPS.running;UI.tool='sel';UI.ord=null;resetCaches();VW.fit=false;VW.img=null;MPS.ipL=[];mpMirror();MPS.lastSnap=performance.now();
     barRender();tabsRender();var tab=UI.tab;if(first||!/^(battle|logi|rep|deploy|online|help|set|replay)$/.test(tab))tab=G.started?'battle':'deploy';if(tab==='online'&&first)tab=G.started?'battle':'deploy';if(!G.started&&/^(battle|logi|rep)$/.test(tab))tab='deploy';show(tab);mpChatRender();return;}
   if(!mpActive())return;mpCheckLocal();var P=mpPosSave(),R=mpApply(D,MPS.view<0?0:MPS.view);if(R.add){reix();G._pv=(G._pv||0)+1;}mpCliDerive();
   if(R.map){var MP=G.map,GW=MP.GW;R.ly.forEach(function(q){var x0=q[1]*MPBS,y0=q[2]*MPBS,x1=Math.min(GW,x0+MPBS)-1,y1=Math.min(MP.GH,y0+MPBS)-1;(G.dirty=G.dirty||[]).push([y0*GW+x0,y1*GW+x1]);});try{invalidatePF();}catch(e){}G._mapv=(G._mapv||0)+1;}
@@ -13390,7 +13391,7 @@ function mpInterpStep(t){var L=MPS.ipL;if(!L.length)return;var dur=MPS.ivl*1.05,
 (function(){var L0=loop;loop=function(ts){if(mpActive()){requestAnimationFrame(loop);var t=performance.now();var mv=MPS.ipL.length>0;mpInterpStep(t);var iv=typeof gfxDrawIv==='function'?gfxDrawIv(1):45;
     if(t-UI.drawT>iv&&(UI.dirty||mv||UI.run)){UI.drawT=t;UI.dirty=false;UI.after(false);}if(t-UI.hudT>300){UI.hudT=t;hudTick();}return;}return L0(ts);};})();
 /* 離開聯機作戰：回到原本的單機作戰 */
-function mpExit(toOnline){MPS.view=null;MPS.ipL=[];MPS.mir=null;G=MPS.localG||null;MPS.localG=null;UI.side=MPS.localSide||0;UI.sel=[];UI.selC=0;UI.run=false;UI.tool='sel';UI.ord=null;try{resetCaches();}catch(e){}VW.fit=false;VW.img=null;barRender();tabsRender();show(toOnline||!G?'online':UI.tab==='online'?'online':'online');mpChatRender();}
+function mpExit(toOnline){MPS.view=null;MPS.ipL=[];MPS.mir=null;G=MPS.localG||null;MPS.localG=null;UI.side=MPS.localSide||0;UI.sel=[];UI.selC=0;UI.run=false;UI.tool='sel';UI.ord=null;try{resetCaches();}catch(e){}VW.fit=false;VW.img=null;barRender();tabsRender();show('online');mpChatRender();}
 /* ---------- 四、命令轉送：模擬函式改由伺服器執行 ---------- */
 function mpRpc(n,a){mpReq('cmd',{fn:n,a:mpEnc(a)}).then(mpRes);}
 function mpWrapFn(n,f,ret){return function(){if(!mpActive())return f.apply(this,arguments);var a=Array.prototype.slice.call(arguments);if(MPS.view<0){toast('觀戰中不能下達命令。');return ret?ret(a):{err:'觀戰中'};}mpRpc(n,a);return ret?ret(a):{ok:1,pending:1};};}
