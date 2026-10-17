@@ -1,5 +1,7 @@
 # LatoWarsim 作戰模擬：聯機伺服器架設說明
 
+> **Debian 使用者請直接看 [`DEPLOY-DEBIAN.md`](DEPLOY-DEBIAN.md)**：一行指令 `bash install-debian.sh 你的網域` 就能完成安裝、HTTPS 與開機自動啟動。
+
 這個資料夾就是完整的聯機版：一支 Node.js 伺服器加上玩家用瀏覽器開啟的網頁。
 不需要安裝任何套件，也不需要資料庫。
 
@@ -181,12 +183,14 @@ sudo certbot --nginx -d war.example.com
 ## 八、管理
 
 - **管理員面板**：管理員登入後，大廳上方的「管理員面板」：開放／關閉註冊、邀請碼、公告、房間數上限、停用或恢復帳號、設為管理員、重設密碼（顯示新密碼給你轉交）、刪除帳號、關閉房間。
-- **忘記管理員密碼**：在 VPS 上執行（服務可以不用停）：
+- **忘記管理員密碼**：在 VPS 上先停止服務再執行（伺服器執行中會拒絕，以免改動被覆蓋）：
   ```bash
-  cd /opt/lato-warsim
-  sudo -u www-data node server.js --reset-password 你的名稱     # 顯示新密碼
-  sudo -u www-data node server.js --make-admin 某位玩家         # 把某人設為管理員
+  systemctl stop lato-warsim
+  runuser -u www-data -- node /opt/lato-warsim/server.js --reset-password 你的名稱   # 顯示新密碼
+  runuser -u www-data -- node /opt/lato-warsim/server.js --make-admin 某位玩家       # 把某人設為管理員
+  systemctl start lato-warsim
   ```
+  （用 `install-debian.sh` 安裝的服務帳號是 `latowar`，把上面的 `www-data` 換成 `latowar`。）
 - **備份**：只要備份 `data/` 資料夾（帳號、設定、進行中的作戰、回放）。
   ```bash
   tar czf lato-backup-$(date +%F).tgz -C /opt/lato-warsim data

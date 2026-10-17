@@ -35,7 +35,11 @@ function newToken(uid){const t=crypto.randomBytes(24).toString('hex');SESS[t]={u
 function auth(tok){const s=tok&&SESS[tok];if(!s)return null;if(s.exp<Date.now()){delete SESS[tok];saveSess();return null;}const u=userById(s.uid);if(!u||u.banned)return null;return u;}
 const RL=new Map();function rateOK(key,n,ms){const now=Date.now(),a=(RL.get(key)||[]).filter(t=>now-t<ms);if(a.length>=n){RL.set(key,a);return false;}a.push(now);RL.set(key,a);return true;}
 /* 命令列工具：node server.js --reset-password 名稱 ／ --make-admin 名稱 */
-(function(){const i=argv.indexOf('--reset-password'),j=argv.indexOf('--make-admin');if(i<0&&j<0)return;const name=argv[(i>=0?i:j)+1],u=userByName(name);if(!u){console.log('找不到使用者：'+name);process.exit(1);}
+const PIDF=path.join(DATA,'server.pid');
+(function(){const i=argv.indexOf('--reset-password'),j=argv.indexOf('--make-admin');if(i<0&&j<0)return;
+  /* 伺服器執行中會在記憶體保留帳號資料、之後寫回檔案，所以要先停止 */
+  try{const pid=+fs.readFileSync(PIDF,'utf8');if(pid>0&&pid!==process.pid){process.kill(pid,0);console.log('伺服器正在執行（pid '+pid+'），請先停止再執行這個指令：systemctl stop lato-warsim');process.exit(1);}}catch(e){if(e.code==='EPERM'){console.log('伺服器正在執行，請先停止：systemctl stop lato-warsim');process.exit(1);}}
+  const name=argv[(i>=0?i:j)+1],u=userByName(name);if(!u){console.log('找不到使用者：'+name);process.exit(1);}
   if(i>=0){const pw=crypto.randomBytes(5).toString('hex'),h=hashPw(pw);u.salt=h.salt;u.hash=h.hash;u.banned=false;for(const t in SESS)if(SESS[t].uid===u.id)delete SESS[t];writeJ('sessions.json',SESS);console.log(u.name+' 的新密碼：'+pw);}
   if(j>=0){u.admin=true;u.banned=false;console.log(u.name+' 已設為管理員。');}writeJ('users.json',USERS);process.exit(0);})();
 /* ---------- 網頁與 API ---------- */
@@ -229,6 +233,6 @@ function resetGame(R){if(R.w){try{R.w.terminate();}catch(e){}R.w=null;}R.phase='
 (function restore(){const D=readJ('rooms.json',{list:[]});(D.list||[]).forEach(function(o){if(o.phase==='setup')return;const f=path.join(DATA,'rooms',o.id+'.save.json.gz');if(!fs.existsSync(f))return;
   const R={id:o.id,host:o.host,cfg:Object.assign(defCfg(),o.cfg||{}),phase:'setup',mem:new Map(),slots:o.slots,scn:o.scn,w:null,chat:[],marks:{0:[],1:[]},mseq:0,created:o.created||Date.now(),t:o.t||0,over:o.over||null,replay:o.replay||0,hasSave:true,keep:true};
   if(!R.slots)mkSlots(R);ROOMS.set(R.id,R);try{const save=JSON.parse(zlib.gunzipSync(fs.readFileSync(f)).toString('utf8'));startWorker(R);R.w.postMessage({op:'load',save:save});console.log('恢復房間',R.id,R.cfg.name);}catch(e){console.error('restore',R.id,e.message);ROOMS.delete(R.id);}});persistRooms();})();
-server.listen(CFG.port,CFG.host,function(){console.log(CFG.serverName+' '+VERSION+' 已啟動：http://'+(CFG.host==='0.0.0.0'?'localhost':CFG.host)+':'+CFG.port+'/  資料夾：'+DATA);});
-function shutdown(){console.log('關閉中，儲存進行中的作戰…');const L=[...ROOMS.values()].filter(R=>R.w&&R.phase!=='setup');Promise.all(L.map(autosave)).then(function(){try{writeJ('users.json',USERS);writeJ('sessions.json',SESS);writeJ('replays.json',REPL);}catch(e){}process.exit(0);});setTimeout(function(){process.exit(0);},15000);}
+server.listen(CFG.port,CFG.host,function(){try{fs.writeFileSync(PIDF,String(process.pid));}catch(e){}console.log(CFG.serverName+' '+VERSION+' 已啟動：http://'+(CFG.host==='0.0.0.0'?'localhost':CFG.host)+':'+CFG.port+'/  資料夾：'+DATA+(CFG.publicUrl?'  對外網址：'+CFG.publicUrl:''));});
+function shutdown(){console.log('關閉中，儲存進行中的作戰…');const L=[...ROOMS.values()].filter(R=>R.w&&R.phase!=='setup');Promise.all(L.map(autosave)).then(function(){try{writeJ('users.json',USERS);writeJ('sessions.json',SESS);writeJ('replays.json',REPL);}catch(e){}try{fs.unlinkSync(PIDF);}catch(e){}process.exit(0);});setTimeout(function(){process.exit(0);},15000);}
 process.on('SIGINT',shutdown);process.on('SIGTERM',shutdown);
