@@ -4553,12 +4553,14 @@ function tmOn(side){var S=G&&G.sides&&G.sides[side];return !!(S&&S.cm&&S.cm.leng
 function rootOf(u){var c=u,n=0;while(c&&c.p>=0&&n<24){var p=uById(c.p);if(!p)break;c=p;n++;}return c;}
 var CMM={k:'',m:{}};
 /* 單位屬於哪一位指揮官（依所在的頂層編制） */
-function cmOf(u){if(!u||!tmOn(u.side))return 0;var k=G.step+'|'+G.units.length+'|'+(G._cmv||0);if(CMM.k!==k){CMM.k=k;CMM.m={};}var v=CMM.m[u.id];if(v!==undefined)return v;var r=rootOf(u),L=G.sides[u.side].cm,i=0;for(var j=0;j<L.length;j++){if(L[j].roots.indexOf(r.id)>=0){i=j;break;}}CMM.m[u.id]=i;return i;}
+/* 名冊裡可以有頂層編制，也可以有被移交（作戰管制）的下級編制；由單位往上找，最近的一筆決定歸屬 */
+function cmOf(u){if(!u||!tmOn(u.side))return 0;var k=G.step+'|'+G.units.length+'|'+(G._cmv||0);if(CMM.k!==k){CMM.k=k;CMM.m={};CMM.o=[{},{}];[0,1].forEach(function(sd){var Q=G.sides[sd]&&G.sides[sd].cm;if(Q)Q.forEach(function(R,j){R.roots.forEach(function(id){if(CMM.o[sd][id]===undefined)CMM.o[sd][id]=j;});});});}
+  var v=CMM.m[u.id];if(v!==undefined)return v;var O=CMM.o[u.side]||{},c=u,n=0,i=0;while(c&&n<24){if(O[c.id]!==undefined){i=O[c.id];break;}if(c.p<0)break;c=uById(c.p);n++;}CMM.m[u.id]=i;return i;}
 function cmRec(u){return u&&tmOn(u.side)?G.sides[u.side].cm[cmOf(u)]:null;}
 function cmBump(){G._cmv=(G._cmv||0)+1;}
 /* 指揮官的最高編制（個性取自它） */
 function cmTop(side,i){var R=cmList(side)[i];if(!R)return null;var T=R.roots.map(uById).filter(function(u){return u&&u.st!=='dead';}),f=T.filter(function(u){return !isLeaf(u)&&!u.irr;}).sort(function(a,b){return (b.ech||0)-(a.ech||0);});return f[0]||T[0]||null;}
-function cmAlive(side,i){var R=cmList(side)[i];return !!R&&R.roots.some(function(id){var u=uById(id);return u&&u.st!=='dead'&&leavesOf(u).some(alive);});}
+function cmAlive(side,i){var R=cmList(side)[i];return !!R&&R.roots.some(function(id){var u=uById(id);return u&&u.st!=='dead'&&leavesOf(u).some(function(l){return alive(l)&&cmOf(l)===i;});});}
 function cmName(side,i){var R=cmList(side)[i],T=cmTop(side,i),o=T&&T.off;return R?R.n+(o?'（'+o.rank+o.name+'）':''):'';}
 /* 指揮官的顏色：同一方以色相微調區分 */
 function cmCol(side,i){var c=sideCol(side);if(!i)return c;var q=rgbOf(c),r=q[0]/255,g=q[1]/255,b=q[2]/255,mx=Math.max(r,g,b),mn=Math.min(r,g,b),h=0,l=(mx+mn)/2,d=mx-mn,s=d?d/(1-Math.abs(2*l-1)):0;
@@ -4567,10 +4569,10 @@ function cmCol(side,i){var c=sideCol(side);if(!i)return c;var q=rgbOf(c),r=q[0]/
 function cmColU(u){return u&&tmOn(u.side)?cmCol(u.side,cmOf(u)):undefined;}
 /* 名冊與實際編制同步：移除消失的編制；新出現的頂層編制（增援或戰場上新建）交給玩家指揮官，否則給兵力最少的 AI 指揮官 */
 function cmSync(side){var S=G.sides[side],L=cmList(side);if(L.length<2)return;var ids={},ch=false;
-  L.forEach(function(R){var n0=R.roots.length;R.roots=R.roots.filter(function(id){var u=uById(id);if(!u||u.p>=0||u.side!==side||ids[id])return false;ids[id]=1;return true;});if(R.roots.length!==n0)ch=true;});
-  G.units.forEach(function(u){if(u.side!==side||u.p>=0||ids[u.id])return;var pl=L.filter(function(R){return !R.ai;})[0],tg=pl||L.slice().sort(function(a,b){return cmM(side,L.indexOf(a))-cmM(side,L.indexOf(b));})[0];tg.roots.push(u.id);ids[u.id]=1;ch=true;});
+  L.forEach(function(R){var n0=R.roots.length;R.roots=R.roots.filter(function(id){var u=uById(id);if(!u||u.side!==side||ids[id]||u.p>=0&&u.st==='dead')return false;ids[id]=1;return true;});if(R.roots.length!==n0)ch=true;});
+  cmShClean(side);G.units.forEach(function(u){if(u.side!==side||u.p>=0||ids[u.id])return;var pl=L.filter(function(R){return !R.ai;})[0],tg=pl||L.slice().sort(function(a,b){return cmM(side,L.indexOf(a))-cmM(side,L.indexOf(b));})[0];tg.roots.push(u.id);ids[u.id]=1;ch=true;});
   if(ch)cmBump();var ai=L.some(function(R){return R.ai;});if(S.ai!==ai)S.ai=ai;}
-function cmM(side,i){var R=cmList(side)[i];if(!R)return 0;return sum(R.roots.map(uById).filter(Boolean),function(u){var s=strengthOf(u);return s.men+s.veh*8;});}
+function cmM(side,i){var R=cmList(side)[i];if(!R)return 0;if(!tmOn(side))return sum(R.roots.map(uById).filter(Boolean),function(u){var s=strengthOf(u);return s.men+s.veh*8;});var m=0;G.units.forEach(function(u){if(u.side===side&&isLeaf(u)&&u.st!=='dead'&&cmOf(u)===i)m+=u.men+u.veh*8;});return m;}
 function cmStr(side,i){var m=0,m0=0;G.units.forEach(function(u){if(u.side!==side||!isLeaf(u)||u.st==='off'||u.irr)return;var fl=ST(u).fl;if(fl.indexOf('u')>=0||fl.indexOf('G')>=0)return;if(cmOf(u)!==i)return;m+=u.st==='dead'?0:u.men+u.veh*8;m0+=u.men0+u.veh0*8;});return {m:m,m0:m0,f:m0?m/m0:0};}
 function cmUnits(side,i,f){var tm=tmOn(side);return G.units.filter(function(u){return u.side===side&&isLeaf(u)&&onMap(u)&&ST(u).dom==='land'&&!u.irr&&u.st!=='lift'&&!u.amph&&(!tm||cmOf(u)===i)&&(!f||f(u));});}
 
@@ -4580,7 +4582,7 @@ var PERCM={v10:1,_post:1,persT:1,thr:1,mslT:1};
 function cmPx(side,i){var S=G.sides[side],R=S.cm&&S.cm[i];if(!R)return S;R.mem=R.mem||{};if(R._px&&R._pxS===S&&R._pxM===R.mem)return R._px;var M=R.mem.sd||(R.mem.sd={}),px=new Proxy(S,{get:function(t,k){return PERCM[k]?M[k]:t[k];},set:function(t,k,v){if(PERCM[k])M[k]=v;else t[k]=v;return true;}});
   ['_px','_pxS','_pxM'].forEach(function(k,j){Object.defineProperty(R,k,{value:[px,S,R.mem][j],enumerable:false,configurable:true,writable:true});});return px;}
 (function(){var b=SD;SD=function(i){var C=G&&G._cc;if(C&&C.side===i&&tmOn(i))return cmPx(i,C.i);return b(i);};})();
-(function(){var b=tops;tops=function(side){var L=b(side),C=G._cc;if(C&&C.side===side&&tmOn(side)){var R=G.sides[side].cm[C.i];if(R)return L.filter(function(u){return R.roots.indexOf(u.id)>=0;});}return L;};})();
+(function(){var b=tops;tops=function(side){var L=b(side),C=G._cc;if(C&&C.side===side&&tmOn(side)){var R=G.sides[side].cm[C.i];if(R){var o=L.filter(function(u){return R.roots.indexOf(u.id)>=0;});R.roots.forEach(function(id){var u=uById(id);if(u&&u.p>=0&&u.side===side&&alive(u)&&o.indexOf(u)<0)o.push(u);});return o;}}return L;};})();
 (function(){var b=sideStr;sideStr=function(side){var C=G&&G._cc;if(C&&C.side===side&&tmOn(side))return cmStr(side,C.i);return b(side);};})();
 (function(){var b=aiControls;aiControls=function(u){if(u&&tmOn(u.side)){var i=cmOf(u),R=G.sides[u.side].cm[i];if(R&&!R.ai)return false;var C=G._cc;if(C&&C.ai&&C.side===u.side&&i!==C.i)return false;}return b(u);};})();
 (function(){var b=playerOwns;playerOwns=function(side,u){if(tmOn(side)){var R=G.sides[side].cm[cmOf(u)];if(R&&!R.ai)return true;}return b(side,u);};})();
@@ -4617,6 +4619,52 @@ function teamSetup(side,n,md){var S=G.sides[side];n=clamp(n|0,1,3);var old=S.cm|
 function cmW(u){var s=strengthOf(u);return s.men+s.veh*8;}
 /* 把某個頂層編制改交給另一位指揮官 */
 function cmAssign(side,rootId,i){var L=cmList(side);if(!L[i])return;L.forEach(function(R){R.roots=R.roots.filter(function(id){return id!==rootId;});});L[i].roots.push(rootId);cmBump();}
+/* ---------- 指揮權的移交、接管與共用 ----------
+   移交：把自己的一個編制（或單一部隊）交給隊友指揮，等於作戰管制權轉移，編制與補給關係不變。
+   接管：把隊友的編制收歸自己指揮；對方是 AI（或玩家斷線、暫由 AI 代理）時立即生效，對方是玩家時送出請求，由對方同意。
+   共用：編制仍歸原指揮官，但指定的隊友也可以直接下令；玩家對 AI 指揮官的共用部隊下令後，AI 在 4 小時內不會改動那支部隊的命令。 */
+var CMHOLD=4*3600;
+function cmSubIds(u){var o={},w=function(x){if(!x||o[x.id])return;o[x.id]=1;(x.kids||[]).forEach(function(k){w(uById(k));});};w(u);return o;}
+function cmUp(u,f){var c=u,n=0;while(c&&n<24){if(f(c))return c;if(c.p<0)break;c=uById(c.p);n++;}return null;}
+/* 這支部隊共用給哪些指揮官（-1＝全部隊友） */
+function cmShOf(u){var S=G.sides[u.side],M=S&&S.cmSh,r=[];if(!M)return r;cmUp(u,function(c){var a=M[c.id];if(a)a.forEach(function(j){if(r.indexOf(j)<0)r.push(j);});return false;});return r;}
+function cmMay(u,j){if(!u||!tmOn(u.side))return true;if(cmOf(u)===j)return true;var a=cmShOf(u);return a.indexOf(j)>=0||a.indexOf(-1)>=0;}
+function cmMe(side){var L=cmList(side),r=[];L.forEach(function(R,i){if(!R.ai)r.push(i);});return r;}
+function cmShHum(u){var o=cmOf(u);return cmMe(u.side).some(function(j){return j!==o&&cmMay(u,j);});}
+function cmHold(u){return !!cmUp(u,function(c){return typeof c.hcT==='number'&&G.t-c.hcT<CMHOLD;});}
+/* 玩家能不能對這支部隊下令（自己的，或隊友共用給自己的） */
+function cmPlMay(u){return !aiControls(u)||(tmOn(u.side)&&cmShHum(u));}
+function cmShClean(side){var S=G.sides[side],M=S.cmSh;if(M)Object.keys(M).forEach(function(id){var u=uById(+id);if(!u||u.side!==side||u.st==='dead'||!M[id].length)delete M[id];});
+  if(S.cmRq)S.cmRq=S.cmRq.filter(function(q){var u=uById(q.u);return u&&u.st!=='dead'&&G.t-q.t<2*3600;});}
+function cmLog(side,u,txt){logE(side,'cmd',txt,u?u.x:undefined,u?u.y:undefined,u?u.id:undefined);if(typeof decLog==='function')decLog(side,'指揮權',txt);}
+/* 實際轉移指揮權 */
+function cmXfer(side,uid,to,verb){var L=cmList(side),u=uById(uid);if(!tmOn(side)||!u||u.side!==side||!L[to])return {err:'找不到這個單位或指揮官。'};var from=cmOf(u);if(from===to)return {err:'這支部隊已經由「'+L[to].n+'」指揮。'};
+  var sub=cmSubIds(u);L.forEach(function(R,j){R.roots=R.roots.filter(function(id){return id!==uid&&!(j===to&&sub[id]);});});cmBump();if(cmOf(u)!==to){L[to].roots.push(uid);cmBump();}
+  Object.keys(sub).forEach(function(id){var q=uById(+id);if(q)delete q.hcT;});var M=G.sides[side].cmSh;if(M&&M[uid]){M[uid]=M[uid].filter(function(j){return j!==to;});if(!M[uid].length)delete M[uid];}
+  cmLog(side,u,verb==='take'?'「'+L[to].n+'」接管'+uName(u)+'（原屬「'+L[from].n+'」）':uName(u)+'由「'+L[from].n+'」移交給「'+L[to].n+'」指揮');return {ok:1,from:from,to:to};}
+function cmBy(side,by){var L=cmList(side);return L[by]?by:-1;}
+/* 移交：只有目前的指揮官可以把部隊交出去 */
+function cmGive(side,uid,to,by){var u=uById(uid);if(!u||cmBy(side,by)<0)return {err:'找不到這個單位。'};if(cmOf(u)!==by)return {err:'只能移交自己指揮的部隊。'};return cmXfer(side,uid,to,'give');}
+/* 接管：對方是 AI 時立即生效，對方是玩家時送出請求 */
+function cmTake(side,uid,by){var u=uById(uid),L=cmList(side);if(!u||u.side!==side||cmBy(side,by)<0)return {err:'找不到這個單位。'};var o=cmOf(u);if(o===by)return {err:'這支部隊已經由你指揮。'};if(L[o].ai)return cmXfer(side,uid,by,'take');return cmAsk(side,'take',uid,by,o);}
+/* 共用：指揮官把部隊共用給隊友（to＝-1 為全部隊友）；不是自己的部隊則向指揮官請求共用 */
+function cmShare(side,uid,to,on,by){var u=uById(uid),L=cmList(side);if(!u||u.side!==side||cmBy(side,by)<0)return {err:'找不到這個單位。'};var o=cmOf(u);
+  if(o!==by){if(!on)return {err:'只能取消自己部隊的共用。'};if(cmMay(u,by))return {err:'這支部隊已經共用給你。'};if(L[o].ai){cmShSet(side,uid,by,true);cmLog(side,u,'「'+L[o].n+'」同意與「'+L[by].n+'」共用'+uName(u)+'的指揮權');return {ok:1};}return cmAsk(side,'share',uid,by,o);}
+  if(to!==-1&&(!L[to]||to===o))return {err:'找不到這位隊友。'};cmShSet(side,uid,to,on);cmLog(side,u,'「'+L[o].n+'」'+(on?'把'+uName(u)+'的指揮權共用給'+(to===-1?'全部隊友':'「'+L[to].n+'」'):'取消'+uName(u)+(to===-1?'的共用':'與「'+L[to].n+'」的共用')));return {ok:1};}
+function cmShSet(side,uid,to,on){var S=G.sides[side],M=S.cmSh||(S.cmSh={}),a=M[uid]||[];if(on){if(a.indexOf(to)<0)a.push(to);M[uid]=a;}else{a=to===-1?[]:a.filter(function(j){return j!==to;});if(a.length)M[uid]=a;else delete M[uid];}cmBump();}
+function cmAsk(side,k,uid,by,to){var S=G.sides[side],Q=S.cmRq||(S.cmRq=[]),u=uById(uid),L=cmList(side);if(Q.some(function(q){return q.k===k&&q.u===uid&&q.from===by;}))return {ok:1,pend:1,msg:'已經送出請求，等待「'+L[to].n+'」回覆。'};
+  if(Q.length>=12)Q.shift();Q.push({id:S.cmRqN=(S.cmRqN||0)+1,k:k,u:uid,from:by,to:to,t:G.t});cmLog(side,u,'「'+L[by].n+'」請求'+(k==='take'?'接管':'共用')+uName(u)+'，等待「'+L[to].n+'」回覆');return {ok:1,pend:1,msg:'已向「'+L[to].n+'」送出請求。'};}
+/* 回覆隊友的請求 */
+function cmAns(side,rid,yes,by){var S=G.sides[side],Q=S.cmRq||[],q=null;for(var i=0;i<Q.length;i++)if(Q[i].id===rid){q=Q[i];break;}if(!q)return {err:'這個請求已經不存在。'};if(q.to!==by)return {err:'這個請求不是給你的。'};S.cmRq=Q.filter(function(x){return x!==q;});
+  var u=uById(q.u),L=cmList(side);if(!u||u.st==='dead')return {err:'部隊已不存在。'};if(cmOf(u)!==by)return {err:'這支部隊已經不歸你指揮。'};
+  if(!yes){cmLog(side,u,'「'+L[by].n+'」拒絕「'+L[q.from].n+'」'+(q.k==='take'?'接管':'共用')+uName(u)+'的請求');return {ok:1};}
+  if(q.k==='take')return cmXfer(side,q.u,q.from,'take');cmShSet(side,q.u,q.from,true);cmLog(side,u,'「'+L[by].n+'」同意與「'+L[q.from].n+'」共用'+uName(u)+'的指揮權');return {ok:1};}
+function cmRqFor(side,j){var S=G.sides[side];return (S.cmRq||[]).filter(function(q){return q.to===j&&G.t-q.t<2*3600;});}
+/* AI 不改動玩家剛下令的共用部隊 */
+(function(){var b=aiControls;aiControls=function(u){if(u&&tmOn(u.side)&&cmHold(u))return false;return b(u);};})();
+(function(){var b=playerOwns;playerOwns=function(side,u){if(u&&tmOn(side)&&cmShHum(u))return true;return b(side,u);};})();
+var CMSIM=0;(function(){var b=simStep;simStep=function(){CMSIM++;try{return b.apply(this,arguments);}finally{CMSIM--;}};})();
+(function(){var b=issue;issue=function(u,k,p){if(u&&!CMSIM&&!G._cc&&tmOn(u.side)&&G.started){var R=G.sides[u.side].cm[cmOf(u)];if(R&&R.ai&&cmShHum(u))u.hcT=G.t;}return b(u,k,p);};})();
 /* 複製模式的兵力表：每項乘上人數，番號依序改變 */
 var CNUM='〇一二三四五六七八九';
 function cnParse(s){var m=0,t=0,d=s.split('');if(!d.length)return NaN;for(var i=0;i<d.length;i++){var c=d[i];if(c==='十'){t=(m||1)*10;m=0;}else{var v=CNUM.indexOf(c);if(v<0)return NaN;m=v;}}return t+m;}
@@ -7290,14 +7338,14 @@ async function mpQuick(key,seed){var sc=SCN.filter(function(q){return q.k===key;
 /* 每一方的指揮官人數與 AI／玩家；human[i] 為真表示第 i 位指揮官由玩家擔任 */
 function mpTeams(side,n,human){var S=G.sides[side];n=clamp(n|0,1,3);var cur=cmList(side);if(cur.length!==n){if(!G.started)teamSetup(side,n,'split');else n=cur.length;}var L=cmList(side);
   L.forEach(function(R,i){R.ai=!human[i];});if(L.length===1){S.ai=!human[0];L[0].ai=S.ai;}else{S.ai=L.some(function(R){return R.ai;});cmSync(side);}S.pu=0;cmBump();return L.map(function(R){return {n:R.n,ai:R.ai,roots:R.roots.length};});}
-function mpCanCmd(u,s,cm){if(!u||u.side!==s)return false;var S=G.sides[s],L=S.cm||[];if(L.length>1){var i=cmOf(u);if(cm>=0&&i!==cm)return false;return !(L[i]&&L[i].ai);}if(!S.ai)return true;return S.pu>0&&inTree(u,S.pu);}
+function mpCanCmd(u,s,cm){if(!u||u.side!==s)return false;var S=G.sides[s],L=S.cm||[];if(L.length>1){var i=cmOf(u);if(cm>=0&&i!==cm)return cmMay(u,cm);return !(L[i]&&L[i].ai);}if(!S.ai)return true;return S.pu>0&&inTree(u,S.pu);}
 function mpZone(side,dep){var MP=G.map,e=G.sides[side].edge||(side?'E':'W'),f=clamp(dep||0.4,0.15,0.6);return {e:e,f:f,x0:e==='E'?MP.Wm*(1-f):0,x1:e==='W'?MP.Wm*f:MP.Wm,y0:e==='S'?MP.Hm*(1-f):0,y1:e==='N'?MP.Hm*f:MP.Hm};}
 function mpInZone(Z,x,y){return x>=Z.x0&&x<=Z.x1&&y>=Z.y0&&y<=Z.y1;}
 function mpClampZ(Z,x,y){return [clamp(x,Z.x0+G.map.cs,Z.x1-G.map.cs),clamp(y,Z.y0+G.map.cs,Z.y1-G.map.cs)];}
 function mpDepFix(u,Z){var all=isLeaf(u)?[u]:leavesOf(u).concat([u]);all.forEach(function(z){var q=mpClampZ(Z,z.x,z.y),p=validPos(ST(z),q[0],q[1]);z.x=p[0];z.y=p[1];z.home=[z.x,z.y];z.placed=1;if(ST(z).dom==='air'&&isLeaf(z)){z.base=[z.x,z.y];z.st=z.st==='off'?'off':'base';}});}
 function mpTopsOf(side,cm){var L=G.sides[side].cm||[];return G.units.filter(function(u){return u.side===side&&u.p<0&&u.st!=='dead'&&(L.length<2||cm<0||L[cm]&&L[cm].roots.indexOf(u.id)>=0);});}
 function mpDepOp(side,cm,op,a,dep){if(G.started)return {err:'作戰已經開始，不能再調整部署。'};var Z=mpZone(side,dep),u=a&&a.id!==undefined?uById(a.id):null;
-  if(op!=='auto'){if(!u||u.side!==side)return {err:'找不到這個單位。'};if(G.sides[side].cm&&G.sides[side].cm.length>1&&cm>=0&&cmOf(u)!==cm)return {err:'這是隊友指揮的部隊。'};}
+  if(op!=='auto'){if(!u||u.side!==side)return {err:'找不到這個單位。'};if(G.sides[side].cm&&G.sides[side].cm.length>1&&cm>=0&&!cmMay(u,cm))return {err:'這是隊友指揮的部隊。'};}
   if(op==='move'){var all=isLeaf(u)?[u]:leavesOf(u).concat([u]);all.forEach(function(z){var p=validPos(ST(z),z.x+(+a.dx||0),z.y+(+a.dy||0));z.x=p[0];z.y=p[1];});mpDepFix(u,Z);return {ok:1};}
   if(op==='rot'){var L=isLeaf(u)?[u]:leavesOf(u).concat([u]),c=centroid(isLeaf(u)?[u]:leavesOf(u)),ang=(+a.dir>0?1:-1)*PI/8;L.forEach(function(x){var dx=x.x-c[0],dy=x.y-c[1],p=validPos(ST(x),c[0]+dx*Math.cos(ang)-dy*Math.sin(ang),c[1]+dx*Math.sin(ang)+dy*Math.cos(ang));x.x=p[0];x.y=p[1];x.hd+=ang;});mpDepFix(u,Z);return {ok:1};}
   if(op==='place'){if(u.st==='off'){u.arr=u.arr||{k:'time',t:3600};u.arr.x=+a.x;u.arr.y=+a.y;return {ok:1,msg:'已設定增援進場點。'};}var q=mpClampZ(Z,+a.x,+a.y),e=G.sides[side].edge,h=a.hd!==null&&a.hd!==undefined&&isFinite(+a.hd)?+a.hd:(e==='W'?0:e==='E'?PI:e==='N'?PI/2:-PI/2);deployTree(u,q[0],q[1],h,0);mpDepFix(u,Z);return {ok:1};}
@@ -7346,6 +7394,10 @@ var MPFN={
   supCall:[MPSIDE(0),function(a){return supCall(a[0],a[1],a[2],a[3],a[4]);}],supRouteAdd:[MPSIDE(0),function(a){return supRouteAdd(a[0],a[1]);}],
   techUnlock:[MPSIDE(0),function(a){return techUnlock(a[0],a[1]);}],
   cmAssign:[function(s,cm,a){return a[0]===s&&(cm<0||a[2]===cm||mpCanCmd(uById(a[1]),s,cm))?'':'只能把自己的編制交給隊友。';},function(a){return cmAssign(a[0],a[1],a[2]);}],
+  cmGive:[function(s,cm,a){return a[0]===s&&cm>=0&&a[3]===cm?'':'只能以自己的名義移交。';},function(a){return cmGive(a[0],+a[1],+a[2],+a[3]);}],
+  cmTake:[function(s,cm,a){return a[0]===s&&cm>=0&&a[2]===cm?'':'只能以自己的名義接管。';},function(a){return cmTake(a[0],+a[1],+a[2]);}],
+  cmShare:[function(s,cm,a){return a[0]===s&&cm>=0&&a[4]===cm?'':'只能以自己的名義設定共用。';},function(a){return cmShare(a[0],+a[1],+a[2],!!a[3],+a[4]);}],
+  cmAns:[function(s,cm,a){return a[0]===s&&cm>=0&&a[3]===cm?'':'只能回覆給你的請求。';},function(a){return cmAns(a[0],+a[1],!!a[2],+a[3]);}],
   mpRf:[MPSIDE(0),function(a){return mpRf(a[0],a[1]);}],
   mpSupRouteDel:[MPSIDE(0),function(a){if(!G.sup)return null;G.sup.routes=(G.sup.routes||[]).filter(function(q){return !(q.id===a[1]&&q.side===a[0]);});return {ok:1};}],
   mpDrawSet:[MPSIDE(0),function(a){return mpDrawSet(a[0],a[1]);}],
@@ -7380,13 +7432,13 @@ function mpCmd(s,cm,name,args){var f=MPFN[name];if(!f)return {err:'聯機模式�
   var r;try{r=f[1](a);}catch(e){return {err:'執行失敗：'+e.message};}G._tv=(G._tv||1)+1;return {ok:1,val:mpEnc(r)};}
 /* 設定修改：部隊、本方、自己的指揮官，只接受白名單欄位 */
 var MPWU={name:'s',nmLock:'b',ttl:'s',ttlAuto:'n',ration:'o',noTurn:'n',hdM:'n',fmU:'s',artRole:'s',quar:'n',comm:'n',xc:'n',pol:'o',radMode:'s',aip:'o',arr:'o',femR:'n',img:'s',note:'s'};
-var MPWS={ration:'o',ldoc:'s',mopp:'n',moppSet:'n',nosur:'n',lgXc:'n',lgVeh:'o',stpl:'o',callQ:'o',vax0:'o',pol:'o',rft:'o',snk:'o',lgRk:'o',lgBad:'n',lgAm:'n'};
+var MPWS={nm:'o',ration:'o',ldoc:'s',mopp:'n',moppSet:'n',nosur:'n',lgXc:'n',lgVeh:'o',stpl:'o',callQ:'o',vax0:'o',pol:'o',rft:'o',snk:'o',lgRk:'o',lgBad:'n',lgAm:'n'};
 var MPWC={n:'s',ms:'s',dd:'s',oa:'s',rs:'s',ai:'b'};
 function mpOkVal(t,v){if(v===null)return true;var j;try{j=JSON.stringify(v);}catch(e){return false;}if(j&&j.length>60000)return false;if(t==='s')return typeof v==='string'&&v.length<=400||v===undefined;if(t==='n')return v===undefined||typeof v==='number'&&isFinite(v)||typeof v==='boolean';if(t==='b')return v===undefined||typeof v==='boolean'||v===0||v===1;return v===undefined||typeof v==='object'||typeof v==='string'||typeof v==='number';}
 var MPHOOK={quar:function(u,v){if(v){u.ord=null;u.task='hold';u.pend=[];}},ration:function(u){logRecalc(u);},noTurn:function(u,v){if(!v)delete u.hdM;},hdM:function(u,v){if(typeof v==='number'&&u.ord&&/defend|screen|halt/.test(u.ord.k))u.ord.face=v;}};
 function mpSafe(v,d){d=d||0;if(v===null||typeof v!=='object')return v;if(d>8)return null;if(Array.isArray(v))return v.map(function(x){return mpSafe(x,d+1);});var o={};for(var k in v){if(k==='__proto__'||k==='constructor'||k==='prototype')continue;o[k]=mpSafe(v[k],d+1);}return o;}
 function mpPatch(s,cm,P){var rej=[],n=0;if(!P||typeof P!=='object')return {rej:['格式錯誤'],n:0};P=mpSafe(P);
-  if(P.u)for(var id in P.u){var u=uById(+id),ch=P.u[id];if(!u||u.side!==s){rej.push('u'+id);continue;}if(!mpCanCmd(u,s,cm)){rej.push('u'+id+':ctl');continue;}
+  if(P.u)for(var id in P.u){var u=uById(+id),ch=P.u[id];if(!u||u.side!==s){rej.push('u'+id);continue;}if(!mpCanCmd(u,s,cm)){rej.push('u'+id+':ctl');continue;}if(cm>=0&&tmOn(s)){var oi=cmOf(u),OL=G.sides[s].cm;if(oi!==cm&&OL[oi]&&OL[oi].ai)u.hcT=G.t;}
     for(var f in ch){var t=MPWU[f],v=ch[f];if(!t||!mpOkVal(t,v)||f==='arr'&&u.st!=='off'){rej.push('u'+id+'.'+f);continue;}if(v===null&&t!=='o'&&t!=='s')delete u[f];else if(v===undefined)delete u[f];else u[f]=v;n++;if(MPHOOK[f])try{MPHOOK[f](u,v);}catch(e){}}}
   if(P.s){var S=G.sides[s];for(var f2 in P.s){var t2=MPWS[f2],v2=P.s[f2];if(!t2||!mpOkVal(t2,v2)){rej.push('s.'+f2);continue;}if(v2===undefined)delete S[f2];else S[f2]=v2;n++;}}
   if(P.c&&cm>=0){var L=G.sides[s].cm||[],R=L[cm];if(R){for(var f3 in P.c){var t3=MPWC[f3],v3=P.c[f3];if(!t3||!mpOkVal(t3,v3)){rej.push('c.'+f3);continue;}R[f3]=t3==='b'?!!v3:v3;n++;}if(L.length===1&&P.c.ai!==undefined)G.sides[s].ai=!!R.ai;else if(L.length>1)G.sides[s].ai=L.some(function(Q){return Q.ai;});cmBump();}}
