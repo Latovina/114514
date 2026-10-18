@@ -174,7 +174,7 @@ setInterval(function(){CONNS.forEach(function(c){if(!c.alive){c.close(1001);retu
 const ROOMS=new Map();let RSEQ=readJ('rooms.json',{seq:0}).seq||0;
 const SPEEDS=[1,10,30,60,120,300,600,1800,3600,10800];
 /* 每一方最多 8 位指揮官；一個房間最多 8 位玩家同時指揮（4 對 4，或 8 人一起對抗電腦） */
-const MAXCM=8,MAXPL=8;function seated(R){let n=0;R.slots.forEach(L=>L.forEach(S=>{if(S.kind==='open'&&S.uid)n++;}));return n;}
+const MAXCM=8,MAXPL=8,PRECMD=new Set(['cmAssign','ptSetU']);/* 開戰前也能用的命令 */function seated(R){let n=0;R.slots.forEach(L=>L.forEach(S=>{if(S.kind==='open'&&S.uid)n++;}));return n;}
 function rid(){return (++RSEQ).toString(36)+crypto.randomBytes(2).toString('hex');}
 function defCfg(){return {name:'',pass:'',speed:60,depth:0.4,teams:[1,1],aiFill:true,aiTake:true,pause:'host',spect:false,rp:false,tech:false,rp0:800,rpDay:'auto',tp0:30,tpDay:20,dur:0,maxSpec:8};}
 function mkSlots(R){const T=R.cfg.teams;R.slots=[0,1].map(function(s){const old=R.slots&&R.slots[s]||[],L=[];for(let i=0;i<T[s];i++)L.push(old[i]||{kind:'open',uid:0,name:'',auto:false});return L;});}
@@ -287,7 +287,7 @@ function onMsg(c,o){if(!c.uid)return;const R=c.room?ROOMS.get(c.room):null,m=R?m
   case 'end':{if(!host||R.phase!=='run'||!R.w)return;R.w.postMessage({op:'end',why:'房主結束作戰'});return;}
   case 'reset':{if(!host||R.phase!=='over')return;resetGame(R);roomAll(R);return;}
   case 'cmd':case 'patch':case 'dep':case 'orb':{if(!R.w||m.side<0){c.sendJ({t:'res',id:o.id,r:{err:'你沒有指揮的席位。'}});return;}
-    if(o.t!=='cmd'&&o.t!=='patch'&&R.phase!=='deploy'){c.sendJ({t:'res',id:o.id,r:{err:'只能在部署階段操作。'}});return;}if((o.t==='cmd'||o.t==='patch')&&R.phase!=='run'&&!(o.t==='cmd'&&o.fn==='cmAssign')){if(R.phase!=='deploy'||o.t==='cmd'){c.sendJ({t:'res',id:o.id,r:{err:'作戰尚未開始。'}});return;}}
+    if(o.t!=='cmd'&&o.t!=='patch'&&R.phase!=='deploy'){c.sendJ({t:'res',id:o.id,r:{err:'只能在部署階段操作。'}});return;}if((o.t==='cmd'||o.t==='patch')&&R.phase!=='run'&&!(o.t==='cmd'&&PRECMD.has(o.fn))){if(R.phase!=='deploy'||o.t==='cmd'){c.sendJ({t:'res',id:o.id,r:{err:'作戰尚未開始。'}});return;}}
     const S=R.slots[m.side]&&R.slots[m.side][m.cm];if(!S||S.uid!==c.uid){c.sendJ({t:'res',id:o.id,r:{err:'你沒有指揮的席位。'}});return;}const cm=R.slots[m.side].length>1?m.cm:-1;
     if(o.t==='cmd')R.w.postMessage({op:'cmd',conn:c.id,id:o.id,side:m.side,cm:cm,fn:String(o.fn||''),a:o.a||[]});
     else if(o.t==='patch')R.w.postMessage({op:'patch',conn:c.id,id:o.id,side:m.side,cm:cm,p:o.p||{}});
