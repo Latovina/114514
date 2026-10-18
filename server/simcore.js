@@ -1484,7 +1484,7 @@ function roadAvoid(u){var E=G.eav&&G.eav[u.side];if(!E)return null;var o=u.ord;i
 function roadAhead(u,s){if(!G.rdi||!u.path||!u.goal||s.dom!=='land'||(G.step+u.id)%4)return false;if(G.t-(u.rrT||-1e9)<900)return false;var P=u.path,d=0,px=u.x,py=u.y,bad=0,why=0;for(var i=P.i;i<P.pts.length&&d<1500;i+=2){var x=P.pts[i],y=P.pts[i+1],L=dist(px,py,x,y),n=Math.max(1,Math.ceil(L/G.map.cs));for(var j=1;j<=n;j++){var k=cellAt(px+(x-px)*j/n,py+(y-py)*j/n),jv=G.rdj?G.rdj[k]:0;if(G.rdi[k]>=160||jv>=160){bad=k;why=G.rdi[k]>=jv?G.rdr[k]:G.rdjr[k];break;}}if(bad)break;d+=L;px=x;py=y;}
   if(!bad)return false;u.rrT=G.t;if(!u.rrLog||G.t-u.rrLog>1800){u.rrLog=G.t;var c=cellXY(bad);logE(u.side,'path',uName(u)+'前方道路因'+(RDWHY[why]||'阻塞')+'堵塞（'+placeTxt(c[0],c[1])+'），改走野外繞行',u.x,u.y,u.id);}/* 保留舊路徑直到新路徑算好（避免被誤判為已抵達） */if(!u.pq){u.pq=1;G.pq.push(u.id);}return true;}
 /* A*：由 (x0,y0) 到 (x1,y1)；回傳公尺座標折線與預估秒數。
-   兩層搜尋：先在 8×8 格的粗網格上找走廊，再只在走廊內做細部 A*（找不到才全圖搜尋） */
+   兩層搜尋：先在 8×8 格的粗網格上找走廊（粗路線兩側各 6 塊；太窄會錯過走廊外較快的道路而繞遠路），再只在走廊內做細部 A*（找不到先放寬到 10 塊，再找不到才全圖搜尋） */
 var AS={},CG={};
 /* 粗網格（8×8 格一塊）：陸上部隊直接由成本陣列加總，不必逐格重算 */
 function cgBlock(o,bx,by,A){var MP=G.map,GW=MP.GW,B=o.B,s=o.s,pf=o.pf,road=pf?pf.road:null,land=s.dom==='land',rv=MP.rv,lc=MP.lc,RIV=LCI.riv,sm0=0,n=0,rs=0,rn=0,tot=0,rb=0,br=0,y1=Math.min(MP.GH,by*B+B),x1=Math.min(GW,bx*B+B),P0=pf||{};
@@ -1524,8 +1524,8 @@ function findPath(s,x0,y0,x1,y1,opt){var MP=G.map,GW=MP.GW,N=GW*MP.GH;if(s.dom==
   /* 目標與出發點不在同一個可通行區（大河無橋、湖泊、城牆內外）：改以同一區內最接近目標的格子為終點，
      免得走廊搜尋與全圖搜尋都白跑一趟（結果與「走到最接近處」相同，但快得多） */
   if(pf){var CP=passComp(s,pf),ca0=CP[a],cb0=CP[b];if(ca0>0&&cb0!==ca0){var nb=compNear(CP,ca0,b,Math.max(MP.GW,MP.GH));if(nb>=0){b=nb;var bc=cellXY(b);x1=bc[0];y1=bc[1];}}}
-  if(!(opt&&opt.full)){var cg=coarseGrid(s,pf),B=cg.B,CW=cg.CW,ca=((a/GW|0)/B|0)*CW+((a%GW)/B|0),cb=((b/GW|0)/B|0)*CW+((b%GW)/B|0);if(ca!==cb){var cp=coarsePath(cg,ca,cb);if(cp){var mask=new Uint8Array(CW*cg.CH);cp.forEach(function(q){var qx=q%CW,qy=(q/CW)|0;for(var dy=-2;dy<=2;dy++)for(var dx=-2;dx<=2;dx++){var X=qx+dx,Y=qy+dy;if(X>=0&&Y>=0&&X<CW&&Y<cg.CH)mask[Y*CW+X]=1;}});
-        var R=fineAstar(s,pf,a,b,x0,y0,x1,y1,opt,{m:mask,B:B,CW:CW});if(R)return R;var m2=new Uint8Array(CW*cg.CH);cp.forEach(function(q){var qx=q%CW,qy=(q/CW)|0;for(var dy=-6;dy<=6;dy++)for(var dx=-6;dx<=6;dx++){var X=qx+dx,Y=qy+dy;if(X>=0&&Y>=0&&X<CW&&Y<cg.CH)m2[Y*CW+X]=1;}});R=fineAstar(s,pf,a,b,x0,y0,x1,y1,opt,{m:m2,B:B,CW:CW});if(R)return R;}}}
+  if(!(opt&&opt.full)){var cg=coarseGrid(s,pf),B=cg.B,CW=cg.CW,ca=((a/GW|0)/B|0)*CW+((a%GW)/B|0),cb=((b/GW|0)/B|0)*CW+((b%GW)/B|0);if(ca!==cb){var cp=coarsePath(cg,ca,cb);if(cp){var mask=new Uint8Array(CW*cg.CH),cr=(opt&&opt.cr)||6;cp.forEach(function(q){var qx=q%CW,qy=(q/CW)|0;for(var dy=-cr;dy<=cr;dy++)for(var dx=-cr;dx<=cr;dx++){var X=qx+dx,Y=qy+dy;if(X>=0&&Y>=0&&X<CW&&Y<cg.CH)mask[Y*CW+X]=1;}});
+        var R=fineAstar(s,pf,a,b,x0,y0,x1,y1,opt,{m:mask,B:B,CW:CW});if(R)return R;var m2=new Uint8Array(CW*cg.CH);cp.forEach(function(q){var qx=q%CW,qy=(q/CW)|0;for(var dy=-10;dy<=10;dy++)for(var dx=-10;dx<=10;dx++){var X=qx+dx,Y=qy+dy;if(X>=0&&Y>=0&&X<CW&&Y<cg.CH)m2[Y*CW+X]=1;}});R=fineAstar(s,pf,a,b,x0,y0,x1,y1,opt,{m:m2,B:B,CW:CW});if(R)return R;}}}
   /* 走廊外的全圖搜尋（目標可能無法抵達）：限制展開格數，回傳最接近目標的部分路線 */
   return fineAstar(s,pf,a,b,x0,y0,x1,y1,Object.assign({partial:true},opt||{},{max:Math.min((opt&&opt.max)||N,90000)}),null);}
 /* 直線可通行（短距離移動不必搜尋） */
@@ -1718,7 +1718,7 @@ var PCH={},PCN=0;
 function pathShare(u,s,av){var MP=G.map,GW=MP.GW,B=Math.max(6,Math.round(2500/MP.cs)),a=cellAt(u.x,u.y),b=cellAt(u.goal[0],u.goal[1]),pf=s.dom==='land'?pfFor(s.mobi):null,key=(pf?pf.key:s.dom+(s.dr||0))+'|'+s.vr+'|'+s.vx+'|'+u.side+'|'+(av?1:0)+'|'+(((a/GW)|0)/B|0)+','+((a%GW)/B|0)+'>'+(((b/GW)|0)/B|0)+','+((b%GW)/B|0);return key;}
 function pathReuse(u,s,key){var C=PCH[key];if(!C||G.t-C.t>1200||C.rdi!==G.rdi||C.v!==(G._mapv||0))return null;var P=C.pts,n=P.length;if(n<4)return null;var mid=P.slice(2,n-2),gx=u.goal[0],gy=u.goal[1];
   if(!mid.length)return lineOK(s,u.x,u.y,gx,gy)?{pts:[u.x,u.y,gx,gy],sec:C.sec}:null;if(!lineOK(s,u.x,u.y,mid[0],mid[1])||!lineOK(s,mid[mid.length-2],mid[mid.length-1],gx,gy))return null;return {pts:[u.x,u.y].concat(mid,[gx,gy]),sec:C.sec};}
-function pathStep(){var n=0,t0=Date.now(),bud=G._pfMs||40;while(G.pq.length&&n<12&&Date.now()-t0<bud){var u=uById(G.pq.shift());if(!u||!alive(u)||!u.pq)continue;u.pq=0;if(!u.goal)continue;n++;var s=ST(u),av=s.dom==='land'?roadAvoid(u):null,pk=pathShare(u,s,av),R=pathReuse(u,s,pk);if(R)n-=0.75;else{R=findPath(s,u.x,u.y,u.goal[0],u.goal[1],{w:clamp(0.6*s.vr/Math.max(1,s.vx)+0.9,1.5,3),max:G.map.GW*G.map.GH,avoid:av});if(R&&R.pts.length>=4){if(PCN>600){PCH={};PCN=0;}if(!PCH[pk])PCN++;PCH[pk]={pts:R.pts,sec:R.sec,t:G.t,rdi:G.rdi,v:G._mapv||0};}}
+function pathStep(){var n=0,t0=Date.now(),bud=G._pfMs||40;while(G.pq.length&&n<12&&Date.now()-t0<bud){var u=uById(G.pq.shift());if(!u||!alive(u)||!u.pq)continue;u.pq=0;if(!u.goal)continue;n++;var s=ST(u),av=s.dom==='land'?roadAvoid(u):null,pk=pathShare(u,s,av),R=pathReuse(u,s,pk);if(R)n-=0.75;else{R=findPath(s,u.x,u.y,u.goal[0],u.goal[1],{w:1.15,max:G.map.GW*G.map.GH,avoid:av});if(R&&R.pts.length>=4){if(PCN>600){PCH={};PCN=0;}if(!PCH[pk])PCN++;PCH[pk]={pts:R.pts,sec:R.sec,t:G.t,rdi:G.rdi,v:G._mapv||0};}}
     if(R&&R.pts.length>=4){u.path={pts:R.pts,i:2};u.eta=G.t+R.sec;u.stuck=0;}else{var F0=u.noPath;u.noPath={x:u.goal[0],y:u.goal[1],ux:u.x,uy:u.y,t:G.t,v:G._mapv||0,n:F0&&dist(F0.x,F0.y,u.goal[0],u.goal[1])<400?F0.n+1:1};u.path=null;u.stuck=(u.stuck||0)+1;if(u.stuck===1)logE(u.side,'path',uName(u)+'找不到可行路線（'+placeTxt(u.goal[0],u.goal[1])+'），原地待命',u.x,u.y,u.id);u.goal=null;}}}
 /* ---------- 速度（公尺／秒） ---------- */
 function speedAt(u,s,pf){var dom=s.dom,v;if(dom==='air')return s.vr/3.6;if(dom==='sea'||dom==='sub'){v=(u.ord&&/attack|withdraw/.test(u.ord.k)?s.vr:s.vx);return v/3.6*(1-u.sup/250)*(u.ms==='rout'?1.1:1);}
@@ -2542,7 +2542,7 @@ function surrender(u,by,why){var men=Math.round(u.men);u.surr=1;u._capBy=by&&ali
 function rallyPoint(u,s){if(u.p>=0){var P=uById(u.p);if(P&&alive(P)&&!P.hqLost){var ec=enemyCentroid(u.side,u.x,u.y,6000);if(!ec||dist(P.x,P.y,ec[0],ec[1])>dist(u.x,u.y,ec[0],ec[1])+500)return validPos(s,P.x,P.y);}}return null;}
 function rallyOK(u,s){var off=offOf(u),PF=profOf(u),t=900*PF[6]*(hqNear(u)?0.5:1)*(hasQ(off,'inspire')?0.7:1),rt=PF[7];return G.t-(u.uf||-1e9)>t&&(u._ed===undefined||u._ed>1500)&&u.mor>=rt+8;}
 function rallyDone(u,s){u.ms='shaken';u.task='hold';u.path=null;u.ord=null;var PF=profOf(u);u.regT=G.t+600*PF[6];u.org=clamp(u.org,20,100);logE(u.side,'rally',uName(u)+'在'+placeTxt(u.x,u.y)+'重新集結',u.x,u.y,u.id);
-  if(G.set.dynMor===false||u.p<0)return;var P=uById(u.p);if(!P||!alive(P))return;var L=leavesOf(P).filter(function(x){return x!==u&&onMap(x);});if(!L.length)return;var c=centroid(L),ec=enemyCentroid(u.side,c[0],c[1],8000),b=ec?Math.atan2(c[1]-ec[1],c[0]-ec[0]):homeDir(u.side),q=validPos(s,c[0]+Math.cos(b)*1500,c[1]+Math.sin(b)*1500);
+  if(G.set.dynMor===false||u.p<0)return;if(u.pin&&typeof rsmOn==='function'&&rsmOn()&&!aiControls(u))return;/* 玩家下過命令的部隊：就地整頓，之後恢復玩家的命令（不歸建） */var P=uById(u.p);if(!P||!alive(P))return;var L=leavesOf(P).filter(function(x){return x!==u&&onMap(x);});if(!L.length)return;var c=centroid(L),ec=enemyCentroid(u.side,c[0],c[1],8000),b=ec?Math.atan2(c[1]-ec[1],c[0]-ec[0]):homeDir(u.side),q=validPos(s,c[0]+Math.cos(b)*1500,c[1]+Math.sin(b)*1500);
   if(dist(u.x,u.y,q[0],q[1])<800)return;u.ord=null;var no=newOrder('reserve',{x:q[0],y:q[1],dk:'rejoin'});no.delay=600*PF[6];activate(u,no);logE(u.side,'rejoin',uName(u)+'整頓後歸建'+uName(P)+'，擔任預備隊',u.x,u.y,u.id);}
 
 /* ---------- 兵種行為 ---------- */
@@ -8430,6 +8430,55 @@ if(typeof MPCOL!=='undefined'){MPCOL.push(['zH','id',function(s){var Z=G.zed;if(
   ['zN','id',function(s){var Z=G.zed;if(!Z||!Z.N||!zedOn())return [];return Z.N.filter(function(N){return s<0||N.sn[s];}).map(function(N){return {id:N.id,par:N.par,x:Math.round(N.x),y:Math.round(N.y),hp:Math.round(N.hp),hp0:N.hp0,nm:N.nm};});}]);
   MPKEY.zH='id';MPKEY.zN='id';MPCC.zH=function(){if(!G.zed)G.zed={H:[],N:[],D:[]};return G.zed.H||(G.zed.H=[]);};MPCC.zN=function(){if(!G.zed)G.zed={H:[],N:[],D:[]};return G.zed.N||(G.zed.N=[]);};}
 if(typeof mpValList==='function'){(function(){var b=mpValList;mpValList=function(s){var V=b.apply(this,arguments);if(G.zed&&G.zed.st){V.push(['zed.st',G.zed.st]);V.push(['zed.go',G.zed.go||0]);}return V;};})();}
+
+/* ==== h55_resume.js ==== */
+/* ===================== 玩家命令的延續：遭遇戰、戰術後撤、重新集結、拒絕進攻、上級主動派遣、兵種行為等自主行動結束後，部隊恢復玩家最後下的命令 =====================
+   玩家下的命令（介面或線上指令在模擬步之外呼叫 issue；遭遇戰中玩家的處置）標記為玩家命令，編制收到玩家命令後規劃給下級的命令也一併標記。
+   葉單位執行玩家的機動命令時記下這道命令（u.pin）；被其他命令取代後，等部隊脫離接觸、安靜一段時間（攻擊命令還要士氣允許）再重新執行。
+   同一道命令恢復三次後又被打斷就放棄並回報，避免來回拉鋸。G.set.resume===false 時關閉。 */
+var RSM={sim:0,pl:0};
+var RSMK=/^(move|attack|defend|screen|reserve|recon|patrol|withdraw|fortify|storm|breakthrough|penetrate|pursue|siege|support)$/,RSMA=/^(attack|storm|breakthrough|penetrate|pursue|siege)$/;
+var RSMX={st:1,ready:1,eta:1,t1:1,m0:1,vi:1,oid:1,to:1,ti:1,refused:1,sub:1,parent:1,rsm:1,delay:1,pl:1};
+(function(){var b=simStep;simStep=function(){RSM.sim++;try{return b.apply(this,arguments);}finally{RSM.sim--;}};})();
+(function(){var b=issue;issue=function(u,k,p){if(RSM.sim)return b.apply(this,arguments);RSM.pl++;try{return b.apply(this,arguments);}finally{RSM.pl--;}};})();
+(function(){var b=meetDecide;meetDecide=function(M,sd,k,who){if(who!=='玩家'||RSM.sim)return b.apply(this,arguments);RSM.pl++;try{return b.apply(this,arguments);}finally{RSM.pl--;}};})();
+/* 玩家直接切換戰鬥姿態（不經指揮鏈）：改為防禦時也是玩家的命令 */
+(function(){var b=postSwitch;postSwitch=function(){if(RSM.sim)return b.apply(this,arguments);RSM.pl++;try{return b.apply(this,arguments);}finally{RSM.pl--;}};})();
+(function(){var b=newOrder;newOrder=function(k,o){var r=b(k,o);if(RSM.pl>0&&r)r.pl=1;return r;};})();
+/* 編制收到玩家命令後規劃給下級的命令：同樣是玩家的意圖 */
+(function(){var b=receiveOrder;receiveOrder=function(u,o){if(o&&!o.pl&&o.sub&&o.parent!==undefined&&u.p>=0){var P=uById(u.p);if(P&&P.ord&&P.ord.oid===o.parent&&P.ord.pl)o.pl=1;}
+  /* 正在執行玩家直接下的命令（預備隊、停止、休息除外）：兩小時內不接受上級自行規劃的新部署；遭遇戰、後撤、潰散等緊急處置不受影響（結束後恢復玩家命令） */
+  if(o&&o.sub&&!o.pl&&isLeaf(u)&&rsmOn()&&!aiControls(u)){var cur=u.ord&&u.ord.pl&&u.ord.st!=='done'?u.ord:(u.pend||[]).filter(function(q){return q.pl;})[0];
+    if(cur&&!/^(reserve|halt|rest)$/.test(cur.k)&&(!u.pin||G.t-u.pin.t<7200||cur!==u.ord)){if(!u.rsmBl||G.t-u.rsmBl>1800){u.rsmBl=G.t;logE(u.side,'resume',uName(u)+'正在執行玩家的命令（'+ordN(cur)+'），未接受上級另行規劃的「'+ordN(o)+'」',u.x,u.y,u.id);}return;}}
+  return b.apply(this,arguments);};})();
+function rsmOn(){return !!(G&&G.set&&G.set.resume!==false);}
+function rsmSnap(o){var c={};for(var k in o){if(RSMX[k]||k.charCodeAt(0)===95||typeof o[k]==='function')continue;c[k]=o[k];}try{c=JSON.parse(JSON.stringify(c));}catch(e){}return {o:c,t:G.t,oid:o.oid,rn:0,ov:0,ep:0,by:''};}
+function rsmWhy(u,o){var d=o.dk;if(d==='twd')return '戰術後撤';if(d==='rejoin')return '重新集結歸建';if(d==='refuse')return '拒絕進攻';if(u.meet&&u.meetT!==undefined&&G.t-u.meetT<1800)return '遭遇戰';if(o.sub)return '上級主動派遣';return (typeof ORDN!=='undefined'&&ORDN[o.k])||o.k;}
+/* 葉單位啟動命令時：玩家的機動命令記下來；其他命令取代時記下被誰打斷。
+   同一道玩家命令衍生的命令不算打斷：啟動時轉換成的命令（強攻、突破、穿插、渡河、圍攻、追擊、非工兵構築等，沿用原命令的記錄），
+   以及戰術本身的後續（傷亡超過容忍度就地防禦、佯攻與襲擊撤回、遲滯逐次後撤、渡河器材就緒後進攻、攻擊得手後轉防禦，成為新的記錄） */
+var RSMC=null;
+(function(){var b=activate;activate=function(u,o){if(o&&!o.pl&&RSMC&&RSMC.u===u){o.pl=1;if(RSMC.cv)return b.apply(this,arguments);}
+  if(o&&isLeaf(u)&&uDom(u)!=='air'){if(o.pl){if(o.rsm&&u.pin)u.pin.oid=o.oid;else u.pin=RSMK.test(o.k)?rsmSnap(o):null;}
+    else if(u.pin){var P=u.pin;if(!P.ep){P.ep=1;P.ov=G.t;P.by=rsmWhy(u,o);}else if(!P.by)P.by=rsmWhy(u,o);}}
+  var c=RSMC;RSMC=o&&o.pl?{u:u,cv:1}:null;try{return b.apply(this,arguments);}finally{RSMC=c;}};})();
+function rsmCont(f){return function(u){var o=u&&u.ord;if(!o||!o.pl||RSMC)return f.apply(this,arguments);RSMC={u:u,cv:0};try{return f.apply(this,arguments);}finally{RSMC=null;}};}
+tacStep=rsmCont(tacStep);engLeaf=rsmCont(engLeaf);
+/* 每兩分鐘檢查：自主行動已經結束、脫離接觸、安靜一段時間 → 恢復玩家命令 */
+function rsmStep(){if(!rsmOn())return;G.units.forEach(function(u){var P=u.pin;if(!P)return;if(!alive(u)){u.pin=null;return;}if(!isLeaf(u)||(G.step+u.id)%4)return;
+    if(u.ord&&u.ord.pl){P.ep=0;P.wl=0;return;}/* 正在執行玩家命令 */if(!P.ep){P.ep=1;P.ov=G.t;}if(!P.by)P.by=u.ord?rsmWhy(u,u.ord):'潰散與重新集結';
+    if(!onMap(u)||u.ms==='rout'||u.st==='lift'||u.amph||uDom(u)==='air'||aiControls(u)||u.ffo)return;
+    if(u.pend&&u.pend.length||u.meetHold&&G.t<u.meetHold||u.waitT&&G.t<u.waitT||u.regT&&G.t<u.regT)return;if(u.task==='go'||u.pq)return;/* 自主行動還在進行 */
+    var o=P.o,atk=RSMA.test(o.k),quiet=600*(1+(P.rn||0)),uf=u.uf===undefined?1e9:G.t-u.uf;if(uf<quiet)return;if(!atk&&(u._ed===undefined?1e9:u._ed)<1200)return;
+    if(atk&&(u.ms!=='ok'||u.mor<50||strFrac(u)<0.45)){if(!P.wl){P.wl=1;logE(u.side,'resume',uName(u)+'暫時無法恢復原命令「'+ordN(o)+'」：等待士氣恢復',u.x,u.y,u.id);}return;}
+    if((P.rn||0)>=3){u.pin=null;logE(u.side,'resume',uName(u)+'的原命令「'+ordN(o)+'」已第四次被打斷，不再自動恢復，請重新下令',u.x,u.y,u.id);return;}
+    var c=JSON.parse(JSON.stringify(o));if(Array.isArray(c.via)&&c.x!==undefined){var d0=dist(u.x,u.y,c.x,c.y);c.via=c.via.filter(function(q){return dist(q[0],q[1],c.x,c.y)<d0;});if(!c.via.length)delete c.via;}
+    var no=newOrder(c.k,c);no.pl=1;no.rsm=1;no.delay=60;P.rn=(P.rn||0)+1;P.ep=0;P.wl=0;var by=P.by;P.by='';
+    logE(u.side,'resume',uName(u)+(by?'在「'+by+'」結束後':'')+'恢復執行原命令：'+ordN(no)+(no.x!==undefined?'（'+placeTxt(no.x,no.y)+'）':''),u.x,u.y,u.id);activate(u,no);});}
+(function(){var b=v8Step;v8Step=function(){b.apply(this,arguments);if(G&&G.started&&!G.over)rsmStep();};})();
+/* 給畫面：部隊目前是否在等待恢復玩家命令 */
+function rsmState(u){var P=u&&u.pin;if(!P||!rsmOn()||u.ord&&u.ord.pl||!P.ep)return null;var o=P.o,atk=RSMA.test(o.k),quiet=600*(1+(P.rn||0)),uf=u.uf===undefined?1e9:G.t-u.uf;
+  var wait=u.ms==='rout'?'潰散，重新集結後':uf<quiet?'脫離接觸約 '+durTxt(quiet-uf)+'後':u.task==='go'?'目前行動結束後':atk&&(u.ms!=='ok'||u.mor<50)?'士氣恢復後':'即將';return {o:o,by:P.by,wait:wait,rn:P.rn||0};}
 
 var MAPTA=['el','lc','rv','rd','rl','ft','nat','dmg','tn'];
 async function packMap(MP){var m={};Object.keys(MP).forEach(function(k){if(MAPTA.indexOf(k)<0&&k!=='sd')m[k]=MP[k];});m.format='LatoWarMap';for(var i=0;i<MAPTA.length;i++){var k=MAPTA[i];if(MP[k])m[k]=await packTA(MP[k]);}return m;}
