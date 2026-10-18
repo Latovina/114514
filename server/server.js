@@ -172,11 +172,12 @@ server.on('upgrade',function(req,sock,head){const U=new URL(req.url,'http://x');
 setInterval(function(){CONNS.forEach(function(c){if(!c.alive){c.close(1001);return;}c.alive=false;c.raw(9,Buffer.alloc(0));});},30000);
 /* ---------- 房間 ---------- */
 const ROOMS=new Map();let RSEQ=readJ('rooms.json',{seq:0}).seq||0;
-const SPEEDS=[1,10,30,60,120,300,600,1800,3600,10800];
+const SPEEDS=[1,10,30,60,120,300,600,1800,3600,10800],DURMAX=2200;
+function durTxtS(h){h=+h||0;return h+' 小時'+(h>=48?'（約 '+(Math.round(h/24*10)/10)+' 天）':'');}
 /* 每一方最多 8 位指揮官；一個房間最多 8 位玩家同時指揮（4 對 4，或 8 人一起對抗電腦） */
 const MAXCM=8,MAXPL=8,PRECMD=new Set(['cmAssign','ptSetU']);/* 開戰前也能用的命令 */function seated(R){let n=0;R.slots.forEach(L=>L.forEach(S=>{if(S.kind==='open'&&S.uid)n++;}));return n;}
 function rid(){return (++RSEQ).toString(36)+crypto.randomBytes(2).toString('hex');}
-function defCfg(){return {name:'',pass:'',speed:60,depth:0.4,teams:[1,1],aiFill:true,aiTake:true,pause:'host',spect:false,rp:false,tech:false,rp0:800,rpDay:'auto',tp0:30,tpDay:20,dur:0,maxSpec:8};}
+function defCfg(){return {name:'',pass:'',speed:60,depth:0.4,teams:[1,1],aiFill:true,aiTake:true,pause:'host',spect:false,rp:false,tech:false,rp0:800,rpDay:'auto',tp0:30,tpDay:20,dur:0,ffog:false,maxSpec:8};}
 function mkSlots(R){const T=R.cfg.teams;R.slots=[0,1].map(function(s){const old=R.slots&&R.slots[s]||[],L=[];for(let i=0;i<T[s];i++)L.push(old[i]||{kind:'open',uid:0,name:'',auto:false});return L;});}
 function memberOf(R,uid){return R.mem.get(uid);}
 function roomPub(R){const mem=[...R.mem.values()].map(m=>({uid:m.uid,name:m.name,av:avOf(m.uid),side:m.side,cm:m.cm,spec:!!m.spec,ready:!!m.ready,on:m.conns.size>0}));
@@ -219,10 +220,11 @@ function startWorker(R){if(R.w)return R.w;const w=new Worker(path.join(ROOT,'wor
     case 'info':{R.scn=m.info;roomAll(R);break;}
     case 'loaded':{if(m.err){sysChat(R,'載入失敗：'+m.err);R.phase='setup';R.scn=null;try{w.terminate();}catch(e){}R.w=null;roomAll(R);break;}R.scn=m.info;if(R.phase==='setup')R.phase=m.info.started?(m.info.over?'over':'run'):'deploy';if(R.phase==='run'){R.running=false;}
       /* 採用想定本身的指揮官人數（房主之後可以再改） */
-      R.cfg.teams=[m.info.sides[0].cm.length||1,m.info.sides[1].cm.length||1];mkSlots(R);R.mem.forEach(mm=>{if(mm.side>=0&&mm.cm>=R.slots[mm.side].length)freeSlot(R,mm);});
+      R.cfg.teams=[m.info.sides[0].cm.length||1,m.info.sides[1].cm.length||1];R.cfg.ffog=!!m.info.ffog;mkSlots(R);R.mem.forEach(mm=>{if(mm.side>=0&&mm.cm>=R.slots[mm.side].length)freeSlot(R,mm);});
       teamsToWorker(R);cfgToWorker(R);tplToWorker(R);roomAll(R);resubAll(R);break;}
     case 'begun':{if(m.r&&m.r.ok){R.phase='run';R.running=false;sysChat(R,'作戰開始！房主按下「開始」後時間開始流動。');R.scn=m.info;roomAll(R);resubAll(R);}else sysChat(R,'無法開戰：'+(m.r&&m.r.err||'未知原因'));break;}
     case 'tick':{const ch=R.t!==m.t||R.real!==m.real;R.t=m.t;R.real=m.real;if(ch){const o={t:'tick',gt:m.t,running:!!R.running,speed:R.cfg.speed,real:m.real};R.mem.forEach(mm=>mm.conns.forEach(c=>c.sendJ(o)));}break;}
+    case 'resumed':{if(R.phase!=='over')break;R.phase='run';R.running=false;R.over=null;R.replay=0;R.bgmDel=0;R.scn=m.info;sysChat(R,'作戰時限延長到 '+durTxtS(m.info&&m.info.dur||0)+'，作戰繼續：戰場回到雙盲，時間暫停中，房主按「繼續」後恢復。');roomAll(R);resubAll(R);break;}
     case 'stopped':{R.running=false;sysChat(R,'模擬發生錯誤而暫停：'+(m.why||''));roomAll(R);break;}
     case 'over':{R.phase='over';R.running=false;R.over=m.over;if(R.bgm&&R.bgm.length)R.bgmDel=Date.now()+600000;R.scn=m.info;sysChat(R,'作戰結束：'+(m.over.why||'')+(m.over.win>=0&&R.scn?'，'+R.scn.sides[m.over.win].name+'獲勝':'，不分勝負')+'。戰場已全面揭曉，回放整理中。');roomAll(R);resubAll(R);autosave(R);break;}
     case 'replay':{if(m.req&&WREQ.has(m.req)){const q=WREQ.get(m.req);WREQ.delete(m.req);if(m.err)q.no(new Error(m.err));else q.ok(m);break;}if(m.data)storeReplay(R,m.data);break;}
@@ -231,7 +233,7 @@ function startWorker(R){if(R.w)return R.w;const w=new Worker(path.join(ROOT,'wor
   }});
   w.on('error',function(e){console.error('worker error',R.id,e);sysChat(R,'模擬執行緒發生錯誤：'+e.message);});
   w.on('exit',function(code){if(R.w===w){R.w=null;if(code!==0)sysChat(R,'模擬執行緒結束（'+code+'）。');}});return w;}
-function cfgToWorker(R){if(!R.w)return;const c=R.cfg;R.w.postMessage({op:'cfg',cfg:{depth:c.depth,rp:c.rp,tech:c.tech,rp0:c.rp0,rpDay:c.rpDay,tp0:c.tp0,tpDay:c.tpDay,dur:c.dur>0?c.dur:undefined,rfL:c.rfL,snapMs:CFG.snapMs}});R.w.postMessage({op:'run',on:!!R.running,speed:c.speed});}
+function cfgToWorker(R){if(!R.w)return;const c=R.cfg;R.w.postMessage({op:'cfg',cfg:{depth:c.depth,rp:c.rp,tech:c.tech,rp0:c.rp0,rpDay:c.rpDay,tp0:c.tp0,tpDay:c.tpDay,dur:c.dur>0?c.dur:0,ffog:!!c.ffog,rfL:c.rfL,snapMs:CFG.snapMs}});R.w.postMessage({op:'run',on:!!R.running,speed:c.speed});}
 function storeReplay(R,data){try{const id=++REPL.seq,gz=zlib.gzipSync(Buffer.from(data));fs.writeFileSync(path.join(DATA,'replays',id+'.json.gz'),gz);const sc=R.scn||{};
   REPL.list.push({id:id,name:(sc.name||R.cfg.name||'作戰')+' '+new Date().toISOString().slice(0,10),room:R.cfg.name,date:Date.now(),sides:(sc.sides||[]).map(S=>S.name),size:gz.length,win:R.over?R.over.win:-1,why:R.over?R.over.why:''});
   while(REPL.list.length>CFG.replayKeep){const o=REPL.list.shift();try{fs.unlinkSync(path.join(DATA,'replays',o.id+'.json.gz'));}catch(e){}}saveRepl();R.replay=id;sysChat(R,'回放已儲存，可在房間或大廳的「回放」下載。');roomAll(R);}catch(e){console.error('replay',e);}}
@@ -262,8 +264,8 @@ function onMsg(c,o){if(!c.uid)return;const R=c.room?ROOMS.get(c.room):null,m=R?m
   const host=isHost(c,R);
   switch(o.t){
   case 'rcfg':{if(!host)return;const c2=o.cfg||{},C=R.cfg;if(typeof c2.name==='string')C.name=c2.name.slice(0,40)||C.name;if(typeof c2.pass==='string')C.pass=c2.pass.slice(0,40);
-    if(SPEEDS.indexOf(+c2.speed)>=0){C.speed=+c2.speed;if(R.w)R.w.postMessage({op:'run',on:!!R.running,speed:C.speed});}if(c2.depth>=0.15&&c2.depth<=0.6)C.depth=+c2.depth;['aiFill','aiTake','spect','rp','tech'].forEach(k=>{if(c2[k]!==undefined)C[k]=!!c2[k];});if(c2.pause==='host'||c2.pause==='all')C.pause=c2.pause;
-    ['rp0','tp0','tpDay'].forEach(k=>{if(c2[k]!==undefined&&isFinite(+c2[k]))C[k]=Math.max(0,Math.round(+c2[k]));});if(c2.rpDay!==undefined)C.rpDay=c2.rpDay==='auto'?'auto':Math.max(0,Math.round(+c2.rpDay||0));if(c2.dur!==undefined)C.dur=Math.max(0,Math.min(24*60,+c2.dur||0));if(Array.isArray(c2.rfL)&&R.phase!=='over')C.rfL=[rflCleanS(c2.rfL[0]),rflCleanS(c2.rfL[1])];
+    if(SPEEDS.indexOf(+c2.speed)>=0){C.speed=+c2.speed;if(R.w)R.w.postMessage({op:'run',on:!!R.running,speed:C.speed});}if(c2.depth>=0.15&&c2.depth<=0.6)C.depth=+c2.depth;['aiFill','aiTake','spect','rp','tech','ffog'].forEach(k=>{if(c2[k]!==undefined){if(k==='ffog'&&!!C.ffog!==!!c2[k])sysChat(R,c.name+(c2[k]?' 開啟了友軍迷霧：與司令部失聯的本方部隊會從地圖上消失。':' 關閉了友軍迷霧。'));C[k]=!!c2[k];}});if(c2.pause==='host'||c2.pause==='all')C.pause=c2.pause;
+    ['rp0','tp0','tpDay'].forEach(k=>{if(c2[k]!==undefined&&isFinite(+c2[k]))C[k]=Math.max(0,Math.round(+c2[k]));});if(c2.rpDay!==undefined)C.rpDay=c2.rpDay==='auto'?'auto':Math.max(0,Math.round(+c2.rpDay||0));if(c2.dur!==undefined){const nd=Math.max(0,Math.min(DURMAX,Math.round(+c2.dur||0)));if(nd!==C.dur){C.dur=nd;sysChat(R,c.name+' 將作戰時限改為 '+(nd>0?durTxtS(nd):'依想定'+(R.scn&&R.scn.dur0?'（'+durTxtS(R.scn.dur0)+'）':''))+'。');}}if(Array.isArray(c2.rfL)&&R.phase!=='over')C.rfL=[rflCleanS(c2.rfL[0]),rflCleanS(c2.rfL[1])];
     if(Array.isArray(c2.teams)&&R.phase!=='run'&&R.phase!=='over'){C.teams=c2.teams.map(n=>Math.max(1,Math.min(MAXCM,n|0)));mkSlots(R);R.mem.forEach(mm=>{if(mm.side>=0&&mm.cm>=R.slots[mm.side].length)freeSlot(R,mm);});teamsToWorker(R);}
     cfgToWorker(R);roomAll(R);return;}
   case 'rtpl':{if(!host){c.sendJ({t:'err',msg:'只有房主可以管理房間範本。'});return;}if(R.phase==='over'){c.sendJ({t:'err',msg:'作戰已結束。'});return;}R.tpls=R.tpls||[];

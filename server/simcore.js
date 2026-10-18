@@ -8133,6 +8133,94 @@ function pltFix(u){if(!u||!u.pltT)return;if(!Array.isArray(u.pltT)||!u.pltT.leng
 (function(){if(typeof orbImport!=='function')return;var b=orbImport;orbImport=function(){var r=b.apply(this,arguments);try{if(G&&G.units)G.units.forEach(pltFix);}catch(e){}return r;};})();
 (function(){var b=prepareBattle;prepareBattle=function(){if(G&&G.units)G.units.forEach(pltFix);return b.apply(this,arguments);};})();
 
+/* ==== h51_comm.js ==== */
+/* ===================== 通訊：通信單位中繼命令與情報；前線的敵情要經指揮鏈送到最高司令部 =====================
+   通信單位（傳令騎兵隊、電報隊、野戰電話連、無線電通信連、中繼與數位通信連）是後方單位，不參加戰鬥：
+   - 無線電的年代：上下級之間超出無線電距離時，若有本方通信單位同時在兩邊的中繼距離內，改走無線電中繼（比傳令兵快很多，也不會被截）；
+   - 電報與野戰電話的年代：通信單位停留半小時以上，就在附近 25 公里內拉線，上下級不必都停留一小時也能用有線電話；
+   - 只有傳令兵的年代：傳令騎兵讓附近的傳令快約六成，被截的機會減半；
+   - 通信單位 5 公里內的司令部，無線電傳遞快兩成、距離 ×1.5，受干擾的影響減半。
+   情報：前線看到的敵情要經指揮鏈一層層送到最高司令部，本方的戰場情報圖（地圖上的敵情、AI 的判斷）才會更新：
+   - 送達時間是各層傳遞時間的總和（經通信中繼較快）；走傳令兵的路段附近有敵軍時，回報常被截而要重送，時間加倍；
+   - 指揮鏈上有司令部被摧毀、正在重建時，回報卡在那一層，重建後才送上去。 */
+BR.com='通信';VIA.relay='無線電中繼';
+var UTRC=[
+ ['cm1600','傳令騎兵隊','e1600','com','com',40,0,'','horse',14,10, 0.2,0,20,40,0, 0,0,2,2,0,2500,0.9,0,65,60,0,'u',0,'騎馬傳令：附近的傳令更快、更不容易被截'],
+ ['cm1700','傳令騎兵隊','e1700','com','com',40,0,'','horse',14,10, 0.2,0,20,40,0, 0,0,2,2,0,2500,0.9,0,65,60,0,'u',0,'騎馬傳令：附近的傳令更快、更不容易被截'],
+ ['cm1800','傳令騎兵隊','e1800','com','com',50,0,'','horse',15,11, 0.3,0,25,50,0, 0,0,2,2,0,2500,0.9,0,66,62,0,'u',0,'騎馬傳令與旗號：附近的傳令更快、更不容易被截'],
+ ['cm1860','電報隊','e1860','com','com',60,6,'輛電報車','drawn',6,5, 0.2,0,20,40,0, 0,0,1,1.5,0,2000,1,0,64,62,0,'u',0,'架設野戰電報線：停留後附近的上下級可用電報聯絡'],
+ ['cm1900','電話電報連','e1900','com','com',90,8,'輛','drawn',6,5, 0.3,0,30,60,0, 0,0,1,1.5,0,2200,1,0,64,62,0,'u',0,'架設野戰電話與電報線'],
+ ['cm1914','野戰電話連','e1914','com','com',110,10,'輛','drawn',6,5, 0.3,0,30,60,0, 0,0,1,1.5,0,2200,1,0,62,62,0,'u',0,'架設野戰電話線：停留後附近 25 公里內可用有線電話'],
+ ['cm1940','無線電通信連','e1940','com','com',120,20,'輛通信車','wheel',40,15, 0.3,0,30,60,0, 0.05,0,0.5,1,0,2500,1.2,0,64,62,0,'u',0,'大功率無線電台：上下級超出無線電距離時中繼'],
+ ['cm1970','通信連（無線電中繼）','e1970','com','com',130,24,'輛通信車','wheel',50,20, 0.3,0,30,60,0, 0.1,0,0.5,1,0,3000,1.2,1,64,64,0,'u',0,'無線電中繼站與多路通信：延伸各級的通訊距離'],
+ ['cm2000','數位通信連','e2000','com','com',120,26,'輛通信車','wheel',60,20, 0.3,0,30,60,0, 0.1,0,0.5,1,0,3000,1.2,1,66,66,0,'u',0,'數位中繼與資料鏈：抗干擾、延伸通訊距離'],
+ ['cm2020','衛星與網路通信連','e2020','com','com',110,24,'輛通信車','wheel',60,20, 0.3,0,30,60,0, 0.1,0,0.5,1,0,3000,1.1,2,66,68,0,'u',0,'衛星與網狀中繼：在干擾下仍能維持通訊']];
+UTRC.forEach(function(r){UTR.push(r);UT[r[0]]=utFromRow(r);});
+/* 師級以上的編制附一個通信連 */
+var COMT={e1600:'cm1600',e1700:'cm1700',e1800:'cm1800',e1860:'cm1860',e1900:'cm1900',e1914:'cm1914',e1940:'cm1940',e1970:'cm1970',e2000:'cm2000',e2020:'cm2020'};
+var COMNB={nav:1,sub:1,air:1,uav:1,heli:1,ash:1,mon:1,drg:1};
+FP.forEach(function(p){var k=COMT[p.era];if(!k||(p.ech||0)<5||!p.kids||COMNB[p.br]||p.kids.some(function(q){return COMT[p.era]===q[0];}))return;p.kids.push([k,1,UT[k].n]);});
+/* 排：通信單位分成通信排 */
+if(typeof PLTK!=='undefined'){PLTK.com=['通信排','通'];(function(){var b=pltInfo;pltInfo=function(k){var o=b(k),t=typeOf(k);if(o.n&&t&&t.br==='com'&&o.c!=='com')o.c='com';return o;};})();}
+/* ---------- 本方的通信單位（每一步整理一次） ---------- */
+var COMC={g:null,s:-1,n:-1,t:-1,L:[[],[]]};
+function comUnits(side){var C=COMC;if(C.g!==G||C.s!==G.step||C.n!==G.units.length||C.t!==G.t){C.g=G;C.s=G.step;C.n=G.units.length;C.t=G.t;C.L=[[],[]];G.units.forEach(function(u){if(!isLeaf(u)||u.st==='dead'||u.st==='off'||!onMap(u)||u.ms==='rout'||u.side<0||u.side>1)return;var s=ST(u);if(s.br!=='com'||s.dom!=='land'||u.st==='lift'||u.st==='ship')return;C.L[u.side].push(u);});}return C.L[side]||[];}
+function comNear(side,x,y,R){var b=null,bd=R;comUnits(side).forEach(function(c){var d=dist(c.x,c.y,x,y);if(d<=bd){bd=d;b=c;}});return b;}
+/* 兩點都在某個通信單位的範圍內 */
+function comBridge(side,a,b,R,still){var best=null,bs=1e18;comUnits(side).forEach(function(c){if(still&&stillFor(c)<still)return;var d1=dist(c.x,c.y,a.x,a.y),d2=dist(c.x,c.y,b.x,b.y);if(d1<=R&&d2<=R&&d1+d2<bs){bs=d1+d2;best=c;}});return best;}
+/* ---------- 上下級之間的一段：通信單位中繼 ---------- */
+(function(){var bh=hopDelay;hopDelay=function(a,b,dryRun){var o=bh(a,b,dryRun);if(!a||!b||!(o.sec>0)||a.side!==b.side||a.side<0||a.side>1)return o;var E=commEra(a,b),M=G.set.delayMul===undefined?1:G.set.delayMul,km=dist(a.x,a.y,b.x,b.y)/1000;
+  if(o.via==='courier'){
+    if(E.radio){var R=Math.max(15,(E.rr||6)*2)*1000,c=comBridge(a.side,a,b,R);if(c){o.via='relay';o.sec=(E.radio*2+(E.relay||4))*60*M;o.risk=0;o.relay=c.id;return o;}}
+    if(E.wire){var c2=comBridge(a.side,a,b,25000,1800);if(c2){o.via='wire';o.sec=5*60*M;o.risk=0;o.relay=c2.id;return o;}}
+    var c3=comNear(a.side,a.x,a.y,12000)||comNear(a.side,b.x,b.y,12000);if(c3){o.sec*=0.62;o.rider=c3.id;}return o;}
+  if(o.via==='radio'||o.via==='digital'){if(comNear(a.side,a.x,a.y,5000)||comNear(a.side,b.x,b.y,5000)){o.sec*=0.8;o.comBoost=1;}}return o;};})();
+/* 通信單位 5 公里內：無線電距離 ×1.5、干擾影響減半 */
+(function(){var b=commQ;commQ=function(a,b2,E){var o=b(a,b2,E);if(a&&a.side>=0&&a.side<=1&&(comNear(a.side,a.x,a.y,5000)||b2&&comNear(a.side,b2.x,b2.y,5000))){o=Object.assign({},o);o.r=(o.r||1)*1.5;o.j=(o.j===undefined?1:o.j)*0.5;}return o;};})();
+/* 傳令騎兵：被截的機會減半 */
+(function(){var b=courierLost;courierLost=function(a,b2){var r=b(a,b2);if(r&&a&&a.side>=0&&a.side<=1&&(comNear(a.side,a.x,a.y,12000)||comNear(a.side,b2.x,b2.y,12000))&&rnd8()<0.5)r=false;return r;};})();
+/* ---------- 情報回報：經指揮鏈送到最高司令部 ---------- */
+/* 一段路附近有敵軍（傳令兵可能被截） */
+function comThreat(a,b){var n=0;gridNear((a.x+b.x)/2,(a.y+b.y)/2,dist(a.x,a.y,b.x,b.y)/2+1500,function(e){if(n||e.side===a.side||e.side<0||e.st==='dead'||!onMap(e)||uDom(e)==='air')return;var q=segDist(e.x,e.y,a.x,a.y,b.x,b.y);if(q.d<1200&&q.t>0.05&&q.t<0.95)n++;});return n>0;}
+/* 回報路線：觀察者 → 各級司令部 → 最高司令部 */
+function repRoute(o){var top=sideCmd(o.side)||o;if(top.id===o.id)return {sec:0,hops:[],wait:0,hold:null,top:top};var ch=chainTo(top,o).reverse(),s=0,hops=[],wait=0,hold=null,M=G.set.delayMul===undefined?1:G.set.delayMul;
+  for(var i=1;i<ch.length;i++){var lo=ch[i-1],hi=ch[i],h=hopDelay(hi,lo,true),sec=h.sec;if(h.via==='courier'&&comThreat(lo,hi))sec=sec*2+600;s+=sec+(i<ch.length-1?uEra(hi).relay*60*M:0);hops.push(h.via);
+    if(hi.hqLost&&hi.hqRe>G.t&&hi.id!==o.id){var w=hi.hqRe-G.t;if(w>wait){wait=w;hold=hi;}}}
+  return {sec:s,hops:hops,wait:wait,hold:hold,top:top};}
+(function(){var b=reportDelay;reportDelay=function(o){if(!o||o.side<0||o.side>1)return b(o);if(o._rcT&&G.t-o._rcT<300)return o._rc;var R=repRoute(o),d=R.sec*0.8+R.wait;o._rc=d;o._rcT=G.t;return d;};})();
+/* 聯機：回報時間的快取不必同步 */
+if(typeof MPUX!=='undefined'){MPUX._rc=1;MPUX._rcT=1;}
+
+/* ==== h52_ffog.js ==== */
+/* ===================== 友軍迷霧（選項）：與最高司令部失去聯絡的本方部隊從地圖上消失，部隊自行判斷行動，恢復聯絡後再出現 =====================
+   失去聯絡：指揮鏈上有司令部被摧毀、正在重建；或與上級之間只能靠傳令兵，而傳令路線被敵軍阻斷（路線附近有兩個以上的敵軍單位）。
+   開啟後（「設定 → 模擬 → 友軍迷霧」）：失聯的部隊不顯示在地圖上，只在最後回報的位置留下淡淡的「失聯」記號；命令送不到，傳令會一再折返重送。
+   失聯的部隊自行判斷：照最後的命令行動；受到攻擊而且兵力不到一半時，向最近仍有聯絡的友軍撤退；沒有命令時就地防禦；
+   失聯半小時以上、附近沒有敵軍時，向最近仍有聯絡的友軍靠攏以恢復聯絡。失去與恢復聯絡都記在日誌裡。關閉時一切照舊。 */
+function ffOn(){return !!(G&&G.set&&G.set.ffog);}
+/* 傳令路線附近的敵軍單位數 */
+function ffThreatN(a,b){var n=0;gridNear((a.x+b.x)/2,(a.y+b.y)/2,dist(a.x,a.y,b.x,b.y)/2+1500,function(e){if(e.side===a.side||e.side<0||e.st==='dead'||!onMap(e)||uDom(e)==='air')return;var q=segDist(e.x,e.y,a.x,a.y,b.x,b.y);if(q.d<1200&&q.t>0.05&&q.t<0.95)n++;});return n;}
+/* 失聯的原因：{k:'hq'|'cut',u:卡住的那一層} 或 null */
+function ffCut(u){if(!u||u.side<0||u.side>1||u.st==='off'||u.st==='dead'||!onMap(u)||u.irr)return null;var top=sideCmd(u.side);if(!top||top.id===u.id)return null;var ch=chainTo(top,u);
+  for(var i=1;i<ch.length;i++){var hi=ch[i-1],lo=ch[i];if(hi.id!==u.id&&hi.hqLost&&hi.hqRe>G.t)return {k:'hq',u:hi};if(!onMap(hi)||!onMap(lo))continue;var h=hopDelay(hi,lo,true);if(h.via==='courier'&&ffThreatN(lo,hi)>=2)return {k:'cut',u:lo};}return null;}
+/* 最近仍有聯絡的友軍 */
+function ffNearOk(u){var b=null,bd=1e18;G.units.forEach(function(q){if(q===u||q.side!==u.side||!isLeaf(q)||q.ffo||!alive(q)||!onMap(q)||ST(q).dom!=='land')return;var d=dist(q.x,q.y,u.x,u.y);if(d<bd){bd=d;b=q;}});return b;}
+function ffStep(){if(!ffOn()||!G.started)return;if(!G._grid||!G._gf)gridBuild();G.units.forEach(function(u){if(u.side<0||u.side>1||!alive(u)||u.st==='off'||!onMap(u))return;var C=ffCut(u);
+    if(C&&!u.ffo){u.ffo=Math.max(1e-3,G.t);u.ffx=u.x;u.ffy=u.y;u.ffw=C.k;logE(u.side,'cmd','與'+uName(u)+'失去聯絡（'+(C.k==='hq'?uName(C.u)+'的司令部重建中':'傳令路線被敵軍阻斷')+'），該部依最後的命令自行行動',u.x,u.y,u.id);}
+    else if(!C&&u.ffo){logE(u.side,'cmd','與'+uName(u)+'恢復聯絡（失聯 '+durTxt(G.t-u.ffo)+'）',u.x,u.y,u.id);delete u.ffo;delete u.ffx;delete u.ffy;delete u.ffw;delete u.ffA;}
+    else if(C&&u.ffo)u.ffw=C.k;
+    if(u.ffo&&isLeaf(u))ffAct(u);});}
+/* 失聯部隊自行判斷 */
+function ffAct(u){if(u.ms==='rout'||ST(u).dom!=='land'||u.st==='lift'||u.st==='ship')return;if(u.ffA&&G.t-u.ffA<600)return;var hitR=u._hitT&&G.t-u._hitT<600,en=enemyNear(u.side,u.x,u.y,3000,'land'),cur=u.pend&&u.pend[0]||u.ord;
+  if(hitR&&strFrac(u)<0.5){var F=ffNearOk(u);if(F&&(!cur||cur.k!=='withdraw')){u.ffA=Math.max(1e-3,G.t);receiveOrder(u,newOrder('withdraw',{x:F.x,y:F.y,ff:1}));logE(u.side,'cmd',uName(u)+'（失聯）傷亡慘重，自行向'+uName(F)+'撤退',u.x,u.y,u.id);}return;}
+  if(!cur&&en>0){u.ffA=Math.max(1e-3,G.t);receiveOrder(u,newOrder('defend',{x:u.x,y:u.y,ff:1,opt:{post:'hasty'}}));return;}
+  if(G.t-u.ffo>1800&&en===0&&(!cur||cur.ff||cur.k==='halt'||cur.k==='defend')){var F2=ffNearOk(u);if(F2&&dist(F2.x,F2.y,u.x,u.y)>1500){u.ffA=Math.max(1e-3,G.t);receiveOrder(u,newOrder('move',{x:F2.x+(u.x-F2.x)*0.15,y:F2.y+(u.y-F2.y)*0.15,ff:1}));logE(u.side,'cmd',uName(u)+'（失聯）向'+uName(F2)+'靠攏以恢復聯絡',u.x,u.y,u.id);}}}
+(function(){var b=simStep;simStep=function(){var r=b.apply(this,arguments);if(ffOn()&&G.started&&G.step%6===3)try{ffStep();}catch(e){}return r;};})();
+/* 命令送不到失聯的部隊：傳令一再折返重送 */
+(function(){var b=sendOrder;sendOrder=function(from,to,o,viaChain){var m=b.apply(this,arguments);if(m&&ffOn()&&to&&to.ffo&&m.k==='order'&&!m.lost){m.lost=true;m.retry=G.t+Math.max(600,(m.ta-G.t)*2);}return m;};})();
+/* 關閉友軍迷霧時清掉標記 */
+function ffClear(){if(!G||!G.units)return;G.units.forEach(function(u){delete u.ffo;delete u.ffx;delete u.ffy;delete u.ffw;delete u.ffA;});}
+
 var MAPTA=['el','lc','rv','rd','rl','ft','nat','dmg','tn'];
 async function packMap(MP){var m={};Object.keys(MP).forEach(function(k){if(MAPTA.indexOf(k)<0&&k!=='sd')m[k]=MP[k];});m.format='LatoWarMap';for(var i=0;i<MAPTA.length;i++){var k=MAPTA[i];if(MP[k])m[k]=await packTA(MP[k]);}return m;}
 async function unpackMap(m){if(!m||m.format!=='LatoWarMap')throw new Error('這不是作戰地圖檔。');var MP={};Object.keys(m).forEach(function(k){MP[k]=m[k];});for(var i=0;i<MAPTA.length;i++){var k=MAPTA[i];if(typeof m[k]==='string')MP[k]=await unpackTA(m[k]);}var N=MP.GW*MP.GH;if(!MP.ft)MP.ft=new Uint8Array(N);if(!MP.nat)MP.nat=new Uint8Array(N);MP.set=MP.set||[];MP.lbl=MP.lbl||[];MP.brg=MP.brg||[];return MP;}
