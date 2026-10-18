@@ -2675,7 +2675,9 @@ var CIVK={art:'砲擊',air:'空襲',fire:'交叉火力',nuke:'核武',quake:'地
 function eraDev(y){return byYear([[1600,0.05],[1700,0.06],[1800,0.08],[1860,0.12],[1900,0.18],[1914,0.2],[1940,0.28],[1970,0.55],[2000,0.85],[2024,1]],y);}
 function curN(){return (G.set.cur&&G.set.cur.n)||'元';}
 function curPer(){return (G.set.cur&&G.set.cur.per)||60000;}
-function money(v){var a=Math.abs(v||0),u=a>=1e12?[1e12,' 兆']:a>=1e8?[1e8,' 億']:a>=1e4?[1e4,' 萬']:[1,''];return fmt((v||0)/u[0],u[0]>1&&a/u[0]<100?1:0)+u[1]+' '+curN();}
+/* 想定貨幣金額；想定貨幣掛勾美元、而畫面選了別的顯示幣種時，附上換算 */
+function money(v){var a=Math.abs(v||0),u=a>=1e12?[1e12,' 兆']:a>=1e8?[1e8,' 億']:a>=1e4?[1e4,' 萬']:[1,''],t=fmt((v||0)/u[0],u[0]>1&&a/u[0]<100?1:0)+u[1]+' '+curN(),c=G&&G.set&&G.set.cur;
+  if(c&&c.usd>0&&typeof amoney==='function'&&typeof CUR!=='undefined'&&CUR.sel!=='scn')t+='（約 '+amoney((v||0)*c.usd)+'）';return t;}
 /* 年代的兒童與長者比例 */
 function ageMix(y){var k=byYear([[1600,0.4],[1850,0.38],[1914,0.33],[1940,0.3],[1980,0.24],[2024,0.18]],y),e=byYear([[1600,0.05],[1900,0.06],[1940,0.08],[1980,0.11],[2024,0.17]],y);return [k,e];}
 /* ---------- 政策：師團（或任何編制）可覆寫陣營預設 ---------- */
