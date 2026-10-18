@@ -220,7 +220,7 @@ function startWorker(R){if(R.w)return R.w;const w=new Worker(path.join(ROOT,'wor
     case 'info':{R.scn=m.info;roomAll(R);break;}
     case 'loaded':{if(m.err){sysChat(R,'載入失敗：'+m.err);R.phase='setup';R.scn=null;try{w.terminate();}catch(e){}R.w=null;roomAll(R);break;}R.scn=m.info;if(R.phase==='setup')R.phase=m.info.started?(m.info.over?'over':'run'):'deploy';if(R.phase==='run'){R.running=false;}
       /* 採用想定本身的指揮官人數（房主之後可以再改） */
-      R.cfg.teams=[m.info.sides[0].cm.length||1,m.info.sides[1].cm.length||1];R.cfg.ffog=!!m.info.ffog;mkSlots(R);R.mem.forEach(mm=>{if(mm.side>=0&&mm.cm>=R.slots[mm.side].length)freeSlot(R,mm);});
+      R.cfg.teams=[m.info.sides[0].cm.length||1,m.info.sides[1].cm.length||1];R.cfg.ffog=!!m.info.ffog;if(R.cfg.dur>0)R.scn.dur=R.cfg.dur;mkSlots(R);R.mem.forEach(mm=>{if(mm.side>=0&&mm.cm>=R.slots[mm.side].length)freeSlot(R,mm);});
       teamsToWorker(R);cfgToWorker(R);tplToWorker(R);roomAll(R);resubAll(R);break;}
     case 'begun':{if(m.r&&m.r.ok){R.phase='run';R.running=false;sysChat(R,'作戰開始！房主按下「開始」後時間開始流動。');R.scn=m.info;roomAll(R);resubAll(R);}else sysChat(R,'無法開戰：'+(m.r&&m.r.err||'未知原因'));break;}
     case 'tick':{const ch=R.t!==m.t||R.real!==m.real;R.t=m.t;R.real=m.real;if(ch){const o={t:'tick',gt:m.t,running:!!R.running,speed:R.cfg.speed,real:m.real};R.mem.forEach(mm=>mm.conns.forEach(c=>c.sendJ(o)));}break;}
