@@ -296,6 +296,7 @@ function onMsg(c,o){if(!c.uid)return;const R=c.room?ROOMS.get(c.room):null,m=R?m
       if(Object.keys(so).length>400){c.sendJ({t:'err',msg:'模擬設定的修改太多了。'});return;}C.so=so;}
     if(!n)return;sysChat(R,c.name+(o.reset?' 把模擬設定恢復為想定原本的設定。':' 調整了模擬設定（'+n+' 項）。'));cfgToWorker(R);roomAll(R);return;}
   case 'revt':{if(!host||R.phase!=='run'||!R.w)return;const k=String(o.k||'').slice(0,20);if(!/^[a-z]+$/.test(k))return;R.w.postMessage({op:'evt',k:k,M:+o.M||0});sysChat(R,c.name+' 觸發了事件。');return;}
+  case 'rzed':{if(!host||R.phase!=='run'||!R.w)return;const x=+o.x,y=+o.y,n=Math.round(+o.n||300),k=String(o.k||'').slice(0,12);if(!isFinite(x)||!isFinite(y)||x<0||y<0||x>1e7||y>1e7||!(n>=1&&n<=20000)||!/^[a-z]*$/.test(k))return;R.w.postMessage({op:'zed',x:x,y:y,n:n,k:k,nest:!!o.nest});sysChat(R,c.name+' 在地圖上引發了一次'+(o.nest?'巢穴出現':'屍群爆發')+'。');return;}
   case 'run':{if(R.phase!=='run'||!R.w)return;if(!(host||R.cfg.pause==='all'&&m.side>=0)){c.sendJ({t:'err',msg:'只有房主可以暫停或繼續。'});return;}R.running=!!o.on;R.w.postMessage({op:'run',on:R.running,speed:R.cfg.speed});sysChat(R,c.name+(R.running?' 繼續作戰。':' 暫停作戰。'));roomAll(R);return;}
   case 'end':{if(!host||R.phase!=='run'||!R.w)return;R.w.postMessage({op:'end',why:'房主結束作戰'});return;}
   case 'reset':{if(!host||R.phase!=='over')return;resetGame(R);roomAll(R);return;}

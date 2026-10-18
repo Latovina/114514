@@ -77,6 +77,7 @@ case 'teams':{(m.teams||[]).forEach(function(T,i){F.mpTeams(i,T.n,T.human);});di
   case 'pack':{const P=await F.mpPack();post({op:'packed',req:m.req,data:JSON.stringify(P)});break;}
   case 'replay':{try{const P=await F.replayPack();post({op:'replay',req:m.req,data:JSON.stringify(P)});}catch(e){post({op:'replay',req:m.req,err:e.message});}break;}
   case 'end':{const g=G();if(g&&g.started&&!g.over){g.over={why:m.why||'房主結束作戰',win:-1,t:g.t,score:[0,0]};try{const sc=E('score');g.over.score=[sc(0),sc(1)];const w=g.over.score[0]>g.over.score[1]*1.15?0:g.over.score[1]>g.over.score[0]*1.15?1:-1;g.over.win=w;}catch(e){}}checkOver();break;}
+  case 'zed':{const g=G();if(!g||!g.started||g.over)break;E('zedSpawnAt')({x:+m.x,y:+m.y,n:+m.n,k:String(m.k||''),nest:!!m.nest});dirty=true;break;}
   case 'evt':{const g=G();if(!g||!g.started||g.over)break;const K=E('EVK');if(!K[m.k])break;const o={};if(m.k==='quake'&&m.M>=4.5&&m.M<=8.5)o.M=+m.M;if(m.k==='fire'){o.x=g.map.Wm/2;o.y=g.map.Hm/2;}E('evtStart')(m.k,o);dirty=true;break;}
   case 'info':{sendInfo();break;}
 }}catch(e){post({op:'log',msg:'worker error ('+m.op+'): '+(e&&e.stack||e)});if(m.conn!==undefined&&m.id!==undefined)post({op:'res',conn:m.conn,id:m.id,r:{err:'伺服器錯誤：'+(e&&e.message||e)}});if(m.op==='load'||m.op==='quick')post({op:'loaded',err:String(e&&e.message||e)});}});
