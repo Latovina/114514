@@ -173,6 +173,10 @@ setInterval(function(){CONNS.forEach(function(c){if(!c.alive){c.close(1001);retu
 /* ---------- 房間 ---------- */
 const ROOMS=new Map();let RSEQ=readJ('rooms.json',{seq:0}).seq||0;
 const SPEEDS=[1,10,30,60,120,300,600,1800,3600,10800],DURMAX=2200;
+/* 模擬設定的路徑與值：路徑最多三層、只能是英文字母開頭的鍵或陣列索引；值是數字、布林、短字串或小物件 */
+const SOX=new Set(['seed','rfX','rfH','fog','dur','ffog','rp','tech','rp0','rpDay','tp0','tpDay','rfL','cprice']);
+function soOk(p){if(typeof p!=='string'||p.length>80)return false;const k=p.split('.');if(!k.length||k.length>3||SOX.has(k[0]))return false;for(let i=0;i<k.length;i++){const q=k[i];if(i>0&&/^\d{1,3}$/.test(q))continue;if(!/^[A-Za-z][A-Za-z0-9]{0,31}$/.test(q)||q==='constructor'||q==='prototype')return false;}return true;}
+function soVal(v){if(v===null||typeof v==='boolean')return true;if(typeof v==='number')return isFinite(v);if(typeof v==='string')return v.length<=60;if(typeof v==='object'){try{return JSON.stringify(v).length<=4000;}catch(e){return false;}}return false;}
 function durTxtS(h){h=+h||0;return h+' 小時'+(h>=48?'（約 '+(Math.round(h/24*10)/10)+' 天）':'');}
 /* 每一方最多 8 位指揮官；一個房間最多 8 位玩家同時指揮（4 對 4，或 8 人一起對抗電腦） */
 const MAXCM=8,MAXPL=8,PRECMD=new Set(['cmAssign','ptSetU']);/* 開戰前也能用的命令 */function seated(R){let n=0;R.slots.forEach(L=>L.forEach(S=>{if(S.kind==='open'&&S.uid)n++;}));return n;}
@@ -225,6 +229,7 @@ function startWorker(R){if(R.w)return R.w;const w=new Worker(path.join(ROOT,'wor
     case 'begun':{if(m.r&&m.r.ok){R.phase='run';R.running=false;sysChat(R,'作戰開始！房主按下「開始」後時間開始流動。');R.scn=m.info;roomAll(R);resubAll(R);}else sysChat(R,'無法開戰：'+(m.r&&m.r.err||'未知原因'));break;}
     case 'tick':{const ch=R.t!==m.t||R.real!==m.real;R.t=m.t;R.real=m.real;if(ch){const o={t:'tick',gt:m.t,running:!!R.running,speed:R.cfg.speed,real:m.real};R.mem.forEach(mm=>mm.conns.forEach(c=>c.sendJ(o)));}break;}
     case 'resumed':{if(R.phase!=='over')break;R.phase='run';R.running=false;R.over=null;R.replay=0;R.bgmDel=0;R.scn=m.info;sysChat(R,'作戰時限延長到 '+durTxtS(m.info&&m.info.dur||0)+'，作戰繼續：戰場回到雙盲，時間暫停中，房主按「繼續」後恢復。');roomAll(R);resubAll(R);break;}
+    case 'apause':{if(!R.running)break;R.running=false;sysChat(R,'自動暫停（房主設定的自動暫停條件），按「繼續」恢復。');roomAll(R);break;}
     case 'stopped':{R.running=false;sysChat(R,'模擬發生錯誤而暫停：'+(m.why||''));roomAll(R);break;}
     case 'over':{R.phase='over';R.running=false;R.over=m.over;if(R.bgm&&R.bgm.length)R.bgmDel=Date.now()+600000;R.scn=m.info;sysChat(R,'作戰結束：'+(m.over.why||'')+(m.over.win>=0&&R.scn?'，'+R.scn.sides[m.over.win].name+'獲勝':'，不分勝負')+'。戰場已全面揭曉，回放整理中。');roomAll(R);resubAll(R);autosave(R);break;}
     case 'replay':{if(m.req&&WREQ.has(m.req)){const q=WREQ.get(m.req);WREQ.delete(m.req);if(m.err)q.no(new Error(m.err));else q.ok(m);break;}if(m.data)storeReplay(R,m.data);break;}
@@ -233,7 +238,7 @@ function startWorker(R){if(R.w)return R.w;const w=new Worker(path.join(ROOT,'wor
   }});
   w.on('error',function(e){console.error('worker error',R.id,e);sysChat(R,'模擬執行緒發生錯誤：'+e.message);});
   w.on('exit',function(code){if(R.w===w){R.w=null;if(code!==0)sysChat(R,'模擬執行緒結束（'+code+'）。');}});return w;}
-function cfgToWorker(R){if(!R.w)return;const c=R.cfg;R.w.postMessage({op:'cfg',cfg:{depth:c.depth,rp:c.rp,tech:c.tech,rp0:c.rp0,rpDay:c.rpDay,tp0:c.tp0,tpDay:c.tpDay,dur:c.dur>0?c.dur:0,ffog:!!c.ffog,rfL:c.rfL,snapMs:CFG.snapMs}});R.w.postMessage({op:'run',on:!!R.running,speed:c.speed});}
+function cfgToWorker(R){if(!R.w)return;const c=R.cfg;R.w.postMessage({op:'cfg',cfg:{depth:c.depth,rp:c.rp,tech:c.tech,rp0:c.rp0,rpDay:c.rpDay,tp0:c.tp0,tpDay:c.tpDay,dur:c.dur>0?c.dur:0,ffog:!!c.ffog,so:c.so||{},rfL:c.rfL,snapMs:CFG.snapMs}});R.w.postMessage({op:'run',on:!!R.running,speed:c.speed});}
 function storeReplay(R,data){try{const id=++REPL.seq,gz=zlib.gzipSync(Buffer.from(data));fs.writeFileSync(path.join(DATA,'replays',id+'.json.gz'),gz);const sc=R.scn||{};
   REPL.list.push({id:id,name:(sc.name||R.cfg.name||'作戰')+' '+new Date().toISOString().slice(0,10),room:R.cfg.name,date:Date.now(),sides:(sc.sides||[]).map(S=>S.name),size:gz.length,win:R.over?R.over.win:-1,why:R.over?R.over.why:''});
   while(REPL.list.length>CFG.replayKeep){const o=REPL.list.shift();try{fs.unlinkSync(path.join(DATA,'replays',o.id+'.json.gz'));}catch(e){}}saveRepl();R.replay=id;sysChat(R,'回放已儲存，可在房間或大廳的「回放」下載。');roomAll(R);}catch(e){console.error('replay',e);}}
@@ -285,6 +290,12 @@ function onMsg(c,o){if(!c.uid)return;const R=c.room?ROOMS.get(c.room):null,m=R?m
   case 'quick':{if(!host)return;if(R.phase==='run'){c.sendJ({t:'err',msg:'作戰進行中不能更換想定。'});return;}resetGame(R);startWorker(R);sysChat(R,c.name+' 選擇了快速想定，建立中…');R.w.postMessage({op:'quick',k:String(o.k||'s1943'),seed:o.seed});return;}
   case 'begin':{if(!host||R.phase!=='deploy'||!R.w)return;for(const L of R.slots)for(const S of L){if(S.kind==='open'&&!S.uid){if(R.cfg.aiFill)S.kind='ai';else{c.sendJ({t:'err',msg:'還有空的席位；請等玩家加入，或改由 AI 指揮。'});return;}}}
     R.phase='deploy';teamsToWorkerFinal(R);cfgToWorker(R);R.w.postMessage({op:'begin'});return;}
+  case 'rset':{if(!host){c.sendJ({t:'err',msg:'只有房主可以修改模擬設定。'});return;}const C=R.cfg;let n=0;
+    if(o.reset){n=Object.keys(C.so||{}).length;C.so={};}
+    else{const so=Object.assign({},C.so||{});(Array.isArray(o.ch)?o.ch.slice(0,80):[]).forEach(function(q){if(!Array.isArray(q)||!soOk(q[0])||!soVal(q[1]))return;const p=q[0];Object.keys(so).forEach(function(k){if(k.indexOf(p+'.')===0)delete so[k];});delete so[p];so[p]=q[1];n++;});
+      if(Object.keys(so).length>400){c.sendJ({t:'err',msg:'模擬設定的修改太多了。'});return;}C.so=so;}
+    if(!n)return;sysChat(R,c.name+(o.reset?' 把模擬設定恢復為想定原本的設定。':' 調整了模擬設定（'+n+' 項）。'));cfgToWorker(R);roomAll(R);return;}
+  case 'revt':{if(!host||R.phase!=='run'||!R.w)return;const k=String(o.k||'').slice(0,20);if(!/^[a-z]+$/.test(k))return;R.w.postMessage({op:'evt',k:k,M:+o.M||0});sysChat(R,c.name+' 觸發了事件。');return;}
   case 'run':{if(R.phase!=='run'||!R.w)return;if(!(host||R.cfg.pause==='all'&&m.side>=0)){c.sendJ({t:'err',msg:'只有房主可以暫停或繼續。'});return;}R.running=!!o.on;R.w.postMessage({op:'run',on:R.running,speed:R.cfg.speed});sysChat(R,c.name+(R.running?' 繼續作戰。':' 暫停作戰。'));roomAll(R);return;}
   case 'end':{if(!host||R.phase!=='run'||!R.w)return;R.w.postMessage({op:'end',why:'房主結束作戰'});return;}
   case 'reset':{if(!host||R.phase!=='over')return;resetGame(R);roomAll(R);return;}
