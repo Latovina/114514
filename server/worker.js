@@ -7,7 +7,7 @@ const SIM=require(path.join(__dirname,'simcore.js'));
 const E=SIM.E;
 const F={};['mpFxOn','mpLoad','mpPack','mpQuick','mpTeams','mpBegin','mpDiff','mpFull','mpCmd','mpPatch','mpUnbase','mpDepOp','mpOrbIn','mpForcePts','simStep','replayPack','cmList'].forEach(function(k){F[k]=E(k);});
 const DT=E('DT');
-let running=false,speed=60,acc=0,lastTick=Date.now(),snapMs=(workerData&&workerData.snapMs)||500,lastSnap=0,dirty=true,overSent=false,depth=0.4,realSp=0,spHist=[];
+let running=false,speed=60,acc=0,lastTick=Date.now(),snapMs=(workerData&&workerData.snapMs)||500,lastSnap=0,dirty=true,urgent=false,overSent=false,depth=0.4,realSp=0,spHist=[];
 const subs=new Map();/* 連線編號 → {view:-1|0|1,cm,need:true} */
 function G(){return SIM.getG();}
 function post(m,tr){parentPort.postMessage(m,tr||[]);}
@@ -29,16 +29,18 @@ function tick(){const now=Date.now(),dt=Math.min(0.5,(now-lastTick)/1000);lastTi
   if(running&&g&&g.started&&!g.over){acc+=dt*speed;let n=Math.floor(acc/DT),done=0;const t0=Date.now();while(done<n&&Date.now()-t0<80){try{F.simStep();}catch(e){post({op:'log',msg:'simStep error: '+(e&&e.stack||e)});running=false;post({op:'stopped',why:String(e&&e.message||e)});break;}done++;if(g.over)break;}acc-=done*DT;if(acc>DT*4)acc=DT*4;if(done)dirty=true;
     spHist.push([now,done*DT]);spHist=spHist.filter(function(q){return now-q[0]<3000;});realSp=spHist.reduce(function(s,q){return s+q[1];},0)/3;checkOver();}
   let need=false;subs.forEach(function(s){if(s.need)need=true;});
-  if(need||(dirty&&now-lastSnap>=snapMs)||(running&&now-lastSnap>=snapMs))flush(false);
+  /* 玩家下令後盡快送出結果（最快 60 毫秒），不必等到下一次定時更新 */
+  if(need||(dirty&&now-lastSnap>=snapMs)||(running&&now-lastSnap>=snapMs)||(urgent&&now-lastSnap>=60)){flush(false);urgent=false;}
   if(now-lastStat>1000){lastStat=now;if(g&&g.map)post({op:'tick',t:g.t,step:g.step,running:running,speed:speed,real:Math.round(realSp),over:!!g.over});}}
 let lastStat=0;
 setInterval(tick,50);
-function res(m,r){post({op:'res',conn:m.conn,id:m.id,r:r});dirty=true;}
+function res(m,r){post({op:'res',conn:m.conn,id:m.id,r:r});dirty=true;urgent=true;}
 parentPort.on('message',async function(m){try{switch(m.op){
   case 'load':{F.mpFxOn();F.simStep=E('simStep');await F.mpLoad(typeof m.save==='string'?JSON.parse(m.save):m.save);const g=G();g.set.fog=true;overSent=!!g.over;sendInfo();post({op:'loaded',info:info()});break;}
   case 'quick':{F.mpFxOn();F.simStep=E('simStep');await F.mpQuick(m.k,m.seed);overSent=false;sendInfo();post({op:'loaded',info:info()});break;}
-  case 'teams':{(m.teams||[]).forEach(function(T,i){F.mpTeams(i,T.n,T.human);});dirty=true;sendInfo();break;}
-  case 'cfg':{const g=G();if(!g)break;const c=m.cfg||{};if(c.dur>0)g.set.dur=c.dur;['rp','tech','rp0','rpDay','tp0','tpDay','leth','cbrn','ff'].forEach(function(k){if(c[k]!==undefined)g.set[k]=c[k];});if(c.depth)depth=c.depth;if(c.snapMs)snapMs=c.snapMs;dirty=true;sendInfo();break;}
+  case 'tpls':{const g=G();if(!g)break;g.set.rfX=Array.isArray(m.list)?m.list:[];g.set.rfH=Array.isArray(m.hide)?m.hide:[];dirty=true;break;}
+case 'teams':{(m.teams||[]).forEach(function(T,i){F.mpTeams(i,T.n,T.human);});dirty=true;sendInfo();break;}
+  case 'cfg':{const g=G();if(!g)break;const c=m.cfg||{};if(c.dur>0)g.set.dur=c.dur;['rp','tech','rp0','rpDay','tp0','tpDay','leth','cbrn','ff','rfL'].forEach(function(k){if(c[k]!==undefined)g.set[k]=c[k];});if(c.depth)depth=c.depth;if(c.snapMs)snapMs=c.snapMs;dirty=true;sendInfo();break;}
   case 'begin':{const r=F.mpBegin(depth);if(r.ok){running=false;acc=0;}post({op:'begun',r:r,info:info()});dirty=true;break;}
   case 'run':{running=!!m.on;if(m.speed>0)speed=Math.min(86400,m.speed);lastTick=Date.now();acc=0;break;}
   case 'sub':{subs.set(m.conn,{view:m.view,cm:m.cm===undefined?-1:m.cm,need:true});break;}

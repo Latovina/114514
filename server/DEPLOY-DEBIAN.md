@@ -93,6 +93,10 @@ bash install-debian.sh warsim.encyclato.org
 | 把某位玩家設為管理員 | `systemctl stop lato-warsim && runuser -u latowar -- node /opt/lato-warsim/server.js --make-admin 玩家名稱; systemctl start lato-warsim` |
 | 修改設定（改完要重新啟動） | `nano /opt/lato-warsim/data/config.json` |
 
+**編輯器**：`https://warsim.encyclato.org/editor` 是編制與裝備編輯器（不需要登入）。
+
+**背景音樂、增援範本、回放清理**：都在網頁的「管理員面板」。曲庫存在 `/opt/lato-warsim/data/bgm/`，伺服器增援範本存在 `data/templates.json`，房主上傳的房間曲目在作戰結束十分鐘後自動刪除。
+
 **更新版本**：把新的 `lato-warsim-server.zip` 傳上來，解壓縮後在資料夾裡**再執行一次** `bash install-debian.sh warsim.encyclato.org`。
 腳本只替換程式檔，帳號、房間、回放（`data/`）都會保留。
 

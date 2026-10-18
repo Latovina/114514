@@ -1929,12 +1929,12 @@ function fireStep(){G.units.forEach(function(u){if(!onMap(u)||u.ms==='rout'||u.s
     var op=optOf(u),roe=op.roe||(op.post==='hide'?'hold':'free'),uf2=G.t-(u.uf||-1e9)<=120;if(o&&o.k==='rest'&&!uf2)return;if(o&&o.k==='recon'&&!uf2)return;if(roe==='hold'||(roe==='return'&&!uf2))return;
     var disc=profOf(u)[8],maxR=op.post==='reverse'&&(o.k==='defend'||o.k==='screen')?700:roe==='close'?Math.max(150,rE*0.5)*disc:op.post==='ambush'&&!u.ambT&&!uf2?Math.min(Math.max(rE*0.5,120),300)*disc:1e9;if(u.mis&&G.t>=u.mis.start&&indOf(u,s)>0)return;/* 執行間接射擊任務時不直射 */
     var L=u._seen;if(!L||!L.length)return;var best=null,bv=0,bd=0,bm=0;for(var i=0;i<L.length;i++){var t=uById(L[i]);if(!t||!onMap(t))continue;var ts=ST(t),d=dist(u.x,u.y,t.x,t.y);if(d>rM||d>maxR)continue;var ch=canHit(s,ts,d);if(!ch)continue;
-      var v=rangeF(d,rE,rM)*(HA*ts.hard*penF(penE(u,s),ts.arm)*3+SA*(1-0.8*ts.hard))*(o&&o.k==='attack'&&o.x!==undefined?1+1/(1+dist(t.x,t.y,o.x,o.y)/800):1)*(t.id===u.tgt?1.3:1)*ch*ctrMul(u,t,'fire',d);if(v>bv){bv=v;best=t;bd=d;bm=ch;}}
+      var v=rangeF(d,rE,rM)*(HA*ts.hard*penF(penE(u,s),armVs(t,ts,u))*3+SA*(1-0.8*ts.hard))*(o&&o.k==='attack'&&o.x!==undefined?1+1/(1+dist(t.x,t.y,o.x,o.y)/800):1)*(t.id===u.tgt?1.3:1)*ch*ctrMul(u,t,'fire',d);if(v>bv){bv=v;best=t;bd=d;bm=ch;}}
     if(!best)return;u.tgt=best.id;if(op.post==='ambush'&&!u.ambT){u.ambT=G.t;best.mor=clamp(best.mor-8,0,100);logE(u.side,'tac',uName(u)+'發動伏擊！（'+placeTxt(u.x,u.y)+'）',u.x,u.y,u.id);}directFire(u,s,best,bd,bm,SA,HA,rE,rM);});}
 function directFire(u,s,t,d,ch,SA,HA,rE,rM){var ts=ST(t),dm=DT/60;if(SA===undefined){SA=saOf(u,s);HA=haOf(u,s);rE=s.rE*rngF(u);rM=s.rM*rngF(u);}var rf=rangeF(d,rE,rM);if(rf<=0)return;var fr=strFrac(u),fm=firerMod(u,s),tm=tgtModDirect(t,ts),fl=flankF(u,t),rr=0.7+0.6*rnd(),k=fr*rf*fm*tm*fl*dm*FIRE_K*rr*ch*ctrMul(u,t,'fire',d);
-  var to=optOf(t),amb=u.ambT&&G.t-u.ambT<=DT*2?2.5:1;k*=amb*(to.post==='reverse'&&d>600&&t.ord&&/defend|screen/.test(t.ord.k)?0.5:1);
+  if(u.lg&&u.lg.eqF)k*=u.lg.eqF.acc||1;var to=optOf(t),amb=u.ambT&&G.t-u.ambT<=DT*2?2.5:1;k*=amb*(to.post==='reverse'&&d>600&&t.ord&&/defend|screen/.test(t.ord.k)?0.5:1);
   var urbAT=ts.hard>=0.5&&s.hard<0.4&&d<400&&isUrban(G.map.lc[cellAt(t.x,t.y)])?1.8:1,ba=infDef(typeOf((t.mix||[[t.hq]])[0][0])||{}).ba||0;
-  var pen=penE(u,s)+(s.fl.indexOf('T')>=0&&(ts.dom==='sea'||ts.dom==='sub')?6:0),Fm=SA*k*lgFire(u)*(1-0.15*ba),Fv=HA*k*VK*penF(pen,ts.arm)*(s.fl.indexOf('T')>=0&&ts.dom==='sea'&&d<=rE?2:1)*lgFire(u)*urbAT;
+  var pen=penE(u,s)+(s.fl.indexOf('T')>=0&&(ts.dom==='sea'||ts.dom==='sub')?6:0),Fm=SA*k*lgFire(u)*(1-0.15*ba),Fv=HA*k*VK*penF(pen,armVs(t,ts,u))*(s.fl.indexOf('T')>=0&&ts.dom==='sea'&&d<=rE?2:1)*lgFire(u)*urbAT;
   var dmn=Fm*(1-0.9*ts.hard)+Fv*ts.hard*(t.men/Math.max(1,t.veh))*0.35,dv=Fv*ts.hard+Fm*(1-ts.hard)*(t.veh/Math.max(1,t.men))*0.15;
   hit(t,u,dmn,dv,Math.min(30,4+600*(dmn+dv*4)/Math.max(10,t.men+t.veh*4))*WF(u).sup,'fire');if(urbAT>1&&!t.urbLog){t.urbLog=1;logE(u.side,'tac',uName(u)+'在'+placeTxt(t.x,t.y)+'的街巷中近距離伏擊'+uName(t),t.x,t.y,u.id);}u.ammo=Math.max(0,u.ammo-(s.fl.indexOf('x')>=0?12:s.dom==='sea'?0.1:0.25));}
 /* ---------- 突擊與白刃：攻擊命令中的單位逼近到突擊距離 ---------- */
@@ -1980,7 +1980,7 @@ function artDisp(u,s,M,obs){var E=uEra(u),i=E.i,D=Math.max(300,dist(u.x,u.y,M.x,
   var pr=Math.max(12,ARTP[i]*D*(rk?2.6:1)*(s.dom==='sea'?1.4:1)*(pg?0.35:1)),pd=Math.max(8,pr*(rk?0.6:0.35)),sr=pr/0.6745,sd=pd/0.6745,
     tubes=clamp(Math.round(u.veh||u.men/20),1,72),sw=clamp(30*Math.sqrt(tubes),15,220)*(pt?0.6:1),
     key=Math.round(M.x)+','+Math.round(M.y)+','+Math.round(M.start||0),A=u._adj,fo=obs||!!(M.rg&&M.rg.obs);
-  if(!A||A.k!==key){var reg=!!M.reg||!!(G.reg&&regKnown(u.side,M.x,M.y)),B=ARTB[i]*clamp(0.55+D/22000,0.6,1.5)*(pg?0.15:1)*(reg?0.35:1)*(hasQ(offOf(u),'arty')?0.8:1),br,bd;
+  if(!A||A.k!==key){var reg=!!M.reg||!!(G.reg&&regKnown(u.side,M.x,M.y)),B=ARTB[i]*clamp(0.55+D/22000,0.6,1.5)*(pg?0.15:1)*(reg?0.35:1)*(hasQ(offOf(u),'arty')?0.8:1)*(u.lg&&u.lg.eqF&&u.lg.eqF.art||1),br,bd;
     if(A&&G.t-A.t<900&&dist(A.x,A.y,M.x,M.y)<1500){/* 從剛修正好的點轉移射擊：保留大部分修正，只多了轉移的誤差 */br=A.br*1.2+gauss(rnd)*B*0.25;bd=A.bd*1.2+gauss(rnd)*B*0.12;}
     else{br=gauss(rnd)*B*0.85;bd=gauss(rnd)*B*0.45;}
     A=u._adj={k:key,x:M.x,y:M.y,br:br,bd:bd,n:0,t:G.t,t0:G.t,ta:G.t};}
@@ -2030,7 +2030,7 @@ function airFight(){var A=G.units.filter(function(u){return u.st==='air'&&alive(
       var v=(t.men+(t.cargoN||0)+t.veh*(HA>SA*0.3?20:8))/(1+dist(o.x,o.y,t.x,t.y)/3000);if(v>bv){bv=v;best=t;}});if(!best)return;
     var night=G.env.light<0.3?[0.15,0.5,0.9][clamp(s.nv,0,2)]:1,w=WX[G.env.wx][5],fr=strFrac(a),pen=penE(a,s),area=s.fl.indexOf('Y')>=0||(SA>=20&&HA<SA*0.2),cx=best.x,cy=best.y;
     var tgts=area?[]:[best];if(area)gridNear(cx,cy,300,function(t){if(t.side!==a.side&&onMap(t)&&ST(t).dom!=='air'&&dist(t.x,t.y,cx,cy)<=300)tgts.push(t);});
-    tgts.forEach(function(t){var ts=ST(t),cov=covInd(t),f=(t===best?1:0.6)*fr*dm*FIRE_K*AIR_K*night*w*cov*(0.7+0.6*rnd())*ctrMul(a,t,'air'),F=SA*f,Fv=HA*f*penF(pen,ts.arm);hit(t,a,F*(1-0.9*ts.hard),Fv*ts.hard+F*(1-ts.hard)*(t.veh/Math.max(1,t.men))*0.25,area?25:15,s.fl.indexOf('Y')>=0?'breath':'airstrike');});
+    tgts.forEach(function(t){var ts=ST(t),cov=covInd(t),f=(t===best?1:0.6)*fr*dm*FIRE_K*AIR_K*night*w*cov*(0.7+0.6*rnd())*ctrMul(a,t,'air'),F=SA*f,Fv=HA*f*penF(pen,armVs(t,ts,a));hit(t,a,F*(1-0.9*ts.hard),Fv*ts.hard+F*(1-ts.hard)*(t.veh/Math.max(1,t.men))*0.25,area?25:15,s.fl.indexOf('Y')>=0?'breath':'airstrike');});
     roadDmg(cx,cy,area?300:150,clamp(SA*0.2,2,20));if(G.civ){civHitAir(a,s,cx,cy,SA,fr,dm,area);if(area)urbanDamage(cx,cy,300,clamp(SA*0.3,2,25),a.side);}
     a.ammo=Math.max(0,a.ammo-(s.fl.indexOf('Z')>=0?6:s.fl.indexOf('Y')>=0?5:14));if(!a.atkLog||G.t-a.atkLog>1200){a.atkLog=G.t;logE(a.side,'air',uName(a)+(s.fl.indexOf('Y')>=0?'向':'攻擊')+uName(best)+(s.fl.indexOf('Y')>=0?'噴吐烈焰':'')+'（'+placeTxt(cx,cy)+'）',cx,cy,a.id);}});}
 /* ---------- 套用傷害、陣亡與殲滅判定 ---------- */
@@ -4540,12 +4540,12 @@ function v10Step(){engStep();turnStep();fmStepAll();if(G.step%20===9){v10DepotSt
 
 /* ==== h20_v11.js ==== */
 /* ===================== v11：多位指揮官（1v1、2v2、3v3）、依個性的防禦準則與攻擊方式、弱點研判與偵察、後勤經營風格、盟軍通信與聯合攻防 =====================
-   每一方可以有一到三位指揮官，各自指揮分配給他的頂層編制，有自己的個性、防禦準則、攻擊方式、偵察習慣與後勤經營風格。
+   每一方可以有一到八位指揮官，各自指揮分配給他的頂層編制，有自己的個性、防禦準則、攻擊方式、偵察習慣與後勤經營風格。
    同一方的指揮官共享情報圖，但彼此的通信要經過傳令、電話或無線電（有延遲）；通信越順暢、合作越久，「協同等級」越高，
    逐步從互相通報、協防接合部，升級到互相支援火力與預備隊，最後能以同一個發起時刻（H 時）實施聯合攻勢與聯合反擊。 */
 
 /* ---------- 一、指揮官與指揮範圍 ---------- */
-var CMN=['第一','第二','第三'];
+var CMN=['第一','第二','第三','第四','第五','第六','第七','第八'];var CMMAX=8;
 function cmNew(i,player){return {n:CMN[i]+'指揮官',ai:!player,roots:[],ms:'auto',dd:'auto',oa:'auto',rs:'auto',mem:{}};}
 /* 每一方的指揮官名冊（沒有就建立一位，指揮全部部隊） */
 function cmList(side){var S=G.sides[side];if(!S.cm||!S.cm.length){S.cm=[cmNew(0,!S.ai)];S.cm[0].roots=G.units.filter(function(u){return u.side===side&&u.p<0;}).map(function(u){return u.id;});}else if(S.cm.length===1){S.cm[0].ai=!!S.ai;}return S.cm;}
@@ -4564,7 +4564,7 @@ function cmAlive(side,i){var R=cmList(side)[i];return !!R&&R.roots.some(function
 function cmName(side,i){var R=cmList(side)[i],T=cmTop(side,i),o=T&&T.off;return R?R.n+(o?'（'+o.rank+o.name+'）':''):'';}
 /* 指揮官的顏色：同一方以色相微調區分 */
 function cmCol(side,i){var c=sideCol(side);if(!i)return c;var q=rgbOf(c),r=q[0]/255,g=q[1]/255,b=q[2]/255,mx=Math.max(r,g,b),mn=Math.min(r,g,b),h=0,l=(mx+mn)/2,d=mx-mn,s=d?d/(1-Math.abs(2*l-1)):0;
-  if(d){h=mx===r?((g-b)/d)%6:mx===g?(b-r)/d+2:(r-g)/d+4;h*=60;}h=(h+(i===1?32:-32)+360)%360;l=clamp(l*(i===1?0.88:0.95),0.25,0.6);var C=(1-Math.abs(2*l-1))*s,X=C*(1-Math.abs((h/60)%2-1)),m=l-C/2,rr=0,gg=0,bb=0;
+  if(d){h=mx===r?((g-b)/d)%6:mx===g?(b-r)/d+2:(r-g)/d+4;h*=60;}var HOF=[0,30,-30,60,-60,15,-45,45];h=(h+HOF[i%8]+360)%360;l=clamp(l*[1,0.86,1.08,0.9,1.04,0.7,0.8,1.16][i%8],0.25,0.64);/* 色相只在本方色系 ±60° 內變化，避免第七、第八位指揮官的顏色接近敵方 */var C=(1-Math.abs(2*l-1))*s,X=C*(1-Math.abs((h/60)%2-1)),m=l-C/2,rr=0,gg=0,bb=0;
   if(h<60){rr=C;gg=X;}else if(h<120){rr=X;gg=C;}else if(h<180){gg=C;bb=X;}else if(h<240){gg=X;bb=C;}else if(h<300){rr=X;bb=C;}else{rr=C;bb=X;}return hexOf([Math.round((rr+m)*255),Math.round((gg+m)*255),Math.round((bb+m)*255)]);}
 function cmColU(u){return u&&tmOn(u.side)?cmCol(u.side,cmOf(u)):undefined;}
 /* 名冊與實際編制同步：移除消失的編制；新出現的頂層編制（增援或戰場上新建）交給玩家指揮官，否則給兵力最少的 AI 指揮官 */
@@ -4608,7 +4608,7 @@ function cmSplitForm(side,F,parts){var K=kidsOf(F).filter(function(k){return k.s
     bins[p].forEach(function(k){F.kids=F.kids.filter(function(id){return id!==k.id;});k.p=H.id;H.kids.push(k.id);G._pv=(G._pv||0)+1;});var Lf=leavesOf(H).filter(function(u){return u.st!=='off';});if(Lf.length){var c=centroid(Lf);H.x=c[0];H.y=c[1];}else{H.x=F.x;H.y=F.y;}H.home=[H.x,H.y];out.push(H);}
   reix();G._tv++;var Lr=leavesOf(F).filter(function(u){return u.st!=='off';});if(Lr.length){var c2=centroid(Lr);F.x=c2[0];F.y=c2[1];}dupNames();return out;}
 /* 設定一方的指揮官人數並分配兵力：md＝'split' 平分原有兵力（地圖上的地面編制不夠分時拆分最大的編制）；'dup'（每位指揮官一份完整兵力）時同一種編制輪流分配 */
-function teamSetup(side,n,md){var S=G.sides[side];n=clamp(n|0,1,3);var old=S.cm||[],L=[];for(var i=0;i<n;i++){var o=old[i];L.push(o?Object.assign(cmNew(i,!o.ai),{n:o.n,ai:o.ai,ms:o.ms,dd:o.dd,oa:o.oa,rs:o.rs}):cmNew(i,false));}
+function teamSetup(side,n,md){var S=G.sides[side];n=clamp(n|0,1,CMMAX);var old=S.cm||[],L=[];for(var i=0;i<n;i++){var o=old[i];L.push(o?Object.assign(cmNew(i,!o.ai),{n:o.n,ai:o.ai,ms:o.ms,dd:o.dd,oa:o.oa,rs:o.rs}):cmNew(i,false));}
   if(!old.length){L.forEach(function(R,j){R.ai=!!S.ai||j>0;});}S.cm=L;cmBump();
   var T=function(){return G.units.filter(function(u){return u.side===side&&u.p<0&&u.st!=='dead';});},land=function(){return T().filter(function(t){return !isAirForm(t)&&!isNavForm(t);});},onL=function(){return land().filter(function(t){return t.st!=='off';});};
   if(n===1){L[0].roots=T().map(function(u){return u.id;});S.ai=L[0].ai;cmBump();return L;}
@@ -5128,7 +5128,7 @@ function cmSecOwner(side,x,y){var best=-1,bd=1e18;G.units.forEach(function(u){if
 function v11Step(){if(G.step%4===1)tmMsgStep();if(G.step%20===11)rbfStep();}
 (function(){var b=v8Step;v8Step=function(){b();v11Step();};})();
 /* 快速想定：依開始頁的設定組成 1v1、2v2、3v3 */
-if(typeof runScn==='function')(function(){var b=runScn;runScn=async function(sc,pg){var n=clamp(+(ST0.team||1),1,3),md=ST0.tmode==='dup'?'dup':'split';if(n>1&&md==='dup')sc=Object.assign({},sc,{A:dupList(sc.A,n),B:dupList(sc.B,n)});await b(sc,pg);if(n<2||!G)return;
+if(typeof runScn==='function')(function(){var b=runScn;runScn=async function(sc,pg){var n=clamp(+(ST0.team||1),1,4),md=ST0.tmode==='dup'?'dup':'split';if(n>1&&md==='dup')sc=Object.assign({},sc,{A:dupList(sc.A,n),B:dupList(sc.B,n)});await b(sc,pg);if(n<2||!G)return;
   [0,1].forEach(function(s){teamSetup(s,n,md);});reix();dupNames();show('deploy');toast('「'+sc.n+'」：'+n+' 對 '+n+'，每方 '+n+' 位指揮官（'+(md==='dup'?'每位指揮官一份完整兵力':'平分原有兵力')+'）。在「兵力編成」可調整各指揮官的個性、準則與部隊。',7000);};})();
 
 /* ==== h21_road.js ==== */
@@ -5427,7 +5427,7 @@ function airStrikeRun(a,s,o){var SA=saOf(a,s),HA=haOf(a,s);if(SA<=0&&HA<=0)retur
   var night=G.env.light<0.3?[0.15,0.5,0.9][clamp(s.nv,0,2)]:1,w=WX[G.env.wx][5],fr=strFrac(a),pen=penE(a,s),dm=DT/60,area=SA>=20&&HA<SA*0.2,Mt=M*(1-fShare),wts=[0.5,0.3,0.2].slice(0,L.length),ws=sum(wts,function(x){return x;})||1,n=0,ff=[];
   if(!L.length&&!nf){roadDmg(o.x,o.y,200,clamp(SA*0.2*M,2,60));if(G.civ){civHitAir(a,s,o.x,o.y,SA,fr,dm*M,true);urbanDamage(o.x,o.y,250,clamp(SA*0.2*M,2,40),a.side);}}
   L.forEach(function(p,i){var best=p.t,Mi=Mt*wts[i]/ws,cx=best.x,cy=best.y,tg=area?[]:[best];if(area)gridNear(cx,cy,350,function(t){if(onMap(t)&&ST(t).dom!=='air'&&dist(t.x,t.y,cx,cy)<=350)tg.push(t);});
-    tg.forEach(function(t){var ts=ST(t),own=t.side===a.side,cov=covInd(t),f=(t===best?1:0.6)*(own?0.5:1)*fr*dm*FIRE_K*AIR_K*night*w*cov*(0.7+0.6*rnd())*ctrMul(a,t,'air')*Mi,F=SA*f,Fv=HA*f*penF(pen,ts.arm);
+    tg.forEach(function(t){var ts=ST(t),own=t.side===a.side,cov=covInd(t),f=(t===best?1:0.6)*(own?0.5:1)*fr*dm*FIRE_K*AIR_K*night*w*cov*(0.7+0.6*rnd())*ctrMul(a,t,'air')*Mi,F=SA*f,Fv=HA*f*penF(pen,armVs(t,ts,a));
       hit(t,own?null:a,F*(1-0.9*ts.hard),Fv*ts.hard+F*(1-ts.hard)*(t.veh/Math.max(1,t.men))*0.25,area?35:25,'airstrike');if(own){if(F+Fv*8>1)ff.push(t);}else n++;});
     roadDmg(cx,cy,area?300:150,clamp(SA*0.2*Mi,2,80));if(G.civ){civHitAir(a,s,cx,cy,SA,fr,dm*Mi,area);if(area)urbanDamage(cx,cy,300,clamp(SA*0.3*Mi,2,60),a.side);}});
   afHit(a.side,o.x,o.y,1500,SA*fr*0.004*M,a);a.ammo=0;
@@ -6347,12 +6347,34 @@ function rftExport(L){return {format:RFTFMT,v:1,saved:new Date().toISOString(),t
 function rftImport(side,D){if(!D||D.format!==RFTFMT||!Array.isArray(D.templates))return {err:'這不是增援範本檔（'+RFTFMT+'）'};var L=rftOf(side),n=0,skip=[];
   D.templates.forEach(function(T){if(!T||!Array.isArray(T.items))return;var items=T.items.filter(function(q){if(Array.isArray(q)&&typeOf(q[0]))return true;if(Array.isArray(q))skip.push(String(q[0]));return false;}).map(function(q){return [q[0],clamp(Math.round(+q[1]||0),0,60)];}).filter(function(q){return q[1]>0;});
     if(!items.length)return;L.push({id:'r'+(Date.now().toString(36))+n,n:String(T.n||'匯入範本').slice(0,60),ech:clamp(+T.ech||2,1,6),hq:T.hq===0?0:1,items:items});n++;});return {n:n,skip:skip};}
+/* ---------- 五、增援名單（白名單／黑名單）與共用範本 ----------
+   G.set.rfL＝[藍方名單, 紅方名單]，名單 {m:'off'|'white'|'black', b:[兵種], t:[單位類型], p:[編制範本]}：白名單只允許勾選的項目，黑名單禁止它們。
+   編制範本與自訂範本要看裡面的每一種單位；在白名單直接勾選的編制範本一律允許。只管戰中增援（含 AI 購買），不影響開戰前的兵力。
+   G.set.rfX：聯機時伺服器送來的共用範本（src 's' 管理員的伺服器範本、'r' 房主的房間範本），唯讀；G.set.rfH：管理員停用的內建編制範本 */
+var RFLFMT='LatoWarReinfList';
+function rflOf(side){var L=G&&G.set&&G.set.rfL;L=L&&L[side];return L&&(L.m==='white'||L.m==='black')?L:null;}
+function rflType(side,tk){var L=rflOf(side);if(!L)return true;var t=typeOf(tk);if(!t)return false;var hit=(L.t||[]).indexOf(tk)>=0||(L.b||[]).indexOf(t.br)>=0;return L.m==='white'?hit:!hit;}
+function rflHid(pk){return ((G&&G.set&&G.set.rfH)||[]).indexOf(pk)>=0;}
+function rflPreset(side,pk){if(!FPI[pk]||rflHid(pk))return false;var L=rflOf(side);if(!L)return true;if((L.p||[]).indexOf(pk)>=0)return L.m==='white';return flatMix(pk,{}).every(function(q){return rflType(side,q[0]);});}
+function rflBad(side,T){return (T&&T.items||[]).filter(function(q){return typeOf(q[0])&&q[1]>0&&!rflType(side,q[0]);}).map(function(q){return q[0];});}
+function rflTpl(side,T){return !rflBad(side,T).length;}
+function rftShared(){var X=G&&G.set&&G.set.rfX;return Array.isArray(X)?X:[];}
+function rftAll(side){return rftOf(side).concat(rftShared());}
+function rftFind(side,id){if(!id)return null;return rftAll(side).filter(function(q){return q.id===id;})[0]||null;}
+/* 派遣前的名單檢查：允許時回傳空字串，否則回傳原因 */
+function rflWhy(side,src,o){o=o||{};if(src==='preset'){if(rflHid(o.pk))return '這個編制範本已被伺服器管理員停用。';return rflPreset(side,o.pk)?'':'增援名單不允許這個編制範本（'+((FPI[o.pk]||{}).n||o.pk)+'）。';}
+  if(src==='rft'){var bad=rflBad(side,o.T);return bad.length?'增援名單不允許範本中的：'+bad.map(function(k){return typeOf(k).n;}).join('、'):'';}
+  return rflType(side,o.tk)?'':'增援名單不允許「'+((typeOf(o.tk)||{}).n||o.tk)+'」。';}
+function rflClean(L){L=L||{};var f=function(A,n){return Array.isArray(A)?A.filter(function(x,i){return typeof x==='string'&&x.length<=60&&A.indexOf(x)===i;}).slice(0,n):[];};return {m:L.m==='white'||L.m==='black'?L.m:'off',b:f(L.b,80),t:f(L.t,800),p:f(L.p,800)};}
+function rflExport(lists){return {format:RFLFMT,v:1,saved:new Date().toISOString(),lists:[0,1].map(function(s){return rflClean(lists&&lists[s]);})};}
+function rflImport(D){if(!D||D.format!==RFLFMT||!Array.isArray(D.lists))return {err:'這不是增援名單檔（'+RFLFMT+'）'};return {lists:[0,1].map(function(s){return rflClean(D.lists[s]);})};}
+function rflTxt(side){var L=rflOf(side);if(!L)return '不限制';var n=(L.b||[]).length+(L.t||[]).length+(L.p||[]).length;return (L.m==='white'?'白名單：只允許 ':'黑名單：禁止 ')+n+' 項';}
 /* 派遣增援（介面與 AI 共用）：扣點後建立部隊，指定時間從地圖邊緣或指定地點進場 */
 function rpReinfCost(src,o){return src==='preset'?rpPresetCost(o.pk):src==='rft'?rftCost(o.T):rpTypeCost(o.tk,o.n);}
 /* AI：兵力居於劣勢、點數足夠時購買一個營（或連）的增援 */
 function rpAI(){if(!rpOn())return;[0,1].forEach(function(side){var S=SD(side);if(!S.ai)return;var R=rpS(side);if(R.v<300||G.t-(S._rpBuyT||-1e9)<3*3600)return;var hq=sideCmd(side),era=hq?uEra(hq).k:null;if(!era)return;
   var me=sideStr(side),en=sideStr(1-side);if(me.m>en.m*1.15&&R.v<1500)return;
-  var L=FP.filter(function(p){return p.era===era&&p.ech>=1&&p.ech<=2;}).map(function(p){return [p,rpPresetCost(p.k)];}).filter(function(q){return q[1]>0&&q[1]<=R.v*0.7&&!techPresetLock(side,q[0].k).length;}).sort(function(a,b){return b[1]-a[1];});if(!L.length)return;
+  var L=FP.filter(function(p){return p.era===era&&p.ech>=1&&p.ech<=2;}).map(function(p){return [p,rpPresetCost(p.k)];}).filter(function(q){return q[1]>0&&q[1]<=R.v*0.7&&!techPresetLock(side,q[0].k).length&&rflPreset(side,q[0].k);}).sort(function(a,b){return b[1]-a[1];});if(!L.length)return;
   var pick=L[Math.floor(rnd8()*Math.min(3,L.length))],P=pick[0];if(!rpSpend(side,pick[1],'reinf',P.n))return;S._rpBuyT=G.t;var par=hq&&!isLeaf(hq)?hq.id:-1,u=buildPreset(side,P.k,null,par,mb32(hstr('rpai|'+side+'|'+G.t)),'co',null);reix();
   (function w(z){logInit(z);z.ms='ok';z.form='deployed';z.task='hold';z.sup=0;z.fat=0;z.st='off';z.ammo=100;kidsOf(z).forEach(w);})(u);var e=edgePoint(side,0.3+0.4*rnd8()),ob=(G.obj||[])[0],tx=ob?ob.x:G.map.Wm/2,ty=ob?ob.y:G.map.Hm/2;
   u.arr={k:'time',t:G.t+1800,x:e[0],y:e[1],mode:'edge',ord:{k:'reserve',x:e[0]+(tx-e[0])*0.3,y:e[1]+(ty-e[1])*0.3}};dupNames();logE(side,'reinf','以 '+fmt(pick[1])+' 增援點數派遣增援 '+uName(u)+'，約 30 分鐘後抵達',e[0],e[1],u.id);});}
@@ -6999,6 +7021,111 @@ function logSummary(side){var o={need:{food:0,water:0,ammo:0,fuel:0,fod:0},stock
 function airRearm(u){var L=u.lg||logInit(u),s=ST(u),B=baseOf(u),nodes=nodesOf(u.side),N=null,bd=1e18;nodes.forEach(function(q){if(q.k!=='air'&&q.k!=='off'&&q.k!=='port')return;var d=q.k==='off'?(N0edge(u.side,{x:B[0],y:B[1]},8000)?0:1e9):dist(q.x,q.y,B[0],B[1]);if(d<6000&&d<bd){bd=d;N=q;}});
   if(!N||N.k==='off')return true;var fuel=L.lPerH*endOf(s)/3600*0.8/1000,ammo=L.uof*L.basic/1000;if(N.st.fuel<fuel*0.5||N.st.ammo<ammo*0.5)return false;N.st.fuel=Math.max(0,N.st.fuel-fuel);N.st.ammo=Math.max(0,N.st.ammo-ammo);return true;}
 
+/* ==== h40_arms2.js ==== */
+/* ===================== 裝備整合：彈藥（LatoArmory 外彈道與終端彈道）、裝甲（動能與化學能分開計算）、支援裝備與造價 =====================
+   作戰仍以「穿甲等級／裝甲等級（0～16）」結算；物理量（毫米 RHA）與等級的換算如下，內建武器與單位維持原本校準過的等級，
+   自訂的武器、彈藥、裝甲與載具則由 LatoArmory 的物理模型算出毫米數再換成等級。
+   支援裝備（頭盔、防彈衣、夜視、反應裝甲、主動防護、煙幕彈、雷射測距、衛星定位……）的效果都相對於該兵種在該時代的標準配備計算：
+   標準配備的部隊與過去完全相同，多配或少配才會改變。 */
+
+/* ---------- 一、物理量 ↔ 等級 ---------- */
+function lvOfMm(mm){return mm>0?clamp(2.56*Math.log(mm)-5.4,0,16):0;}
+function mmOfLv(L){return L>0?Math.exp((L+5.4)/2.56):0;}
+/* 等效裝甲依受彈機率加權：正面 45%、側面 40%、後方與頂部 15% */
+function armLvOfZones(f,s,r){return 0.45*lvOfMm(f)+0.4*lvOfMm(s)+0.15*lvOfMm(r);}
+
+/* ---------- 二、武器的彈藥、化學能比例與價格（2020 年美元） ---------- */
+var WAMMO={bolt:[['r54lps',1]],semi:[['r762m80',1]],asr1:[['r762msc',1]],asr:[['r762msc',1]],asr2:[['r556m855',1]],asr3:[['r556a1',1]],smg:[['p9fmj',1]],snp:[['r338',1]],
+  mge:[['r762m80',1]],lmg:[['r762m80',1]],gpmg:[['r762m80',1]],hmg:[['h50m33',0.7],['h50ap',0.3]],acan:[['a30fs',0.4],['a30api',0.6]],gl:[['g40hedp',1]],gren:[['gm67',1]],
+  atr2:[['rpg7v',0.7],['rpg7vr',0.3]],atgm:[['tow2a',1]],atgm2:[['tow2a',1]],atgm3:[['javelin',1]],tgun:[['t75m61',1]],tgunh:[['t88pzgr39',1]],atg:[['t75m61',1]],
+  mbt1:[['t105m833',0.6],['t105heat',0.4]],mbt2:[['t120m829a1',0.6],['t120heat',0.4]],tgunm:[['t120m829a1',0.6],['t120heat',0.4]],mbt3:[['t120m829a3',0.6],['t120heat',0.4]],
+  morh:[['mor120',1]],h155:[['art155m107',1]],h155p:[['art155m795',1]],ngm:[['n127he',1]]};
+var WCE={atr:1,atr2:1,atgm1:1,atgm2:1,atgm3:1,atgm:1,gl:0.8,fpv:1,fpv2:1,loit:1,heli:0.8,uav:0.8,mbt1:0.3,mbt2:0.3,mbt3:0.3,tgunm:0.3,aca:0.4,ssm:1,magic:0.5};
+var WUSD={pike:80,sword:250,match:1500,flint:1200,carb:1000,pist:600,rmus:1000,brl:900,bolt:700,semi:900,asr1:700,asr:700,asr2:1300,asr3:3500,smg:800,snp:8000,mge:15000,hmg:15000,lmg:5000,gpmg:8000,gl:2000,gren:0,demo:0,
+  atr:3000,atr2:1500,atgm1:40000,atgm2:150000,atgm:150000,atgm3:180000,atg:120000,morl:15000,morm:60000,morh:150000,tmor:20000,canl:30000,canm:80000,howe:100000,rifg:150000,qf75:300000,h105:1200000,h150:2000000,h155:2500000,h155p:4000000,
+  mrle:150000,mrlc:1500000,mrlm:3000000,aage:80000,aag:200000,aaam:2500000,sam:1500000,manpad:120000,tgun1:40000,tgun:150000,tgunh:250000,mbt1:600000,mbt2:1200000,mbt3:2000000,tgunm:1200000,acan:600000,
+  ngs:30000,ngm:2000000,ngb:15000000,torp:3000000,ssm:2000000,acf:200000,acj:3000000,aca:3000000,acb:2000000,acr:500000,heli:4000000,thel:300000,uav:1000000,fpv:500,fpv2:2000,loit:60000,bomb:5000,breath:0,claw:0,magic:500000};
+var RUSD={match:0.5,flint:0.5,carb:0.5,pist:0.5,rmus:0.6,brl:0.5,bolt:0.4,semi:0.45,asr1:0.3,asr:0.3,asr2:0.42,asr3:0.55,smg:0.25,snp:3,mge:0.4,hmg:3.4,lmg:0.4,gpmg:0.6,gl:45,gren:40,demo:50,atr:500,atr2:900,atgm1:25000,atgm2:93000,atgm:93000,atgm3:200000,
+  atg:450,morl:300,morm:600,morh:900,tmor:300,canl:100,canm:150,howe:200,rifg:300,qf75:400,h105:700,h150:1200,h155:1600,h155p:70000,mrle:800,mrlc:3000,mrlm:160000,aage:200,aag:150,aaam:100,tgun1:100,tgun:450,tgunh:700,mbt1:2500,mbt2:3500,mbt3:9000,tgunm:3500,acan:140,
+  ngs:50,ngm:1500,ngb:10000,acj:5000,aca:20000,acb:30000,heli:100000,uav:100000,bomb:2000,magic:5000};
+var VUSD={horse:3000,wagon:4000,cart:5000,truck:120000,car:80000,ht:250000,apc:1500000,ifv:4000000,tk1:1000000,tkm:1500000,tkh:3000000,mbt:7000000,spg:3500000,recv:2000000,mrlv:1500000,ewv:5000000,gun:0,
+  ship:400000000,sail:5000000,subm:800000000,plane:1500000,jet:50000000,helo:25000000,drone:5000000,airship:20000000,beast:0};
+function wAmmo(w){return w&&(w.am||WAMMO[w.k])||[];}
+function wCe(w){return !w?0:w.ce!==undefined&&w.ce!==''?clamp(+w.ce||0,0,1):WCE[w.k]||0;}
+function wUsd(w){return !w?0:w.usd!==undefined&&w.usd!==''?+w.usd||0:WUSD[w.k]||0;}
+function wRUsd(w){return !w?0:w.rusd!==undefined&&w.rusd!==''?+w.rusd||0:RUSD[w.k]||0;}
+
+/* ---------- 三、支援裝備 ----------
+   效果：pf 破片與爆炸殺傷減免、pb 槍彈殺傷減免（人員）、nv 夜視等級、kc 化學能裝甲＋、kk 動能裝甲＋（車輛）、smk 中彈時自動施放煙幕、
+         art 砲兵系統誤差倍率、acc 直射命中倍率增量、jam 無人機攻擊倍率、hot 熱食、pur 就地取水、med 救護、sp 觀測距離增量
+   覆蓋：人員裝備依人數、車輛裝備依車輛數、單位裝備有一件就生效 */
+var SEQR=[
+ ['helm1','鋼盔','頭盔',1915,60,1.3,'m',{pf:0.08}],['helm2','克維拉頭盔','頭盔',1983,350,1.5,'m',{pf:0.12,pb:0.03}],['helm3','高防護頭盔（ACH／ECH 類）','頭盔',2003,700,1.4,'m',{pf:0.15,pb:0.05}],
+ ['flak','防破片背心','防彈衣',1952,250,3.6,'m',{pf:0.12}],['vest2','軟式防彈衣（NIJ IIIA）','防彈衣',1975,600,2.5,'m',{pf:0.15,pb:0.04}],['plate3','插板防彈衣（NIJ III）','防彈衣',1995,1500,7,'m',{pf:0.18,pb:0.12}],['plate4','插板防彈衣（NIJ IV）','防彈衣',2005,2800,11,'m',{pf:0.2,pb:0.18}],
+ ['gasmask','防毒面具','防護',1916,150,1,'m',{}],['medkit','單兵急救包與止血帶','醫療',1940,80,0.4,'m',{med:0.1}],
+ ['nvg1','第一代夜視鏡','夜視',1965,3000,1,'m',{nv:1}],['nvg3','第三代夜視鏡','夜視',1990,6000,0.6,'m',{nv:1}],['therm','熱像瞄具','夜視',1985,20000,2,'v',{nv:2}],
+ ['radio1','背負式無線電','通信',1938,3000,15,'u',{}],['radio2','數位跳頻無線電','通信',1990,20000,6,'u',{}],['bms','戰場管理系統（數位指管）','通信',2005,60000,20,'u',{sp:0.1}],
+ ['laser','雷射測距儀','火控',1975,10000,2,'v',{acc:0.08}],['fcs','數位火控系統','火控',2000,300000,60,'v',{acc:0.15}],['gps','衛星定位接收器','火控',1993,2000,0.5,'u',{art:0.55}],['met','砲兵氣象站','火控',1960,250000,800,'u',{art:0.7}],
+ ['smk','煙幕彈發射器','煙幕',1940,5000,40,'v',{smk:1}],['slat','柵欄裝甲','附加裝甲',1960,20000,300,'v',{kc:1.2}],['era1','爆炸反應裝甲（第一代）','附加裝甲',1982,150000,1200,'v',{kc:2.2}],
+ ['era2','重型爆炸反應裝甲（接觸-5 類）','附加裝甲',1986,250000,2500,'v',{kc:2.5,kk:0.6}],['aps0','軟殺主動防護（干擾與煙幕）','主動防護',1990,200000,150,'v',{kc:1.2}],['aps1','硬殺主動防護（攔截彈）','主動防護',2010,1000000,800,'v',{kc:3}],
+ ['roller','掃雷滾輪','工兵',1943,150000,8000,'v',{}],['plough','推土鏟','工兵',1943,60000,2500,'v',{}],['jammer','反無人機干擾器','電子戰',2015,300000,200,'u',{jam:0.6}],['sdrone','小型偵察無人機','觀測',2010,15000,3,'u',{sp:0.2}],
+ ['kitchen','野戰廚房','後勤',1900,40000,3000,'u',{hot:1}],['purif','淨水設備','後勤',1960,15000,400,'u',{pur:1}]];
+var SEQ={};SEQR.forEach(function(r){SEQ[r[0]]={k:r[0],n:r[1],cat:r[2],y:r[3],usd:r[4],kg:r[5],cov:r[6],fx:r[7]};});
+function seqOf(k){return (G&&G.seq&&G.seq[k])||SEQ[k]||null;}
+function seqList(){var o=[];for(var k in SEQ)o.push(seqOf(k));if(G&&G.seq)for(var k2 in G.seq)if(!SEQ[k2])o.push(G.seq[k2]);return o;}
+/* 標準配備：依兵種與年代 */
+function defEq(t){var E=ERAI[t.era]||ERA[6],y=E.y,m=t.men||0,v=t.veh||0,br=t.br,o=[],A=function(k,n){n=Math.round(n);if(n>0)o.push([k,n]);};if(E.fan||br==='drg'||br==='mon'||t.dom==='air'||t.dom==='sea'||t.dom==='sub')return o;
+  var foot=/inf|abn|sof|mot|mech|eng|rec|hq|mg|at|ad|mor|art|rkt|sup|ew|uav|cav|pike/.test(br);
+  if(foot&&y>=1915)A(y>=2003?'helm3':y>=1983?'helm2':'helm1',m);
+  if(/inf|abn|sof|mot|mech|eng|rec/.test(br)){if(y>=2005)A('plate4',m*0.9);else if(y>=1995)A('plate3',m*0.9);else if(y>=1975)A('vest2',m*0.9);else if(y>=1952)A('flak',m*0.8);
+    if(y>=1990)A('nvg3',m*0.35);else if(y>=1965)A('nvg1',m*0.05);if(y>=1940)A('medkit',m);}
+  if(y>=1916&&y<1950&&foot)A('gasmask',m);if(y>=1950&&foot)A('gasmask',m);
+  if(y>=1938)A(y>=1990?'radio2':'radio1',Math.max(1,m/30));if(y>=2005&&/hq|arm|mech/.test(br))A('bms',Math.max(1,v/4));if(y>=1993&&foot)A('gps',Math.max(1,m/10));
+  if(/arm|mech|at|rec/.test(br)&&v>0){if(y>=1960)A('smk',v);if(y>=1975&&/arm|at/.test(br))A('laser',v);if(y>=1985)A('therm',v);if(y>=2000&&br==='arm')A('fcs',v);if(utHas(t,'P'))A('aps1',v);}
+  if(/art|rkt/.test(br)){if(y>=1960)A('met',1);if(y>=1993)A('gps',Math.max(1,v));}
+  if(br==='eng'&&y>=1943&&v>0)A('plough',Math.max(1,v/3));if(y>=1900&&/hq|sup/.test(br))A('kitchen',1);if(y>=1960&&/hq|sup|eng/.test(br))A('purif',1);
+  if(y>=2015&&/hq|mech|ad/.test(br))A('jammer',1);if(y>=2010&&/inf|mech|rec/.test(br))A('sdrone',Math.max(1,m/60));return o;}
+/* 支援裝備的合計效果 */
+function eqAgg(E,men,veh){var o={pf:0,pb:0,nv:0,kc:0,kk:0,smk:0,art:1,acc:0,jam:1,hot:0,pur:0,med:0,sp:0},cat={},val=function(e){var F=e.fx||{};return (F.pf||0)+(F.pb||0)+(F.kc||0)+(F.kk||0);};
+  /* 同一類（例如頭盔、防彈衣、附加裝甲）以較好的先配發，覆蓋率最多到全員或全車 */
+  (E||[]).filter(function(x){return seqOf(x[0]);}).sort(function(a,b){return val(seqOf(b[0]))-val(seqOf(a[0]));}).forEach(function(x){var e=seqOf(x[0]),n=x[1]||0;if(!e||n<=0)return;var F=e.fx||{},cov=e.cov==='m'?clamp(n/Math.max(1,men),0,1):e.cov==='v'?clamp(n/Math.max(1,veh),0,1):1;
+    var c=cat[e.cat]||(cat[e.cat]={pf:0,pb:0,kc:0,kk:0,cv:0});var room=Math.max(0,1-c.cv),use=Math.min(room,cov);c.cv+=use;c.pf+=use*(F.pf||0);c.pb+=use*(F.pb||0);c.kc+=use*(F.kc||0);c.kk+=use*(F.kk||0);
+    if(F.nv&&cov>=0.1)o.nv=Math.max(o.nv,F.nv);if(F.smk&&cov>=0.5)o.smk=1;if(F.art)o.art=Math.min(o.art,F.art);if(F.acc)o.acc+=cov*F.acc;if(F.jam)o.jam=Math.min(o.jam,F.jam);if(F.hot)o.hot=1;if(F.pur)o.pur=1;if(F.med)o.med=Math.max(o.med,cov*F.med);if(F.sp)o.sp+=F.sp;});
+  Object.keys(cat).forEach(function(k){var c=cat[k];o.pf+=c.pf;o.pb+=c.pb;o.kc+=c.kc;o.kk+=c.kk;});o.pf=Math.min(0.6,o.pf);o.pb=Math.min(0.5,o.pb);return o;}
+/* 單位的支援裝備係數：相對於標準配備 */
+function eqRecalc(u){var L=u.lg;if(!L)return;var men=u.men0||sum(typesOfU(u),function(m){var t=typeOf(m[0]);return t?t.men*(m[1]||1):0;}),veh=u.veh0||0;
+  var a=eqAgg(L.eq,men,veh),b=eqAgg(L.eq0,men,veh);L.eqF={mF:(1-a.pb)/(1-b.pb),mA:(1-a.pf)/(1-b.pf),nv:a.nv,kc:a.kc-b.kc,kk:a.kk-b.kk,smk:a.smk,art:a.art/b.art,acc:(1+a.acc)/(1+b.acc),jam:a.jam/b.jam,hot:a.hot,pur:a.pur,med:a.med,sp:a.sp-b.sp};}
+function eqInit(u){var L=u.lg;if(!L)return;if(!L.eq0){var E={};typesOfU(u).forEach(function(m){var t=typeOf(m[0]);if(!t)return;var n=m[1]||1;((t.load&&t.load.eq)||defEq(t)).forEach(function(x){E[x[0]]=(E[x[0]]||0)+x[1]*n;});});L.eq0=Object.keys(E).map(function(k){return [k,E[k]];});}
+  if(!L.eq)L.eq=clone(L.eq0);eqRecalc(u);}
+(function(){var b=logInit;logInit=function(u){var r=b(u);eqInit(u);return r;};})();
+(function(){var b=logRecalc;logRecalc=function(u){b(u);var L=u.lg;if(!L)return;if(L.eq0)eqRecalc(u);else eqInit(u);var ce=0,aw=0;(L.w||[]).forEach(function(x){var w=wpnOf(x[0]);if(!w)return;var a=(x[1]||0)*(w.pA||0)*(w.acc||1);ce+=a*wCe(w);aw+=a;});if(L.wpnF)L.wpnF.ce=aw?ce/aw:0;};})();
+(function(){var b=nvOf;nvOf=function(u,s){var v=b(u,s),F=u&&u.lg&&u.lg.eqF;return F&&F.nv>v?F.nv:v;};})();
+
+/* ---------- 四、作戰中的裝甲：動能（穿甲彈）與化學能（聚能裝藥）分開；反應裝甲、柵欄、主動防護加在化學能裝甲上 ---------- */
+(function(){var b=mixStats;mixStats=function(mix){var o=b(mix),w=0,s=0,any=false;mix.forEach(function(m){var t=typeOf(m[0]);if(!t)return;var n=m[1]||1,ww=t.men*n+t.veh*n*8+1;s+=(t.armC!==undefined?t.armC:t.arm)*ww;w+=ww;if(t.armC!==undefined)any=true;});o.armC=any&&w?s/w:o.arm;return o;};})();
+function ceOf(u){var f=u&&u.lg&&u.lg.wpnF;return f&&f.ce!==undefined?f.ce:0;}
+/* 對攻擊者 u 而言，目標 t 的有效裝甲等級 */
+function armVs(t,ts,u){var F=t&&t.lg&&t.lg.eqF,ak=ts.arm+(F?F.kk:0),ce=ceOf(u);if(ce<=0&&!(F&&F.kk))return ts.arm;var ac=(ts.armC!==undefined?ts.armC:ts.arm)+(F?F.kc:0);return ak*(1-ce)+ac*ce;}
+
+/* ---------- 五、支援裝備在作戰中的效果：防彈衣與頭盔減少人員殺傷、反無人機干擾、中彈施放煙幕 ---------- */
+var EQSOFT={fire:'b',melee:'b',art:'f',air:'f',airstrike:'f',carpet:'f',expl:'f',msl:'f',drop:'f'};
+(function(){var b=hit;hit=function(t,src,dm,dv,sup,kind){var F=t&&t.lg&&t.lg.eqF;if(F){var k=EQSOFT[kind];if(k&&dm>0)dm*=k==='b'?F.mF:F.mA;if(F.jam<1&&src&&kind==='fire'){var ss=ST(src);if(ss.br==='uav'||ss.fl.indexOf('d')>=0){dm*=F.jam;dv*=F.jam;}}}
+  b(t,src,dm,dv,sup,kind);
+  if(F&&F.smk&&kind==='fire'&&dv>0.02&&!(t.smkT&&G.t-t.smkT<1200)&&onMap(t)&&typeof smokeAt==='function'){var ts=ST(t);if(ts.hard>=0.5&&ts.dom==='land'){t.smkT=G.t;smokeAt(t.x,t.y,90,180,t.side,t.id);if(!t.smkLog||G.t-t.smkLog>3600){t.smkLog=G.t;logE(t.side,'tac',uName(t)+'中彈後施放煙幕掩護',t.x,t.y,t.id);}}}};})();
+
+/* ---------- 六、造價（2020 年美元） ---------- */
+function eraKit(y){return y<1800?300:y<1900?500:y<1940?800:y<1970?1500:y<2000?3000:6000;}
+function loadUsd(W,V,E,men,h,y,basic,vusd){var c={w:0,a:0,v:0,e:0,p:0,h:0};(W||[]).forEach(function(x){var w=wpnOf(x[0]);if(!w)return;c.w+=x[1]*wUsd(w);c.a+=x[1]*(w.rpu||0)*(basic||1)*wRUsd(w);});
+  if(vusd)c.v=vusd;else(V||[]).forEach(function(x){c.v+=x[1]*(VUSD[x[0]]||0);});(E||[]).forEach(function(x){var e=seqOf(x[0]);if(e)c.e+=x[1]*(e.usd||0);});c.p=(men||0)*eraKit(y);c.h=(h||0)*VUSD.horse;c.t=c.w+c.a+c.v+c.e+c.p+c.h;return c;}
+function typeVusd(t){return t&&t.vusd>0?t.vusd*(t.veh||0):0;}
+function typeUsd(t){if(typeof t==='string')t=typeOf(t);if(!t)return {t:0};var D=t.load||defLoad(t),y=(ERAI[t.era]||ERA[6]).y;return loadUsd(D.w,D.v,(t.load&&t.load.eq)||defEq(t),t.men,D.h,y,t.ind>0?1.5:2,typeVusd(t));}
+function unitUsd(u){if(!u)return {t:0};if(!isLeaf(u)){var o={w:0,a:0,v:0,e:0,p:0,h:0,t:0};leavesOf(u).forEach(function(q){var c=unitUsd(q);for(var k in o)o[k]+=c[k]||0;});if(u.hq){var hq=typeUsd(u.hq);for(var k2 in o)o[k2]+=hq[k2]||0;}return o;}
+  var L=u.lg||logInit(u),vu=0;typesOfU(u).forEach(function(m){var t=typeOf(m[0]);if(t&&t.vusd>0)vu+=typeVusd(t)*(m[1]||1);});return loadUsd(L.w,L.v,L.eq,L.rk?L.rk[0]+L.rk[1]+L.rk[2]:u.men0,L.h0,uEra(u).y,L.basic,vu);}
+function sideUsd(side){var o={w:0,a:0,v:0,e:0,p:0,h:0,t:0};G.units.forEach(function(u){if(u.side!==side||!isLeaf(u)||u.irr)return;var c=unitUsd(u);for(var k in o)o[k]+=c[k]||0;});return o;}
+function usdTxt(v){v=+v||0;return v>=1e8?'US$'+fx(v/1e8,v>=1e9?1:2)+' 億':v>=1e4?'US$'+fmt(Math.round(v/1e4))+' 萬':v<100?'US$'+fx(v,2):'US$'+fmt(Math.round(v));}
+/* 增援點數可依造價計算（設定：每點多少美元） */
+(function(){var b=rpTypeCost;rpTypeCost=function(tk,n){var per=+(G&&G.set&&G.set.rpUsd)||0;if(per>0)return Math.max(1,Math.round(typeUsd(tk).t*(n||1)/per));return b(tk,n);};})();
+
 /* ==== u_scn.js ==== */
 /* ===================== 快速想定、自動部署、自動目標點 ===================== */
 var SCN=[
@@ -7336,7 +7463,7 @@ async function mpQuick(key,seed){var sc=SCN.filter(function(q){return q.k===key;
 
 /* ---------- 七、伺服器：指揮官席位、部署區、部署操作、匯入編制 ---------- */
 /* 每一方的指揮官人數與 AI／玩家；human[i] 為真表示第 i 位指揮官由玩家擔任 */
-function mpTeams(side,n,human){var S=G.sides[side];n=clamp(n|0,1,3);var cur=cmList(side);if(cur.length!==n){if(!G.started)teamSetup(side,n,'split');else n=cur.length;}var L=cmList(side);
+function mpTeams(side,n,human){var S=G.sides[side];n=clamp(n|0,1,8);var cur=cmList(side);if(cur.length!==n){if(!G.started)teamSetup(side,n,'split');else n=cur.length;}var L=cmList(side);
   L.forEach(function(R,i){R.ai=!human[i];});if(L.length===1){S.ai=!human[0];L[0].ai=S.ai;}else{S.ai=L.some(function(R){return R.ai;});cmSync(side);}S.pu=0;cmBump();return L.map(function(R){return {n:R.n,ai:R.ai,roots:R.roots.length};});}
 function mpCanCmd(u,s,cm){if(!u||u.side!==s)return false;var S=G.sides[s],L=S.cm||[];if(L.length>1){var i=cmOf(u);if(cm>=0&&i!==cm)return cmMay(u,cm);return !(L[i]&&L[i].ai);}if(!S.ai)return true;return S.pu>0&&inTree(u,S.pu);}
 function mpZone(side,dep){var MP=G.map,e=G.sides[side].edge||(side?'E':'W'),f=clamp(dep||0.4,0.15,0.6);return {e:e,f:f,x0:e==='E'?MP.Wm*(1-f):0,x1:e==='W'?MP.Wm*f:MP.Wm,y0:e==='S'?MP.Hm*(1-f):0,y1:e==='N'?MP.Hm*f:MP.Hm};}
@@ -7413,8 +7540,9 @@ function mpMyCmd(s,cm,v){var S=G.sides[s],L=S.cm||[];if(L.length>1){var R=L[cm<0
   if(v>0){var u=uById(v);if(!u||u.side!==s)return {err:'找不到這個編制。'};}S.ai=v!==0;S.pu=v>0?v:0;if(L[0])L[0].ai=S.ai;decLog(s,'玩家',v===0?'親自指揮全軍':v<0?'把全軍交給 AI 指揮':'只指揮'+uName(uById(v))+'，其餘由 AI 指揮');return {ok:1};}
 /* 增援派遣（與單機版「增援」對話框相同的流程，在伺服器上執行） */
 function mpRf(side,RF){RF=RF||{};var src=RF.src,T=null,cost=0,lock=[];if(!G.started)return {err:'作戰尚未開始。'};
-  if(src==='rft'){T=rftOf(side).filter(function(q){return q.id===RF.rft;})[0];if(!T||!(T.items||[]).some(function(q){return typeOf(q[0])&&q[1]>0;}))return {err:'先建立或選擇自訂範本。'};cost=rftCost(T);lock=rftLock(side,T);}
+  if(src==='rft'){T=rftFind(side,RF.rft);if(!T||!(T.items||[]).some(function(q){return typeOf(q[0])&&q[1]>0;}))return {err:'先建立或選擇自訂範本。'};cost=rftCost(T);lock=rftLock(side,T);}
   else if(src==='preset'){if(!FPI[RF.pk])return {err:'找不到這個編制範本。'};cost=rpPresetCost(RF.pk);lock=techPresetLock(side,RF.pk);}else{if(!typeOf(RF.tk))return {err:'找不到這個單位類型。'};cost=rpTypeCost(RF.tk,Math.max(1,RF.n||1));lock=techTypeLock(side,RF.tk);}
+  var why=rflWhy(side,src,{pk:RF.pk,tk:RF.tk,T:T});if(why)return {err:why};
   if(lock.length)return {err:'需要先解鎖：'+lock.map(function(k){return wpnOf(k)?wpnOf(k).n:k;}).join('、')};
   if(rpOn()&&rpS(side).v+1e-6<cost)return {err:'增援點數不足：需要 '+fmt(cost)+'，現有 '+fmt(Math.floor(rpS(side).v))};
   var r=mb32(hstr('rf|'+G.t+'|'+side+'|'+(G.nid||0))),u,par=RF.par>=0&&uById(RF.par)&&uById(RF.par).side===side?RF.par:-1,nm=typeof RF.nm==='string'?RF.nm.slice(0,60):null;
@@ -7474,6 +7602,7 @@ if(typeof GKEYS!=='undefined')GKEYS.push('wsys','hyd');
 if(typeof GKEYS!=='undefined')GKEYS.push('sup');
 if(typeof GKEYS!=='undefined')GKEYS.push('dirs','dirSeq');
 if(typeof GKEYS!=='undefined')GKEYS.push('cbx','cbgr','cbUse','cbSeq');
+if(typeof GKEYS!=='undefined')GKEYS.push('ammo','aseq','seq','eseq','armor','arseq','vdes','vseq','mats','vmods');
 function wpnChanged(){G._tv=(G._tv||1)+1;G.units.forEach(function(u){if(u.lg)logRecalc(u);});}
 function wfTxt(u){if(!u.lg||!u.lg.wpnF)return '';var f=u.lg.wpnF,p=[];if(Math.abs(f.p-1)>0.02)p.push('對人 ×'+fx(f.p,2));if(Math.abs(f.a-1)>0.02)p.push('對裝甲 ×'+fx(f.a,2));if(f.pAdd)p.push('對人 +'+fx(f.pAdd,2));if(f.aAdd)p.push('對裝甲 +'+fx(f.aAdd,2));if(Math.abs(f.penD)>0.05)p.push('穿甲 '+sg(f.penD,1));if(f.penAbs)p.push('穿甲 '+fx(f.penAbs,1));if(Math.abs(f.sup-1)>0.02)p.push('壓制 ×'+fx(f.sup,2));if(Math.abs(f.rng-1)>0.02)p.push('射程 ×'+fx(f.rng,2));if(Math.abs(f.ind-1)>0.02)p.push('間接射程 ×'+fx(f.ind,2));if(f.indAbs)p.push('間接射程 '+kmTxt(f.indAbs));if(f.aaD>0.05)p.push('防空 +'+fx(f.aaD,1));return p.length?p.join('、'):'與時代標準配備相同';}
 

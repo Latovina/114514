@@ -48,7 +48,7 @@ id "$USR" >/dev/null 2>&1 || useradd --system --home-dir "$APP" --no-create-home
 mkdir -p "$APP/public" "$APP/data"
 if [ "$SRC" != "$APP" ]; then
   cp -f "$SRC/server.js" "$SRC/worker.js" "$SRC/simcore.js" "$SRC/package.json" "$APP/"
-  cp -f "$SRC/public/index.html" "$APP/public/index.html"
+  cp -f "$SRC"/public/*.html "$APP/public/"
   for f in "$SRC"/*.md "$SRC/install-debian.sh"; do [ -f "$f" ] && cp -f "$f" "$APP/"; done
 fi
 
