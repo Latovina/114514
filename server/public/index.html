@@ -4882,14 +4882,15 @@ function moraleStep(){var fearSrc=G.units.filter(function(u){return onMap(u)&&ST
 function fatigueStep(){var night=G.env.light<0.3;G.units.forEach(function(u){if(!onMap(u))return;var s=ST(u),mv=G.t-(u.movedAt||-1e9)<DT+1,cb=G.t-(u.fired||-1e9)<DT+1||G.t-(u.uf||-1e9)<DT+1,d=0;
     if(mv)d+=(s.mobi===0?0.12*(u.lg&&u.lg.ld?clamp(1+(u.lg.ld-30)/50,0.8,1.6):1):s.mobi===1?0.1:s.dom==='land'?0.05:0.02)*paceOf(u)[3];if(cb)d+=0.08;if(night&&(mv||cb))d+=0.05;if(!mv&&!cb)d-=u.ord&&u.ord.k==='rest'?0.25:0.06;u.fat=clamp(u.fat+d,0,100);});}
 /* ---------- 目標點：單方地面部隊在範圍內 10 分鐘即取得控制 ---------- */
-function objStep(){(G.obj||[]).forEach(function(ob){var n=[0,0];gridNear(ob.x,ob.y,ob.r||800,function(u){if(!onMap(u)||u.ms==='rout'||ST(u).dom==='air'||u.st==='air')return;if(dist(u.x,u.y,ob.x,ob.y)<=(ob.r||800))n[u.side]+=u.men+u.veh*8;});
-    var hold=n[0]>0&&n[1]===0?0:n[1]>0&&n[0]===0?1:-1;if(hold>=0&&ob.own!==hold){if(ob.cand!==hold){ob.cand=hold;ob.ct=G.t;}else if(G.t-ob.ct>=600){var prev=ob.own;ob.own=hold;ob.tOwn=G.t;logE(hold,'obj',G.sides[hold].name+'佔領目標「'+ob.name+'」'+(prev>=0?'（自'+G.sides[prev].name+'手中奪取）':''),ob.x,ob.y);if(G.onPause&&apOn('obj'))G.onPause('目標易手');}}else if(hold<0||ob.own===hold){ob.cand=-1;}});}
+function objStep(){(G.obj||[]).forEach(function(ob){var n=[0,0],R=obR(ob);gridNear(ob.x,ob.y,R,function(u){if(!onMap(u)||u.ms==='rout'||ST(u).dom==='air'||u.st==='air')return;if(dist(u.x,u.y,ob.x,ob.y)<=R)n[u.side]+=u.men+u.veh*8;});
+    var hold=n[0]>0&&n[1]===0?0:n[1]>0&&n[0]===0?1:-1;if(hold>=0&&ob.own!==hold){if(ob.cand!==hold){ob.cand=hold;ob.ct=G.t;}else if(G.t-ob.ct>=objCapT()){var prev=ob.own;ob.own=hold;ob.tOwn=G.t;logE(hold,'obj',G.sides[hold].name+'佔領目標「'+ob.name+'」'+(prev>=0?'（自'+G.sides[prev].name+'手中奪取）':''),ob.x,ob.y);if(G.onPause&&apOn('obj'))G.onPause('目標易手');}}else if(hold<0||ob.own===hold){ob.cand=-1;}});}
 /* ---------- 司令部重建 ---------- */
 function hqRebuild(){G.units.forEach(function(F){if(!F.hqLost||!alive(F)||G.t<F.hqRe)return;var L=leavesOf(F).filter(onMap);if(!L.length)return;F.hqLost=0;F.men=F.men0*0.6;F.veh=F.veh0*0.6;var c=centroid(L);F.x=c[0];F.y=c[1];logE(F.side,'hq',uName(F)+'的司令部完成重建',F.x,F.y,F.id);});}
 /* ---------- 勝負 ---------- */
-function score(side){var s=0;(G.obj||[]).forEach(function(o){if(o.own===side)s+=o.pts||10;});var en=G.stats[enemyOf(side)],me=G.stats[side];s+=Math.round((en.cas+en.vl*8+en.capt)/200)-Math.round((me.cas+me.vl*8+me.capt)/400);return s;}
-function checkEnd(){var S=G.set,why=null,win=-1;if(S.dur&&G.t>=S.dur*3600)why='時間到';[0,1].forEach(function(i){var st=sideStr(i);if(st.m0>0&&st.f<0.15){why=G.sides[i].name+'兵力崩潰';win=enemyOf(i);}});
-  if(S.end==='obj'&&G.obj.length&&G.obj.every(function(o){return o.own===G.obj[0].own&&o.own>=0&&G.t-(o.tOwn||0)>=7200;})){why='一方控制全部目標兩小時';win=G.obj[0].own;}
+function score(side){var s=0,ow=typeof gmObjW==='function'?gmObjW():1;(G.obj||[]).forEach(function(o){if(o.own===side)s+=(o.pts||10)*ow;});if(G.gm&&G.gm.tix&&+G.set.tix>0)s+=Math.round(Math.max(0,G.gm.tix[side])/5);s=Math.round(s);var en=G.stats[enemyOf(side)],me=G.stats[side];s+=Math.round((en.cas+en.vl*8+en.capt)/200)-Math.round((me.cas+me.vl*8+me.capt)/400);return s;}
+function checkEnd(){var S=G.set,why=null,win=-1;if(S.dur&&G.t>=S.dur*3600)why='時間到';var cl=typeof gmCollapse==='function'?gmCollapse():0.15;[0,1].forEach(function(i){var st=sideStr(i);if(st.m0>0&&st.f<cl){why=G.sides[i].name+'兵力崩潰';win=enemyOf(i);}});
+  if(S.end==='obj'&&G.obj.length&&G.obj.every(function(o){return o.own===G.obj[0].own&&o.own>=0&&G.t-(o.tOwn||0)>=objHoldT();})){why='一方控制全部目標 '+durTxt(objHoldT());win=G.obj[0].own;}
+  if(typeof gmEnd==='function'){var X=gmEnd();if(X){why=X.why;win=X.win;}}
   if(!why)return;if(win<0){var a=score(0),b=score(1);win=a>b?0:b>a?1:-1;}G.over={why:why,win:win,t:G.t,score:[score(0),score(1)]};btCloseAll();logE(-1,'end','作戰結束（'+why+'）：'+(win>=0?G.sides[win].name+'獲勝':'雙方不分勝負')+'。');if(G.onPause&&apOn('end'))G.onPause('作戰結束');}
 /* ---------- 玩家下令：命令由本方最高司令部經指揮鏈傳遞 ---------- */
 function issue(u,k,p){p=p||{};if(k==='ambush'||k==='delay'||k==='holdfast'){p.opt=Object.assign({},p.opt||{},{post:k});if(k==='ambush')p.opt.roe=p.opt.roe||'close';if(k==='delay')p.opt.maxb=p.opt.maxb||4;p.dk=k;k='defend';}
@@ -5915,7 +5916,7 @@ function sgDirect(s){return s.fl.indexOf('X')>=0&&!(s.ind>0)&&s.dom==='land';}
 function sgStep(){var MP=G.map;G.units.forEach(function(u){if(!isLeaf(u)||!onMap(u)||u.ms==='rout'||u.ammo<=0||u.men<5)return;var s=ST(u);if(!sgDirect(s)||u.task==='go'||u.path||u.formTo)return;
   var R=Math.min(s.rM||800,1600),o=u.ord,tx=o&&o.x!==undefined?o.x:null,ty=o&&o.y!==undefined?o.y:null,best=-1,bd=1e18;
   brushCells(MP,u.x/MP.cs,u.y/MP.cs,Math.ceil(R/MP.cs),function(k){if(MP.ft[k]<4)return;var p=cellXY(k),d=dist(p[0],p[1],u.x,u.y);if(d>R)return;var sc=d+(tx!==null?dist(p[0],p[1],tx,ty)*0.5:0);if(sc<bd){bd=sc;best=k;}});
-  if(best<0)return;var p=cellXY(best),en=enemyOf(u.side);if(enemyNear(u.side,p[0],p[1],1500)===0&&!(G.obj||[]).some(function(q){return q.own===en&&dist(q.x,q.y,p[0],p[1])<Math.max(2000,(q.r||0)*2.5);}))return;
+  if(best<0)return;var p=cellXY(best),en=enemyOf(u.side);if(enemyNear(u.side,p[0],p[1],1500)===0&&!(G.obj||[]).some(function(q){return q.own===en&&dist(q.x,q.y,p[0],p[1])<Math.max(2000,obR(q)*2.5);}))return;
   var n=Math.max(1,Math.round((u.veh||1)*strFrac(u)));for(var i=0;i<n;i++)wallHit(u,s,p[0],p[1],80);u.ammo=Math.max(0,u.ammo-1.5);u.fired=G.t;u.lastArt=G.t;
   if(!u.sgLog||G.t-u.sgLog>3600){u.sgLog=G.t;logE(u.side,'arty',uName(u)+'以攻城砲轟擊'+placeTxt(p[0],p[1])+'的城牆與工事',p[0],p[1],u.id);}
   if(G.civ&&rnd()<0.35)civHit(p[0]+(rnd()-0.5)*400,p[1]+(rnd()-0.5)*400,250,0.0003*n,'art',u.side);});}
@@ -9004,7 +9005,7 @@ function rpStep(){if(!G.started||(!rpOn()&&!techOn()))return;var d=calDayL();
     var cas=ES.cas||0,vl=ES.vl||0;if(R.ecas<0){R.ecas=cas;R.evl=vl;}var dc=cas-R.ecas,dv=vl-R.evl;R.ecas=cas;R.evl=vl;if(dc>0||dv>0){rpAdd(side,dc*RPM.fightMan+dv*RPM.fightVeh,'fight');if(techOn()){var tt=dc*0.01+dv*0.1;T.v+=tt;T.earn+=tt;}}
     var pe=MS.powEvac||0;if(R.pow<0)R.pow=pe;if(pe>R.pow){rpAdd(side,(pe-R.pow)*RPM.pow,'pow');R.pow=pe;}
     (G.obj||[]).forEach(function(ob){var was=R.own[ob.id],pts=ob.pts||10;if(ob.own===side&&was!==side&&was!==undefined){rpAdd(side,pts*RPM.cap,'cap','佔領「'+ob.name+'」');if(techOn()){T.v+=pts*0.5;T.earn+=pts*0.5;}}R.own[ob.id]=ob.own;
-      if(ob.own===side){var threat=enemyNear(side,ob.x,ob.y,(ob.r||800)*2.5)>0;rpAdd(side,pts*RPM.hold/6*(threat?2:1),'hold');}});});}
+      if(ob.own===side){var threat=enemyNear(side,ob.x,ob.y,obR(ob)*2.5)>0;rpAdd(side,pts*RPM.hold/6*(threat?2:1),'hold');}});});}
 /* 後送傷患：在醫療單位收治期滿、沒有歸隊的傷患後送出地圖 */
 (function(){var b=medStep;medStep=function(){var snap=[];if(rpOn())G.units.forEach(function(m){if(m.pat&&m.pat.length)m.pat.forEach(function(p){snap.push([m.side,p,p.n]);});});b();
   snap.forEach(function(q){if(q[1].n===0&&q[2]>0.05)rpAdd(q[0],q[2]*0.65*RPM.evac,'evac');});};})();
@@ -9780,7 +9781,7 @@ function actAttack(X){var P=X.P,n=0,used={},C0=cOf(X.F)||[X.F.x,X.F.y],wp=weakPo
     var ok=aiAttack(X.side,g,C,tg,X.en,X.groups.some(function(f){return roleOf(f)==='fire';}),X.lvl);if(ok&&g.ord){/* 依個性改寫最新的命令選項（於傳遞途中） */}n+=ok?1:0;used[g.id]=1;});
   pm.forEach(function(g,i){var t=wp[(i+men.length)%Math.max(1,wp.length)]||main;if(aiOrder(X,g,'attack',{x:t.x,y:t.y,opt:{tac:'firemove',tol:P.tol}}))n++;});
   X.groups.forEach(function(f){if(roleOf(f)==='fire'&&pDir(X,f)){aiOrder(X,f,'bombard',{x:main.x,y:main.y,r:600});return;}if(roleOf(f)==='fire'&&aiControls(f)&&(isLeaf(f)?[f]:leavesOf(f)).some(function(q){return sgDirect(ST(q));})){/* 攻城砲：推進到城牆射程內持續轟擊（目標固定為最近的敵方有城牆的目標，不隨主攻方向改變） */var Cf=cOf(f)||[f.x,f.y],wo=X.notMine.filter(function(q){return inWalls(q.x,q.y);}).sort(function(a,b){return dist(Cf[0],Cf[1],a.x,a.y)-dist(Cf[0],Cf[1],b.x,b.y);})[0]||main;
-    if(!(f.ord&&f.ord.k==='bombard'&&f.ord.x!==undefined&&dist(f.ord.x,f.ord.y,wo.x,wo.y)<Math.max(2500,(wo.r||0)*2))&&!(f.pend&&f.pend.length)&&!G.msgs.some(function(q){return q.to===f.id;}))issue(f,'bombard',{x:wo.x,y:wo.y,r:300,dur:12*3600});return;}if(roleOf(f)==='fire'&&!busyF(f)&&aiControls(f)){var m=men[0];issue(f,P.fire>0.8?'bombard':'support',P.fire>0.8?{x:main.x,y:main.y,r:600,dur:Math.max(1800,P.prep*60)}:{sup:m?m.id:undefined});}});
+    if(!(f.ord&&f.ord.k==='bombard'&&f.ord.x!==undefined&&dist(f.ord.x,f.ord.y,wo.x,wo.y)<Math.max(2500,obR(wo)*2))&&!(f.pend&&f.pend.length)&&!G.msgs.some(function(q){return q.to===f.id;}))issue(f,'bombard',{x:wo.x,y:wo.y,r:300,dur:12*3600});return;}if(roleOf(f)==='fire'&&!busyF(f)&&aiControls(f)){var m=men[0];issue(f,P.fire>0.8?'bombard':'support',P.fire>0.8?{x:main.x,y:main.y,r:600,dur:Math.max(1800,P.prep*60)}:{sup:m?m.id:undefined});}});
   aiAir(X,main);aiNav(X,main);var mk=Math.round(main.x/1500)+'|'+Math.round(main.y/1500);if(n&&(X.F.aiMk!==mk||G.t-(X.F.aiMkT||-1e9)>2*3600)){X.F.aiMk=mk;X.F.aiMkT=G.t;}else n=0;if(n)askPeer(X,main,'attack');if(n)aiSay(X,'主攻方向：'+placeTxt(main.x,main.y)+'（'+main.why+'）'+(feint?'，以佯攻牽制':'')+(mistake?'——研判錯誤，主攻選在非要害方向':''),{why:main.why,intel:X.intelQ,est:Math.round(X.enM),mistake:mistake});if(!n&&X.groups.some(function(g){var o=g.ord;return o&&/attack|storm|breakthrough|crossing|siege|penetrate|joint/.test(o.k)&&o.st!=='done'&&G.t-(o.t1||o.ti)<6*3600;})){/* 進攻仍在進行：不必改採防禦 */return true;}return n>0;}
 /* 向友鄰的玩家部隊請求協同（平行單位沒有指揮權，只能請求；經指揮鏈傳遞，有延遲） */
 function askPeer(X,P,k){var S=SD(X.side);if(!S.ai||!(S.pu>0)||!P)return;var R=uById(S.pu);if(!R||!alive(R)||isLeaf(R)||inTree(R,X.F.id)||inTree(X.F,R.id))return;if(G.t-(X.F.peerT||-1e9)<3*3600)return;var C=cOf(R);if(!C||dist(C[0],C[1],P.x,P.y)>20000)return;X.F.peerT=G.t;reqSend(X.F,R,k,{x:P.x,y:P.y});aiSay(X,'請求友鄰'+uName(R)+'（玩家指揮）'+REQN[k]+'（'+placeTxt(P.x,P.y)+'）');}
@@ -11015,6 +11016,73 @@ function rsmStep(){if(!rsmOn())return;G.units.forEach(function(u){var P=u.pin;if
 /* 給畫面：部隊目前是否在等待恢復玩家命令 */
 function rsmState(u){var P=u&&u.pin;if(!P||!rsmOn()||u.ord&&u.ord.pl||!P.ep)return null;var o=P.o,atk=RSMA.test(o.k),quiet=600*(1+(P.rn||0)),uf=u.uf===undefined?1e9:G.t-u.uf;
   var wait=u.ms==='rout'?'潰散，重新集結後':uf<quiet?'脫離接觸約 '+durTxt(quiet-uf)+'後':u.task==='go'?'目前行動結束後':atk&&(u.ms!=='ok'||u.mor<50)?'士氣恢復後':'即將';return {o:o,by:P.by,wait:wait,rn:P.rn||0};}
+/* ===================== 目標區：每個目標點的範圍（半徑）可以調整；設定頁的「目標區範圍」倍率套用到所有目標 =====================
+   範圍影響佔領（範圍內只有一方的地面部隊）、守住目標的增援點數、資源收集的安全距離與地圖上的目標圈。
+   另可設定佔領所需時間（預設 10 分鐘）與「控制全部目標」結束條件需要守住的時間（預設 2 小時）。 */
+function objRm(){var m=G&&G.set?+G.set.objRm:1;return m>0?m:1;}
+/* 目標的實際範圍（公尺） */
+function obR(o){return Math.max(50,(o&&+o.r>0?+o.r:800)*objRm());}
+/* 設定單一目標的基本範圍（不含倍率），以 50 公尺為單位 */
+function obSetR(o,r){if(!o)return;o.r=clamp(Math.round((+r||800)/50)*50,100,30000);}
+function objCapT(){var m=G&&G.set?+G.set.objCap:0;return (m>0?m:10)*60;}
+function objHoldT(){var h=G&&G.set?+G.set.objHold:0;return (h>0?h:2)*3600;}
+/* ===================== 遊戲模式：把現有的機制組合成不同玩法，並加上新的勝負規則 =====================
+   模式是一組設定（殺傷效率、增援點數、時限、命令延遲、迷霧、核武、喪屍、突發事件、目標區……）加上勝負規則；選定後仍可在設定頁逐項調整。
+   換模式時先把上一個模式改過的設定恢復原狀（G.set.gmB），再套用新模式。
+   勝負規則（設定欄位）：collapse 兵力崩潰門檻、objW 目標在計分中的權重、rpGain 戰功點數倍率、rpRep 每日配給隨後方民心增減、
+   opin 後方民心隨戰況變化、supLose 民心崩潰門檻、tix 兵力票數、decap 最高司令部被摧毀即戰敗。執行狀態在 G.gm。 */
+var GMODE={
+  std:{n:'標準',d:'依想定與設定頁的內容，不另外調整。',s:{}},
+  leth:{n:'高殺傷',d:'所有武器的殺傷效率 2.5 倍，傷亡與士氣崩潰都更快，戰鬥很快分出勝負。',s:{leth:{all:2.5}}},
+  prest:{n:'高聲望（戰功點數）',d:'開啟增援點數；殺傷敵軍、後送戰俘與傷患、佔領與守住目標得到 3 倍點數，每日配給隨後方民心增減。仗打得好、軍紀好，增援就多。',s:{rp:true,rpGain:3,rpRep:true}},
+  opin:{n:'民心戰',d:'後方民心決定勝負：本方傷亡、殺害平民、戰爭罪行被揭露、丟失目標與長期作戰都會降低民心，殺傷敵軍與佔領目標會提振；一方民心跌破 25，政府接受停火、判定戰敗。開啟平民與戰地記者。',s:{civ:true,press:true,opin:true,supLose:25}},
+  conq:{n:'搶點戰',d:'雙方各有 600 張兵力票：敵方控制的每個目標都讓本方持續扣票（目標分數越高扣得越快），傷亡也會扣票；票數歸零即戰敗，時間到則比剩餘票數與分數。目標範圍 1.5 倍、3 分鐘就能易手。',s:{tix:600,objCap:3,objRm:1.5}},
+  annih:{n:'殲滅戰',d:'不計目標分數，只看殲滅多少敵軍；一方兵力降到三成以下即戰敗；作戰時限至少 72 小時。',s:function(S){return {collapse:0.3,objW:0,dur:Math.max(+S.dur||24,72)};}},
+  decap:{n:'斬首戰',d:'雙方開戰時的最高司令部一旦被摧毀即戰敗。保護好自己的總部，找出並打掉對方的總部。',s:{decap:true}},
+  blitz:{n:'閃電戰',d:'12 小時內決勝：命令延遲減半、殺傷 1.5 倍、目標 5 分鐘易手，一方控制全部目標 1 小時即獲勝。',s:{dur:12,delayMul:0.5,leth:{all:1.5},objCap:5,end:'obj',objHold:1}},
+  attr:{n:'消耗戰',d:'至少一週的長期作戰：殺傷降為 0.6 倍，開啟補充兵、裝備修復與增援點數，補給、輪替與民心決定勝負。',s:function(S){return {dur:Math.max(+S.dur||24,168),sustain:true,leth:{all:0.6},rp:true};}},
+  iron:{n:'鐵血指揮',d:'硬派玩法：戰場迷霧與友軍迷霧全開、命令延遲 1.5 倍、電腦積極進攻，部隊不會自動恢復被打斷的命令。',s:{fog:true,ffog:true,delayMul:1.5,aiLvl:2,resume:false}},
+  nuke:{n:'核子戰爭',d:'雙方各有 4 枚 20 千噸的戰術核武，電腦也會使用。',s:{nuke:{on:true,n:4,y:20,ai:true}}},
+  zed:{n:'喪屍末日',d:'開戰一小時後，市鎮、巢穴與地圖邊緣同時爆發末日等級的屍潮，戰死者會起屍；兩軍要同時對付敵人與屍群。',s:{zed:{on:true,k:'zombie',lv:3,src:'all',rise:true,civ:true,t0:1}}},
+  chaos:{n:'末日混戰',d:'所有危機疊在一起：殺傷 2 倍、雙方都有戰術核武、兩小時後爆發喪屍與寄生蟲、突發事件加倍。',s:{leth:{all:2},nuke:{on:true,n:3,y:10,ai:true},zed:{on:true,k:'mixed',lv:2,src:'town',rise:true,civ:true,t0:2},evt:{on:true,freq:2}}}};
+function gmPreset(k,S){var M=GMODE[k];if(!M)return {};var p=typeof M.s==='function'?M.s(S||{}):M.s;return JSON.parse(JSON.stringify(p||{}));}
+/* 套用模式到一份設定：先恢復上一個模式改過的欄位，再寫入新模式（物件欄位合併，例如殺傷效率只改整體倍率） */
+function gmApplySet(S,k){if(!S)return S;var B=S.gmB||{};Object.keys(B).forEach(function(f){if(B[f]===null)delete S[f];else S[f]=JSON.parse(JSON.stringify(B[f]));});
+  var P=gmPreset(k,S),nb={};Object.keys(P).forEach(function(f){nb[f]=S[f]===undefined?null:JSON.parse(JSON.stringify(S[f]));var v=P[f];S[f]=v&&typeof v==='object'&&!Array.isArray(v)&&S[f]&&typeof S[f]==='object'?Object.assign({},S[f],v):v;});
+  S.gmB=nb;S.gm=GMODE[k]?k:'std';return S;}
+function gmKey(){var k=G&&G.set&&G.set.gm;return GMODE[k]?k:'std';}
+function gmCollapse(){var v=G&&G.set?+G.set.collapse:0;return v>0&&v<1?v:0.15;}
+function gmObjW(){var v=G&&G.set?G.set.objW:undefined;return v===undefined||v===null||v===''||!isFinite(+v)?1:Math.max(0,+v);}
+function gmRpGain(){var v=G&&G.set?+G.set.rpGain:0;return v>0?v:1;}
+/* ---------- 執行狀態：開戰時的最高司令部、傷亡基準、兵力票數、民心 ---------- */
+function gmM0(side){var m=0,v=0;G.units.forEach(function(u){if(u.side===side&&isLeaf(u)&&!u.irr){m+=u.men0||0;v+=u.veh0||0;}});return [Math.max(1,m),Math.max(1,v)];}
+function gmCk(side){return G.civ&&G.civ.cs&&G.civ.cs[side]?G.civ.cs[side].civK||0:0;}
+function gmInit(){var X=G.gm;if(X)return X;X=G.gm={hq:[0,1].map(function(s){var T=sideCmd(s);return T&&!isLeaf(T)?T.id:-1;}),pc:[0,1].map(function(s){var S=G.stats[s]||{};return {cas:S.cas||0,vl:S.vl||0,ck:gmCk(s)};}),
+  m0:[gmM0(0),gmM0(1)],own:{},tix:null,home:null,lw:[0,0],t0:G.t};(G.obj||[]).forEach(function(o){X.own[o.id]=o.own;});return X;}
+function gmStep(){if(!G.started||G.over)return;var S=G.set,X=gmInit();
+  /* 兵力票數：每兩分鐘結算（敵方控制的目標扣票、傷亡扣票） */
+  if(+S.tix>0){if(!X.tix)X.tix=[+S.tix,+S.tix];if(G.step%4===0)[0,1].forEach(function(s){var e=1-s,dr=0;(G.obj||[]).forEach(function(o){if(o.own===e)dr+=(o.pts||10)/10;});
+      var St=G.stats[s]||{},P=X.pc[s],dc=(St.cas||0)-(P.tc===undefined?P.cas:P.tc),dv=(St.vl||0)-(P.tv===undefined?P.vl:P.tv);P.tc=St.cas||0;P.tv=St.vl||0;X.tix[s]=Math.max(0,Math.round((X.tix[s]-dr*2-Math.max(0,dc)/20-Math.max(0,dv))*10)/10);});}
+  /* 後方民心：每十分鐘依戰況調整 */
+  if(S.opin&&G.press&&G.press.home&&G.step%20===0){var H=G.press.home;[0,1].forEach(function(s){var e=1-s,me=G.stats[s]||{},en=G.stats[e]||{},P=X.pc[s],Q=X.pc[e],M=X.m0[s],ME=X.m0[e];
+      var dc=(me.cas||0)-(P.hc===undefined?P.cas:P.hc),dv=(me.vl||0)-(P.hv===undefined?P.vl:P.hv),de=(en.cas||0)-(Q.he===undefined?Q.cas:Q.he),ck=gmCk(s)-(P.hk===undefined?P.ck:P.hk);
+      var d=-Math.max(0,dc)/M[0]*80-Math.max(0,dv)/M[1]*20+Math.max(0,de)/ME[0]*25-Math.max(0,ck)/150-0.04;
+      (G.obj||[]).forEach(function(o){var was=X.own[o.id];if(was===undefined)return;if(o.own===s&&was!==s)d+=2+(o.pts||10)/10;else if(was===s&&o.own!==s)d-=2+(o.pts||10)/10;});
+      var h0=H[s];H[s]=clamp(Math.round((H[s]+d)*10)/10,0,100);[60,40,30].forEach(function(th){if(h0>=th&&H[s]<th){logE(s,'press','後方民心降到 '+fmt(H[s])+'：'+(th>=60?'國內出現反戰聲音':th>=40?'國會要求檢討作戰':'政府考慮停火')+(+S.supLose>0?'（低於 '+S.supLose+' 即戰敗）':''));}});});
+    [0,1].forEach(function(s){var me=G.stats[s]||{},P=X.pc[s];P.hc=me.cas||0;P.hv=me.vl||0;P.hk=gmCk(s);});[0,1].forEach(function(s){X.pc[s].he=(G.stats[s]||{}).cas||0;});
+    (G.obj||[]).forEach(function(o){X.own[o.id]=o.own;});}
+  if(G.press&&G.press.home&&(G.step%20===0||!X.home))X.home=G.press.home.slice();}
+/* 新的勝負規則：斬首、票數歸零、民心崩潰（由 checkEnd 呼叫） */
+function gmEnd(){if(!G.started)return null;var X=G.gm,S=G.set;if(!X)return null;
+  if(S.decap)for(var s=0;s<2;s++){var id=X.hq[s];if(id>=0){var T=uById(id);if(!T||!alive(T)||T.hqLost)return {why:G.sides[s].name+'的最高司令部被摧毀',win:1-s};}}
+  if(+S.tix>0&&X.tix){var a=X.tix[0]<=0,b=X.tix[1]<=0;if(a||b)return {why:(a&&b?'雙方的':G.sides[a?0:1].name+'的')+'兵力票數耗盡',win:a&&b?-1:a?1:0};}
+  if(+S.supLose>0&&G.press&&G.press.home){var L=+S.supLose,h=G.press.home,a2=h[0]<L,b2=h[1]<L;if(a2||b2)return {why:(a2&&b2?'雙方的':G.sides[a2?0:1].name+'的')+'後方民心崩潰（低於 '+L+'），政府接受停火',win:a2&&b2?-1:a2?1:0};}
+  return null;}
+(function(){var b=v8Step;v8Step=function(){b.apply(this,arguments);if(G&&G.started&&!G.over)gmStep();};})();
+/* 戰功點數倍率；每日配給隨後方民心增減（民心 50 為原本的配給） */
+(function(){var b=rpAdd;rpAdd=function(side,amt,why,txt){if(/^(fight|cap|hold|pow|evac)$/.test(why))amt*=gmRpGain();return b.call(this,side,amt,why,txt);};})();
+(function(){var b=rpDayAmt;rpDayAmt=function(side){var v=b.apply(this,arguments);if(G.set.rpRep&&G.press&&G.press.home)v=Math.round(v*clamp(0.5+G.press.home[side]/100,0.5,1.5)/10)*10;return v;};})();
+if(typeof mpValList==='function'){(function(){var b=mpValList;mpValList=function(s){var V=b.apply(this,arguments);if(G.gm)V.push(['gm',{tix:G.gm.tix,home:G.gm.home,hq:G.gm.hq}]);return V;};})();}
 /* ===================== 兵棋符號（類北約 APP-6）：框形依領域、內部圖示依兵種、上方梯隊記號、下方兵力條；自訂圖片 ===================== */
 var IMGC={};
 function imgOf(src){if(!src)return null;var c=IMGC[src];if(c)return c.ok?c.im:null;c=IMGC[src]={im:new Image(),ok:false};c.im.onload=function(){c.ok=true;if(UI&&UI.redraw)UI.redraw(true);if(UI&&UI.tab==='orbat'&&typeof obTree==='function'){obTree();obDet();}};c.im.src=src;return null;}
@@ -11227,7 +11295,7 @@ function drawFx(c){var keep=[];c.save();G._fx.forEach(function(f){var age=G.t-f[
 function drawBattles(c){c.save();G.bt.list.forEach(function(R){if(R.parent||(!R.active&&!UI.showOld))return;var x=(R.bb[0]+R.bb[2])/2,y=(R.bb[1]+R.bb[3])/2,p=w2s(x,y),col=TIERC[R.tier];if(UI.selB===R.id){var a=w2s(R.bb[0],R.bb[1]),b=w2s(R.bb[2],R.bb[3]);c.strokeStyle=col;c.setLineDash([5,4]);c.strokeRect(a[0]-8,a[1]-8,b[0]-a[0]+16,b[1]-a[1]+16);c.setLineDash([]);}
     c.globalAlpha=R.active?1:0.45;c.fillStyle=col;c.beginPath();c.arc(p[0],p[1],9,0,2*PI);c.fill();c.strokeStyle='#fff';c.lineWidth=2;c.beginPath();c.moveTo(p[0]-5,p[1]-5);c.lineTo(p[0]+5,p[1]+5);c.moveTo(p[0]+5,p[1]-5);c.lineTo(p[0]-5,p[1]+5);c.stroke();
     if(VW.s>0.5)txtHalo(c,R.name,p[0],p[1]+17,'bold 11px sans-serif',col);c.globalAlpha=1;R._sx=p[0];R._sy=p[1];});c.restore();}
-function drawObjs(c){c.save();(G.obj||[]).forEach(function(o){var p=w2s(o.x,o.y),col=o.own>=0?sideCol(o.own):'#555';c.strokeStyle=col;c.lineWidth=1.5;c.setLineDash([4,4]);c.beginPath();c.arc(p[0],p[1],(o.r||800)/mpp(),0,2*PI);c.stroke();c.setLineDash([]);
+function drawObjs(c){c.save();(G.obj||[]).forEach(function(o){var p=w2s(o.x,o.y),col=o.own>=0?sideCol(o.own):'#555';c.strokeStyle=col;c.lineWidth=1.5;c.setLineDash([4,4]);c.beginPath();c.arc(p[0],p[1],obR(o)/mpp(),0,2*PI);c.stroke();c.setLineDash([]);
     c.fillStyle=col;c.beginPath();for(var i=0;i<10;i++){var a=-PI/2+i*PI/5,r=i%2?5:11;c.lineTo(p[0]+Math.cos(a)*r,p[1]+Math.sin(a)*r);}c.closePath();c.fill();c.strokeStyle='#fff';c.lineWidth=1.5;c.stroke();txtHalo(c,o.name+'（'+(o.pts||10)+'）',p[0],p[1]-16,'bold 12px sans-serif',col);o._sx=p[0];o._sy=p[1];});c.restore();}
 var NODEI={off:'⛺',port:'⚓',air:'✈',rail:'🚉',depot:'▣'};
 function drawNodes(c){c.save();[0,1].forEach(function(side){if(UI.side>=0&&side!==UI.side&&!seeAll())return;(G.sides[side].nodes||[]).forEach(function(N){var p=w2s(N.x,N.y),col=N.status==='captured'?'#9E9E9E':N.status==='contested'?'#E0A100':sideCol(side);
@@ -11279,7 +11347,7 @@ function vUp(e){var p=vPt(e);delete VW.ptr[e.pointerId];if(VW.pinch){if(Object.k
   if(UI.onClick)UI.onClick(w[0],w[1],p[0],p[1],e);vDraw(false);}
 function tipAt(sx,sy,w){var t='';var it=hitAt(sx,sy);if(it){if(it.c){var cc=it.c;t=(cc.q>=1&&cc.name?cc.name:'不明敵軍')+'（'+(BR[cc.br]||'')+'）\n估計 '+fmt(cc.men)+' 人'+(cc.veh?'、'+fmt(cc.veh)+' 件裝備':'')+'\n最後回報：'+durTxt(G.t-cc.t)+'前'+(cc.dead?'（已殲滅）':'');}
     else{var u=it.u,s=it.s,sm=strengthOf(u);t=uName(u)+(it.agg?'（'+ECH[u.ech][1]+'）':'')+'\n'+(isLeaf(u)?mixName(u)+'\n':'')+'兵力 '+fmt(sm.men)+'／'+fmt(sm.men0)+(sm.veh0?'，裝備 '+fmt(sm.veh)+'／'+fmt(sm.veh0):'')+'\n'+(u.ord?'命令：'+ORDN[u.ord.k]:'待命')+(isLeaf(u)?'，士氣 '+fmt(u.mor)+(u.ms!=='ok'?'（'+MSN[u.ms]+'）':''):'');void s;}}
-  else{var o=hitObj(sx,sy);if(o)t='目標：'+o.name+'（'+(o.pts||10)+' 分）\n控制：'+(o.own>=0?G.sides[o.own].name:'無');else{var N=hitNode(sx,sy);if(N)t=nodeTip(N);else{var R=hitBattle(sx,sy);if(R){var V=btView(R);t=V.name+'（'+V.tierN+'）\n雙方投入 '+fmt(V.men)+' 人\n'+V.res.txt;}else t=cellTip(w[0],w[1]);}}}
+  else{var o=hitObj(sx,sy);if(o)t='目標：'+o.name+'（'+(o.pts||10)+' 分）\n範圍：半徑 '+kmTxt(obR(o))+'\n控制：'+(o.own>=0?G.sides[o.own].name:'無');else{var N=hitNode(sx,sy);if(N)t=nodeTip(N);else{var R=hitBattle(sx,sy);if(R){var V=btView(R);t=V.name+'（'+V.tierN+'）\n雙方投入 '+fmt(V.men)+' 人\n'+V.res.txt;}else t=cellTip(w[0],w[1]);}}}
   if(t){VW.tip.textContent=t;VW.tip.hidden=false;var x=sx+14,y=sy+14;if(x>VW.cw-220)x=sx-230;if(y>VW.ch-90)y=sy-100;VW.tip.style.left=x+'px';VW.tip.style.top=y+'px';}else VW.tip.hidden=true;}
 var MSN={ok:'正常',shaken:'動搖',rout:'潰散'};
 function mixName(u){return (u.mix||[]).map(function(m){var t=typeOf(m[0]);return (t?t.n:m[0])+(m[1]>1?'×'+m[1]:'');}).join('＋');}
@@ -11831,7 +11899,7 @@ var DP={side:0,tool:'drag',nodeK:'depot',placeId:0};
 PAGES.deploy=function(host){if(UI.side>=0&&!G.started)DP.side=UI.side;host.innerHTML='<div class="lw-work"><div class="lw-pane lw-left"><div class="lw-ph">'+[0,1].map(function(s){return '<button type="button" class="lw-btn sm'+(DP.side===s?' pri':'')+'" data-a="dpside" data-v="'+s+'"><span class="lw-sw" style="background:'+G.sides[s].color+'"></span> '+esc(G.sides[s].name)+'</button>';}).join('')+'</div><div class="lw-pb" data-k="dptree"></div></div><div class="lw-mh"></div><div class="lw-pane"><div class="lw-pb" data-k="dpside"></div></div></div>';
   var mh=host.querySelector('.lw-mh');viewMount(mh);dpTree();dpPanel();
   UI.canDrag=function(u){return DP.tool==='drag'&&!G.started&&u.side===DP.side;};UI.onDragUnit=dpDrag;UI.onClick=dpClick;UI.onPlace=dpPlace;UI.tool=DP.tool==='place'?'place':'sel';modeTip();};
-function modeTip(){if(!VW.mode)return;var t={drag:'拖曳本方部隊調整位置（拖曳編制符號會整個編制一起移動）',place:'點選地圖放置選取的編制；按住拖曳可設定朝向',obj:'點選地圖新增目標點；點選既有目標可修改或刪除',node:'點選地圖新增'+LOGK[DP.nodeK][0],entry:'點選地圖設定選取增援部隊的進場位置'}[DP.tool];VW.mode.hidden=false;VW.mode.innerHTML=esc(t||'');}
+function modeTip(){if(!VW.mode)return;var t={drag:'拖曳本方部隊調整位置（拖曳編制符號會整個編制一起移動）',place:'點選地圖放置選取的編制；按住拖曳可設定朝向',obj:'點選地圖新增目標點；點選既有目標可修改或刪除；拖曳目標圈的邊緣調整範圍、拖曳星號移動目標',node:'點選地圖新增'+LOGK[DP.nodeK][0],entry:'點選地圖設定選取增援部隊的進場位置'}[DP.tool];VW.mode.hidden=false;VW.mode.innerHTML=esc(t||'');}
 ACT.dpside=function(b){DP.side=+b.getAttribute('data-v');show('deploy');};
 function dpTree(){var el=UI.body.querySelector('[data-k="dptree"]');if(!el)return;var o='<div class="lw-note">選取編制後點「放置編制」再點地圖。</div><div class="lw-tree">';
   G.units.filter(function(u){return u.side===DP.side&&(u.p<0||!uById(u.p));}).forEach(function walk(u){var unplaced=(isLeaf(u)?[u]:leavesOf(u)).some(function(x){return !x.placed&&x.st!=='off';});
@@ -11841,7 +11909,9 @@ function dpPanel(){var el=UI.body.querySelector('[data-k="dpside"]');if(!el)retu
   if(DP.tool==='node')o+='<div class="lw-row"><label>種類 <select data-c="dpnode">'+['depot','off'].map(function(k){return '<option value="'+k+'"'+(DP.nodeK===k?' selected':'')+'>'+LOGK[k][0]+'</option>';}).join('')+'</select></label></div><div class="lw-note">港口、鐵路車站與機場是戰場上既有的民用設施（地圖上的灰色虛線框），開戰時中立，部隊佔領後才能啟用，不必手動放置。</div>';
   var u=DP.placeId?uById(DP.placeId):null;if(u){o+='<div class="lw-card"><h3>'+uIco(u)+' '+esc(u.name)+'</h3><div class="lw-row"><button type="button" class="lw-btn sm" data-a="dprot" data-v="-1">↺ 轉向</button><button type="button" class="lw-btn sm" data-a="dprot" data-v="1">↻ 轉向</button><button type="button" class="lw-btn sm" data-a="dpcenter">置中</button></div>'+(u.st==='off'?'<div class="lw-note">增援部隊：'+(u.arr&&u.arr.x!==undefined?'進場點 '+esc(placeTxt(u.arr.x,u.arr.y)):'由本方後方進場')+'。</div>':'')+'</div>';}
   o+='<div class="lw-row"><button type="button" class="lw-btn" data-a="dpauto">自動部署'+esc(G.sides[DP.side].name)+'</button></div>';
-  o+='<div class="lw-card"><h3>目標點</h3>'+((G.obj||[]).length?'<table class="lw-tbl">'+G.obj.map(function(ob,i){return '<tr><td><input type="text" value="'+esc(ob.name)+'" data-i="obn" data-v="'+i+'" style="width:7em"></td><td><input type="number" min="1" max="100" value="'+(ob.pts||10)+'" data-c="obp" data-v="'+i+'" style="width:52px"> 分</td><td><button type="button" class="lw-btn sm dng" data-a="obdel" data-v="'+i+'">刪除</button></td></tr>';}).join('')+'</table>':'<div class="lw-note">尚無目標點。</div>')+'</div>';
+  var rm=objRm();o+='<div class="lw-card"><h3>目標點<small>範圍內只有一方地面部隊、持續 '+durTxt(objCapT())+'即佔領</small></h3>'+((G.obj||[]).length?'<table class="lw-tbl lw-objt">'+G.obj.map(function(ob,i){return '<tr><td><input type="text" value="'+esc(ob.name)+'" data-i="obn" data-v="'+i+'" style="width:7em"></td><td><input type="number" min="1" max="100" value="'+(ob.pts||10)+'" data-c="obp" data-v="'+i+'" style="width:52px"> 分</td><td title="目標區半徑（公尺）；也可以在地圖上拖曳目標圈的邊緣調整、拖曳星號移動">半徑 <input type="number" min="100" max="30000" step="50" value="'+Math.round(ob.r||800)+'" data-c="obr" data-v="'+i+'" style="width:68px"> 公尺'+(rm!==1?'<br><small>× '+rm+' ＝ '+kmTxt(obR(ob))+'</small>':'')+'</td><td><button type="button" class="lw-btn sm dng" data-a="obdel" data-v="'+i+'">刪除</button></td></tr>';}).join('')+'</table>':'<div class="lw-note">尚無目標點。</div>')+
+    '<div class="lw-row"><label>新目標點的半徑 <input type="number" min="100" max="30000" step="50" value="'+(DP.objR||800)+'" data-c="obr0" style="width:68px"> 公尺</label>'+((G.obj||[]).length>1?'<button type="button" class="lw-btn sm" data-a="obrall">全部套用</button>':'')+'</div>'+
+    '<div class="lw-note">選「目標點」工具後，在地圖上拖曳目標圈的邊緣可以調整範圍，拖曳星號可以移動目標。設定頁的「目標區範圍」倍率會套用到所有目標'+(rm!==1?'（目前 × '+rm+'）':'')+'。</div></div>';
   o+='<div class="lw-card"><h3>開戰</h3><div class="lw-kv"><span>開戰時間</span><span>'+clockTxt({y:G.set.y,m:G.set.m,d:G.set.d,h:G.set.h,mi:G.set.mi||0})+'</span><span>作戰時限</span><span>'+(typeof durH==='function'?durH(G.set.dur):G.set.dur+' 小時')+'</span><span>玩家</span><span>'+[0,1].filter(function(s){return !G.sides[s].ai;}).map(function(s){return esc(G.sides[s].name);}).join('、')+(G.sides.every(function(S){return S.ai;})?'（雙方皆由電腦指揮）':'')+'</span></div>'+
     (G.started?'<div class="lw-note">作戰進行中。</div>':'<div class="lw-row"><button type="button" class="lw-btn pri" data-a="begin">開始作戰</button></div><div class="lw-note">開戰後時間預設暫停，按 ▶ 或空白鍵開始，可隨時切換速度。</div>')+'</div>';el.innerHTML=o;}
 ACT.dptool=function(b){DP.tool=b.getAttribute('data-v');UI.tool=DP.tool==='place'?'place':'sel';dpPanel();modeTip();};
@@ -11851,13 +11921,16 @@ ACT.dpcenter=function(){var u=uById(DP.placeId);if(!u)return;var c=centroid(isLe
 ACT.dpauto=function(){var tps=G.units.filter(function(u){return u.side===DP.side&&u.p<0&&u.st!=='off';});autoDeploy(DP.side,tps);vDraw(true);dpTree();toast('已自動部署'+G.sides[DP.side].name+'。');};
 INP.obn=function(t){G.obj[+t.getAttribute('data-v')].name=t.value;vDraw(false);};
 CHG.obp=function(t){G.obj[+t.getAttribute('data-v')].pts=clamp(+t.value||10,1,100);vDraw(false);};
+CHG.obr=function(t){var ob=G.obj[+t.getAttribute('data-v')];if(!ob)return;obSetR(ob,+t.value);t.value=ob.r;dpPanel();vDraw(false);};
+CHG.obr0=function(t){DP.objR=clamp(Math.round((+t.value||800)/50)*50,100,30000);t.value=DP.objR;};
+ACT.obrall=function(){(G.obj||[]).forEach(function(ob){obSetR(ob,DP.objR||800);});dpPanel();vDraw(false);toast('所有目標點的半徑改為 '+kmTxt(DP.objR||800)+'。');};
 ACT.obdel=function(b){G.obj.splice(+b.getAttribute('data-v'),1);dpPanel();vDraw(false);};
 function dpDrag(it,x,y,end){var u=it.u,L=it.agg?it.L.concat(kidsOf(u).length?[u]:[]):[u],dx=x-it.x,dy=y-it.y;if(!end){VW.dragGhost=[x,y];return;}
   var all=isLeaf(u)?[u]:leavesOf(u).concat([u]);void L;all.forEach(function(z){var p=validPos(ST(z),z.x+dx,z.y+dy);z.x=p[0];z.y=p[1];z.home=[z.x,z.y];z.placed=1;if(ST(z).dom==='air'&&isLeaf(z))z.base=[z.x,z.y];});dpTree();}
 function dpPlace(x,y,hd){var u=uById(DP.placeId);if(!u){toast('請先在左側選取要放置的編制。');return;}if(u.st==='off'){u.arr=u.arr||{k:'time',t:3600};u.arr.x=x;u.arr.y=y;toast('已設定增援進場點。');dpPanel();return;}
   var e=G.sides[u.side].edge,h=hd!==null&&hd!==undefined?hd:(e==='W'?0:e==='E'?PI:e==='N'?PI/2:-PI/2);deployTree(u,x,y,h,0);(function w(z){if(isLeaf(z)&&ST(z).dom==='air'){z.base=[z.x,z.y];}kidsOf(z).forEach(w);})(u);dpTree();}
 function dpClick(x,y,sx,sy){if(DP.tool==='obj'){var o=hitObj(sx,sy);if(o){var nm=prompt('目標名稱（清空即刪除）',o.name);if(nm===null)return;if(!nm.trim())G.obj=G.obj.filter(function(q){return q!==o;});else{o.name=nm.trim();var pt=prompt('分數',o.pts||10);if(pt!==null)o.pts=clamp(+pt||10,1,100);}dpPanel();return;}
-    var nm2=prompt('目標名稱',placeName(x,y));if(!nm2)return;G.obj.push({id:(G.obj.reduce(function(m,q){return Math.max(m,q.id);},0))+1,name:nm2,x:x,y:y,pts:10,own:-1,r:800});dpPanel();return;}
+    var nm2=prompt('目標名稱',placeName(x,y));if(!nm2)return;G.obj.push({id:(G.obj.reduce(function(m,q){return Math.max(m,q.id);},0))+1,name:nm2,x:x,y:y,pts:10,own:-1,r:DP.objR||800});dpPanel();return;}
   if(DP.tool==='node'){var N=hitNode(sx,sy);if(N&&N.fac){toast('這是民用設施，不能刪除。');return;}if(N){if(confirm('刪除補給節點「'+N.name+'」？')){var S=G.sides[N.side];S.nodes=S.nodes.filter(function(q){return q!==N;});}return;}var nd=addNode(DP.side,DP.nodeK,x,y,{name:placeName(x,y)+LOGK[DP.nodeK][0]});if(nd.k!=='depot'&&nd.k!=='off'&&!nodeOK(nd))toast(nd.k==='port'?'提醒：港口必須鄰近海岸、湖泊或大河。':'提醒：鐵路站必須在通往地圖邊緣的鐵路上。',4500);return;}
   if(DP.tool==='entry'){var u=uById(DP.placeId);if(!u||u.st!=='off'){toast('請先選取一支增援部隊（在「兵力編成」設定為增援）。');return;}u.arr.x=x;u.arr.y=y;toast('已設定「'+u.name+'」的進場位置。');dpPanel();return;}
   if(DP.tool==='place'){dpPlace(x,y,null);return;}var it=hitAt(sx,sy);if(it&&it.u){DP.placeId=it.u.id;UI.sel=[it.u.id];dpTree();dpPanel();}}
@@ -11943,7 +12016,7 @@ function btStatus(){var el=btEl('bst');if(!el)return;var o='';
   if(leaf)o+='<details><summary class="lw-note" style="cursor:pointer">後勤</summary>'+lgUnitHtml(u)+'</details>';el.innerHTML=o;}
 function optTxt(o){var p=o.opt||{},t=[];if(p.tac&&o.k==='attack')t.push(TAC.filter(function(q){return q[0]===p.tac;})[0][1]);if(p.post&&/defend|screen/.test(o.k))t.push(POST.filter(function(q){return q[0]===p.post;})[0][1]);if(p.roe&&p.roe!=='free')t.push(ROE.filter(function(q){return q[0]===p.roe;})[0][1]);if(p.pace&&p.pace!=='normal')t.push(paceOf({ord:o})[1]);return t.length?'・'+t.join('・'):'';}
 function overview(){var o='<h3 style="margin:0 0 6px;font-size:14px">戰況總覽</h3><div class="lw-kv">';[0,1].forEach(function(s){if(UI.side>=0&&s!==UI.side&&G.set.fog)return;var st=sideStr(s);o+='<span style="color:'+G.sides[s].color+'">'+esc(G.sides[s].name)+'</span><span>戰力 '+pct(st.f*100)+'，傷亡 '+fmt(G.stats[s].cas)+'、被俘 '+fmt(G.stats[s].capt)+'</span>';});
-  (G.obj||[]).forEach(function(ob){o+='<span>目標</span><span>'+esc(ob.name)+'：'+(ob.own>=0?'<b style="color:'+G.sides[ob.own].color+'">'+esc(G.sides[ob.own].name)+'</b>':'無人控制')+'（'+(ob.pts||10)+' 分）</span>';});
+  (G.obj||[]).forEach(function(ob){o+='<span>目標</span><span>'+esc(ob.name)+'：'+(ob.own>=0?'<b style="color:'+G.sides[ob.own].color+'">'+esc(G.sides[ob.own].name)+'</b>':'無人控制')+'（'+(ob.pts||10)+' 分，半徑 '+kmTxt(obR(ob))+'）</span>';});
   var act=G.bt.list.filter(function(R){return R.active&&!R.parent;});o+='<span>戰鬥</span><span>進行中 '+act.length+' 處'+(act.length?'：'+act.map(function(R){return TIERN[R.tier]+'「'+esc(R.name)+'」';}).join('、'):'')+'</span>';
   if(G.over)o+='<span>結果</span><span><b>'+esc(G.over.why)+'：'+(G.over.win>=0?esc(G.sides[G.over.win].name)+'獲勝':'不分勝負')+'</b>（'+G.over.score.join(' : ')+'）</span>';
   o+='</div><div class="lw-note" style="margin-top:8px">點選地圖或左側編制選取部隊；Shift／Ctrl 可多選，Shift 拖曳可框選。選好命令後點地圖下達；右鍵可快速下達移動命令。命令會沿指揮鏈傳遞，每一級司令部還要規劃，請預留時間。</div>';return o;}
@@ -12707,7 +12780,7 @@ PAGES.set=function(host){var S=G.set,o='<div class="lw-main"><div class="lw-grid
   o+='<span>戰場迷霧</span><label><input type="checkbox" data-c="setb" data-f="fog"'+(S.fog?' checked':'')+'>只顯示偵察到的敵軍</label><span>下級主動性</span><label><input type="checkbox" data-c="setb" data-f="ini"'+(S.ini?' checked':'')+'>各級指揮官會自行反擊或請求火力</label>';
   o+='<span>電腦指揮</span><select data-c="setv" data-f="aiLvl">'+[[0,'被動（只防守）'],[1,'一般'],[2,'積極']].map(function(q){return '<option value="'+q[0]+'"'+(S.aiLvl===q[0]?' selected':'')+'>'+q[1]+'</option>';}).join('')+'</select>';
   o+='<span>天氣</span><select data-c="sets" data-f="wxMode"><option value="auto"'+(S.wxMode!=='fixed'?' selected':'')+'>依氣候自動變化</option><option value="fixed"'+(S.wxMode==='fixed'?' selected':'')+'>固定</option></select>'+(S.wxMode==='fixed'?'<span>固定天氣</span><select data-c="setwx">'+WX.map(function(w){return '<option value="'+w[0]+'"'+(S.wx===w[0]?' selected':'')+'>'+w[1]+'</option>';}).join('')+'</select>':'');
-  o+='<span>作戰時限</span><span><input type="number" min="1" max="2200" value="'+S.dur+'" data-c="setv" data-f="dur" style="width:70px"> 小時 '+(typeof durpHtml==='function'?durpHtml():'')+'</span><span>長期作戰</span><label><input type="checkbox" data-c="setsus"'+(S.sustain!==false?' checked':'')+'> 補充兵與裝備修復（脫離戰鬥六小時以上、在補給線內）</label><span>結束條件</span><select data-c="sets" data-f="end"><option value="time"'+(S.end!=='obj'?' selected':'')+'>時限或一方崩潰</option><option value="obj"'+(S.end==='obj'?' selected':'')+'>另加：一方控制全部目標兩小時</option></select>';
+  o+='<span>作戰時限</span><span><input type="number" min="1" max="2200" value="'+S.dur+'" data-c="setv" data-f="dur" style="width:70px"> 小時 '+(typeof durpHtml==='function'?durpHtml():'')+'</span><span>長期作戰</span><label><input type="checkbox" data-c="setsus"'+(S.sustain!==false?' checked':'')+'> 補充兵與裝備修復（脫離戰鬥六小時以上、在補給線內）</label><span>結束條件</span><select data-c="sets" data-f="end"><option value="time"'+(S.end!=='obj'?' selected':'')+'>時限或一方崩潰</option><option value="obj"'+(S.end==='obj'?' selected':'')+'>另加：一方控制全部目標 '+durTxt(objHoldT())+'</option></select>';
   if(!G.started)o+='<span>開戰時間</span><span><input type="number" value="'+S.y+'" data-c="setv" data-f="y" style="width:70px"> 年 <input type="number" min="1" max="12" value="'+S.m+'" data-c="setv" data-f="m" style="width:48px"> 月 <input type="number" min="1" max="31" value="'+S.d+'" data-c="setv" data-f="d" style="width:48px"> 日 <input type="number" min="0" max="23" value="'+S.h+'" data-c="setv" data-f="h" style="width:48px"> 時</span>';
   o+='</div></div><div class="lw-card"><h3>戰報分級門檻<small>雙方累計投入人數</small></h3><div class="lw-opt"><span>衝突</span><span>≥ <input type="number" min="10" value="'+S.tiers[0]+'" data-c="settier" data-v="0" style="width:90px"> 人</span><span>戰役</span><span>≥ <input type="number" min="10" value="'+S.tiers[1]+'" data-c="settier" data-v="1" style="width:90px"> 人</span><span>戰區</span><span>≥ <input type="number" min="10" value="'+S.tiers[2]+'" data-c="settier" data-v="2" style="width:90px"> 人</span></div><div class="lw-note">低於「衝突」門檻者為交火。</div></div>';
   o+='<div class="lw-card"><h3>自動暫停<small>發生下列情況時暫停，方便你下決定</small></h3>'+apHtml()+'</div>'+(typeof fxSetCard==='function'?fxSetCard():'')+(typeof v8SetCard==='function'?v8SetCard():'');
@@ -19835,6 +19908,60 @@ HELP14.push('<h4>異變環境：喪屍與寄生蟲</h4><ul>'+
 HELP14.push('<h4>玩家命令的延續</h4><ul><li>部隊執行玩家的命令時，可能被遭遇戰（就地展開、現地指揮官決定進攻或駐紮）、戰術後撤、潰散後重新集結、士氣低落拒絕進攻、上級主動派遣反擊或填補、兵種行為（後勤、砲兵避開前線等）打斷。這些行動結束、部隊脫離接觸並安靜約十分鐘後（攻擊命令還要等士氣恢復），部隊會<b>自動恢復玩家最後下的命令</b>，紀錄會說明恢復的原因。</li>'+
   '<li>選取部隊時，狀態面板會顯示被打斷的命令、打斷的原因與預計恢復的時機。玩家下過命令的部隊潰散後就地整頓，不會自行歸建到上級旁邊擔任預備隊。同一道命令恢復三次後又被打斷，就不再自動恢復，紀錄會請你重新下令；之後每一次恢復前要安靜得更久，避免來回拉鋸。</li>'+
   '<li>可以在「設定 → 士氣與行為 → 恢復命令」關閉。電腦指揮的部隊由電腦自己決定，不受影響。</li></ul>');
+/* ===================== 目標區（介面）：設定頁的範圍倍率、佔領時間與守住時間；部署頁「目標點」工具在地圖上拖曳目標圈邊緣調整範圍、拖曳星號移動 ===================== */
+var OBJRM=[[0.25,'× 0.25'],[0.5,'× 0.5'],[0.75,'× 0.75'],[1,'× 1（依想定與部署頁）'],[1.5,'× 1.5'],[2,'× 2'],[3,'× 3'],[5,'× 5']];
+(function(){var b=PAGES.set;PAGES.set=function(host){b.apply(this,arguments);try{var e=host.querySelector('select[data-c="sets"][data-f="end"]');if(!e||host.querySelector('[data-f="objRm"]'))return;var S=G.set,m=objRm(),cap=objCapT()/60,hold=objHoldT()/3600;
+  var sel=function(f,L,v,tip){return '<select data-c="setv" data-f="'+f+'" title="'+esc(tip)+'">'+L.map(function(q){return '<option value="'+q[0]+'"'+(q[0]===v?' selected':'')+'>'+q[1]+'</option>';}).join('')+'</select>';};
+  e.insertAdjacentHTML('afterend','<span>目標區範圍</span>'+sel('objRm',OBJRM,m,'所有目標點的範圍（半徑）倍率；每個目標的基本範圍可以在部署頁調整')+
+    '<span>佔領目標</span>'+sel('objCap',[[1,'1 分鐘'],[5,'5 分鐘'],[10,'10 分鐘'],[20,'20 分鐘'],[30,'30 分鐘'],[60,'1 小時'],[120,'2 小時']],cap,'範圍內只有一方的地面部隊持續這麼久，目標就易手')+
+    '<span>守住全部目標</span>'+sel('objHold',[[0.5,'30 分鐘'],[1,'1 小時'],[2,'2 小時'],[4,'4 小時'],[6,'6 小時'],[12,'12 小時'],[24,'1 天']],hold,'結束條件選「控制全部目標」時，一方要守住全部目標這麼久才算獲勝'));void S;}catch(x){}};})();
+/* ---------- 部署頁：拖曳目標圈邊緣調整範圍、拖曳星號移動目標（單機） ---------- */
+function objEditOn(){return !!(G&&UI.tab==='deploy'&&typeof DP!=='undefined'&&DP.tool==='obj'&&!(typeof mpActive==='function'&&mpActive()));}
+function objHitEdge(sx,sy){var best=null,bd=1e9;(G.obj||[]).forEach(function(o){if(o._sx===undefined)return;var d=dist(sx,sy,o._sx,o._sy),rs=obR(o)/mpp();if(d<13&&d<bd){bd=d;best={k:'objm',o:o};}else if(Math.abs(d-rs)<9&&Math.abs(d-rs)<bd){bd=Math.abs(d-rs);best={k:'objr',o:o};}});return best;}
+(function(){var b=vDown;vDown=function(e){var r=b.apply(this,arguments);try{var D=VW.drag;if(D&&D.btn!==2&&objEditOn()){var p=vPt(e),H=objHitEdge(p[0],p[1]);if(H){D.kind=H.k;D.ob=H.o;D.r0=H.o.r||800;}}}catch(x){}return r;};})();
+(function(){var b=vMove;vMove=function(e){var D=VW.drag;if(!D||(D.kind!=='objr'&&D.kind!=='objm'))return b.apply(this,arguments);var p=vPt(e),w=s2w(p[0],p[1]),o=D.ob;if(dist(p[0],p[1],D.sx0,D.sy0)>5)D.moved=true;if(!D.moved)return;
+  if(D.kind==='objr'){obSetR(o,dist(w[0],w[1],o.x,o.y)/objRm());VW.mode&&(VW.mode.hidden=false,VW.mode.textContent='目標「'+o.name+'」半徑 '+kmTxt(obR(o)));}else{o.x=w[0];o.y=w[1];}vDraw(false);};})();
+(function(){var b=vUp;vUp=function(e){var D=VW.drag;if(!D||(D.kind!=='objr'&&D.kind!=='objm')||!D.moved)return b.apply(this,arguments);VW.drag=null;delete VW.ptr[e.pointerId];var o=D.ob;
+  if(D.kind==='objr')toast('目標「'+o.name+'」的範圍：半徑 '+kmTxt(obR(o)));else toast('已移動目標「'+o.name+'」到'+placeTxt(o.x,o.y));if(typeof modeTip==='function')modeTip();if(typeof dpPanel==='function')dpPanel();vDraw(false);};})();
+HELP14.push('<h4>目標區範圍</h4><ul><li>每個目標點都有一個範圍（地圖上的虛線圈）：範圍內只有一方的地面部隊、持續一段時間（預設 10 分鐘），目標就易手；守住目標的增援點數、資源收集的安全距離也依範圍計算。</li>'+
+  '<li>部署頁的「目標點」卡片可以設定每個目標的半徑、新目標的預設半徑，或一次套用到全部目標；選「目標點」工具後，在地圖上拖曳目標圈的邊緣調整範圍，拖曳星號移動目標。</li>'+
+  '<li>設定頁「模擬」卡片的「目標區範圍」倍率一次放大或縮小所有目標（聯機房間由房主調整）；「佔領目標」設定易手需要的時間，「守住全部目標」設定結束條件「控制全部目標」要守住多久。</li></ul>');
+/* ===================== 遊戲模式（介面）：開始頁與設定頁選擇模式、逐項調整勝負規則；戰況總覽顯示兵力票數、後方民心與斬首狀態 ===================== */
+var GMK=['std','leth','prest','opin','conq','annih','decap','blitz','attr','iron','nuke','zed','chaos'];
+/* 開始頁：戰場卡片加上遊戲模式；建立作戰後套用 */
+if(typeof ST0!=='undefined'&&ST0.gm===undefined)ST0.gm='std';
+(function(){if(typeof bfCard!=='function')return;var b=bfCard;bfCard=function(){var h=b.apply(this,arguments),k=GMODE[ST0.gm]?ST0.gm:'std';
+  var x='<div class="lw-row lw-gmrow"><label title="把現有的機制組合成不同玩法；建立作戰後仍可在設定頁逐項調整">遊戲模式 <select data-c="stgm">'+GMK.map(function(q){return '<option value="'+q+'"'+(q===k?' selected':'')+' title="'+esc(GMODE[q].d)+'">'+esc(GMODE[q].n)+'</option>';}).join('')+'</select></label><span class="lw-note lw-gmd">'+esc(GMODE[k].d)+'</span></div>';
+  var i=h.lastIndexOf('</div>');return i>=0?h.slice(0,i)+x+h.slice(i):h+x;};})();
+CHG.stgm=function(t){ST0.gm=GMODE[t.value]?t.value:'std';var d=t.closest('.lw-gmrow');d=d&&d.querySelector('.lw-gmd');if(d)d.textContent=GMODE[ST0.gm].d;};
+(function(){if(typeof newScenario!=='function')return;var b=newScenario;newScenario=function(){var r=b.apply(this,arguments);try{if(G&&G.set&&ST0.gm&&ST0.gm!=='std')gmApplySet(G.set,ST0.gm);}catch(e){}return r;};})();
+/* 設定頁：遊戲模式與勝負規則 */
+function gmCard(){var S=G.set,k=gmKey(),M=GMODE[k],sel=function(f,L,v,lbl,tip){return '<span title="'+esc(tip)+'">'+lbl+'</span><select data-c="setv" data-f="'+f+'" title="'+esc(tip)+'">'+L.map(function(q){return '<option value="'+q[0]+'"'+(+q[0]===+v?' selected':'')+'>'+q[1]+'</option>';}).join('')+'</select>';},
+    chk=function(f,lbl,txt,tip){return '<span title="'+esc(tip)+'">'+lbl+'</span><label title="'+esc(tip)+'"><input type="checkbox" data-c="setb" data-f="'+f+'"'+(S[f]?' checked':'')+'>'+txt+'</label>';};
+  return '<div class="lw-card lw-gmcard"><h3>遊戲模式與勝負規則<small>把現有機制組合成不同玩法</small></h3><div class="lw-opt"><span>遊戲模式</span><select data-c="gmsel">'+GMK.map(function(q){return '<option value="'+q+'"'+(q===k?' selected':'')+'>'+esc(GMODE[q].n)+'</option>';}).join('')+'</select></div>'+
+    '<div class="lw-note lw-gmd">'+esc(M.d)+(G.started?' 作戰進行中換模式，新規則立刻生效。':'')+'</div><div class="lw-opt">'+
+    sel('collapse',[[0.05,'5%'],[0.1,'10%'],[0.15,'15%（預設）'],[0.2,'20%'],[0.3,'30%'],[0.4,'40%'],[0.5,'50%']],gmCollapse(),'兵力崩潰','一方的戰力降到這個比例以下即戰敗')+
+    sel('objW',[[0,'不計'],[0.5,'0.5 倍'],[1,'1 倍（預設）'],[2,'2 倍'],[3,'3 倍']],gmObjW(),'目標計分','時間到或雙方同時觸發勝負時，控制目標的分數權重')+
+    sel('tix',[[0,'不啟用'],[200,'200 張'],[400,'400 張'],[600,'600 張'],[1000,'1000 張'],[2000,'2000 張']],+S.tix||0,'兵力票數','敵方控制的目標與本方的傷亡持續扣票，歸零即戰敗')+
+    sel('supLose',[[0,'不啟用'],[10,'低於 10'],[20,'低於 20'],[25,'低於 25'],[30,'低於 30'],[40,'低於 40']],+S.supLose||0,'民心崩潰','後方民心跌破這個數值，政府接受停火、判定戰敗（需要戰地記者與後方民心）')+
+    chk('opin','民心變化','傷亡、殺害平民、戰果與目標得失影響後方民心','除了戰地報導，戰況本身也會讓後方民心升降')+
+    sel('rpGain',[[0.5,'0.5 倍'],[1,'1 倍（預設）'],[2,'2 倍'],[3,'3 倍'],[5,'5 倍']],gmRpGain(),'戰功點數','殺傷、後送、佔領與守住目標得到的增援點數倍率（需開啟增援點數）')+
+    chk('rpRep','聲望配給','每日增援配給隨後方民心增減','民心 50 為原本的配給，100 為 1.5 倍、0 為一半')+
+    chk('decap','斬首','開戰時的最高司令部被摧毀即戰敗','雙方的最高司令部一旦被摧毀，該方立即戰敗')+'</div></div>';}
+(function(){var b=PAGES.set;PAGES.set=function(host){b.apply(this,arguments);try{if(host.querySelector('.lw-gmcard'))return;var g=host.querySelector('.lw-grid');if(g)g.insertAdjacentHTML('afterbegin',gmCard());}catch(x){}};})();
+CHG.gmsel=function(t){var k=GMODE[t.value]?t.value:'std';gmApplySet(G.set,k);if(G.started&&typeof barRender==='function')barRender();toast('遊戲模式：'+GMODE[k].n+'。'+GMODE[k].d,6000);show('set');};
+/* 戰況總覽：模式與勝負規則的狀態 */
+function gmStatus(){if(!G||!G.started)return '';var S=G.set,X=G.gm||{},k=gmKey(),t=[],me=UI.side>=0?UI.side:-1;
+  if(k!=='std')t.push('遊戲模式：<b>'+esc(GMODE[k].n)+'</b>');
+  if(+S.tix>0&&X.tix)t.push('兵力票數 '+[0,1].map(function(s){return '<span style="color:'+G.sides[s].color+'">'+esc(G.sides[s].name)+' '+fmt(Math.max(0,X.tix[s]))+'</span>';}).join('／'));
+  if((+S.supLose>0||S.opin)&&X.home)t.push('後方民心 '+[0,1].map(function(s){return '<span style="color:'+G.sides[s].color+'">'+esc(G.sides[s].name)+' '+fmt(X.home[s])+'</span>';}).join('／')+(+S.supLose>0?'（低於 '+S.supLose+' 戰敗）':''));
+  if(S.decap&&X.hq){var mine=me>=0?[me]:[0,1];t.push('斬首：'+mine.map(function(s){var T=uById(X.hq[s]);return esc(G.sides[s].name)+'的最高司令部'+(!T?'不明':T.hqLost||!alive(T)?'已被摧毀':'完好（'+esc(uName(T))+'）');}).join('；'));}
+  if(+S.rpGain>1&&rpOn())t.push('戰功點數 × '+S.rpGain);
+  return t.length?'<div class="lw-note lw-gmst" style="border-left:3px solid #6A1B9A;padding-left:6px;margin:0 0 6px">'+t.join('<br>')+'</div>':'';}
+(function(){var b=overview;overview=function(){var o=b();try{var x=gmStatus();if(x){var i=o.indexOf('</h3>');if(i>=0)o=o.slice(0,i+5)+x+o.slice(i+5);}}catch(e){}return o;};})();
+HELP14.push('<h4>遊戲模式</h4><ul><li>開始頁的戰場卡片與設定頁的「遊戲模式與勝負規則」可以選擇模式；模式只是一組設定加上勝負規則，選定後仍可逐項調整（聯機房間由房主調整）。</li>'+
+  GMK.filter(function(k){return k!=='std';}).map(function(k){return '<li><b>'+GMODE[k].n+'</b>：'+GMODE[k].d+'</li>';}).join('')+
+  '<li>勝負規則：「兵力崩潰」設定戰力降到多少即戰敗；「目標計分」設定時間到時目標分數的權重；「兵力票數」讓敵方控制的目標與本方傷亡持續扣票；「民心崩潰」與「民心變化」讓後方民心決定勝負；「戰功點數」與「聲望配給」調整增援點數；「斬首」讓最高司令部被摧毀的一方立即戰敗。戰況總覽會顯示票數、民心與總部狀態。</li></ul>');
 /* ===================== 聯機版：在房間裡調整所有模擬設定 =====================
    房主可以在房間頁的「模擬設定」（開戰前不論有沒有載入想定都可以）或作戰中的「設定」分頁調整所有模擬設定；
    改動以「設定路徑 → 值」送到伺服器，所有人一起套用。載入想定前調整的設定，也會套用到之後載入的想定或存檔；「恢復想定的設定」可以撤銷。
