@@ -601,7 +601,8 @@ UTR4.forEach(function(r){UTR.push(r);UT[r[0]]=utFromRow(r);});
 var UTX={pw1800:{cap:3000},pw1914:{cap:8000},pw1940:{cap:15000},pw2000:{cap:6000},rf1914:{cap:5000},rf1940:{cap:15000},rf2000:{cap:20000},
   md1600:{med:60,mq:0.15},md1700:{med:120,mq:0.2},md1800:{med:200,mq:0.35},md1860:{med:300,mq:0.45},md1914:{med:500,mq:0.6},md1940:{med:700,mq:0.75},ma1940:{med:300,mq:0.6},md1970:{med:600,mq:0.85},mv1970:{med:250,mq:0.85},md2000:{med:500,mq:0.92},mv2000:{med:300,mq:0.92},mc2020:{med:150,mq:0.88},
   lb1600:{gat:1.6},lb1914:{gat:1.8},lb1940:{gat:2.5},sw1700:{gat:1.4},cs1914:{ent:6},cs1940:{ent:8},cs2000:{ent:8},ps1940:{psy:1},ps1970:{psy:1.2},ps2000:{psy:1.4}};
-function utx(k){return UTX[k]||{};}
+/* 自訂類型（例如由載具設計生成）自帶 ux */
+function utx(k){return UTX[k]||(typeof G!=='undefined'&&G&&G.types&&G.types[k]&&G.types[k].ux)||{};}
 function mixX(u,f){var s=0;(u.mix||[]).forEach(function(m){s+=(utx(m[0])[f]||0)*m[1];});return s;}
 /* ---------- 戰俘政策（各師團的態度）：鍵、名稱、說明、拒絕受降機率、每日死亡率、每日處決率、強迫勞役、虐待、聲望變化 ---------- */
 var POWP=[
@@ -1590,9 +1591,12 @@ function stillFor(u){return G.t-(u.movedAt||-1e9);}
 function ewNear(side,x,y){var C=G._ewC;if(!C||C.st!==G.step||C.t!==G.t||C.n!==G.units.length)C=G._ewC={st:G.step,t:G.t,n:G.units.length,L:G.units.filter(function(e){return e.st!=='dead'&&utHasU(e,'E');})};
   for(var i=0;i<C.L.length;i++){var e=C.L[i];if(e.side!==side&&e.st!=='dead'&&dist(e.x,e.y,x,y)<15000)return true;}return false;}
 function utHasU(u,f){return ST(u).fl.indexOf(f)>=0;}
+/* 通信裝備的修正（h44_eqfx.js 依兩端的支援裝備覆寫）：s 傳遞時間倍率、r 無線電距離倍率、j 受干擾倍率、ok 兩端都有無線電可用、E 改用的通信參數 */
+function commQ(a,b,E){return {s:1,r:1,j:1,ok:true};}
 function hopDelay(a,b,dryRun){var E=commEra(a,b),d=dist(a.x,a.y,b.x,b.y),km=d/1000,M=G.set.delayMul===undefined?1:G.set.delayMul,o={via:'courier',sec:0,risk:0};if(M<=0)return o;
-  var ech=Math.max(a.ech||1,b.ech||1),rr=(E.rr||0)*Math.pow(2,clamp(ech-1,0,4)),jam=!dryRun&&(E.radio||E.dig)&&ewNear(a.side,b.x,b.y);
-  if(E.dig&&!jam){o.via='digital';o.sec=(E.radio||1.5)*60;}else if(E.radio&&km<=rr*(jam?0.4:1)){o.via='radio';o.sec=E.radio*60*(jam?3:1);}
+  var Q=commQ(a,b,E);if(Q.E)E=Q.E;
+  var ech=Math.max(a.ech||1,b.ech||1),rr=(E.rr||0)*Math.pow(2,clamp(ech-1,0,4))*Q.r,jam=!dryRun&&(E.radio||E.dig)&&ewNear(a.side,b.x,b.y);
+  if(E.dig&&Q.ok&&!jam){o.via='digital';o.sec=(E.radio||1.5)*60*Q.s;}else if(E.radio&&Q.ok&&km<=rr*(jam?(Q.j===1?0.4:clamp(1-0.6*Q.j,0.1,0.9)):1)){o.via='radio';o.sec=E.radio*60*(jam?(Q.j===1?3:1+2*Q.j):1)*Q.s;}
   else if(E.wire&&km<=25&&stillFor(a)>3600&&stillFor(b)>3600){o.via='wire';o.sec=4*60;}
   else{o.via='courier';o.sec=E.find*60+km/(E.cour*0.75)*3600;o.risk=1;}
   o.sec*=M*(0.85+0.3*(dryRun?0.5:rnd()));return o;}
@@ -1776,7 +1780,7 @@ function leafStep(u){var s=ST(u);formStep(u);if(s.dom==='air'){airStep(u,s);retu
     if(k==='screen'&&u._ep&&u._ep>strengthOf(u).men*2&&ed<1500){var b2=homeDir(u.side),bp=validPos(s,u.x+Math.cos(b2)*1500,u.y+Math.sin(b2)*1500);u.task='go';wantPath(u,bp[0],bp[1]);logE(u.side,'screen',uName(u)+'遭優勢敵軍逼近，依令後撤',u.x,u.y,u.id);}}
   if(u.task==='work'&&G.t>=u.workT){u.task='hold';if(k==='bridge'){buildBridge(o.site,u);if(o.kitB&&u.kit){u.kit[o.kitB]=Math.max(0,(u.kit[o.kitB]||0)-(o.kitB==='pont'?pontNeed(o.site.c):1));}}else{blowBridge(o.site,u);if(G.civ&&o.site&&o.site.list)propInf(o.site.kind==='tunnel'?'tunnel':'bridge',o.site.list[0]?o.site.list[0].c:2,u.side,1);}o.st='done';}
   /* 構工：靜止時增加工事 */
-  if(mv<1&&u.task!=='go'&&s.dom==='land'&&u.form!=='march'){var dr=s.dig*0.06/120*(k==='fortify'?1.6:1)*(hasQ(offOf(u),'sapper')?1.5:1)*(G.env.frozen?0.5:1);u.ent=clamp(u.ent+dr,ftEnt(u),1);if(k==='fortify'&&s.fl.indexOf('e')>=0&&u.ent>=0.95&&!u.fortDone){u.fortDone=1;digLine(u);}}
+  if(mv<1&&u.task!=='go'&&s.dom==='land'&&u.form!=='march'){var dr=s.dig*0.06/120*(k==='fortify'?1.6:1)*(hasQ(offOf(u),'sapper')?1.5:1)*(G.env.frozen?0.5:1)*eqM(u,'dg');u.ent=clamp(u.ent+dr,ftEnt(u),1);if(k==='fortify'&&s.fl.indexOf('e')>=0&&u.ent>=0.95&&!u.fortDone){u.fortDone=1;digLine(u);}}
   /* 火砲：放列才可射擊 */
   if(g&&s.dom==='land'&&u.task!=='go')setForm(u,'deployed');}
 function rangeOf(s){return Math.max(s.rM,s.ind)||300;}
@@ -1871,7 +1875,7 @@ function gridNear(x,y,R,fn){var F=G._gf;if(F&&R<=GFR){var W=F.W,H=F.H,st=F.st,it
   var g=G._grid,x0=Math.floor((x-R)/GCS),x1=Math.floor((x+R)/GCS),y0=Math.floor((y-R)/GCS),y1=Math.floor((y+R)/GCS);for(var gy=y0;gy<=y1;gy++)for(var gx=x0;gx<=x1;gx++){var Lg=g[gx+gy*4096];if(Lg)for(var i2=0;i2<Lg.length;i2++)fn(Lg[i2]);}}
 function hgtOf(u){var s=ST(u);return s.dom==='air'?(s.fl.indexOf('A')>=0?150:s.fl.indexOf('Z')>=0?800:1200):s.dom==='sea'?15:s.dom==='sub'?0:3;}
 /* 單位觀測距離（公尺）：依觀測者 */
-function spotOf(u,s){var r=s.spot*(hasQ(offOf(u),'scout')?1.2:1)*paceOf(u)[4];if(u.form==='march')r*=0.6;if(u.slpT&&G.t<u.slpT)r*=0.6;if(u.sup>50)r*=0.6;if(s.dom==='air'&&u.st!=='air')return 0;return r;}
+function spotOf(u,s){var r=s.spot*(hasQ(offOf(u),'scout')?1.2:1)*paceOf(u)[4]*eqM(u,'spm');if(u.form==='march')r*=0.6;if(u.slpT&&G.t<u.slpT)r*=0.6;if(u.sup>50)r*=0.6;if(s.dom==='air'&&u.st!=='air')return 0;return r;}
 /* 目標可見度係數 */
 function sigOf(t,ts,air){var MP=G.map,k=cellAt(t.x,t.y),c=MP.lc[k],f=ts.sig;if(ts.dom==='land')f*=LC[c][5];var fired=G.t-(t.fired||-1e9)<70;
   if(ts.fl.indexOf('S')>=0&&!fired)f*=0.25;if(G.t-(t.movedAt||-1e9)<70)f*=1.4;if(fired)f*=G.env.light<0.3?4:2.5;if(t.ent>0.5&&!fired)f*=0.7;if(t.form==='march')f*=1.3;if(air&&ts.dom==='land')f*=0.8;var op=optOf(t);if(!fired&&t.ord){if(t.ord.k==='attack'&&op.tac==='infil')f*=0.45;if(op.post==='ambush'&&!t.ambT||op.post==='hide')f*=0.4;}return f;}
@@ -2623,7 +2627,7 @@ function engLeaf(u,s){var o=u.ord;if(!o)return false;var k=o.k;
   if((k==='build'||k==='xsite'||k==='breach')&&o.ph){if(o.ph==='go'){if(u.task==='go'&&(u.path||u.pq))return false;if(dist(u.x,u.y,o.wx,o.wy)>600&&u.task!=='at'&&u.path)return false;
       o.ph='work';o.prog=0;o.need=k==='build'?buildTime(u,o.bk||'pos')/kitBuildF(u,o.bk||'pos'):k==='xsite'?((o.xk||'boat')==='ferry'?2700:(o.xk==='raft'||!isEng(u))?700:1200)*(uEra(u).y<1900?1.6:1):900/(kitN(u,'fascine')>0?1.5:1);if(u.labT>G.t)o.need/=1.3;u.task='work2';u.path=null;
       logE(u.side,'eng',uName(u)+'開始'+(k==='build'?'構築'+BLD[o.bk||'pos'][0]:k==='xsite'?'設置'+XSN[o.xk||'boat']:'開闢通路')+'，預計 '+durTxt(o.need/Math.max(0.35,strFrac(u))),u.x,u.y,u.id);return true;}
-    if(o.ph==='work'){var uf=G.t-(u.uf||-1e9)<120;o.prog+=DT*(uf?0.3:1)*Math.max(0.35,strFrac(u))*(u.fat>70?0.6:1);u.fat=clamp(u.fat+0.04,0,100);
+    if(o.ph==='work'){var uf=G.t-(u.uf||-1e9)<120;o.prog+=DT*(uf?0.3:1)*Math.max(0.35,strFrac(u))*(u.fat>70?0.6:1)*eqM(u,'dg');u.fat=clamp(u.fat+0.04,0,100);
       if(o.prog>=o.need){o.ph='done';o.st='done';u.task='hold';if(k==='build')buildApply(u,o);else if(k==='breach')breachApply(u,o);else{var q=o.site,rf=!isEng(u)||o.xk==='raft',X={id:(G.xid=(G.xid||0)+1),side:u.side,kind:rf?'boat':o.xk||'boat',raft:rf?1:0,x:q.x,y:q.y,by:u.id,t0:G.t};if(rf&&u.kit)u.kit.raft=Math.max(0,(u.kit.raft||0)-3);(G.xings=G.xings||[]).push(X);logE(u.side,'eng',uName(u)+'完成設置'+(rf?XSN.raft:XSN[X.kind])+'（'+placeTxt(q.x,q.y)+'）',q.x,q.y,u.id);if(u._qb){u._qb=0;activate(u,newOrder('bridge',{x:q.x,y:q.y,bt:'pontoon',opt:{bt:'pontoon'}}));}}}return true;}
     return false;}
   if(k==='waitx'){if(o.ph==='go'){if(u.task==='go'&&(u.path||u.pq))return false;o.ph='wait';u.task='hold';}if(G.step%4===u.id%4&&crossReady(u.side,o.cx,o.cy)){var th=o.then;logE(u.side,'eng',uName(u)+'：渡河器材就緒，開始渡河',u.x,u.y,u.id);activate(u,newOrder(th.k,{x:th.x,y:th.y,opt:th.opt}));}return o.ph==='wait';}
@@ -2774,16 +2778,18 @@ var KIAF={storm:0.45,quake:0.4,burn:0.5,fire:0.3,melee:0.33,art:0.32,air:0.38,aa
 function medStat(side){var S=G.stats[side];['kia','wia','dow','rtd','sick','dis','desert','kiaF','wiaF'].forEach(function(k){if(S[k]===undefined)S[k]=0;});return S;}
 function woundSplit(t,m,K){if(m<=0)return;var S=medStat(t.side),kt=0,kk,kf=0;for(kk in K)kt+=K[kk];for(kk in K)kf+=(KIAF[kk]||0.32)*K[kk]/(kt||1);if(!kt)kf=0.32;var y=uEra(t).y;kf*=y<1850?0.8:1;var kia=m*kf,wia=m-kia,fem=typeof femOf==='function'?femOf(t):0;
   S.kia+=kia;S.wia+=wia;S.kiaF+=kia*fem;S.wiaF+=wia*fem;t.wia=(t.wia||0)+wia;t.kia=(t.kia||0)+kia;}
+/* 醫療物資與裝備的修正（h44_eqfx.js 覆寫）：reach 後送距離倍率、dow 傷重不治倍率、mq 醫療品質、use 收治 v 名傷患時的物資缺口（0～1）、dis 病死倍率、rec 痊癒倍率 */
+function medFx(u,k,v){return k==='use'?0:v;}
 function medR(side){var hq=sideCmd(side),y=hq?uEra(hq).y:G.set.y;return y<1800?5000:y<1900?9000:y<1940?15000:y<1965?25000:40000;}
 /* 每 10 分鐘：傷兵後送與治療 */
 function medStep(){var dt=600,h=dt/3600;[0,1].forEach(function(side){var S=medStat(side),hq=sideCmd(side),y=hq?uEra(hq).y:G.set.y,R=medR(side),meds=G.units.filter(function(u){return u.side===side&&onMap(u)&&isLeaf(u)&&ST(u).fl.indexOf('D')>=0&&ST(u).dom!=='air';}),heli=G.units.some(function(u){return u.side===side&&alive(u)&&ST(u).fl.indexOf('n')>=0;});
     var dU=(y<1850?0.012:y<1914?0.009:y<1940?0.006:y<1970?0.004:0.0025)*h*(heli?0.6:1),baseT=(y<1850?0.006:y<1914?0.004:y<1940?0.0025:y<1970?0.0012:0.0006)*h;
     meds.forEach(function(m){m.medN=0;});
-    G.units.forEach(function(u){if(u.side!==side||!(u.wia>0.05))return;var m=null,bd=1e18;if(u.st!=='dead')meds.forEach(function(q){var d=dist(q.x,q.y,u.x,u.y);if(d<R*(heli?1.6:1)&&d<bd){bd=d;m=q;}});
-      if(m){var cap=Math.max(20,mixX(m,'med')*strFrac(m))/144,take=Math.min(u.wia,cap-m.medN);if(take>0){m.medN+=take;u.wia-=take;m.pat=m.pat||[];if(m.pat.length>200)m.pat.shift();m.pat.push({u:u.id,n:take,t:G.t});}}
-      var die=u.wia*dU*(u.st==='dead'?2:1);if(die>0){u.wia-=die;S.dow+=die;u.dow=(u.dow||0)+die;}});
-    meds.forEach(function(m){if(!m.pat||!m.pat.length)return;var mq=0,n=0;(m.mix||[]).forEach(function(q){var x=utx(q[0]);if(x.mq){mq+=x.mq*q[1];n+=q[1];}});mq=n?mq/n:0.5;var keep=[];
-      m.pat.forEach(function(p){var d=p.n*baseT*(1-mq)*2;p.n-=d;S.dow+=d;if(G.t-p.t>(y<1914?96:48)*3600){var u=uById(p.u),rt=p.n*0.35;if(u&&alive(u)&&u.st!=='off'){u.men=Math.min(u.men0,u.men+rt);S.rtd+=rt;}p.n=0;}if(p.n>0.05)keep.push(p);});m.pat=keep;});});}
+    G.units.forEach(function(u){if(u.side!==side||!(u.wia>0.05))return;var m=null,bd=1e18;if(u.st!=='dead'){var Rr=R*(heli?1.6:1)*medFx(u,'reach',1);meds.forEach(function(q){var d=dist(q.x,q.y,u.x,u.y);if(d<Rr&&d<bd){bd=d;m=q;}});}
+      if(m){var cap=Math.max(20,mixX(m,'med')*strFrac(m))/144,take=Math.min(u.wia,cap-m.medN);if(take>0){m.medN+=take;u.wia-=take;m.pat=m.pat||[];if(m.pat.length>200)m.pat.shift();var sh=medFx(m,'use',take);m.pat.push(sh>0?{u:u.id,n:take,t:G.t,sh:sh}:{u:u.id,n:take,t:G.t});}}
+      var die=u.wia*dU*(u.st==='dead'?2:1)*medFx(u,'dow',1);if(die>0){u.wia-=die;S.dow+=die;u.dow=(u.dow||0)+die;}});
+    meds.forEach(function(m){if(!m.pat||!m.pat.length)return;var mq=0,n=0;(m.mix||[]).forEach(function(q){var x=utx(q[0]);if(x.mq){mq+=x.mq*q[1];n+=q[1];}});mq=medFx(m,'mq',n?mq/n:0.5);var keep=[];
+      m.pat.forEach(function(p){var d=p.n*baseT*(1-mq)*2*(p.sh?1+1.5*p.sh:1);p.n-=d;S.dow+=d;if(G.t-p.t>(y<1914?96:48)*3600){var u=uById(p.u),rt=p.n*0.35*(p.sh?1-0.5*p.sh:1);if(u&&alive(u)&&u.st!=='off'){u.men=Math.min(u.men0,u.men+rt);S.rtd+=rt;}p.n=0;}if(p.n>0.05)keep.push(p);});m.pat=keep;});});}
 /* ---------- 戰俘：受降、拒絕受降、押解、收容、勞役、處決、死亡、逃亡與解放 ---------- */
 function powCapture(u,by){if(!G.civ)return;var men=u.captMen||u.men,H=enemyOf(u.side);if(men<1)return;by=by||(u._eid?uById(u._eid):null);if(!by||by.side!==H){by=null;gridNear(u.x,u.y,4000,function(e){if(!by&&e.side===H&&onMap(e)&&ST(e).dom!=='air')by=e;});}
   var L=by?polOf(by,'pow'):polSide(H).pow,P=POWP[L],p=P[3]*((by&&by.rcas>0.1)?1.5:1)*(by&&by.dis!==undefined&&by.dis<40?1.4:1);if(uEra(u).y<1600)p*=1.2;
@@ -2964,7 +2970,7 @@ function disStep(){var dt=600,d=dt/86400,o=now(),c=climMonth(o.m),T=G.env.T,P=c.
     G.units.forEach(function(u){if(u.side!==side||!isLeaf(u)||!onMap(u)||ST(u).dom!=='land')return;var men=u.men;if(men<1&&!(u.sick>0))return;var lg=u.lg||{},crowd=1+(u.pw||u.ref?2:0),stat=u.ent>0.5&&G.t-(u.movedAt||-1e9)>12*3600,R=dzRates(y,T,P,stat,crowd,clamp(((lg.hun||0)-40)/60,0,1)),med=flUnits(side,'D').some(function(q){return onMap(q)&&dist(q.x,q.y,u.x,u.y)<6000;}),san=(1-mq*0.7)*(med?0.6:1);
       R.vd=({ban:0.4,tol:3,reg:1.5,coer:2.5})[sex]*(u.ord&&/rest|reserve|halt/.test(u.ord.k)?1.5:0.5);var newC=0,best=null,bv=0;for(var k in R){var v=men*DZ[k][1]/1000*R[k]*san*d;newC+=v;if(v>bv){bv=v;best=k;}}
       var near=0;gridNear(u.x,u.y,1500,function(q){if(q!==u&&q.sick>q.men*0.03)near++;});newC*=1+near*0.3;if(newC>0.001)sickAdd(u,newC,best);
-      if(u.sick>0.01){var dk=DZ[u.dzk||'dys'],rec=u.sick/(dk[4]||7)*d,mort=u.sick*(med?dk[3]+(dk[2]-dk[3])*(1-mq):dk[2])/(dk[4]||7)*d;u.sick-=rec+mort;u.men=Math.min(u.men0,u.men+rec);medStat(side).dis+=mort;if(u.sick<0)u.sick=0;
+      if(u.sick>0.01){var dk=DZ[u.dzk||'dys'],rec=u.sick/(dk[4]||7)*d*medFx(u,'rec',1),mort=u.sick*(med?dk[3]+(dk[2]-dk[3])*(1-mq):dk[2])/(dk[4]||7)*d*medFx(u,'dis',1);u.sick-=rec+mort;u.men=Math.min(u.men0,u.men+rec);medStat(side).dis+=mort;if(u.sick<0)u.sick=0;
         if(u.sick>u.men0*0.04&&(!u.dzLog||G.t-u.dzLog>12*3600)){u.dzLog=G.t;logE(side,'dis',uName(u)+'爆發'+(DZ[u.dzk]||DZ.dys)[0]+'，約 '+fmt(u.sick)+' 人無法作戰',u.x,u.y,u.id);}}});});
   /* 平民與收容所 */if(G.civ){var y2=G.set.y,mq2=y2<1900?0.2:y2<1950?0.45:0.8;G.civ.S.forEach(function(g){var p=civPresent(g);if(p<20)return;var R=dzRates(y2,T,P,false,1+(g.hung>40?1:0),g.hung/100),r=0;for(var k in R)if(k!=='foot'&&k!=='vd')r+=DZ[k][1]/1000*R[k];var nc=p*r*d*(1-mq2*0.6);g.sick=(g.sick||0)+nc;var dm=g.sick*0.012*d*(1-mq2*0.7);g.sick=Math.max(0,g.sick-g.sick*d/7-dm);if(dm>0.01)civCas(g,dm/0.95,0.95,'disease',-1);});
     G.units.forEach(function(u){if(!(u.ref>50)||!alive(u))return;var cap=Math.max(100,mixX(u,'cap')),cr=u.ref/cap,dm=u.ref*0.0004*(1+Math.max(0,cr-1)*4)*d*(u.campHun>50?2:1);u.ref-=dm;campDead(dm);G.civ.byC=G.civ.byC||{};G.civ.byC.disease=(G.civ.byC.disease||0)+dm;G.civ.kill=(G.civ.kill||0)+dm;
@@ -3351,7 +3357,7 @@ function carpetHit(side,src,cx,cy,ang,L,W,tons,o){var fx=Math.cos(ang),fy=Math.s
   G._cpv=(G._cpv||[]).concat([{t:G.t,x:cx,y:cy,a:ang,L:L,W:W,side:side}]).slice(-20);if(G.onPause&&apOn('strike'))G.onPause('地毯式轟炸');}
 
 /* ---------- 區域外飛彈精確打擊：射程外發射，飛行途中可能被防空與反飛彈系統攔截；同時來襲越多越容易突破（飽和） ---------- */
-function mslSpec(u){var q=null;(u.mix||[]).forEach(function(m){var z=MSLT[m[0]];if(z&&(G.set.y||2000)>=z.y0)q=z;});return q;}
+function mslSpec(u){var q=null;(u.mix||[]).forEach(function(m){var t=typeOf(m[0]),z=MSLT[m[0]]||(t&&t.msl);if(z&&(G.set.y||2000)>=(z.y0||0))q=z;});return q;}
 function mslLeft(u){var q=mslSpec(u);if(!q)return 0;if(u.mslN===undefined)u.mslN=Math.round(q.n*Math.max(1,u.veh0||1));return Math.max(0,Math.min(u.mslN,Math.ceil(q.n*Math.max(0,u.veh))));}
 function canMsl(u){return (isLeaf(u)?[u]:leavesOf(u)).some(function(l){return alive(l)&&mslLeft(l)>0;});}
 function mslTarget(side,x,y,q){var C=G.ct[side],best=null,bd=q.ship?15000:700;for(var id in C){var c=C[id];if(c.dead||G.t-c.t>1800)continue;var t=uById(+id);if(!t||!alive(t))continue;var dm=ST(t).dom;if(dm==='air')continue;if(q.ship&&dm!=='sea'&&dm!=='sub')continue;var d=dist(c.x,c.y,x,y);if(d<bd){bd=d;best={id:t.id,x:c.x,y:c.y};}}return best;}
@@ -3365,7 +3371,7 @@ function mslStep(){if(!G.msl||!G.msl.length)return;var keep=[];G.msl.forEach(fun
 function mslImpact(S){var en=1-S.side,src=uById(S.src),t=S.tid?uById(S.tid):null;if(t&&(!alive(t)||!onMap(t)))t=null;
   var need=S.kind==='ballistic'?12:S.kind==='asm'?5:6,ch=0,pkS=0,R0;
   G.units.forEach(function(g){if(g.side!==en||!onMap(g)||g.ms==='rout'||g.ammo<=0)return;var AA=aaOf(g,ST(g));if(AA<need)return;R0=S.kind==='ballistic'?Math.min(aaRange(AA),40000):aaRange(AA)*0.6;if(dist(g.x,g.y,S.x,S.y)>R0)return;var c=Math.max(1,Math.floor(AA/(S.kind==='ballistic'?6:3)))*(S.kind==='ballistic'?1:2);ch+=c;pkS+=c*clamp((AA-need+3)*0.06,0.08,S.kind==='ballistic'?0.5:0.65);});
-  var tries=Math.min(S.n,ch),pk=ch?pkS/ch:0,shot=0;for(var i=0;i<tries;i++)if(rnd()<pk)shot++;var leak=S.n-shot,jam=G.units.some(function(g){return g.side===en&&onMap(g)&&ST(g).fl.indexOf('E')>=0&&dist(g.x,g.y,S.x,S.y)<30000;})?0.75:1,hits=0,dm=0,dv=0,txt='';
+  var tries=Math.min(S.n,ch),pk=(ch?pkS/ch:0)*(typeof mslReact==='function'?mslReact(S):1),shot=0;for(var i=0;i<tries;i++)if(rnd()<pk)shot++;if(typeof navAD==='function')shot+=navAD(S,en,S.n-shot);var leak=S.n-shot,jam=G.units.some(function(g){return g.side===en&&onMap(g)&&ST(g).fl.indexOf('E')>=0&&dist(g.x,g.y,S.x,S.y)<30000;})?0.75:1,hits=0,dm=0,dv=0,txt='';
   if(t){var ts=ST(t),sea=ts.dom==='sea'||ts.dom==='sub',ok=dist(t.x,t.y,S.x,S.y)<=S.sk&&(!sea||S.ship||S.kind==='ballistic')&&ts.dom!=='sub',mv=G.t-(t.movedAt||-1e9)<180&&S.kind==='cruise'&&S.sk<=250?0.5:1;
     if(ok)for(var j=0;j<leak;j++)if(rnd()<S.pk*jam*mv)hits++;
     if(hits){if(sea){var mps=t.men0/Math.max(1,t.veh0),f=clamp((S.w/220)*250/(mps+150),0.03,1);dv=Math.min(t.veh,hits*f);dm=dv*mps*0.35;hit(t,src,dm,dv,60,'msl');}
@@ -3497,7 +3503,7 @@ function planV5(F,o,kids,man,fire,air,nav,oth,P,C,dir,add,fw,spreadLine){var k=o
   if(k==='sat'){var H=o.tot||G.t+60*Math.max(10,(o.opt&&o.opt.prep)||15),FL=leavesOf(F).filter(function(u){return alive(u)&&u.st!=='off'&&indOf(u,ST(u))>0&&ST(u).dom!=='air'&&dist(u.x,u.y,P[0],P[1])<=indOf(u,ST(u))*1.6;}),n=0;
     FL.forEach(function(u){add(u,newOrder('sat',{x:P[0],y:P[1],r:o.r,tot:H,sup:u.p>=0?u.p:F.id}));n++;});if(n)logE(F.side,'arty',uName(F)+'下令 '+n+' 個砲兵與火箭單位同時彈著（預定 '+clock(H)+'），對'+placeTxt(P[0],P[1])+'實施飽和打擊',P[0],P[1],F.id);return true;}
   if(k==='carpet'){var nb=0;air.forEach(function(u){if(canCarpet(u)){add(u,newOrder('carpet',{x:P[0],y:P[1]}));nb++;}else add(u,newOrder('patrol',{x:P[0],y:P[1],r:3000}));});if(!nb)logE(F.side,'air',uName(F)+'沒有可實施地毯式轟炸的轟炸機',P[0],P[1],F.id);return true;}
-  if(k==='msl'){var LL=leavesOf(F).filter(function(u){return alive(u)&&mslLeft(u)>0&&dist(u.x,u.y,P[0],P[1])<=mslSpec(u).r;}),want=o.n||4*LL.length;LL.forEach(function(u){if(want<=0)return;var m=Math.min(mslLeft(u),Math.ceil(want/Math.max(1,LL.length)));want-=m;add(u,newOrder('msl',{x:P[0],y:P[1],n:m}));});if(!LL.length)logE(F.side,'arty',uName(F)+'沒有射程內的飛彈單位',P[0],P[1],F.id);return true;}
+  if(k==='msl'){var LL=leavesOf(F).filter(function(u){return alive(u)&&mslLeft(u)>0&&dist(u.x,u.y,P[0],P[1])<=mslSpec(u).r;}),want=o.n||4*LL.length;LL.forEach(function(u){if(want<=0)return;var m=Math.min(mslLeft(u),Math.ceil(want/Math.max(1,LL.length)));want-=m;add(u,newOrder('msl',{x:P[0],y:P[1],n:m,wp:o.wp,alt:o.alt}));});if(!LL.length)logE(F.side,'arty',uName(F)+'沒有射程內的飛彈單位',P[0],P[1],F.id);return true;}
   return false;}
 (function(){var b=planV4;planV4=function(F,o,kids,man,fire,air,nav,oth,P,C,dir,add,fw,spreadLine){if(planV5(F,o,kids,man,fire,air,nav,oth,P,C,dir,add,fw,spreadLine))return true;return b(F,o,kids,man,fire,air,nav,oth,P,C,dir,add,fw,spreadLine);};})();
 function clock(t){var c=dateOf(G.set.y,G.set.m,G.set.d,t+G.set.h*3600+(G.set.mi||0)*60);return two(c.h)+':'+two(c.mi);}
@@ -4127,7 +4133,7 @@ var BLD8={sport:1,sair:1,fhosp:1,fuel:1,ammoD:1,camp:1};
   G.lgSeq=seq;u.ent=Math.max(u.ent,0.5);logE(side,'eng',uName(u)+'完成構築'+nm+'「'+name+'」（'+placeTxt(x,y)+'）',x,y,u.id);};})();
 /* 醫院與野戰醫院：收治本方傷兵（降低傷重不治、加快歸隊）；醫院被砲擊時病患一起受害 */
 function hospStep(){var y=lgY(),base=(y<1850?0.006:y<1914?0.004:y<1940?0.0025:y<1970?0.0012:0.0006)/6;(G.fac||[]).forEach(function(F){if(F.k!=='hosp'||F.dead)return;var side=F.own;if(side!==0&&side!==1)return;var S=medStat(side),beds=F.beds||200,cap=beds/144*(F.hp/100),used=0;F.pat=F.pat||[];
-    G.units.forEach(function(u){if(u.side!==side||!(u.wia>0.05)||used>=cap)return;if(dist(u.x,u.y,F.x,F.y)>(F.field?15000:25000))return;var take=Math.min(u.wia,cap-used);used+=take;u.wia-=take;F.pat.push({u:u.id,n:take,t:G.t});});
+    G.units.forEach(function(u){if(u.side!==side||!(u.wia>0.05)||used>=cap)return;if(dist(u.x,u.y,F.x,F.y)>(F.field?15000:25000))return;var take=Math.min(u.wia,cap-used);used+=take;u.wia-=take;F.pat.push({u:u.id,n:take,t:G.t});if(typeof medHosp==='function')medHosp(side,take);});
     var keep=[],occ=0;F.pat.forEach(function(p){var d=p.n*base*(F.hp<50?2:1);p.n-=d;S.dow+=d;if(G.t-p.t>(y<1914?96:60)*3600){var u=uById(p.u),rt=p.n*0.45;if(u&&alive(u)&&u.st!=='off'){u.men=Math.min(u.men0,u.men+rt);S.rtd+=rt;}p.n=0;}if(p.n>0.05){keep.push(p);occ+=p.n;}});F.pat=keep.slice(-400);F.occ=occ;});}
 /* 醫院中彈：病患與醫護人員傷亡 */
 (function(){var b=facDestroy;facDestroy=function(F,side,cause,src){if(F.k==='hosp'&&F.pat&&F.pat.length&&F.own>=0){var S=medStat(F.own),n=0;F.pat.forEach(function(p){n+=p.n;});S.dow+=n*0.4;logE(F.own,'boom','「'+F.name+'」被摧毀，約 '+fmt(n*0.4)+' 名傷患喪生',F.x,F.y);F.pat=[];}if(F.k==='camp'&&F.pop>0){var v=F.pop*0.08;civStatAdd(side,v*0.5,v*0.5,v*0.2,v*0.2,'art');G.civ.kill=(G.civ.kill||0);logE(-1,'ref','「'+F.name+'」遭砲火摧毀，約 '+fmt(v)+' 名難民死傷，倖存者四散逃離',F.x,F.y);G.civ.out=(G.civ.out||0)+Math.max(0,F.pop-v);campScale(F,0);}return b(F,side,cause,src);};})();
@@ -5283,7 +5289,7 @@ function rbPlan(u,o){var MP=G.map,cs=MP.cs,sx,sy;if(o.from){sx=o.from[0];sy=o.fr
 function rfScan(o){var MP=G.map,D=G.rdd,L=[];brushCells(MP,o.x/MP.cs,o.y/MP.cs,Math.max(1,(o.rr||800)/MP.cs),function(k){if(!MP.rd[k])return;var w=(D?D[k]:0)+(MP.lc[k]===LCI.rubble?150:0)+(MP.ft[k]===2?40:MP.ft[k]===3?160:0);if(w>0)L.push(k);});return L;}
 function rfLeft(o){var MP=G.map,D=G.rdd,n=0;(o.L||[]).forEach(function(k){n+=(D?D[k]:0)+(MP.lc[k]===LCI.rubble?150:0)+(MP.ft[k]===2?40:MP.ft[k]===3?160:0);});return n;}
 /* 每小時可處理的損壞點數（1 點＝1 格路面損壞；瓦礫 150、鐵絲網 40、地雷 160） */
-function rfRate(u){var y=uEra(u).y;return (isEng(u)?900:450)*(y>=1940?1.5:y<1860?0.6:1)*(hasQ(offOf(u),'sapper')?1.3:1);}
+function rfRate(u){var y=uEra(u).y;return (isEng(u)?900:450)*(y>=1940?1.5:y<1860?0.6:1)*(hasQ(offOf(u),'sapper')?1.3:1)*eqM(u,'dg');}
 (function(){var b=engAct;engAct=function(u,o){var k=o.k;if(k!=='roadfix'&&k!=='roadbuild')return b(u,o);var s=ST(u);
   if(!canRoad(u)){logE(u.side,'eng',uName(u)+'不是工兵或營建部隊，無法'+ORDN[k],u.x,u.y,u.id);u.task='hold';u.ord=null;return true;}
   if(o.x===undefined){o.x=u.x;o.y=u.y;}
@@ -5296,7 +5302,7 @@ function rfRate(u){var y=uEra(u).y;return (isEng(u)?900:450)*(y>=1940?1.5:y<1860
 /* 造路、修路的進度 */
 function rbWork(u,o){var MP=G.map,cs=MP.cs;if(o.ph==='go'){if(u.task==='go'&&(u.path||u.pq))return false;if(dist(u.x,u.y,o.wx,o.wy)>cs*6){if(u.task!=='go'){o.tries=(o.tries||0)+1;if(o.tries>3||u.noPath&&G.t-u.noPath.t<120){logE(u.side,'eng',uName(u)+'：無法抵達造路地點，停止造路',u.x,u.y,u.id);if(o.ks&&o.ks.length)mapChanged(o.ks.slice());o.ks=[];u.ord=null;u.task='hold';u.v11job=0;return true;}u.task='go';wantPath(u,o.wx,o.wy);}return false;}o.ph='work';u.task='work2';u.path=null;if(!o.t0){o.t0=G.t;logE(u.side,'eng',uName(u)+'開始造路',u.x,u.y,u.id);}return true;}
   if(o.ph!=='work')return false;if(!o.q||!o.q.length){o.ph='done';o.st='done';u.task='hold';return true;}
-  var uf=G.t-(u.uf||-1e9)<120,en=!uf&&enemyNear(u.side,u.x,u.y,1500,'land')>0,rate=rdKmDay(u)*1000/cs/86400*DT*Math.max(0.35,strFrac(u))*(uf?0.25:en?0.5:1)*(G.env&&G.env.light<0.3&&lgY()<1990?0.6:1)*(o.rc>=2?0.5:1)*(u.fat>70?0.6:1)*(G.env&&G.env.frozen?0.7:1);
+  var uf=G.t-(u.uf||-1e9)<120,en=!uf&&enemyNear(u.side,u.x,u.y,1500,'land')>0,rate=rdKmDay(u)*1000/cs/86400*DT*Math.max(0.35,strFrac(u))*(uf?0.25:en?0.5:1)*(G.env&&G.env.light<0.3&&lgY()<1990?0.6:1)*(o.rc>=2?0.5:1)*(u.fat>70?0.6:1)*(G.env&&G.env.frozen?0.7:1)*eqM(u,'dg');
   o.prog+=rate*rdCellF(o.q[0]);u.fat=clamp(u.fat+0.03,0,100);var ks=o.ks||(o.ks=[]);
   while(o.prog>=1&&o.q.length){o.prog-=1;var k=o.q.shift();if(!isWater(MP.lc[k])&&MP.rd[k]<o.rc){MP.rd[k]=o.rc;ks.push(k);}var p=cellXY(k);if(dist(u.x,u.y,p[0],p[1])>1)u.hd=Math.atan2(p[1]-u.y,p[0]-u.x);u.x=p[0];u.y=p[1];u.movedAt=G.t;o.done++;
     if(o.q.length){var nx=cellXY(o.q[0]);if(dist(u.x,u.y,nx[0],nx[1])>cs*3){o.ph='go';o.wx=nx[0];o.wy=nx[1];u.task='go';wantPath(u,nx[0],nx[1]);break;}}}
@@ -6865,6 +6871,8 @@ var WPNR=[
  /* 舊版鍵（相容舊存檔，不出現在清單） */
  ['asr','突擊步槍','步槍',0.016,210,0.045,0.002,1,1,1.2,300,800,0,1,1,1949,0,0,1],['atgm','反戰車飛彈','反裝甲',25,4,0.04,0.4,2,10,1.3,3000,4000,0,0.95,2,1975,0,1,1],['tgunm','主戰車砲','戰車砲',25,40,0.57,0.43,5,10.5,1.7,2500,4000,0,1.2,4,1980,0,2,1]];
 var WPNO={};WPNR.forEach(function(r){var o={};WK.forEach(function(k,i){o[k]=r[i];});o.hid=r[18]?1:0;WPNO[o.k]=o;});
+/* 飛機、直升機與無人機是載具：由「裝備庫 → 載具設計」建立，不列在武器清單（內建類型仍沿用） */
+['acf','acj','aca','acb','acr','heli','thel','uav'].forEach(function(k){if(WPNO[k])WPNO[k].hid=1;});
 /* 取得武器（自訂武器優先） */
 function wpnOf(k){return (G&&G.wpns&&G.wpns[k])||WPNO[k]||null;}
 function wpnList(){var o=[];for(var k in WPNO)if(!WPNO[k].hid)o.push(wpnOf(k));if(G&&G.wpns)for(var k2 in G.wpns)if(!WPNO[k2])o.push(G.wpns[k2]);return o;}
@@ -7059,18 +7067,24 @@ function wRUsd(w){return !w?0:w.rusd!==undefined&&w.rusd!==''?+w.rusd||0:RUSD[w.
 
 /* ---------- 三、支援裝備 ----------
    效果：pf 破片與爆炸殺傷減免、pb 槍彈殺傷減免（人員）、nv 夜視等級、kc 化學能裝甲＋、kk 動能裝甲＋（車輛）、smk 中彈時自動施放煙幕、
-         art 砲兵系統誤差倍率、acc 直射命中倍率增量、jam 無人機攻擊倍率、hot 熱食、pur 就地取水、med 救護、sp 觀測距離增量
+         art 砲兵系統誤差倍率、acc 直射命中倍率增量、jam 無人機攻擊倍率、hot 熱食、pur 淨水、med 傷重不治減少、sp 觀測距離增量、
+         cs 通信傳遞時間倍率、cr 無線電距離倍率、rl 中繼（距離再乘）、cj 受干擾倍率、gm 防毒面具、gs 防護服、det 毒劑偵檢、atr 神經毒劑解毒、dk 除污、
+         ev 救護後送、mq 醫療品質＋、mr 掃雷滾輪、dg 構工速度增量、cb 反砲兵雷達（效果的作用見 h44_eqfx.js）
    覆蓋：人員裝備依人數、車輛裝備依車輛數、單位裝備有一件就生效 */
 var SEQR=[
  ['helm1','鋼盔','頭盔',1915,60,1.3,'m',{pf:0.08}],['helm2','克維拉頭盔','頭盔',1983,350,1.5,'m',{pf:0.12,pb:0.03}],['helm3','高防護頭盔（ACH／ECH 類）','頭盔',2003,700,1.4,'m',{pf:0.15,pb:0.05}],
  ['flak','防破片背心','防彈衣',1952,250,3.6,'m',{pf:0.12}],['vest2','軟式防彈衣（NIJ IIIA）','防彈衣',1975,600,2.5,'m',{pf:0.15,pb:0.04}],['plate3','插板防彈衣（NIJ III）','防彈衣',1995,1500,7,'m',{pf:0.18,pb:0.12}],['plate4','插板防彈衣（NIJ IV）','防彈衣',2005,2800,11,'m',{pf:0.2,pb:0.18}],
- ['gasmask','防毒面具','防護',1916,150,1,'m',{}],['medkit','單兵急救包與止血帶','醫療',1940,80,0.4,'m',{med:0.1}],
+ ['gasmask','防毒面具','防護',1916,150,1,'m',{gm:1}],['cbsuit','防護服（MOPP 套裝）','防護',1960,250,2.7,'m',{gs:1}],['atro','神經毒劑解毒針','防護',1955,40,0.15,'m',{atr:1}],
+ ['cbdet','化學偵檢器','防護',1960,20000,15,'u',{det:1}],['decon','除污車','防護',1960,400000,9000,'u',{dk:1}],
+ ['medkit','單兵急救包與止血帶','醫療',1940,80,0.4,'m',{med:0.25}],['amb','救護車','醫療',1915,150000,3000,'u',{ev:1}],['surg','野戰手術組','醫療',1940,500000,2500,'u',{mq:0.15}],
  ['nvg1','第一代夜視鏡','夜視',1965,3000,1,'m',{nv:1}],['nvg3','第三代夜視鏡','夜視',1990,6000,0.6,'m',{nv:1}],['therm','熱像瞄具','夜視',1985,20000,2,'v',{nv:2}],
- ['radio1','背負式無線電','通信',1938,3000,15,'u',{}],['radio2','數位跳頻無線電','通信',1990,20000,6,'u',{}],['bms','戰場管理系統（數位指管）','通信',2005,60000,20,'u',{sp:0.1}],
+ ['radio1','背負式無線電','通信',1938,3000,15,'u',{cs:0.9,cr:1.3}],['radio2','數位跳頻無線電','通信',1990,20000,6,'u',{cs:0.8,cr:1.5,cj:0.5}],['bms','戰場管理系統（數位指管）','通信',2005,60000,20,'u',{sp:0.1,cs:0.7,cr:1.5,cj:0.6}],
+ ['satcom','衛星通訊終端','通信',2000,80000,30,'u',{cs:0.85,cr:3,cj:0.7}],['relay','無線電中繼站','通信',1945,40000,400,'u',{rl:1.5}],
  ['laser','雷射測距儀','火控',1975,10000,2,'v',{acc:0.08}],['fcs','數位火控系統','火控',2000,300000,60,'v',{acc:0.15}],['gps','衛星定位接收器','火控',1993,2000,0.5,'u',{art:0.55}],['met','砲兵氣象站','火控',1960,250000,800,'u',{art:0.7}],
  ['smk','煙幕彈發射器','煙幕',1940,5000,40,'v',{smk:1}],['slat','柵欄裝甲','附加裝甲',1960,20000,300,'v',{kc:1.2}],['era1','爆炸反應裝甲（第一代）','附加裝甲',1982,150000,1200,'v',{kc:2.2}],
  ['era2','重型爆炸反應裝甲（接觸-5 類）','附加裝甲',1986,250000,2500,'v',{kc:2.5,kk:0.6}],['aps0','軟殺主動防護（干擾與煙幕）','主動防護',1990,200000,150,'v',{kc:1.2}],['aps1','硬殺主動防護（攔截彈）','主動防護',2010,1000000,800,'v',{kc:3}],
- ['roller','掃雷滾輪','工兵',1943,150000,8000,'v',{}],['plough','推土鏟','工兵',1943,60000,2500,'v',{}],['jammer','反無人機干擾器','電子戰',2015,300000,200,'u',{jam:0.6}],['sdrone','小型偵察無人機','觀測',2010,15000,3,'u',{sp:0.2}],
+ ['roller','掃雷滾輪','工兵',1943,150000,8000,'v',{mr:1}],['plough','推土鏟','工兵',1943,60000,2500,'v',{dg:0.3}],['jammer','反無人機干擾器','電子戰',2015,300000,200,'u',{jam:0.6}],['sdrone','小型偵察無人機','觀測',2010,15000,3,'u',{sp:0.2}],
+ ['gsr','地面監視雷達','觀測',1965,400000,300,'u',{sp:0.25}],['cbradar','反砲兵雷達','觀測',1975,15000000,8000,'u',{cb:1}],
  ['kitchen','野戰廚房','後勤',1900,40000,3000,'u',{hot:1}],['purif','淨水設備','後勤',1960,15000,400,'u',{pur:1}]];
 var SEQ={};SEQR.forEach(function(r){SEQ[r[0]]={k:r[0],n:r[1],cat:r[2],y:r[3],usd:r[4],kg:r[5],cov:r[6],fx:r[7]};});
 function seqOf(k){return (G&&G.seq&&G.seq[k])||SEQ[k]||null;}
@@ -7081,22 +7095,31 @@ function defEq(t){var E=ERAI[t.era]||ERA[6],y=E.y,m=t.men||0,v=t.veh||0,br=t.br,
   if(foot&&y>=1915)A(y>=2003?'helm3':y>=1983?'helm2':'helm1',m);
   if(/inf|abn|sof|mot|mech|eng|rec/.test(br)){if(y>=2005)A('plate4',m*0.9);else if(y>=1995)A('plate3',m*0.9);else if(y>=1975)A('vest2',m*0.9);else if(y>=1952)A('flak',m*0.8);
     if(y>=1990)A('nvg3',m*0.35);else if(y>=1965)A('nvg1',m*0.05);if(y>=1940)A('medkit',m);}
-  if(y>=1916&&y<1950&&foot)A('gasmask',m);if(y>=1950&&foot)A('gasmask',m);
+  if(y>=1916&&y<1950&&foot)A('gasmask',m);if(y>=1950&&foot)A('gasmask',m);if(y>=1960&&foot){A('cbsuit',m);A('atro',m);}if(y>=1960&&/hq|eng|rec/.test(br))A('cbdet',1);
   if(y>=1938)A(y>=1990?'radio2':'radio1',Math.max(1,m/30));if(y>=2005&&/hq|arm|mech/.test(br))A('bms',Math.max(1,v/4));if(y>=1993&&foot)A('gps',Math.max(1,m/10));
   if(/arm|mech|at|rec/.test(br)&&v>0){if(y>=1960)A('smk',v);if(y>=1975&&/arm|at/.test(br))A('laser',v);if(y>=1985)A('therm',v);if(y>=2000&&br==='arm')A('fcs',v);if(utHas(t,'P'))A('aps1',v);}
   if(/art|rkt/.test(br)){if(y>=1960)A('met',1);if(y>=1993)A('gps',Math.max(1,v));}
   if(br==='eng'&&y>=1943&&v>0)A('plough',Math.max(1,v/3));if(y>=1900&&/hq|sup/.test(br))A('kitchen',1);if(y>=1960&&/hq|sup|eng/.test(br))A('purif',1);
   if(y>=2015&&/hq|mech|ad/.test(br))A('jammer',1);if(y>=2010&&/inf|mech|rec/.test(br))A('sdrone',Math.max(1,m/60));return o;}
 /* 支援裝備的合計效果 */
-function eqAgg(E,men,veh){var o={pf:0,pb:0,nv:0,kc:0,kk:0,smk:0,art:1,acc:0,jam:1,hot:0,pur:0,med:0,sp:0},cat={},val=function(e){var F=e.fx||{};return (F.pf||0)+(F.pb||0)+(F.kc||0)+(F.kk||0);};
+function eqAgg(E,men,veh){var o={pf:0,pb:0,nv:0,kc:0,kk:0,smk:0,art:1,acc:0,jam:1,hot:0,pur:0,med:0,sp:0,cs:1,cr:1,rl:1,cj:1,cm:0,gm:0,gs:0,det:0,atr:0,dk:0,ev:0,mq:0,mr:0,dg:0,cb:0},cat={},val=function(e){var F=e.fx||{};return (F.pf||0)+(F.pb||0)+(F.kc||0)+(F.kk||0);};
   /* 同一類（例如頭盔、防彈衣、附加裝甲）以較好的先配發，覆蓋率最多到全員或全車 */
   (E||[]).filter(function(x){return seqOf(x[0]);}).sort(function(a,b){return val(seqOf(b[0]))-val(seqOf(a[0]));}).forEach(function(x){var e=seqOf(x[0]),n=x[1]||0;if(!e||n<=0)return;var F=e.fx||{},cov=e.cov==='m'?clamp(n/Math.max(1,men),0,1):e.cov==='v'?clamp(n/Math.max(1,veh),0,1):1;
     var c=cat[e.cat]||(cat[e.cat]={pf:0,pb:0,kc:0,kk:0,cv:0});var room=Math.max(0,1-c.cv),use=Math.min(room,cov);c.cv+=use;c.pf+=use*(F.pf||0);c.pb+=use*(F.pb||0);c.kc+=use*(F.kc||0);c.kk+=use*(F.kk||0);
-    if(F.nv&&cov>=0.1)o.nv=Math.max(o.nv,F.nv);if(F.smk&&cov>=0.5)o.smk=1;if(F.art)o.art=Math.min(o.art,F.art);if(F.acc)o.acc+=cov*F.acc;if(F.jam)o.jam=Math.min(o.jam,F.jam);if(F.hot)o.hot=1;if(F.pur)o.pur=1;if(F.med)o.med=Math.max(o.med,cov*F.med);if(F.sp)o.sp+=F.sp;});
+    if(F.nv&&cov>=0.1)o.nv=Math.max(o.nv,F.nv);if(F.smk&&cov>=0.5)o.smk=1;if(F.art)o.art=Math.min(o.art,F.art);if(F.acc)o.acc+=cov*F.acc;if(F.jam)o.jam=Math.min(o.jam,F.jam);if(F.hot)o.hot=1;if(F.pur)o.pur=1;if(F.med)o.med=1-(1-o.med)*(1-clamp(cov*F.med,0,0.9));if(F.sp)o.sp+=F.sp;
+    if(F.cs)o.cs=Math.min(o.cs,F.cs);if(F.cr){o.cr=Math.max(o.cr,F.cr);o.cm=1;}if(F.rl)o.rl=Math.max(o.rl,F.rl);if(F.cj)o.cj=Math.min(o.cj,F.cj);
+    if(F.gm)o.gm=Math.max(o.gm,cov*F.gm);if(F.gs)o.gs=Math.max(o.gs,cov*F.gs);if(F.atr)o.atr=Math.max(o.atr,cov*F.atr);if(F.det)o.det=1;if(F.dk)o.dk=Math.max(o.dk,F.dk);
+    if(F.ev)o.ev=Math.max(o.ev,F.ev);if(F.mq)o.mq=Math.max(o.mq,F.mq);if(F.mr&&cov>=0.2)o.mr=1;if(F.dg)o.dg+=cov*F.dg;if(F.cb)o.cb=1;});
   Object.keys(cat).forEach(function(k){var c=cat[k];o.pf+=c.pf;o.pb+=c.pb;o.kc+=c.kc;o.kk+=c.kk;});o.pf=Math.min(0.6,o.pf);o.pb=Math.min(0.5,o.pb);return o;}
 /* 單位的支援裝備係數：相對於標準配備 */
 function eqRecalc(u){var L=u.lg;if(!L)return;var men=u.men0||sum(typesOfU(u),function(m){var t=typeOf(m[0]);return t?t.men*(m[1]||1):0;}),veh=u.veh0||0;
-  var a=eqAgg(L.eq,men,veh),b=eqAgg(L.eq0,men,veh);L.eqF={mF:(1-a.pb)/(1-b.pb),mA:(1-a.pf)/(1-b.pf),nv:a.nv,kc:a.kc-b.kc,kk:a.kk-b.kk,smk:a.smk,art:a.art/b.art,acc:(1+a.acc)/(1+b.acc),jam:a.jam/b.jam,hot:a.hot,pur:a.pur,med:a.med,sp:a.sp-b.sp};}
+  var a=eqAgg(L.eq,men,veh),b=eqAgg(L.eq0,men,veh);L.eqF={mF:(1-a.pb)/(1-b.pb),mA:(1-a.pf)/(1-b.pf),nv:a.nv,kc:a.kc-b.kc,kk:a.kk-b.kk,smk:a.smk,art:a.art/b.art,acc:(1+a.acc)/(1+b.acc),jam:a.jam/b.jam,hot:a.hot,pur:a.pur,med:a.med,sp:a.sp-b.sp,
+    /* v2：以下都是倍率或差值，標準配備時為 1 或 0 */v:2,spm:clamp((1+a.sp)/(1+b.sp),0.7,1.6),cq:{s:clamp(a.cs/b.cs,0.6,1.5),r:clamp(a.cr*a.rl/(b.cr*b.rl),0.5,2.5),j:clamp(a.cj/b.cj,0.3,2),ok:!(b.cm&&!a.cm),has:a.cm>0},
+    du:clamp((1-a.med)/(1-b.med)*(a.ev>b.ev?0.8:a.ev<b.ev?1.25:1),0.5,1.6),ev:a.ev-b.ev,mq:a.mq-b.mq,hr:a.hot-b.hot,pr:a.pur-b.pur,
+    gmr:b.gm>0?a.gm/b.gm:1,gm1:a.gm,gsr:b.gs>0?a.gs/b.gs:1,gs1:a.gs,dt:a.det-b.det,atA:a.atr,atB:b.atr,dk:a.dk,mr:a.mr,dg:clamp((1+a.dg)/(1+b.dg),0.7,1.6),cb:a.cb};}
+/* 讀取效果（舊存檔沒有 v2 欄位時先重算）；eqM 取倍率，沒有時為 1 */
+function eqF2(u){var L=u&&u.lg;if(!L)return null;var F=L.eqF;if(F&&F.v===2)return F;if(!L.eq0&&!L.eq)return null;if(L.eq0)eqRecalc(u);else eqInit(u);return L.eqF&&L.eqF.v===2?L.eqF:null;}
+function eqM(u,k){var F=eqF2(u);return F&&F[k]!==undefined?F[k]:1;}
 function eqInit(u){var L=u.lg;if(!L)return;if(!L.eq0){var E={};typesOfU(u).forEach(function(m){var t=typeOf(m[0]);if(!t)return;var n=m[1]||1;((t.load&&t.load.eq)||defEq(t)).forEach(function(x){E[x[0]]=(E[x[0]]||0)+x[1]*n;});});L.eq0=Object.keys(E).map(function(k){return [k,E[k]];});}
   if(!L.eq)L.eq=clone(L.eq0);eqRecalc(u);}
 (function(){var b=logInit;logInit=function(u){var r=b(u);eqInit(u);return r;};})();
@@ -7617,7 +7640,7 @@ if(typeof MPWC!=='undefined')MPWC.pt='o';
 
 /* ==== h43_cost.js ==== */
 /* ===================== 戰爭花費：油料（每升單價）、彈藥、糧秣飲水、草料、醫療與 CBRN 物資的用量與金額，裝備損失與人員撫卹，合計整場戰爭的花費 =====================
-   每一步抽樣各單位存量的減少（補給到貨時只更新基準），飛機依空中時間計油耗。單價依年代預設（以美元計，含前線運補），可在「設定」調整；
+   每一步抽樣各單位存量的減少（補給到貨時只更新基準），飛機依空中時間計油耗；醫療與 CBRN 物資在用掉的當下記帳（h44_eqfx.js）。單價依年代預設（以美元計，含前線運補），可在「設定」調整；
    G.cost[side] 累計：fuelL 公升、ammoKg 公斤、ammoUsd、foodKg、fodKg、medKg、cbrKg、vehUsd 載具、kitUsd 武器與個人裝具、vehN、manN。 */
 function costPrice(y){y=y||1940;return {fuel:y<1930?0.35:y<1960?0.45:y<1990?0.6:y<2010?0.8:1.0,haul:1.5,food:y<1900?1.5:y<1950?3:y<2000?6:9,fod:0.3,med:y<1900?10:y<1950?25:y<2000?60:120,cbr:y<1950?15:y<2000?40:80,
   kia:y<1900?2000:y<1950?10000:y<2000?100000:500000,wia:y<1950?2000:y<2000?20000:50000,kiaR:y<1900?0.35:y<1950?0.25:y<2000?0.18:0.12};}
@@ -7644,7 +7667,7 @@ function costTick(){if(!G||!G.started||!G.units)return;if(CSMG!==G){CSM={};CSMG=
     M.m=u.men;M.v=u.veh;}}
 (function(){var b=simStep;simStep=function(){var r=b.apply(this,arguments);try{costTick();}catch(e){}return r;};})();
 /* 帳目：每一類的用量、單價與金額（美元） */
-function costRows(s){var C=costS(s),P=costP(),st=G.stats&&G.stats[s]||{},cas=st.cas||0,kia=cas*P.kiaR,wia=cas-kia,med=(C.medKg||0)+wia*8,fuelP=P.fuel*P.haul,R=[];
+function costRows(s){var C=costS(s),P=costP(),st=G.stats&&G.stats[s]||{},cas=st.cas||0,kia=cas*P.kiaR,wia=cas-kia,med=C.medKg||0,fuelP=P.fuel*P.haul,R=[];
   R.push({k:'fuel',n:'燃料',q:C.fuelL||0,u:'公升',p:fuelP,usd:(C.fuelL||0)*fuelP});
   R.push({k:'ammo',n:'彈藥',q:(C.ammoKg||0)/1000,u:'噸',p:C.ammoKg>0?(C.ammoUsd||0)/(C.ammoKg/1000):0,usd:C.ammoUsd||0});
   R.push({k:'food',n:'糧秣飲水',q:(C.foodKg||0)/1000,u:'噸',p:P.food*1000,usd:(C.foodKg||0)*P.food});
@@ -7659,6 +7682,185 @@ function costTotal(s){return costRows(s).reduce(function(a,r){return a+r.usd;},0
 /* 聯機：每位玩家只收到本方的帳目 */
 if(typeof mpValList==='function'){(function(){var b=mpValList;mpValList=function(s){var V=b.apply(this,arguments);if(G.cost)V.push(['cost',s<0?G.cost:mpPair(G.cost,s,function(){return {};})]);return V;};})();}
 
+/* ==== h44_eqfx.js ==== */
+/* ===================== 支援裝備的作戰效果（二）與醫療、CBRN 物資 =====================
+   通信：無線電、數位跳頻、戰場管理系統、衛星通訊與中繼站改變命令與情報的傳遞時間（0.6～1.5 倍）、無線電距離（0.5～2.5 倍）與受干擾程度；
+         沒有無線電的單位只能靠有線電話與傳令；無線電年代以前，兩端都配了無線電也能通聯（較慢、距離較短）。
+   觀測：偵察無人機、地面監視雷達、戰場管理系統增加觀測距離；反砲兵雷達縮短附近敵砲兵的定位時間。
+   醫療：急救包與止血帶、救護車降低傷重不治，救護車擴大後送範圍；野戰手術組提高醫療單位的品質。
+   CBRN：防毒面具與防護服的配發率決定防護；偵檢器提早警報；解毒針減少神經毒劑傷亡；除污車讓任何單位都能除污、範圍較大。
+   工兵：推土鏟加快挖掘、構工與修路；掃雷滾輪在行進時開闢雷區通路。後勤：野戰廚房提供熱食，淨水設備減少水媒疾病與飲水運量。
+   效果一律相對於標準配備（見 h40_arms2.js）：標準配備的部隊與過去相同。
+   物資：醫療物資 L.med 與 CBRN 物資 L.cbr（公斤）。存量依人數與年代，與糧秣同一運補類別補充。
+   醫療物資用於急救（每名傷患）、醫療單位手術（每名病患）、病患用藥與日常醫務；不足時傷重不治與病死增加、手術後歸隊減少。
+   CBRN 物資用於更換濾毒罐、防護服（防護等級 2 以上會磨損，受污染時一天內須更換）、除污與解毒針；不足時防護變差、除污變慢。 */
+function supY(u){return uEra(u).y;}
+function medKgMan(y){return y<1900?0.3:y<1950?0.6:y<2000?1:1.5;}
+function medKgFA(y){return y<1900?0.2:y<1950?0.4:y<2000?0.8:1.2;}
+function medKgSurg(y){return y<1900?1:y<1950?3:y<2000?6:8;}
+function medKgSick(y){return y<1900?0.05:y<1950?0.1:y<2000?0.2:0.3;}
+function cbrKgMan(u){var E=uEra(u),y=E.y;if(typeof cbOn==='function'&&!cbOn())return 0;return E.fan?0.3:y<1915?0:y<1940?0.4:y<1960?0.6:y<1990?1.5:2;}
+/* 存量上限：一般單位依人數；醫療單位另加兩天的手術用量 */
+function supCaps(u,L){var y=supY(u),men=u.men0||u.men||0,s=ST(u);L.medCap=men*medKgMan(y)+(s.fl.indexOf('D')>=0?Math.max(20,mixX(u,'med'))*medKgSurg(y)*2:0);L.cbrCap=men*cbrKgMan(u);
+  if(L.med===undefined||L.med>L.medCap)L.med=L.medCap;if(L.cbr===undefined||L.cbr>L.cbrCap)L.cbr=L.cbrCap;}
+(function(){var b=logRecalc;logRecalc=function(u){b(u);var L=u.lg;if(!L)return;supCaps(u,L);var F=eqF2(u);if(F&&F.pr)L.water*=F.pr>0?0.5:1.3;};})();
+function supL(u){var L=u&&u.lg;if(!L)return null;if(L.medCap===undefined)supCaps(u,L);return L;}
+function medShort(L){return L&&L.medCap>0?clamp(1-L.med/(0.2*L.medCap),0,1):0;}
+function cbrShort(L){return L&&L.cbrCap>0?clamp(1-L.cbr/(0.1*L.cbrCap),0,1):0;}
+/* 用掉物資：回傳實際取得的公斤數，計入戰爭花費 */
+function medUse(u,kg){var L=supL(u);if(!L||!(kg>0))return 0;var g=Math.min(L.med,kg);if(!(g>0))return 0;L.med-=g;if(typeof costAdd==='function')costAdd(u.side,'medKg',g);return g;}
+function cbrUse(u,kg){var L=supL(u);if(!L||!(kg>0))return 0;var g=Math.min(L.cbr,kg);if(!(g>0))return 0;L.cbr-=g;if(typeof costAdd==='function')costAdd(u.side,'cbrKg',g);return g;}
+/* 醫院設施收治：醫院自備物資，只計花費 */
+function medHosp(side,n){if(n>0&&typeof costAdd==='function')costAdd(side,'medKg',n*medKgSurg(lgY()));}
+
+/* ---------- 醫療 ---------- */
+medFx=function(u,k,v){var F=eqF2(u);
+  if(k==='reach')return F&&F.ev>0?v*1.3:v;
+  if(k==='dow'){var s=medShort(supL(u)),f=F?F.du:1;return v*f*(s>0?1+0.6*s:1);}
+  if(k==='mq')return F&&F.mq?clamp(v+F.mq,0,0.95):v;
+  if(k==='use'){var need=v*medKgSurg(supY(u));if(!(need>0))return 0;var got=medUse(u,need);return clamp(1-got/need,0,1);}
+  if(k==='dis'){var s2=medShort(supL(u));return s2>0?v*(1+s2):v;}
+  if(k==='rec'){var s3=medShort(supL(u));return s3>0?v*(1-0.4*s3):v;}
+  return k==='use'?0:v;};
+/* 受傷當下的急救 */
+(function(){var b=woundSplit;woundSplit=function(t,m,K){var w0=t.wia||0;b(t,m,K);var w=(t.wia||0)-w0;if(w>0&&G.started)medUse(t,w*medKgFA(supY(t)));};})();
+/* 淨水：水媒疾病（痢疾、霍亂、傷寒） */
+(function(){var b=sickAdd;sickAdd=function(u,n,dk){if(n>0&&(dk==='dys'||dk==='chol'||dk==='typh')){var F=eqF2(u);if(F&&F.pr)n*=F.pr>0?0.5:1.4;}return b(u,n,dk);};})();
+/* 野戰廚房：有就有熱食、拿掉就只有冷食 */
+(function(){var b=consume;consume=function(u,L,dt){var F=eqF2(u);if(!F||!F.hr)return b.apply(this,arguments);var h0=L.hot;L.hot=F.hr>0;try{return b.apply(this,arguments);}finally{L.hot=h0;}};})();
+
+/* ---------- 每 10 分鐘：日常醫務與病患用藥、濾毒罐更換、防護服磨損 ---------- */
+function eqSupTick(dt){var day=dt/86400;G.units.forEach(function(u){if(!isLeaf(u)||!alive(u)||u.st==='off'||u.irr||u.side<0||u.side>1)return;var L=supL(u);if(!L)return;var y=supY(u);
+    if(L.medCap>0)medUse(u,(u.men*(y<1900?0.003:0.01)+(u.sick||0)*medKgSick(y))*day);
+    var g=u.cbg;if(!g||!(L.cbrCap>0)||u.men<1)return;
+    if(g.filt<60){var need=u.men*0.3*(1-g.filt/100),got=cbrUse(u,need);if(got>0)g.filt=Math.min(100,g.filt+(100-g.filt)*got/need);}
+    var M=typeof cbMopp==='function'?cbMopp(u):0;if(M>=2){var F=eqF2(u),cov=F&&F.gs1>0?F.gs1:1;cbrUse(u,u.men*cov*(g.cont>0.05?2.7:y>=1960?0.08:0.03)*day);}});}
+(function(){var b=simStep;simStep=function(){var r=b.apply(this,arguments);if(G.started&&G.step%20===19){try{eqSupTick(600);}catch(e){}}return r;};})();
+/* 補給：與糧秣同一類別 */
+function lgTake(src,c,kg){if(!(kg>0))return 0;var st=src.st;if(src.k==='off'||src.k==='self'||!st)return kg;var t=Math.min(kg/1000,st[c]||0);st[c]-=t;return t*1000;}
+(function(){var b=resupply;resupply=function(u,L,src,dt){var r=b.apply(this,arguments);if(!L||!src)return r;supL(u);var rate=G.t-(u.fired||-1e9)<300?0.3:1;
+  if(L.medCap>L.med)L.med+=lgTake(src,'food',Math.min(L.medCap-L.med,L.medCap*rate*dt/3600*0.5));if(L.cbrCap>L.cbr)L.cbr+=lgTake(src,'food',Math.min(L.cbrCap-L.cbr,L.cbrCap*rate*dt/3600*0.5));return r;};})();
+/* 需求：補足缺額（兩天）加上日常醫務，計入糧秣 */
+(function(){var b=sideDemand;sideDemand=function(side){var d=b(side);G.units.forEach(function(u){if(u.side!==side||!alive(u)||u.st==='off'||!u.lg||u.lg.medCap===undefined)return;var L=u.lg;d.food+=Math.max(0,L.medCap-L.med)/2000+u.men*0.01/1000+Math.max(0,L.cbrCap-L.cbr)/2000;});return d;};})();
+
+/* ---------- 通信 ---------- */
+var CQ1={s:1,r:1,j:1,ok:true,has:false};
+function eqCq(u){var F=eqF2(u);return F&&F.cq||CQ1;}
+commQ=function(a,b,E){var A=eqCq(a),B=eqCq(b),o={s:Math.max(A.s,B.s),r:Math.min(A.r,B.r),j:Math.max(A.j,B.j),ok:A.ok&&B.ok};
+  if(!E.radio&&!E.dig&&A.has&&B.has&&!uEra(a).fan)o.E=Object.assign({},E,{radio:6,rr:4});return o;};
+
+/* ---------- 反砲兵雷達：40 公里內有本方雷達時，定位敵砲兵的時間減為四成 ---------- */
+(function(){var b=cbNotice;cbNotice=function(u){var n=G.cbq?G.cbq.length:0;b(u);if(!G.cbq||G.cbq.length<=n)return;var q=G.cbq[G.cbq.length-1];if(q.id!==u.id)return;
+  var rad=G.units.some(function(r){if(r.side!==q.side||!alive(r)||!onMap(r))return false;var F=eqF2(r);return F&&F.cb>0&&dist(r.x,r.y,u.x,u.y)<40000;});if(rad)q.at=G.t+(q.at-G.t)*0.4;};})();
+
+/* ---------- 掃雷滾輪：行進經過的雷區格子被開闢 ---------- */
+(function(){var b=moveStep;moveStep=function(u,s,frac){var x0=u.x,y0=u.y,r=b.apply(this,arguments);if(!(r>0)||s.dom!=='land')return r;var F=eqF2(u);if(!F||!F.mr)return r;
+  var MP=G.map,ks=[],n=Math.max(1,Math.ceil(r/(MP.cs*0.5)));for(var i=0;i<=n;i++){var k=cellAt(x0+(u.x-x0)*i/n,y0+(u.y-y0)*i/n);if(MP.ft[k]===3){MP.ft[k]=0;ks.push(k);}}
+  if(ks.length){mapChanged(ks);if(!u.mrLog||G.t-u.mrLog>3600){u.mrLog=G.t;logE(u.side,'eng',uName(u)+'以掃雷滾輪開闢雷區通路（'+placeTxt(u.x,u.y)+'）',u.x,u.y,u.id);}}return r;};})();
+
+/* ---------- CBRN ---------- */
+if(typeof cbProt==='function'){
+/* 面具與防護服：依配發率（相對於標準配備）；沒有 CBRN 物資時防護服磨損漏氣 */
+(function(){var b=cbProt;cbProt=function(u,ag){var F=eqF2(u);if((!F||F.gmr===1&&F.gsr===1)&&!(cbrShort(supL(u))>=1))return b(u,ag);var g=cbGear(u),m0=g.mask,s0=g.suit,e=cbEff(u);g.mask=e.mask;g.suit=e.suit;try{return b(u,ag);}finally{g.mask=m0;g.suit=s0;}};})();
+/* 偵檢器：提早警報 */
+(function(){var b=cbMaskDelay;cbMaskDelay=function(u){var F=eqF2(u);return F&&F.dt?b(u)*(F.dt>0?0.4:1.5):b(u);};})();
+/* 解毒針：神經毒劑的傷亡；用掉 CBRN 物資 */
+(function(){var b=hit;hit=function(t,src,dm,dv,sup,kind){if(kind==='nerve'&&dm>0&&t&&t.lg){var F=eqF2(t);if(F&&(F.atA>0||F.atB>0)){var L=supL(t),av=L&&L.cbr>0?1:0.3;dm*=(1-0.35*F.atA*av)/(1-0.35*F.atB);if(F.atA>0)cbrUse(t,dm*0.05);}}return b(t,src,dm,dv,sup,kind);};})();
+/* 除污：每一輪用掉 CBRN 物資（除污車 150 公斤、其他 80 公斤）；物資不足時隔一輪才有效；除污車的範圍大一半 */
+(function(){var b=cbDecon;cbDecon=function(u,x,y,R){var F=eqF2(u),L=supL(u),dk=F&&F.dk>0;if(L&&L.cbrCap>0){var need=dk?150:80,got=cbrUse(u,need);if(got<need*0.5){u._dcSk=!u._dcSk;if(u._dcSk)return {ground:-1,units:-1,short:1};}}return b(u,x,y,dk?(R||600)*1.5:R);};})();
+}
+/* 實際的面具與防護服防護（介面也用） */
+function cbEff(u){var g=cbGear(u),F=eqF2(u),m=g.mask,s=g.suit;if(F&&(F.gmr!==1||F.gsr!==1)){m=m>0?m*Math.min(1,F.gmr):F.gm1*0.8;s=s>0?s*Math.min(1.2,F.gsr):F.gs1*0.8;}if(cbrShort(supL(u))>=1)s*=0.6;return {mask:m,suit:s};}
+function eqHas(u,k){var F=eqF2(u);return !!(F&&F[k]>0);}
+
+/* ==== h45_navair.js ==== */
+/* ===================== 海空武器與感測器：連結彈藥的飛彈打擊與防空射程、艦隊防空、艦艇雷達、聲納 =====================
+   武器連結了彈藥（mud，見 o48_mun.js）時：區域外飛彈打擊改用彈藥的射程、速度、彈頭與命中率；防空飛彈的射程取彈藥射程，但不超過雷達能引導的距離（主動尋標可到 1.5 倍）。
+   由載具設計生成的艦艇帶有防空能力（ux.adN：面對次音速、超音速掠海反艦飛彈與反艦彈道飛彈各能擋下幾枚），來襲飛彈落點附近的這類艦艇依飽和程度攔截；
+   對空搜索雷達（ux.rad）加入雷達監視網；聲納（ux.son）偵測附近的潛艦（越安靜越難、航行中較易被聽到）。內建類型沒有這些數據，行為不變。 */
+/* 單位武器中射程最遠的反艦或巡弋飛彈、防空飛彈 */
+function wMud(u,types){var L=u&&u.lg;if(!L||!L.w)return null;var best=null;L.w.forEach(function(x){var w=wpnOf(x[0]),d=w&&w.mud;if(!d||!(x[1]>0)||types.indexOf(d.t)<0)return;if(!best||d.rng>best.d.rng)best={d:d,n:x[1]};});return best;}
+(function(){var b=mslSpec;mslSpec=function(u){var q=b(u),m=wMud(u,['cm','ashm']);if(!m)return q;var d=m.d;
+  return {n:q?q.n:Math.max(1,m.n/Math.max(1,u.veh0||1)),v:Math.round(Math.max(200,(d.mach||0.8)*340)),r:Math.round(d.rng*1000),y0:0,kind:d.t==='cm'?'cruise':'asm',w:d.wh||200,pk:d.pk||0.85,nm:String(d.n||'飛彈').replace(/「(.+?)」.*/,'$1'),ship:d.t==='ashm'?1:0,mu:d.id};};})();
+(function(){var b=aaRangeU;aaRangeU=function(g,AA){var r=b(g,AA),m=wMud(g,['sam','aam']);if(!m)return r;var d=m.d,x=uxOf(g),cap=(x.rad||Math.max(r,8000))*(d.act?1.5:1);return Math.round(Math.min(d.rng*1000,cap));};})();
+/* 艦隊防空：來襲飛彈落點 30 公里內（彈道飛彈 150 公里）的設計艦艇，依「能擋下幾枚」合計攔截能力；超過就飽和突破 */
+function navAD(S,en,n){if(!(n>0))return 0;var thr=S.kind==='ballistic'?'bal':S.v>=600?'sup':'sub',R=thr==='bal'?150000:30000,cap=0,sh=[];
+  G.units.forEach(function(g){if(g.side!==en||!onMap(g)||!alive(g))return;var a=uxOf(g).adN;if(!a||!(a[thr]>0)||dist(g.x,g.y,S.x,S.y)>R)return;var c=a[thr]*strFrac(g)*clamp((g.ammo||0)/60,0,1)*(radarOK(g)?1:0.3)*(typeof mslReact==='function'?mslReact(S):1);if(c>0){cap+=c;sh.push([g,c,a]);}});
+  if(cap<=0)return 0;var p=Math.min(0.97,cap/n),k=0;for(var i=0;i<n;i++)if(rnd()<p)k++;
+  if(k>0){sh.forEach(function(q){q[0].ammo=Math.max(0,q[0].ammo-k*q[1]/cap*60/Math.max(4,q[2].sub||4));});logE(en,'aa','艦隊防空攔截來襲的 '+k+' 枚'+S.nm+(n-k>0?'（'+(n-k)+' 枚突破）':'（全數攔截）'),S.x,S.y);}return k;}
+/* 艦艇的對空搜索雷達加入雷達監視網 */
+(function(){var b=sensorR;sensorR=function(g){var r=b(g),x=uxOf(g);if(x.rad&&!x.sam&&ST(g).dom==='sea'&&onMap(g)&&radarOK(g))return Math.max(r,x.rad);return r;};})();
+/* 聲納：每 4 分鐘；聲納距離依目標的安靜程度調整，航行中的潛艦較易被聽到；空中的反潛機與直升機要在空中 */
+function sonarStep(){[0,1].forEach(function(side){var O=G.units.filter(function(u){if(u.side!==side||!alive(u)||!(uxOf(u).son>0))return false;return ST(u).dom==='air'?u.st==='air':onMap(u);});if(!O.length||!G.rq)return;var Q=G.rq[side];
+  G.units.forEach(function(t){if(t.side===side||!onMap(t)||!alive(t))return;var ts=ST(t);if(ts.dom!=='sub')return;var mv=G.t-(t.movedAt||-1e9)<180?1.3:1;
+    for(var i=0;i<O.length;i++){var o=O[i],R=uxOf(o).son*clamp(ts.sig/0.15,0.3,3)*mv;if(dist(o.x,o.y,t.x,t.y)<=R){Q.push({at:G.t+60,id:t.id,x:t.x+(rnd()-0.5)*600,y:t.y+(rnd()-0.5)*600,t:G.t,q:0.6,by:o.id});break;}}});});}
+(function(){var b=simStep;simStep=function(){var r=b.apply(this,arguments);if(G.started&&G.step%8===6){try{sonarStep();}catch(e){}}return r;};})();
+
+/* ==== h46_mslfx.js ==== */
+/* ===================== 飛彈的飛行軌跡（只供畫面，不影響戰果） =====================
+   空戰、地對空、空對地精確打擊交火時產生看得見的飛彈：發射的一方一定看得到；被攻擊的一方在 1965 年後（雷達與飛彈預警）或 5 公里內看得到。
+   區域外飛彈齊射（G.msl）被偵測後，落地前一分多鐘由防空單位射出攔截飛彈（彈道飛彈是反彈道飛彈）；戰略核武的彈道飛彈在重返大氣層時也有反彈道飛彈。
+   G.mv：{id,k 種類,side,sid 發射者,tid 目標單位,x0,y0 起點,tx,ty 目標點,t0,t1 抵達時間,n 枚數,v:[藍方看得到,紅方看得到]} */
+var MVK={aam:['空對空飛彈',1000],sam:['防空飛彈',1000],agm:['空對地飛彈',300],int:['攔截飛彈',1200],abm:['反彈道飛彈',2500]};
+function mvAdd(k,side,sid,x0,y0,tx,ty,tid,tf,n,seeE){var L=G.mv||(G.mv=[]);if(L.length>200)L.splice(0,L.length-150);var q={id:(G.mvSeq=(G.mvSeq||0)+1),k:k,side:side,sid:sid||0,tid:tid||0,x0:Math.round(x0),y0:Math.round(y0),tx:Math.round(tx),ty:Math.round(ty),t0:G.t,t1:G.t+Math.round(tf),n:n||1,v:[side===0||!!seeE,side===1||!!seeE]};L.push(q);return q;}
+function mvSeeY(d){return (G.set.y||0)>=1965||d<5000;}
+/* 交火：同一個發射者 45 秒內只畫一次 */
+function mvShot(t,src,kind){if(src._mvT&&G.t-src._mvT<45)return;var s=ST(src),k=null;
+  if(kind==='air'){if(!(s.aa>=6)||src.st!=='air')return;k='aam';}
+  else if(kind==='aa'){if(!samOf(src)&&!(typeof wMud==='function'&&wMud(src,['sam','aam']))&&!(s.dom==='sea'&&s.aa>=9))return;k='sam';}
+  else{if(s.fl.indexOf('p')<0&&!(typeof wMud==='function'&&wMud(src,['agm','arm'])))return;k='agm';}
+  src._mvT=G.t;var d=dist(src.x,src.y,t.x,t.y),v=MVK[k][1];mvAdd(k,src.side,src.id,src.x,src.y,t.x,t.y,t.id,clamp(d/v,4,120),clamp(Math.round((src.veh||1)/(k==='agm'?4:3)),1,4),mvSeeY(d));}
+(function(){var b=hit;hit=function(t,src,dm,dv,sup,kind){b.apply(this,arguments);if(src&&t&&(kind==='air'||kind==='aa'||kind==='airstrike')&&(G.set.y||0)>=1955&&src.side!==t.side){try{mvShot(t,src,kind);}catch(e){}}};})();
+/* 攔截飛彈：被偵測的齊射在落地前 75 秒內，由範圍內的防空單位（最多 4 個）射向預計的攔截點 */
+function mvIntStep(){(G.msl||[]).forEach(function(S){if(S.iv||!S.det||S.eta-G.t>75)return;S.iv=1;var en=1-S.side,bal=S.kind==='ballistic',need=bal?12:S.kind==='asm'?5:6,R=bal?60000:40000,ts=Math.max(G.t+4,S.eta-4),f=clamp((ts-S.t0)/Math.max(1,S.eta-S.t0),0,1),px=lerp(S.x0,S.x,f),py=lerp(S.y0,S.y,f),n=0;
+    G.units.forEach(function(g){if(n>=4||g.side!==en||!onMap(g)||!alive(g)||g.ammo<=0)return;var AA=aaOf(g,ST(g)),nav=uxOf(g).adN;if(AA<need&&!nav)return;if(dist(g.x,g.y,S.x,S.y)>R)return;n++;mvAdd(bal?'abm':'int',en,g.id,g.x,g.y,px,py,0,Math.max(3,ts-G.t),clamp(Math.ceil(S.n/2),1,4),true);});});
+  (G.snq||[]).forEach(function(Q){if(Q.iv||!Q.det||(Q.del!=='icbm'&&Q.del!=='slbm')||Q.eta-G.t>60||(G.set.y||0)<1972)return;Q.iv=1;var en=1-Q.side,n=0;G.units.forEach(function(g){if(n>=2||g.side!==en||!onMap(g)||aaOf(g,ST(g))<12||dist(g.x,g.y,Q.x,Q.y)>=60000)return;n++;mvAdd('abm',en,g.id,g.x,g.y,Q.x,Q.y,0,Math.max(3,Q.eta-G.t-3),2,true);});});}
+(function(){var b=simStep;simStep=function(){var r=b.apply(this,arguments);try{mvIntStep();if(G.mv&&G.step%4===1)G.mv=G.mv.filter(function(q){return G.t<=q.t1+5;});}catch(e){}return r;};})();
+/* 聯機：每一方只收到自己看得到的 */
+if(typeof mpValList==='function'){(function(){var b=mpValList;mpValList=function(s){var V=b.apply(this,arguments);V.push(['mv',(G.mv||[]).filter(function(q){return s<0||q.v[s];})]);return V;};})();}
+
+/* ==== h47_mslroute.js ==== */
+/* ===================== 巡弋飛彈的航路與飛行高度：繞開防空雷達，低空與貼地飛行躲在雷達地平線下與地形後方 =====================
+   命令可帶航路點（最多 8 個）與高度：高空（射程最遠、最容易被發現）、中空、低空（地形追隨）、貼地掠海（射程最短、最難被發現）。
+   雷達能看到飛彈的距離取「雷達距離 × 飛彈的雷達截面積係數」與「雷達地平線 4.12 ×（√天線高 + √飛彈高度）公里」中較小者；
+   低空與貼地飛行時，雷達與飛彈之間的山丘會擋住視線。空中預警機的天線在高空，貼地飛行也躲不過。
+   沿航路每 3 公里檢查一次：第一次被看到的時間點起對方才知道（才會警報、才開始準備攔截）；被發現得越晚，攔截越少；全程沒被發現時只剩近迫防禦碰運氣。
+   沒有規劃航路與高度的發射（例如電腦的發射）維持原本的計算。 */
+var MSLALT={hi:['高空',10000,1.15,1],mid:['中空',3000,1,1],lo:['低空',100,0.85,0.97],sea:['貼地掠海',20,0.8,0.95]};
+function mslAltDef(q){return q&&q.kind==='asm'?'sea':q&&q.kind==='ballistic'?'hi':'lo';}
+function mslPath(x0,y0,wp,x,y){return [[x0,y0]].concat(wp||[]).concat([[x,y]]);}
+function mslPathLen(P){var L=0;for(var i=1;i<P.length;i++)L+=dist(P[i-1][0],P[i-1][1],P[i][0],P[i][1]);return L;}
+function radHor(ha,ht){return 4120*(Math.sqrt(Math.max(1,ha))+Math.sqrt(Math.max(1,ht)));}
+/* 對方的雷達：[單位, 距離（公尺）, 天線高（公尺）] */
+function mslRadars(side){var o=[];G.units.forEach(function(g){if(g.side!==side||!alive(g))return;var s=ST(g),x=uxOf(g),air=s.dom==='air';if(air?g.st!=='air':!onMap(g))return;if(!radarOK(g))return;
+    var R=sensorR(g)||(x.sam?x.rad||0:0)||(s.dom==='sea'&&s.aa>=6&&(G.set.y||0)>=1940?s.spot:0)||(air&&s.aa>=8&&(G.set.y||0)>=1960?s.spot:0);if(R>0)o.push([g,R,air?(s.fl.indexOf('a')>=0?9000:6000):s.dom==='sea'?25:15]);});return o;}
+/* 雷達到飛彈之間有沒有山擋住（低空時才檢查） */
+function mslMasked(g,ha,x,y,ht){var MP=G.map,e0=MP.el[cellAt(g.x,g.y)]+ha,e1=MP.el[cellAt(x,y)]+ht,n=clamp(Math.ceil(dist(g.x,g.y,x,y)/Math.max(MP.cs,400)),2,120);for(var i=1;i<n;i++){var f=i/n,px=lerp(g.x,x,f),py=lerp(g.y,y,f);if(MP.el[cellAt(px,py)]>lerp(e0,e1,f)+5)return true;}return false;}
+/* 沿航路找第一次被雷達看到的位置：回傳距起點的飛行距離與雷達單位；沒被看到回傳 null */
+function mslDetect(side,P,alt,rcs,radars){var A=MSLALT[alt]||MSLALT.mid,ht=A[1],R=radars||mslRadars(1-side),rf=Math.pow(clamp(rcs||0.1,0.001,10),0.25),s0=0;if(!R.length)return null;
+  for(var i=1;i<P.length;i++){var a=P[i-1],b=P[i],d=dist(a[0],a[1],b[0],b[1]),n=Math.max(1,Math.ceil(d/3000));for(var j=0;j<=n;j++){var f=j/n,x=lerp(a[0],b[0],f),y=lerp(a[1],b[1],f);
+      for(var k=0;k<R.length;k++){var g=R[k][0],lim=Math.min(R[k][1]*rf,radHor(R[k][2],ht));if(dist(g.x,g.y,x,y)<=lim&&!(ht<=200&&R[k][2]<1000&&mslMasked(g,R[k][2],x,y,ht)))return {s:s0+d*f,by:g.id,x:x,y:y};}}s0+=d;}return null;}
+/* 依被發現時剩下的飛行時間決定攔截效果 */
+function mslReact(S){if(!S||!S.plan)return 1;if(!S.det)return 0.15;return clamp(0.25+(S.eta-(S.detAt||S.t0))/240,0.25,1);}
+function mslWpClean(wp){if(!Array.isArray(wp))return [];var MP=G.map;return wp.slice(0,8).filter(function(p){return Array.isArray(p)&&isFinite(+p[0])&&isFinite(+p[1]);}).map(function(p){return [clamp(Math.round(+p[0]),0,MP.Wm),clamp(Math.round(+p[1]),0,MP.Hm)];});}
+/* 規劃過的發射：航路長度決定飛行時間，高度決定射程與被發現的時間 */
+(function(){var b=mslLaunch;mslLaunch=function(u,o){if(!o||!(o.wp&&o.wp.length)&&!o.alt)return b(u,o);var q=mslSpec(u);if(!q||q.kind==='ballistic')return b(u,o);
+  var n=Math.min(o.n||4,mslLeft(u)),alt=MSLALT[o.alt]?o.alt:mslAltDef(q),A=MSLALT[alt],wp=mslWpClean(o.wp);if(n<=0){logE(u.side,'arty',uName(u)+'沒有可用的飛彈',u.x,u.y,u.id);return false;}
+  var tg=mslTarget(u.side,o.x,o.y,q),ax=tg?tg.x:o.x,ay=tg?tg.y:o.y,P=mslPath(u.x,u.y,wp,ax,ay),L=mslPathLen(P),R=q.r*A[2];
+  if(L>R){logE(u.side,'arty',uName(u)+'：航路全長 '+kmTxt(L)+' 超出'+q.nm+'在'+A[0]+'飛行的射程（'+kmTxt(R)+'）',u.x,u.y,u.id);return false;}
+  var v=q.v*A[3],S={id:(G.mslSeq=(G.mslSeq||0)+1),side:u.side,src:u.id,nm:q.nm,kind:q.kind,x0:u.x,y0:u.y,x:ax,y:ay,tid:tg?tg.id:0,n:n,v:v,w:q.w,pk:q.pk,ship:!!q.ship,sk:q.kind==='asm'?20000:(ST(u).fl.indexOf('p')>=0&&q.y0>=2000?400:250),t0:G.t,eta:G.t+Math.max(DT,L/v),wp:wp,alt:alt,plan:1};
+  var D=mslDetect(u.side,P,alt,0.1);if(D){S.detAt=Math.round(G.t+D.s/v);S.detBy=D.by;S.detX=Math.round(D.x);S.detY=Math.round(D.y);}
+  (G.msl=G.msl||[]).push(S);u.mslN-=n;u.fired=G.t;u.lastArt=G.t;var st=G.stats[u.side];st.msl=(st.msl||0)+n;
+  logE(u.side,'arty','🚀 '+uName(u)+'發射 '+n+' 枚'+q.nm+'（'+A[0]+'飛行'+(wp.length?'、經 '+wp.length+' 個航路點':'')+'），目標'+placeTxt(ax,ay)+'，約 '+durTxt(S.eta-G.t)+' 後抵達',u.x,u.y,u.id);
+  if(G.onPause&&apOn('strike'))G.onPause('飛彈發射');return true;};})();
+/* 飛行中：到了被看到的時間點才警報 */
+function mslDetStep(){(G.msl||[]).forEach(function(S){if(!S.plan||S.det||!S.detAt||G.t<S.detAt)return;S.det=1;var en=1-S.side,g=uById(S.detBy);logE(en,'arty','⚠ '+(g?uName(g):'雷達')+'發現低空來襲的'+(S.kind==='asm'?'反艦飛彈':'巡弋飛彈')+'（約 '+S.n+' 枚，'+placeTxt(S.detX,S.detY)+'），預計 '+durTxt(Math.max(0,S.eta-G.t))+' 後抵達',S.detX,S.detY);});}
+(function(){var b=mslStep;mslStep=function(){mslDetStep();return b.apply(this,arguments);};})();
+/* 估計（給命令面板）：以本方情報圖上已知的敵方雷達計算 */
+function mslPlanEst(u,wp,x,y,alt){var q=mslSpec(u);if(!q)return null;alt=MSLALT[alt]?alt:mslAltDef(q);var A=MSLALT[alt],P=mslPath(u.x,u.y,mslWpClean(wp),x,y),L=mslPathLen(P),v=q.v*A[3],C=G.ct[u.side],R=[];
+  var RA=mslRadars(1-u.side),byId={};RA.forEach(function(r){byId[r[0].id]=r;});for(var id in C){var c=C[id];if(c.dead||G.t-c.t>3600||!byId[id])continue;R.push([{x:c.x,y:c.y,id:+id},byId[id][1],byId[id][2]]);}
+  var D=mslDetect(u.side,P,alt,0.1,R);return {alt:alt,L:L,R:q.r*A[2],t:L/v,det:D?{t:D.s/v,left:(L-D.s)/v}:null,radars:R.length};}
+
 var MAPTA=['el','lc','rv','rd','rl','ft','nat','dmg','tn'];
 async function packMap(MP){var m={};Object.keys(MP).forEach(function(k){if(MAPTA.indexOf(k)<0&&k!=='sd')m[k]=MP[k];});m.format='LatoWarMap';for(var i=0;i<MAPTA.length;i++){var k=MAPTA[i];if(MP[k])m[k]=await packTA(MP[k]);}return m;}
 async function unpackMap(m){if(!m||m.format!=='LatoWarMap')throw new Error('這不是作戰地圖檔。');var MP={};Object.keys(m).forEach(function(k){MP[k]=m[k];});for(var i=0;i<MAPTA.length;i++){var k=MAPTA[i];if(typeof m[k]==='string')MP[k]=await unpackTA(m[k]);}var N=MP.GW*MP.GH;if(!MP.ft)MP.ft=new Uint8Array(N);if(!MP.nat)MP.nat=new Uint8Array(N);MP.set=MP.set||[];MP.lbl=MP.lbl||[];MP.brg=MP.brg||[];return MP;}
@@ -7669,6 +7871,7 @@ if(typeof GKEYS!=='undefined')GKEYS.push('dirs','dirSeq');
 if(typeof GKEYS!=='undefined')GKEYS.push('cbx','cbgr','cbUse','cbSeq');
 if(typeof GKEYS!=='undefined')GKEYS.push('ammo','aseq','seq','eseq','armor','arseq','vdes','vseq','mats','vmods');
 if(typeof GKEYS!=='undefined')GKEYS.push('cost');
+if(typeof GKEYS!=='undefined')GKEYS.push('muns');
 function wpnChanged(){G._tv=(G._tv||1)+1;G.units.forEach(function(u){if(u.lg)logRecalc(u);});}
 function wfTxt(u){if(!u.lg||!u.lg.wpnF)return '';var f=u.lg.wpnF,p=[];if(Math.abs(f.p-1)>0.02)p.push('對人 ×'+fx(f.p,2));if(Math.abs(f.a-1)>0.02)p.push('對裝甲 ×'+fx(f.a,2));if(f.pAdd)p.push('對人 +'+fx(f.pAdd,2));if(f.aAdd)p.push('對裝甲 +'+fx(f.aAdd,2));if(Math.abs(f.penD)>0.05)p.push('穿甲 '+sg(f.penD,1));if(f.penAbs)p.push('穿甲 '+fx(f.penAbs,1));if(Math.abs(f.sup-1)>0.02)p.push('壓制 ×'+fx(f.sup,2));if(Math.abs(f.rng-1)>0.02)p.push('射程 ×'+fx(f.rng,2));if(Math.abs(f.ind-1)>0.02)p.push('間接射程 ×'+fx(f.ind,2));if(f.indAbs)p.push('間接射程 '+kmTxt(f.indAbs));if(f.aaD>0.05)p.push('防空 +'+fx(f.aaD,1));return p.length?p.join('、'):'與時代標準配備相同';}
 
