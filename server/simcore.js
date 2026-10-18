@@ -7977,6 +7977,7 @@ if(typeof GKEYS!=='undefined')GKEYS.push('ammo','aseq','seq','eseq','armor','ars
 if(typeof GKEYS!=='undefined')GKEYS.push('cost');
 if(typeof GKEYS!=='undefined')GKEYS.push('muns');
 if(typeof GKEYS!=='undefined')GKEYS.push('cba','cbaV','cbaSeq','nwh','nwhSeq');
+if(typeof GKEYS!=='undefined')GKEYS.push('laSet','laVs');
 function wpnChanged(){G._tv=(G._tv||1)+1;G.units.forEach(function(u){if(u.lg)logRecalc(u);});}
 function wfTxt(u){if(!u.lg||!u.lg.wpnF)return '';var f=u.lg.wpnF,p=[];if(Math.abs(f.p-1)>0.02)p.push('對人 ×'+fx(f.p,2));if(Math.abs(f.a-1)>0.02)p.push('對裝甲 ×'+fx(f.a,2));if(f.pAdd)p.push('對人 +'+fx(f.pAdd,2));if(f.aAdd)p.push('對裝甲 +'+fx(f.aAdd,2));if(Math.abs(f.penD)>0.05)p.push('穿甲 '+sg(f.penD,1));if(f.penAbs)p.push('穿甲 '+fx(f.penAbs,1));if(Math.abs(f.sup-1)>0.02)p.push('壓制 ×'+fx(f.sup,2));if(Math.abs(f.rng-1)>0.02)p.push('射程 ×'+fx(f.rng,2));if(Math.abs(f.ind-1)>0.02)p.push('間接射程 ×'+fx(f.ind,2));if(f.indAbs)p.push('間接射程 '+kmTxt(f.indAbs));if(f.aaD>0.05)p.push('防空 +'+fx(f.aaD,1));return p.length?p.join('、'):'與時代標準配備相同';}
 
