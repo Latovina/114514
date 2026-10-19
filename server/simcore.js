@@ -881,9 +881,11 @@ async function genRegion(spec,S,prog){prog=prog||function(){return Promise.resol
   function addSet(k5,pop,kind){var x6=k5%GW,y6=(k5/GW)|0,area=pop/(kind==='city'?(year<1900?14000:6500):kind==='town'?(year<1900?9000:4500):2500)*1e6,rad=Math.sqrt(area/PI);
     var S2={x:x6+0.5,y:y6+0.5,pop:Math.round(pop),kind:kind,r:rad,name:kind==='city'?NM.city(x6/GW):kind==='town'?NM.town(x6/GW):NM.village(x6/GW)};sets.push(S2);occ[Math.floor(y6/4)*OW+Math.floor(x6/4)]=Math.max(rad,1);return S2;}
   var bigP=spec.bf==='urban'||spec.bf==='fortress'?Math.round((spec.bf==='urban'?1:0.4)*byYear([[1600,60000],[1800,110000],[1900,320000],[1943,450000],[2000,800000]],year)*clamp(landA/700,0.25,1)*(spec.dens||1)/Math.max(1,spec.dens||1)):0;
-  if(bigP){var bk=-1,bvv=-1;for(var tb=0;tb<4000;tb++){var kb=Math.floor(GH*(0.35+0.3*r()))*GW+Math.floor(GW*(0.35+0.3*r()));if(suit[kb]<=0)continue;var vb=suit[kb]*(1+nearW[kb])+r()*0.1;if(vb>bvv){bvv=vb;bk=kb;}}if(bk>=0){addSet(bk,bigP,'city');}}
+  if(spec.fix&&spec.fix.sets){/* 戰役：固定放上大地圖的聚落（名稱、人口、範圍），再補零星小村 */var nfv=0;spec.fix.sets.forEach(function(s9){var k9=clamp(Math.floor(s9.y/cs),0,GH-1)*GW+clamp(Math.floor(s9.x/cs),0,GW-1),S9=addSet(k9,Math.max(1,s9.pop),s9.kind);S9.x=clamp(s9.x/cs,0.5,GW-0.5);S9.y=clamp(s9.y/cs,0.5,GH-0.5);S9.name=s9.name;if(s9.inh===0)S9.inh=0;S9.bi=s9.bi;if(s9.kind==='village')nfv++;});
+    var nx9=Math.min(Math.max(0,Math.round(nv*0.5)-nfv),Math.max(2,nfv));for(var v9=0;v9<nx9;v9++){var k10=bestSite(1300+r()*600,60);if(k10>=0)addSet(k10,vsz*(0.3+r()*0.5),'village');}}
+  else{if(bigP){var bk=-1,bvv=-1;for(var tb=0;tb<4000;tb++){var kb=Math.floor(GH*(0.35+0.3*r()))*GW+Math.floor(GW*(0.35+0.3*r()));if(suit[kb]<=0)continue;var vb=suit[kb]*(1+nearW[kb])+r()*0.1;if(vb>bvv){bvv=vb;bk=kb;}}if(bk>=0){addSet(bk,bigP,'city');}}
   sizes.forEach(function(p,i4){var kind=p>=30000?'city':'town',k6=bestSite(kind==='city'?9000:3800,2500);if(k6>=0)addSet(k6,p,kind);});
-  for(var v=0;v<nv;v++){var k7=bestSite(1100+r()*600,60);if(k7>=0)addSet(k7,vsz*(0.4+r()*1.4),'village');if((v&63)===0)await prog('聚落',0.45+0.05*v/Math.max(1,nv));}
+  for(var v=0;v<nv;v++){var k7=bestSite(1100+r()*600,60);if(k7>=0)addSet(k7,vsz*(0.4+r()*1.4),'village');if((v&63)===0)await prog('聚落',0.45+0.05*v/Math.max(1,nv));}}
   /* 6. 地表：自然植被與土地利用（依區塊）、海岸、沼澤、聚落 */
   await prog('地表與土地利用',0.52);var farmI=new Float32Array(N);(function(){var step=2,Wf=Math.ceil(GW/step),Hf=Math.ceil(GH/step),f=new Float32Array(Wf*Hf);sets.forEach(function(S3){var R4=(S3.kind==='city'?9000:S3.kind==='town'?5000:2400*clamp(Math.sqrt(S3.pop/400),0.7,1.5))/cs,cx3=S3.x,cy3=S3.y,w=S3.kind==='village'?1.0:1.4;
       for(var b5=-R4;b5<=R4;b5+=step)for(var a5=-R4;a5<=R4;a5+=step){var X=Math.floor((cx3+a5)/step),Y=Math.floor((cy3+b5)/step);if(X<0||Y<0||X>=Wf||Y>=Hf)continue;var d=Math.sqrt(a5*a5+b5*b5)/R4;if(d>1)continue;f[Y*Wf+X]=Math.max(f[Y*Wf+X],w*(1-d*d));}});
@@ -908,9 +910,11 @@ async function genRegion(spec,S,prog){prog=prog||function(){return Promise.resol
     if(S4.kind!=='village'&&year>=1880&&S4.pop>8000){var ang=r()*2*PI,ix=Math.floor(cx5+Math.cos(ang)*R5*1.05),iy=Math.floor(cy5+Math.sin(ang)*R5*1.05),ir=Math.max(1,R5*0.35);for(var b7=-ir;b7<=ir;b7++)for(var a7=-ir;a7<=ir;a7++){var X2=Math.floor(ix+a7),Y2=Math.floor(iy+b7);if(X2<0||Y2<0||X2>=GW||Y2>=GH)continue;var q2=Y2*GW+X2;if(!isWater(lc[q2])&&a7*a7+b7*b7<=ir*ir)lc[q2]=LCI.ind;}}});
   /* 7. 道路與鐵路 */
   await prog('道路網',0.64);var rd=new Uint8Array(N),rl=new Uint8Array(N),brg=[];MP.el=el;MP.lc=lc;MP.rv=rv;MP.rd=rd;MP.rl=rl;MP.tn=new Uint8Array(N);MP.ft=new Uint8Array(N);
+  if(spec.keep){MP._keep=1;MP._rdp=[];MP._rlp=[];}
   roadNet(MP,sets,slope,r,year,spec);await prog('道路網',0.8);
+  if(spec.fix&&spec.fix.rails){cmpRailFix(MP,slope,spec.fix.rails);}else{
   if(spec.rail!==false&&year>=1840)railNet(MP,sets,slope,r,year);
-  if(spec.rail!==false&&spec.hsr!==false&&year>=1964)hsrNet(MP,sets,r,year);
+  if(spec.rail!==false&&spec.hsr!==false&&year>=1964)hsrNet(MP,sets,r,year);}
   await prog('城市發展',0.82);var cityLbl=[];growCities(MP,sets,slope,r,year,spec,NM,cityLbl);
   for(k=0;k<N;k++){if((rd[k]||(rl[k]&1))&&!MP.tn[k]&&(rv[k]>=2||lc[k]===LCI.riv)){brg.push({x:k%GW,y:(k/GW)|0,c:Math.max(rv[k],lc[k]===LCI.riv?3:0),t:'p'});}}
   /* 8. 地名：聚落、河流、高地、森林、湖泊 */
@@ -919,9 +923,10 @@ async function genRegion(spec,S,prog){prog=prog||function(){return Promise.resol
   hillLabels(MP,el,lbl,NM);patchLabels(MP,lc,lbl,NM);
   /* 9. 輸出 */
   var EL=new Int16Array(N);for(k=0;k<N;k++)EL[k]=clamp(Math.round(el[k]),-11000,9000);
-  Object.assign(MP,{el:EL,lc:lc,rv:rv,rd:rd,rl:rl,tn:MP.tn,ft:MP.ft,nat:nat,set:sets.map(function(s){return {x:+s.x.toFixed(2),y:+s.y.toFixed(2),pop:s.pop,kind:s.kind,r:+s.r.toFixed(0),name:s.name,sty:s.sty,fd:s.founded,wall:s.walled?1:0};}),lbl:lbl,brg:brg,
+  Object.assign(MP,{el:EL,lc:lc,rv:rv,rd:rd,rl:rl,tn:MP.tn,ft:MP.ft,nat:nat,set:sets.map(function(s){return {x:+s.x.toFixed(2),y:+s.y.toFixed(2),pop:s.pop,kind:s.kind,r:+s.r.toFixed(0),name:s.name,sty:s.sty,fd:s.founded,wall:s.walled?1:0,inh:s.inh,bi:s.bi};}),lbl:lbl,brg:brg,
     rivs:rivs.map(function(R7){return {name:R7.name,cls:R7.cls,pts:simplify(R7.pts,cs*0.3).map(function(v){return Math.round(v);})};}),
     clim:{Tj:avgOf(Tj),Tl:avgOf(Tl),Pj:avgOf(Pj),Pl:avgOf(Pl)},nations:S.nations||[],popD:popD,Ptot:Ptot});
+  if(MP._keep){MP.rdp=cmpPaths(MP,MP._rdp);MP.rlp=cmpPaths(MP,MP._rlp);delete MP._keep;delete MP._rdp;delete MP._rlp;}
   function avgOf(A3){var s3=0,n3=0;for(var q4=0;q4<N;q4+=11){s3+=A3[q4];n3++;}return n3?s3/n3:0;}
   await prog('完成',1);return MP;}
 /* ---------- 道路網：城鎮之間最小生成樹＋捷徑；村落接到最近的路；通往地圖邊緣 ---------- */
@@ -935,7 +940,8 @@ function gridPath(MP,slope,a,b,kind,maxN){var GW=MP.GW,GH=MP.GH,N=GW*GH,g=new Fl
       var ng=g[c]+cc*D8L[d];if(ng<g[k]){g[k]=ng;from[k]=c;var h=Math.sqrt((X-bx)*(X-bx)+(Y-by)*(Y-by))*(kind==='rail'?0.6:0.8);H.push(k,ng+h);}}}
   if(from[b]<0&&a!==b)return null;var P=[],cur=b;while(cur>=0){P.push(cur);if(cur===a)break;cur=from[cur];}void cs;return P.reverse();}
 function roadNet(MP,sets,slope,r,year,spec){var GW=MP.GW,GH=MP.GH,rd=MP.rd,mF=Math.max(1,Math.pow(50/MP.cs,2)),dev=MP.dev===undefined?0.5:MP.dev,hwy=year>=1935&&(dev>=0.6||(year>=1960&&dev>=0.4)||(year>=1990&&dev>=0.28)),hwP=year>=1965?15000:30000,towns=sets.filter(function(s){return s.kind!=='village';}).sort(function(a,b){return b.pop-a.pop;});
-  var K=function(s){return clamp(Math.floor(s.y),0,GH-1)*GW+clamp(Math.floor(s.x),0,GW-1);},lay=function(P,cls){if(!P)return;if(cls>=2)P=tunnelize(MP,P,'road',year,dev);P.forEach(function(k){if(rd[k]<cls)rd[k]=cls;});};
+  var K=function(s){return clamp(Math.floor(s.y),0,GH-1)*GW+clamp(Math.floor(s.x),0,GW-1);},lay=function(P,cls){if(!P)return;if(cls>=2)P=tunnelize(MP,P,'road',year,dev);P.forEach(function(k){if(rd[k]<cls)rd[k]=cls;});if(MP._keep&&P.length>1)MP._rdp.push([cls,P]);};
+  if(spec&&spec.fix&&spec.fix.roads){cmpLayFix(MP,slope,spec.fix.roads,lay,mF);}else{
   /* 城鎮：最小生成樹（Prim）＋第二近的捷徑 */
   if(towns.length>1){var inT=[towns[0]],out=towns.slice(1),edges=[];while(out.length){var bd=1e18,bi=-1,bj=-1;for(var i=0;i<inT.length;i++)for(var j=0;j<out.length;j++){var d=dist(inT[i].x,inT[i].y,out[j].x,out[j].y);if(d<bd){bd=d;bi=i;bj=j;}}edges.push([inT[bi],out[bj]]);inT.push(out[bj]);out.splice(bj,1);}
     towns.forEach(function(t){var ns=towns.filter(function(u){return u!==t;}).sort(function(a,b){return dist(t.x,t.y,a.x,a.y)-dist(t.x,t.y,b.x,b.y);});if(ns[1]&&dist(t.x,t.y,ns[1].x,ns[1].y)*MP.cs<35000&&r()<0.3+0.5*dev)edges.push([t,ns[1]]);});
@@ -948,6 +954,7 @@ function roadNet(MP,sets,slope,r,year,spec){var GW=MP.GW,GH=MP.GH,rd=MP.rd,mF=Ma
   /* 過境高速公路：開發程度高的地區，跨區域的高速公路穿過地圖（經過最大城鎮附近） */
   if(hwy&&(dev>=0.6||year>=1990)){var nT=dev>=0.85&&year>=1990?2:1,c0=towns[0]||{x:GW/2,y:GH/2};for(var q2=0;q2<nT;q2++){var ang2=r()*PI+q2*PI/2,eA=edgeFrom(GW,GH,c0.x,c0.y,ang2),eB=edgeFrom(GW,GH,c0.x,c0.y,ang2+PI);
       [[eA,c0],[c0,eB]].forEach(function(sg){var a=K(sg[0]),b=K(sg[1]);if(isWater(MP.lc[a])||isWater(MP.lc[b]))return;lay(gridPath(MP,slope,a,b,'road',300000*mF),4);});}}
+  }
   /* 村落：接到最近的道路或聚落 */
   var vil=sets.filter(function(s){return s.kind==='village';});vil.forEach(function(v){var bx=Math.floor(v.x),by=Math.floor(v.y),R=Math.ceil(6000/MP.cs),best=-1,bd2=1e18;
     for(var b=-R;b<=R;b+=1)for(var a=-R;a<=R;a+=1){var X=bx+a,Y=by+b;if(X<0||Y<0||X>=GW||Y>=GH)continue;var k=Y*GW+X;if(rd[k]&&a*a+b*b>1){var d=a*a+b*b;if(d<bd2){bd2=d;best=k;}}}
@@ -955,7 +962,7 @@ function roadNet(MP,sets,slope,r,year,spec){var GW=MP.GW,GH=MP.GH,rd=MP.rd,mF=Ma
     if(best>=0)lay(gridPath(MP,slope,K(v),best,'road',60000*mF),(v.pop>500&&(dev>0.3||year>=1950))||(dev>0.6&&year>=1950)?2:1);});
   /* 小路：鄰近村落之間的田間小路與山徑 */
   vil.forEach(function(v){var nn=vil.filter(function(u){return u!==v;}).sort(function(p,q){return dist(v.x,v.y,p.x,p.y)-dist(v.x,v.y,q.x,q.y);});for(var i=0;i<2&&i<nn.length;i++){var o=nn[i];if(dist(v.x,v.y,o.x,o.y)*MP.cs>5500||r()>0.65-0.15*i)continue;lay(gridPath(MP,slope,K(v),K(o),'road',40000*mF),1);}});
-  roadEdges(MP,slope,year,dev,lay,mF);}
+  if(!(spec&&spec.fix&&spec.fix.roads))roadEdges(MP,slope,year,dev,lay,mF);}
 
 /* 每個陸地邊緣至少一條出入道路（真實的地區道路網一定通往地圖外）；完全沒有道路時鋪一條過境道路 */
 function roadEdges(MP,slope,year,dev,lay,mF){var GW=MP.GW,GH=MP.GH,rd=MP.rd,lc=MP.lc,cls=year<1650?1:year>=1930&&dev>=0.4?3:2,any=false;for(var k=0;k<GW*GH;k++)if(rd[k]){any=true;break;}
@@ -966,7 +973,7 @@ function roadEdges(MP,slope,year,dev,lay,mF){var GW=MP.GW,GH=MP.GH,rd=MP.rd,lc=M
     var bx=best%GW,by=(best-bx)/GW,t=-1;for(var s2=0;s2<n&&t<0;s2++){[s2,-s2].forEach(function(o){if(t>=0)return;var X=e==='W'?0:e==='E'?GW-1:bx+o,Y=e==='N'?0:e==='S'?GH-1:by+o;if(X<0||Y<0||X>=GW||Y>=GH)return;if(land(X,Y))t=Y*GW+X;});}if(t<0)return;
     lay(gridPath(MP,slope,best,t,'road',400000*mF),cls);});}
 function railNet(MP,sets,slope,r,year){var GW=MP.GW,GH=MP.GH,dev=MP.dev===undefined?0.5:MP.dev,big=sets.filter(function(s){return s.kind!=='village'&&s.pop>=2000;}).sort(function(a,b){return b.pop-a.pop;}).slice(0,(year||1943)<1870?4:Math.round(3+7*dev));if(big.length<1){var v0=sets.slice().sort(function(a,b){return b.pop-a.pop;})[0];if(v0&&v0.pop>=700&&r()<0.6)big=[v0];else return;}var K=function(s){return clamp(Math.floor(s.y),0,GH-1)*GW+clamp(Math.floor(s.x),0,GW-1);};
-  var lay=function(P){if(P){P=tunnelize(MP,P,'rail',year||1943,dev);P.forEach(function(k){MP.rl[k]|=1;});}};for(var i=1;i<big.length;i++){var prev=big.slice(0,i).sort(function(a,b){return dist(big[i].x,big[i].y,a.x,a.y)-dist(big[i].x,big[i].y,b.x,b.y);})[0];lay(gridPath(MP,slope,K(big[i]),K(prev),'rail',GW*GH*4));}
+  var lay=function(P){if(P){P=tunnelize(MP,P,'rail',year||1943,dev);P.forEach(function(k){MP.rl[k]|=1;});if(MP._keep&&P.length>1)MP._rlp.push([0,P]);}};for(var i=1;i<big.length;i++){var prev=big.slice(0,i).sort(function(a,b){return dist(big[i].x,big[i].y,a.x,a.y)-dist(big[i].x,big[i].y,b.x,b.y);})[0];lay(gridPath(MP,slope,K(big[i]),K(prev),'rail',GW*GH*4));}
   var t=big[0],ang=r()*2*PI;for(var q=0;q<2;q++){var a2=ang+q*PI,ex=clamp(Math.round(t.x+Math.cos(a2)*GW),0,GW-1),ey=clamp(Math.round(t.y+Math.sin(a2)*GH),0,GH-1),k=ey*GW+ex;if(!isWater(MP.lc[k]))lay(gridPath(MP,slope,K(t),k,'rail',250000));}}
 function edgeFrom(GW,GH,x,y,ang){var ca=Math.cos(ang),sa=Math.sin(ang),s=1e9;if(ca>0.01)s=Math.min(s,(GW-1-x)/ca);if(ca<-0.01)s=Math.min(s,-x/ca);if(sa>0.01)s=Math.min(s,(GH-1-y)/sa);if(sa<-0.01)s=Math.min(s,-y/sa);return {x:clamp(x+ca*s,0,GW-1),y:clamp(y+sa*s,0,GH-1)};}
 /* ---------- 隧道：道路或鐵路為繞過山體而大幅迂迴時，改以直線隧道穿越（鐵路 1860 年後、公路 1930 年後） ---------- */
@@ -989,7 +996,7 @@ function editStraight(MP,a,b,cls,kind){var GW=MP.GW,ax=a%GW,ay=(a/GW)|0,bx=b%GW,
 function hsrNet(MP,sets,r,year){var dev=MP.dev===undefined?0.5:MP.dev,minP=year>=2005?40000:year>=1985?60000:90000;if(dev<(year>=2000?0.45:0.65))return;var Q=sets.filter(function(s){return s.kind==='city'&&s.pop>=minP;}).sort(function(a,b){return b.pop-a.pop;}).slice(0,4);if(!Q.length){/* 過境高鐵：路線穿過本區，不一定設站 */if(dev>=0.75&&year>=1990&&r()<0.7){var T=sets.filter(function(s){return s.kind!=='village';}).sort(function(a,b){return b.pop-a.pop;})[0];Q=[T||{x:MP.GW/2,y:MP.GH/2}];}else return;}
   var GW=MP.GW,GH=MP.GH,ang=Q.length>=2?Math.atan2(Q[1].y-Q[0].y,Q[1].x-Q[0].x):r()*2*PI,ax=Math.cos(ang),ay=Math.sin(ang);Q.sort(function(a,b){return (a.x*ax+a.y*ay)-(b.x*ax+b.y*ay);});
   var toEdge=function(p,sg){var s=1e9;if(ax*sg>0.01)s=Math.min(s,(GW-1-p.x)/(ax*sg));if(ax*sg<-0.01)s=Math.min(s,-p.x/(ax*sg));if(ay*sg>0.01)s=Math.min(s,(GH-1-p.y)/(ay*sg));if(ay*sg<-0.01)s=Math.min(s,-p.y/(ay*sg));return {x:p.x+ax*sg*s,y:p.y+ay*sg*s};};
-  var W=[toEdge(Q[0],-1)].concat(Q,[toEdge(Q[Q.length-1],1)]);for(var i=1;i<W.length;i++)hsrLine(MP,W[i-1].x,W[i-1].y,W[i].x,W[i].y);}
+  var W=[toEdge(Q[0],-1)].concat(Q,[toEdge(Q[Q.length-1],1)]);for(var i=1;i<W.length;i++){var ks9=hsrLine(MP,W[i-1].x,W[i-1].y,W[i].x,W[i].y);if(ks9&&MP._keep&&ks9.length>1)MP._rlp.push([1,ks9]);}}
 function hsrLine(MP,x0,y0,x1,y1){var GW=MP.GW,GH=MP.GH,n=Math.ceil(Math.max(Math.abs(x1-x0),Math.abs(y1-y0))*1.5)+1,ks=[],sea=0;for(var i=0;i<=n;i++){var t=i/n,X=clamp(Math.floor(x0+(x1-x0)*t),0,GW-1),Y=clamp(Math.floor(y0+(y1-y0)*t),0,GH-1),k=Y*GW+X;if(MP.lc[k]===LCI.sea)sea++;if(ks[ks.length-1]!==k)ks.push(k);}
   if(sea>ks.length*0.15)return false;ks.forEach(function(k){if(MP.lc[k]!==LCI.sea)MP.rl[k]|=2;});return ks;}
 /* ---------- 標高：局部最高點（突起度足夠者）標為「高地」或「山」 ---------- */
@@ -1194,6 +1201,102 @@ var BKST={hill:['山丘','hill',150],ridge:['山嶺','ridge',900],lake:['湖泊'
 function bkStamp(MP,x,y,key,R,o){o=o||{};var S=BKST[key];if(!S)return null;var seed=o.seed||BK.v+23;bkBlob(MP,x,y,key==='village'?Math.min(R,500):R,seed,0);if(!BK.n)return null;var k=S[1];
   if(k==='hill'||k==='ridge')return bkElev(MP,k,{amp:o.amp||S[2],seed:seed});if(k==='crater'){var ks=bkElev(MP,'rough',{amp:o.amp||6,seed:seed});BK.undo.pop();var ks2=bkCells(MP);bkSnap(MP,ks2,'印章：彈坑區');for(var i=0;i<ks2.length;i++){var q=ks2[i];if(!isWater(MP.lc[q])&&bkHash(q,3,seed)<0.55)bkPutLC(MP,q,bkHash(q,5,seed)<0.5?LCI.burnt:LCI.rubble);}return ks2||ks;}
   return bkPreset(MP,k,{seed:seed});}
+
+/* ==== c4_camp.js ==== */
+/* ===================== 戰役的大地圖：一次產生（或匯入）整個戰區，先算好聚落（建築、有無人居住）、道路、鐵路與河流，再依此產生各場作戰的區域地圖 =====================
+   大地圖用較粗的格子（預設 500 公尺），產生時記錄每條道路與鐵路的走向（genRegion 的 spec.keep）。
+   區域地圖：從大地圖取樣地勢、湖泊與河流，固定放上大地圖的聚落（名稱、人口、範圍），沿大地圖的道路與鐵路走向細部鋪設；
+   線條剛好裁切在區域邊界上，相鄰兩張區域地圖的道路、鐵路與河流在同一點相接。 ===================== */
+var CMPBIG={cs:500},CMPHB={m:null,h:null};
+/* ---------- 折線裁切到矩形（區域座標，0～W、0～H），交點落在邊界上 ---------- */
+function cmpClipSeg(ax,ay,bx,by,W,H){var t0=0,t1=1,dx=bx-ax,dy=by-ay,p=[-dx,dx,-dy,dy],q=[ax,W-ax,ay,H-ay];
+  for(var i=0;i<4;i++){if(p[i]===0){if(q[i]<0)return null;continue;}var t=q[i]/p[i];if(p[i]<0){if(t>t1)return null;if(t>t0)t0=t;}else{if(t<t0)return null;if(t<t1)t1=t;}}
+  return [ax+t0*dx,ay+t0*dy,ax+t1*dx,ay+t1*dy,t0,t1];}
+function cmpClip(P,x0,y0,W,H){var out=[],cur=null;for(var i=0;i+3<P.length;i+=2){var c=cmpClipSeg(P[i]-x0,P[i+1]-y0,P[i+2]-x0,P[i+3]-y0,W,H);if(!c){if(cur){out.push(cur);cur=null;}continue;}
+    if(!cur||c[4]>0){if(cur)out.push(cur);cur=[c[0],c[1]];}cur.push(c[2],c[3]);if(c[5]<1){out.push(cur);cur=null;}}
+  if(cur)out.push(cur);return out.filter(function(q){return q.length>=4&&plLen(q)>1;});}
+/* ---------- 大地圖：產生（記錄道路與鐵路走向）或沿用匯入的地圖 ---------- */
+async function cmpBigMake(B,pg){var cs=+B.cs||CMPBIG.cs,gw=Math.max(20,Math.round((+B.W||100)*1000/cs)),gh=Math.max(20,Math.round((+B.H||80)*1000/cs)),Wm=gw*cs,Hm=gh*cs,seed=String(B.seed||'cmp'),smp,src='proc',lat0=+B.lat||45,lon0=0,world=null;
+  if(B.src==='world'&&typeof WR!=='undefined'&&WR&&B.lon0!==undefined){smp=worldSampler(WR,+B.lon0,+B.lat0,Wm,Hm);src='world';lat0=+B.lat0;lon0=+B.lon0;world={name:WR.name};}
+  else smp=procSampler({seed:seed,ter:B.ter||'mixed',clim:B.clim||'temperate',Wm:Wm,Hm:Hm,lat:lat0});
+  var MP=await genRegion({GW:gw,GH:gh,cs:cs,seed:seed,year:+B.y||1943,name:B.name||'戰區大地圖',lat0:lat0,lon0:lon0,src:src,world:world,dens:+B.dens||1,rail:B.rail!==false,dev:B.dev||'auto',hsr:B.hsr!==false,nst:B.nst||'zh',keep:1},smp,pg);
+  MP.big=1;cmpHab(MP,smp);return MP;}
+/* 記下大地圖的宜居程度（決定人口密度與聚落多寡），區域地圖沿用；格數太多時降低解析度 */
+function cmpHab(MP,smp){var K=Math.max(1,Math.ceil(Math.sqrt(MP.GW*MP.GH/150000))),W=Math.ceil(MP.GW/K),H=Math.ceil(MP.GH/K),h=new Uint8Array(W*H),d=MP.cs*K;
+  for(var j=0;j<H;j++)for(var i=0;i<W;i++)h[j*W+i]=Math.round(clamp(smp.hab((i+0.5)*d,(j+0.5)*d),0,1)*255);MP.hb=b64enc(h);MP.hbK=K;MP.hbW=W;MP.hbH=H;}
+/* ---------- 地點：每個聚落的種類、人口、有無人居住（可由戰役設定覆寫）、經過的道路與鐵路、河流 ---------- */
+function cmpPlaces(BM,ovr){var cs=BM.cs,GW=BM.GW,GH=BM.GH;return (BM.set||[]).map(function(s,i){var x=s.x*cs,y=s.y*cs,R=Math.ceil((Math.max(s.r||300,cs)+500)/cs),cx=Math.floor(s.x),cy=Math.floor(s.y),rd=0,rl=0,rv=0;
+    for(var b=-R;b<=R;b++)for(var a=-R;a<=R;a++){var X=cx+a,Y=cy+b;if(X<0||Y<0||X>=GW||Y>=GH||a*a+b*b>R*R)continue;var k=Y*GW+X;if(BM.rd[k]>rd)rd=BM.rd[k];rl|=BM.rl[k]||0;if(BM.rv[k]>rv)rv=BM.rv[k];}
+    var o=(ovr&&ovr[i])||{};return {i:i,name:o.name||s.name,kind:s.kind,pop:s.pop,inh:o.inh===undefined?1:+o.inh,x:x,y:y,r:s.r||300,rd:rd,rl:rl,rv:rv};});}
+function cmpPlaceTxt(P){var a=[];if(P.rd)a.push(RD[P.rd][1]);if(P.rl&2)a.push(RLN[2]);else if(P.rl&1)a.push(RLN[1]);if(P.rv>=2)a.push(RVN[P.rv]);return a.length?a.join('、'):'沒有道路經過';}
+var CMPKN={city:'城市',town:'市鎮',village:'村落'};
+/* ---------- 區域地圖的取樣器：地勢（雙線性）、起伏（周圍的高低差）、湖泊、大河、氣候 ---------- */
+function cmpBigSampler(BM,x0,y0,Wm,Hm){var cs=BM.cs,GW=BM.GW,GH=BM.GH,el=BM.el,C=BM.clim||{Tj:5,Tl:20,Pj:60,Pl:60};if(BM.hb&&CMPHB.m!==BM){CMPHB.m=BM;CMPHB.h=b64dec(BM.hb);}var H=BM.hb?CMPHB.h:null,hd=cs*(BM.hbK||1);
+  /* 海：大地圖的海面格（雙線性，海岸線由區域地圖細部描繪） */var isS=function(i,j){var c=BM.lc[clamp(j,0,GH-1)*GW+clamp(i,0,GW-1)];return c===LCI.sea||c===LCI.shal?1:0;},sea=function(x,y){var fx=(x0+x)/cs-0.5,fy=(y0+y)/cs-0.5,i0=Math.floor(fx),j0=Math.floor(fy),tx=fx-i0,ty=fy-j0;return (isS(i0,j0)*(1-tx)+isS(i0+1,j0)*tx)*(1-ty)+(isS(i0,j0+1)*(1-tx)+isS(i0+1,j0+1)*tx)*ty;};
+  var at=function(i,j){return el[clamp(j,0,GH-1)*GW+clamp(i,0,GW-1)];};
+  var S={nations:BM.nations||[],elev:function(x,y){var fx=(x0+x)/cs-0.5,fy=(y0+y)/cs-0.5,i0=Math.floor(fx),j0=Math.floor(fy),tx=fx-i0,ty=fy-j0;return (at(i0,j0)*(1-tx)+at(i0+1,j0)*tx)*(1-ty)+(at(i0,j0+1)*(1-tx)+at(i0+1,j0+1)*tx)*ty;},
+    relief:function(x,y){var i=Math.floor((x0+x)/cs),j=Math.floor((y0+y)/cs),mn=1e9,mx=-1e9;for(var b=-1;b<=1;b++)for(var a=-1;a<=1;a++){var e=at(i+a,j+b);if(e<mn)mn=e;if(e>mx)mx=e;}return clamp(20+(mx-mn)*0.8,10,1600);},
+    clim:function(){return {Tj:C.Tj,Tl:C.Tl,Pj:C.Pj,Pl:C.Pl};},hab:function(x,y){if(!H)return 0.5;var fx=(x0+x)/hd-0.5,fy=(y0+y)/hd-0.5,i0=Math.floor(fx),j0=Math.floor(fy),tx=fx-i0,ty=fy-j0,at2=function(i,j){return H[clamp(j,0,BM.hbH-1)*BM.hbW+clamp(i,0,BM.hbW-1)]/255;};return (at2(i0,j0)*(1-tx)+at2(i0+1,j0)*tx)*(1-ty)+(at2(i0,j0+1)*(1-tx)+at2(i0+1,j0+1)*tx)*ty;},
+    land:function(x,y){return sea(x,y)<0.5?1:0;},landF:function(x,y){return 1-sea(x,y);},
+    lake:function(x,y){var i=Math.floor((x0+x)/cs),j=Math.floor((y0+y)/cs);if(i<0||j<0||i>=GW||j>=GH)return 0;return BM.lc[j*GW+i]===LCI.lake?1:0;},
+    rivers:[],lat:function(){return BM.lat0||35;}};
+  (BM.rivs||[]).forEach(function(R){cmpClip(R.pts,x0,y0,Wm,Hm).forEach(function(P){S.rivers.push({pts:P,cls:R.cls,name:R.name||''});});});
+  return S;}
+/* ---------- 區域地圖要固定的聚落、道路與鐵路（區域座標，公尺） ---------- */
+function cmpRegionFix(BM,x0,y0,Wm,Hm,ovr){var cs=BM.cs,o={sets:[],roads:[],rails:[]};
+  (BM.set||[]).forEach(function(s,i){var x=s.x*cs-x0,y=s.y*cs-y0;if(x<0||y<0||x>=Wm||y>=Hm)return;var q=(ovr&&ovr[i])||{};o.sets.push({x:x,y:y,pop:s.pop,kind:s.kind,name:q.name||s.name,r:s.r,inh:q.inh===undefined?1:+q.inh,bi:i});});
+  (BM.rdp||[]).forEach(function(R){if(R.c<2)return;cmpClip(R.p,x0,y0,Wm,Hm).forEach(function(P){o.roads.push({c:R.c,p:P});});});
+  (BM.rlp||[]).forEach(function(R){cmpClip(R.p,x0,y0,Wm,Hm).forEach(function(P){o.rails.push({h:R.h?1:0,p:P});});});
+  return o;}
+/* ---------- 產生一場作戰的區域地圖（同一場作戰每次都產生同樣的地圖） ---------- */
+/* 作戰區域在大地圖上的範圍（公尺）：大小取整到區域地圖的格子，並放在大地圖之內 */
+function cmpOpRect(BM,op){var cs=+op.cs||50,Wm=Math.min(Math.round((+op.w||20)*1000/cs)*cs,Math.floor(BM.Wm/cs)*cs),Hm=Math.min(Math.round((+op.h||15)*1000/cs)*cs,Math.floor(BM.Hm/cs)*cs);return {cs:cs,Wm:Wm,Hm:Hm,x0:clamp(+op.x||0,0,Math.max(0,BM.Wm-Wm)),y0:clamp(+op.y||0,0,Math.max(0,BM.Hm-Hm))};}
+async function cmpRegionMake(CMP,BM,op,pg){var R=cmpOpRect(BM,op),cs=R.cs,Wm=R.Wm,Hm=R.Hm,x0=R.x0,y0=R.y0;
+  var S=cmpBigSampler(BM,x0,y0,Wm,Hm),fix=cmpRegionFix(BM,x0,y0,Wm,Hm,CMP.places),seed=String(CMP.seed||'cmp')+'|op|'+op.id;
+  var MP=await genRegion({GW:Wm/cs,GH:Hm/cs,cs:cs,seed:seed,year:+CMP.y||BM.year||1943,name:op.name||'作戰地區',lat0:BM.lat0,lon0:BM.lon0,src:BM.src,world:BM.world,dens:+CMP.big.dens||1,rail:true,dev:CMP.big.dev||'auto',hsr:true,nst:CMP.nst||BM.nst||'zh',fix:fix},S,pg);
+  /* 無人居住的聚落：建築還在，居民為零 */(MP.set||[]).forEach(function(s){if(s.inh===0)s.pop=0;});
+  MP.cmp={x0:x0,y0:y0,op:op.id};return MP;}
+/* ---------- 產生器的輔助：記錄的路徑（格子）→ 公尺折線；沿固定走向鋪設道路與鐵路 ---------- */
+function cmpPaths(MP,L){var GW=MP.GW,cs=MP.cs;return (L||[]).map(function(q){var P=[];q[1].forEach(function(k){P.push((k%GW+0.5)*cs,(((k/GW)|0)+0.5)*cs);});return {c:q[0],h:q[0],p:simplify(P,cs*0.45).map(function(v){return Math.round(v);})};}).filter(function(R){return R.p.length>=4;});}
+function cmpLine(MP,a,b){var GW=MP.GW,x0=a%GW,y0=(a/GW)|0,x1=b%GW,y1=(b/GW)|0,dx=Math.abs(x1-x0),dy=Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1,e=dx-dy,o=[];
+  for(var n=0;n<100000;n++){o.push(y0*GW+x0);if(x0===x1&&y0===y1)break;var e2=2*e;if(e2>-dy){e-=dy;x0+=sx;}if(e2<dx){e+=dx;y0+=sy;}}return o;}
+function cmpFixRoute(MP,slope,P,kind,fn){var GW=MP.GW,GH=MP.GH,cs=MP.cs,Q=resample(P,Math.max(cs*8,400)),prev=-1;
+  for(var i=0;i+1<Q.length;i+=2){var k=clamp(Math.floor(Q[i+1]/cs),0,GH-1)*GW+clamp(Math.floor(Q[i]/cs),0,GW-1);if(prev>=0&&k!==prev)fn(gridPath(MP,slope,prev,k,kind,80000)||cmpLine(MP,prev,k));prev=k;}}
+function cmpLayFix(MP,slope,L,lay){(L||[]).forEach(function(R){cmpFixRoute(MP,slope,R.p,'road',function(P){lay(P,R.c);});});}
+function cmpRailFix(MP,slope,L){var cs=MP.cs;(L||[]).forEach(function(R){if(R.h){for(var i=0;i+3<R.p.length;i+=2)hsrLine(MP,R.p[i]/cs,R.p[i+1]/cs,R.p[i+2]/cs,R.p[i+3]/cs);return;}cmpFixRoute(MP,slope,R.p,'rail',function(P){P.forEach(function(k){MP.rl[k]|=1;});});});}
+/* ---------- 匯入的地圖沒有記錄道路與鐵路走向：從格子描出折線（同等級的格子連成一條，接到交會的格子） ---------- */
+function cmpTrace(MP,cls){var GW=MP.GW,GH=MP.GH,cs=MP.cs,N=GW*GH,seen=new Uint8Array(N),out=[],DX=[1,0,-1,0,1,-1,-1,1],DY=[0,1,0,-1,1,1,-1,-1],L=[];
+  for(var k=0;k<N;k++)if(cls(k))L.push(k);
+  var nb=function(k,f){var x=k%GW,y=(k/GW)|0,o=[];for(var d=0;d<8;d++){var X=x+DX[d],Y=y+DY[d];if(X<0||Y<0||X>=GW||Y>=GH)continue;var q=Y*GW+X;if(f(q))o.push(q);}return o;};
+  var deg=function(k){var c=cls(k);return nb(k,function(q){return cls(q)===c;}).length;};
+  L.sort(function(a,b){return cls(b)-cls(a)||deg(a)-deg(b);});
+  L.forEach(function(s){if(seen[s])return;var c=cls(s),P=[s];seen[s]=1;
+    /* 起點旁邊已經描過的格子（交會處）：從那裡接出來 */var j0=nb(s,function(q){return seen[q]&&cls(q);})[0];if(j0!==undefined&&j0!==s)P.unshift(j0);
+    var cur=s,px=0,py=0;for(var n=0;n<N;n++){var x=cur%GW,y=(cur/GW)|0,best=-1,bs=-9;
+      nb(cur,function(q){return !seen[q]&&cls(q)===c;}).forEach(function(q){var dx=q%GW-x,dy=((q/GW)|0)-y,sc=(dx*px+dy*py)-(dx&&dy?0.3:0);if(sc>bs){bs=sc;best=q;}});
+      if(best<0){var jn=nb(cur,function(q){return seen[q]&&cls(q)&&P.indexOf(q)<0;})[0];if(jn!==undefined)P.push(jn);break;}
+      px=best%GW-x;py=((best/GW)|0)-y;seen[best]=1;P.push(best);cur=best;}
+    if(P.length<2)return;var M=[];P.forEach(function(q){M.push((q%GW+0.5)*cs,(((q/GW)|0)+0.5)*cs);});out.push({c:c,p:simplify(M,cs*0.45).map(function(v){return Math.round(v);})});});
+  return out.filter(function(R){return R.p.length>=4;});}
+/* 大地圖的準備：匯入的地圖補上道路與鐵路走向 */
+function cmpBigPrep(BM){if(!BM.rdp)BM.rdp=cmpTrace(BM,function(k){return BM.rd[k]||0;});if(!BM.rlp){var R=cmpTrace(BM,function(k){var v=BM.rl[k]||0;return v&2?2:v&1?1:0;});BM.rlp=R.map(function(q){return {c:q.c,h:q.c===2?1:0,p:q.p};});}
+  BM.Wm=BM.Wm||BM.GW*BM.cs;BM.Hm=BM.Hm||BM.GH*BM.cs;return BM;}
+/* ---------- 地點之間的道路與鐵路：沿每條路線依序經過哪些聚落，相鄰兩個聚落之間就有一段 ---------- */
+function cmpLinks(BM,P){var GW=BM.GW,GH=BM.GH,cs=BM.cs,own=new Int32Array(GW*GH).fill(-1),pr=new Float64Array(GW*GH),L={};
+  P.forEach(function(p,i){var R=Math.max(p.r,cs*0.75)+cs*0.5,cx=Math.floor(p.x/cs),cy=Math.floor(p.y/cs),Rc=Math.ceil(R/cs);for(var b=-Rc;b<=Rc;b++)for(var a=-Rc;a<=Rc;a++){var X=cx+a,Y=cy+b;if(X<0||Y<0||X>=GW||Y>=GH)continue;var d=dist((X+0.5)*cs,(Y+0.5)*cs,p.x,p.y);if(d>R)continue;var k=Y*GW+X,w=p.pop/(1+d);if(own[k]<0||w>pr[k]){own[k]=i;pr[k]=w;}}});
+  var walk=function(Rs,rail){Rs.forEach(function(R){var Q=resample(R.p,cs*0.5),last=-1,lastD=0,d=0;for(var i=0;i+1<Q.length;i+=2){if(i)d+=dist(Q[i-2],Q[i-1],Q[i],Q[i+1]);var X=clamp(Math.floor(Q[i]/cs),0,GW-1),Y=clamp(Math.floor(Q[i+1]/cs),0,GH-1),o=own[Y*GW+X];if(o<0||o===last)continue;
+      if(last>=0){var a=Math.min(o,last),b=Math.max(o,last),key=a+'|'+b+'|'+(rail?1:0),km=(d-lastD)/1000,E=L[key];if(!E||km<E.km||(R.c||0)>E.c)L[key]={a:a,b:b,rail:rail?1:0,c:Math.max(R.c||0,E?E.c:0),h:R.h?1:(E?E.h:0),km:E?Math.min(E.km,km):km};}last=o;lastD=d;}});};
+  walk(BM.rdp||[],false);walk(BM.rlp||[],true);
+  var o=P.map(function(){return [];});Object.keys(L).forEach(function(k){var E=L[k];o[E.a].push({j:E.b,c:E.c,h:E.h,rail:E.rail,km:E.km});o[E.b].push({j:E.a,c:E.c,h:E.h,rail:E.rail,km:E.km});});
+  o.forEach(function(A){A.sort(function(x,y){return x.rail-y.rail||y.c-x.c||x.km-y.km;});});return o;}
+/* ---------- 地點的建築：用作戰地圖同一套規則在大地圖上配置設施與地標，歸到所在的聚落；另估計房屋數量 ---------- */
+function cmpFacs(BM,y,P){var L=[];try{L=facGen(BM,y);facGen8(BM,y,L);}catch(e){}var o=P.map(function(){return [];});
+  L.forEach(function(F){var bi=-1,bd=6000;P.forEach(function(p,i){var d=dist(F.x,F.y,p.x,p.y)-(F.set&&F.set===p.name?1e6:0);if(d<bd){bd=d;bi=i;}});if(bi>=0)o[bi].push(F);});return o;}
+function cmpBldN(p,y){var per=p.kind==='city'?(y<1900?8:y<1960?12:22):p.kind==='town'?(y<1900?6:y<1960?7:9):(y<1900?5:4.5);return Math.max(3,Math.round(p.pop/per));}
+function cmpFacTxt(L){var c={};(L||[]).forEach(function(F){var n=FACN[F.k]||F.k;c[n]=(c[n]||0)+1;});return Object.keys(c).map(function(n){return c[n]>1?n+' '+c[n]:n;}).join('、');}
+/* ---------- 戰區的控制：初始依前線（西／東或北／南），之後由各場作戰的結果改變 ---------- */
+function cmpOwn0(C,BM,p){var F=(C.big||{}).front||{dir:'WE',f:0.5},Wm=BM.Wm||1,Hm=BM.Hm||1,f=F.f===undefined?0.5:+F.f,d=F.dir||'WE';
+  var t=d==='WE'||d==='EW'?p.x/Wm:p.y/Hm,s0=t<f?0:1;if(d==='EW'||d==='SN')s0=1-s0;return s0;}
 
 /* ==== d_render.js ==== */
 /* ===================== 像素地圖渲染：地表紋理、季節、山體陰影、等高線、河流、道路、鐵路、工事 ===================== */
@@ -8995,6 +9098,89 @@ function fgAutoStep(){if(!G.started)return;var auto=fgAutoOn();G.units.forEach(f
 /* ---------- 聯機：各方只收到本方的籌措統計 ---------- */
 if(typeof mpValList==='function'){(function(){var b=mpValList;mpValList=function(s){var V=b.apply(this,arguments);if(G.fg&&G.fg.st)V.push(['fg.st',s<0?G.fg.st:mpPair(G.fg.st,s,function(){return {};})]);return V;};})();}
 
+/* ==== h61_cmp.js ==== */
+/* ===================== 戰役（作戰中的劇本）：觸發條件與動作——對白、訊息、增援、部隊撤出、核彈、新增目標、結束作戰；作戰結束後記錄結果與存活兵力 =====================
+   G.cmp：戰役名稱、這場作戰（區域在大地圖上的原點 x0、y0，公尺）、事件（觸發條件＋動作）、對白佇列、戰役進度（歷次結果與延續的兵力）。
+   事件的地點用大地圖座標（公尺），執行時換算成這張區域地圖的座標。觸發條件：作戰開始、經過時間、目標被某方佔領、某方部隊進入範圍、
+   部隊（依名稱）被殲滅或兵力低於比例、一方總兵力低於比例、另一個事件發生之後；都可以再延遲幾分鐘。 ===================== */
+var CMPTR={start:'作戰開始',time:'經過時間',obj:'目標被佔領',area:'部隊進入範圍',lost:'部隊被殲滅或兵力低於',str:'一方總兵力低於',ev:'另一個事件之後'};
+var CMPACT={dlg:'對白',msg:'訊息',reinf:'增援進場',exit:'部隊撤出',nuke:'核彈',obj:'新增目標',end:'結束作戰'};
+if(typeof KINDN!=='undefined')KINDN.cmp='劇本事件';
+function cmpOn(){return !!(G&&G.cmp&&G.cmp.ev);}
+function cmpXY(x,y){var C=G.cmp;return [(+x||0)-(C.x0||0),(+y||0)-(C.y0||0)];}
+function cmpR(){var C=G.cmp,s=C.rs|0||1;s^=s<<13;s^=s>>>17;s^=s<<5;C.rs=s|0;return ((s>>>0)%1000003)/1000003;}
+function cmpChar(id){var C=G.cmp;return (C.chars||[]).filter(function(c){return c.id===id;})[0]||null;}
+/* 依名稱找部隊：完全相同優先，否則包含該名稱的最上層編制 */
+function cmpUnits(side,name){var L=G.units.filter(function(u){return u.side===side&&u.name===name;});if(!L.length)L=G.units.filter(function(u){return u.side===side&&u.name&&name&&u.name.indexOf(name)>=0&&(u.p<0||!(uById(u.p)||{}).name||uById(u.p).name.indexOf(name)<0);});return L;}
+/* 增援：戰役的核心兵力（帶著上一場的狀態，已在戰場上的不再重複）或這場作戰另外的兵力 */
+function cmpReinf(side,a,e){var C=G.cmp,P=C.prog||{};if(a.f){var fc=((C.forces||[])[side]||[]).filter(function(q){return q.id===a.f;})[0];if(!fc)return [];if(G.units.some(function(u){return u.side===side&&u.cf&&u.cf.split('.')[0]===String(a.f);}))return [];
+    var T=cmpBuild(side,[fc],C.seed);return cmpApplyState(T,(P.st||[])[side]);}
+  return cmpBuild(side,[{id:'r'+e.id,k:a.pk,n:clamp(+a.n||1,1,20),name:a.name||'',gran:a.gran||'co'}],(C.seed||'')+'|op|'+C.op);}
+function cmpFName(side,f){var fc=(((G.cmp||{}).forces||[])[side]||[]).filter(function(q){return q.id===f;})[0];return fc?cmpFLabel(fc):'';}
+function cmpFLabel(fc){var n=clamp(+fc.n||1,1,40),b=(FPI[fc.k]||UT[fc.k]||{}).n||fc.k;if(!fc.name)return b+(n>1?' × '+n:'');return fc.name.indexOf('{i}')>=0&&n>1?fc.name.replace('{i}','1～'+n):fmtName(fc.name,1);}
+function cmpLeaves(L){var o=[];L.forEach(function(F){(isLeaf(F)?[F]:leavesOf(F)).forEach(function(u){if(o.indexOf(u)<0)o.push(u);});});return o;}
+/* ---------- 觸發條件 ---------- */
+function cmpCond(e){var T=e.tr||{},C=G.cmp,k=T.k||'start';
+  if(k==='start')return true;
+  if(k==='time')return G.t>=(+T.t||0)*60;
+  if(k==='obj'){var ob=(G.obj||[]).filter(function(q){return q.name===T.obj||q.id===+T.obj;})[0];return !!ob&&ob.own===(+T.side||0);}
+  if(k==='area'){var p=cmpXY(T.x,T.y),r=+T.r||1000,s=+T.side||0;return G.units.some(function(u){return u.side===s&&isLeaf(u)&&onMap(u)&&ST(u).dom!=='air'&&dist(u.x,u.y,p[0],p[1])<=r;});}
+  if(k==='lost'){var U=cmpLeaves(cmpSel(+T.side||0,T.f,T.name||''));if(!U.length)return false;var m=0,m0=0;U.forEach(function(u){if(u.st!=='dead'){m+=u.men+u.veh*8;}m0+=u.men0+u.veh0*8;});return m0>0&&m/m0<=(+T.pct||0)/100+1e-9;}
+  if(k==='str'){var st=sideStr(+T.side||0);return st.m0>0&&st.f<=(+T.pct||50)/100;}
+  if(k==='ev'){var o=C.ev.filter(function(q){return q.id===T.ev;})[0];return !!o&&!!o.done;}
+  return false;}
+/* 每四步檢查一次：條件成立後再等延遲（分鐘）才執行；每個事件只發生一次 */
+function cmpStep(){if(!cmpOn()||!G.started||G.over)return;var C=G.cmp;
+  C.ev.forEach(function(e){if(e.done)return;if(e.ok===undefined){if(!cmpCond(e))return;e.ok=G.t;}var dl=(+((e.tr||{}).dl)||0)*60;if(G.t-e.ok<dl)return;e.done=G.t;(e.act||[]).forEach(function(a){try{cmpDo(e,a);}catch(x){}});});
+  /* 撤出中的部隊：抵達本方地圖邊緣就離開戰場 */G.units.forEach(function(u){if(!u.cmpExit||u.st==='off'||u.st==='dead')return;var MP=G.map,e=SD(u.side).edge||'W',d=e==='W'?u.x:e==='E'?MP.Wm-u.x:e==='N'?u.y:MP.Hm-u.y;if(d<MP.cs*8)cmpOut(u,'撤出戰場');});}
+function cmpOut(u,why){u.st='off';u.cmpOut=1;u.cmpExit=0;u.path=null;u.ord=null;u.pend=[];u.task='hold';logE(u.side,'cmp',uName(u)+why,u.x,u.y,u.id);}
+/* ---------- 動作 ---------- */
+function cmpDo(e,a){var C=G.cmp,k=a.k;
+  if(k==='dlg'){var ch=cmpChar(a.who),s=a.side===undefined||a.side===''?-1:+a.side,D={t:G.t,who:a.who||'',n:ch?ch.name:(a.n||''),ti:ch?ch.title||'':'',cs:ch&&ch.side!==undefined?+ch.side:-1,side:s,txt:String(a.txt||''),ps:ch?String(ch.ps||ch.id):'',f:ch&&ch.f?1:0};C.dq.push(D);
+    logE(s,'cmp',(D.n?D.n+(D.ti?'（'+D.ti+'）':'')+'：':'')+D.txt);if(G.onPause&&G.set.cmpPause!==false)G.onPause('劇情對白');return;}
+  if(k==='msg'){logE(a.side===undefined||a.side===''?-1:+a.side,'cmp',String(a.txt||''));return;}
+  if(k==='reinf'){var side=+a.side||0,p=a.x!==undefined&&a.x!==''?validPos({dom:'land'},cmpXY(a.x,a.y)[0],cmpXY(a.x,a.y)[1]):null,F=cmpReinf(side,a,e);
+    F.forEach(function(top,j){(function w(z){z.st='off';kidsOf(z).forEach(w);})(top);var q=p?[p[0]+(j-(F.length-1)/2)*800,p[1]]:edgePoint(side,clamp(0.5+(j-(F.length-1)/2)*0.15,0.1,0.9));top.arr={k:'time',t:G.t,x:q[0],y:q[1]};top.cmpR=e.id;});if(F.length)logE(side,'cmp','增援進場：'+F.map(function(t){return uName(t);}).join('、'));
+    dupNames();return;}
+  if(k==='exit'){var s2=+a.side||0,L=a.f||a.name?cmpLeaves(cmpSel(s2,a.f,a.name)):[];if(a.x!==undefined&&a.x!==''){var q2=cmpXY(a.x,a.y),rr=+a.r||2000;L=L.concat(G.units.filter(function(u){return u.side===s2&&isLeaf(u)&&onMap(u)&&dist(u.x,u.y,q2[0],q2[1])<=rr&&L.indexOf(u)<0;}));}
+    L=L.filter(function(u){return onMap(u);});if(!L.length)return;
+    if(a.how==='now'){L.forEach(function(u){cmpOut(u,'奉命撤出戰場');});return;}
+    L.forEach(function(u){var ep=edgePoint(u.side,clamp(u.y/G.map.Hm,0.05,0.95)),ed=SD(u.side).edge||'W';if(ed==='N'||ed==='S')ep=edgePoint(u.side,clamp(u.x/G.map.Wm,0.05,0.95));u.cmpExit=1;activate(u,newOrder('move',{x:ep[0],y:ep[1],opt:{road:true},cmp:1}));});
+    logE(s2,'cmp',(a.name||cmpFName(s2,a.f)||'部隊')+'奉命撤出戰場（'+L.length+' 個單位）');return;}
+  if(k==='nuke'){var q3=cmpXY(a.x,a.y),Y=clamp(+a.Y||10,0.01,50000),s3=+a.side||0;if(typeof nukeAt!=='function')return;nukeAt(s3,q3[0],q3[1],Y,null);logE(-1,'cmp',G.sides[s3].name+'在'+placeTxt(q3[0],q3[1])+'引爆 '+(Y>=1000?fx(Y/1000,1)+' 百萬噸':fx(Y,Y<1?2:0)+' 千噸')+'核彈',q3[0],q3[1]);return;}
+  if(k==='obj'){var q4=cmpXY(a.x,a.y),id=(G.obj||[]).reduce(function(m,o){return Math.max(m,o.id);},0)+1;G.obj=G.obj||[];G.obj.push({id:id,name:a.name||('目標 '+id),x:q4[0],y:q4[1],pts:+a.pts||10,own:-1,r:+a.r||800});logE(-1,'cmp','新的作戰目標：'+(a.name||('目標 '+id)),q4[0],q4[1]);return;}
+  if(k==='end'){C.endReq={win:a.win===undefined||a.win===''?-1:+a.win,why:a.why||'劇情結束'};return;}}
+/* 劇本要求結束作戰：經由遊戲模式的勝負判定點（h5_core checkEnd 呼叫 gmEnd） */
+(function(){var b=typeof gmEnd==='function'?gmEnd:null;gmEnd=function(){var X=b?b.apply(this,arguments):null;if(X)return X;if(cmpOn()&&G.cmp.endReq)return {why:G.cmp.endReq.why,win:G.cmp.endReq.win};return null;};})();
+/* ---------- 兵力：戰役的核心部隊每場作戰都以同樣的種子建立，每個單位帶著標記（兵力編號.序號.單位序號），作戰結束時記下各單位的狀態，下一場作戰套用 ---------- */
+/* 一筆兵力：{id, k（編制範本或單位種類）, n（數量）, name（名稱，{i} 換成序號）, gran（最小單位）}；seed 決定番號、指揮官與裝備 */
+function cmpBuild(side,list,seed){var tops=[];(list||[]).forEach(function(p,j){var n=clamp(+p.n||1,1,40),fid=p.id||('x'+j);for(var i=1;i<=n;i++){var r=mb32(hstr((seed||'')+'|F|'+side+'|'+fid+'|'+i)),nm=p.name?fmtName(p.name,i):null,top=FPI[p.k]?buildPreset(side,p.k,nm,-1,r,p.gran||'co'):UT[p.k]?addLeaf(side,p.k,1,nm,-1,r):null;if(!top)continue;
+      top.ix=i;if(p.name&&p.name.indexOf('{i}')>=0)top.tpl=p.name;var q=0;(function w(z){z.cf=fid+'.'+i+'.'+(q++);kidsOf(z).forEach(w);})(top);tops.push(top);}});reix();return tops;}
+/* 依兵力編號找部隊（最上層），或依名稱找 */
+function cmpSel(side,f,name){if(f)return G.units.filter(function(u){return u.side===side&&u.cf&&/\.0$/.test(u.cf)&&u.cf.split('.')[0]===String(f);});return name?cmpUnits(side,name):[];}
+/* 作戰結束時各單位的狀態：〔兵員比例, 裝備比例, 彈藥, 經驗, 名稱〕；被殲滅的記 0；撤出戰場的部隊算存活 */
+function cmpState(side){var o={};G.units.forEach(function(u){if(u.side!==side||!u.cf)return;if(!isLeaf(u)){o[u.cf]=leavesOf(u).length||u.cmpOut?[1,1,100,u.exp||0,u.name]:0;return;}
+    o[u.cf]=u.st==='dead'||u.men+u.veh<1?0:[u.men0>0?+(u.men/u.men0).toFixed(3):0,u.veh0>0?+(u.veh/u.veh0).toFixed(3):1,Math.round(u.ammo),+(u.exp||0).toFixed(2),u.name];});return o;}
+/* 套用上一場延續的狀態：被殲滅的單位不再出現，沒有參戰過的單位維持滿編 */
+function cmpApplyState(tops,st){if(!st)return tops;var gone=[];tops.forEach(function(F){(function w(z){var q=st[z.cf];if(q===0){gone.push(z);return;}if(q){if(q[4])z.name=q[4];if(isLeaf(z)){z.men=Math.max(1,Math.round(z.men0*q[0]));z.veh=Math.round(z.veh0*clamp(q[1],0,1));z.ammo=clamp(+q[2],0,100);}if(q[3])z.exp=Math.max(z.exp||0,+q[3]);}kidsOf(z).forEach(w);})(F);});
+  gone.forEach(cmpRemove);reix();
+  /* 底下的單位都沒了的編制也一併移除 */var L=tops.filter(function(F){return gone.indexOf(F)<0&&G.units.indexOf(F)>=0;}),emp=L.filter(function(F){return !isLeaf(F)&&!leavesOf(F).length;});emp.forEach(cmpRemove);reix();return L.filter(function(F){return emp.indexOf(F)<0;});}
+/* 從編制中移除整個單位（上一場已被殲滅） */
+function cmpRemove(u){var ids={};(function w(z){ids[z.id]=1;kidsOf(z).forEach(w);})(u);if(u.p>=0){var P=uById(u.p);if(P&&P.kids)P.kids=P.kids.filter(function(id){return id!==u.id;});}G.units=G.units.filter(function(q){return !ids[q.id];});}
+/* ---------- 作戰結束：記錄結果、傷亡與各單位的狀態（下一場作戰延續） ---------- */
+function cmpFinish(){if(!cmpOn()||!G.over||G.cmp.res)return;var C=G.cmp;C.res={win:G.over.win,why:G.over.why,t:G.t,st:[cmpState(0),cmpState(1)],cas:[Math.round(G.stats[0].cas||0),Math.round(G.stats[1].cas||0)],own:cmpOwnEnd()};
+  logE(-1,'cmp','戰役「'+(C.cname||'')+'」：作戰「'+(C.oname||'')+'」結束，'+(G.over.win>=0?G.sides[G.over.win].name+'獲勝':'不分勝負'));}
+/* 作戰結束時聚落由誰控制：範圍內只有一方的部隊，或是作戰目標的歸屬（大地圖的聚落編號 → 0／1） */
+function cmpOwnEnd(){var MP=G.map,cs=MP.cs,o={};(MP.set||[]).forEach(function(s){if(s.bi===undefined)return;var x=s.x*cs,y=s.y*cs,R=Math.max(s.r||300,400)+1000,n=[0,0];
+    G.units.forEach(function(u){if(u.side>1||!isLeaf(u)||!onMap(u)||u.st==='dead'||ST(u).dom==='air')return;if(dist(u.x,u.y,x,y)<=R)n[u.side]+=u.men+u.veh*8;});
+    var ob=(G.obj||[]).filter(function(q){return dist(q.x,q.y,x,y)<=Math.max(s.r||300,q.r||500);})[0];
+    if(n[0]>0&&n[1]===0)o[s.bi]=0;else if(n[1]>0&&n[0]===0)o[s.bi]=1;else if(ob&&ob.own>=0)o[s.bi]=ob.own;});return o;}
+(function(){var b=v8Step;v8Step=function(){b.apply(this,arguments);if(!cmpOn())return;if(G.started&&!G.over&&G.step%4===2)try{cmpStep();}catch(e){}if(G.over&&!G.cmp.res)try{cmpFinish();}catch(e){}};})();
+/* 勝負一分出來就記下結果（之後模擬不再前進） */
+(function(){var b=checkEnd;checkEnd=function(){var r=b.apply(this,arguments);if(G&&G.over&&cmpOn()&&!G.cmp.res)try{cmpFinish();}catch(e){}return r;};})();
+/* ---------- 聯機：劇情對白與結果送給所有玩家（對白只送給指定的一方） ---------- */
+if(typeof mpValList==='function'){(function(){var b=mpValList;mpValList=function(s){var V=b.apply(this,arguments);if(cmpOn())V.push(['cmp',{cname:G.cmp.cname,oname:G.cmp.oname,dq:G.cmp.dq.filter(function(D){return s<0||D.side<0||D.side===s;}),res:G.cmp.res?{win:G.cmp.res.win,why:G.cmp.res.why}:null}]);return V;};})();}
+
 var MAPTA=['el','lc','rv','rd','rl','ft','nat','dmg','tn'];
 async function packMap(MP){var m={};Object.keys(MP).forEach(function(k){if(MAPTA.indexOf(k)<0&&k!=='sd')m[k]=MP[k];});m.format='LatoWarMap';for(var i=0;i<MAPTA.length;i++){var k=MAPTA[i];if(MP[k])m[k]=await packTA(MP[k]);}return m;}
 async function unpackMap(m){if(!m||m.format!=='LatoWarMap')throw new Error('這不是作戰地圖檔。');var MP={};Object.keys(m).forEach(function(k){MP[k]=m[k];});for(var i=0;i<MAPTA.length;i++){var k=MAPTA[i];if(typeof m[k]==='string')MP[k]=await unpackTA(m[k]);}var N=MP.GW*MP.GH;if(!MP.ft)MP.ft=new Uint8Array(N);if(!MP.nat)MP.nat=new Uint8Array(N);MP.set=MP.set||[];MP.lbl=MP.lbl||[];MP.brg=MP.brg||[];return MP;}
@@ -9012,6 +9198,7 @@ if(typeof GKEYS!=='undefined')GKEYS.push('zed');
 if(typeof GKEYS!=='undefined')GKEYS.push('gm');
 if(typeof GKEYS!=='undefined')GKEYS.push('tf');
 if(typeof GKEYS!=='undefined')GKEYS.push('fg');
+if(typeof GKEYS!=='undefined')GKEYS.push('cmp');
 function wpnChanged(){G._tv=(G._tv||1)+1;G.units.forEach(function(u){if(u.lg)logRecalc(u);});}
 function wfTxt(u){if(!u.lg||!u.lg.wpnF)return '';var f=u.lg.wpnF,p=[];if(Math.abs(f.p-1)>0.02)p.push('對人 ×'+fx(f.p,2));if(Math.abs(f.a-1)>0.02)p.push('對裝甲 ×'+fx(f.a,2));if(f.pAdd)p.push('對人 +'+fx(f.pAdd,2));if(f.aAdd)p.push('對裝甲 +'+fx(f.aAdd,2));if(Math.abs(f.penD)>0.05)p.push('穿甲 '+sg(f.penD,1));if(f.penAbs)p.push('穿甲 '+fx(f.penAbs,1));if(Math.abs(f.sup-1)>0.02)p.push('壓制 ×'+fx(f.sup,2));if(Math.abs(f.rng-1)>0.02)p.push('射程 ×'+fx(f.rng,2));if(Math.abs(f.ind-1)>0.02)p.push('間接射程 ×'+fx(f.ind,2));if(f.indAbs)p.push('間接射程 '+kmTxt(f.indAbs));if(f.aaD>0.05)p.push('防空 +'+fx(f.aaD,1));return p.length?p.join('、'):'與時代標準配備相同';}
 
