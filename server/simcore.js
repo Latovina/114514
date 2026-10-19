@@ -899,7 +899,7 @@ async function genRegion(spec,S,prog){prog=prog||function(){return Promise.resol
       if(Pa3<180){lc[k]=sl>12?LCI.rock:LCI.desert;continue;}
       var wetI=wet[k],mar=sl<1.2&&Pa3>450&&wetI>6.5+nb*1.5&&e2<900;if(mar&&(nearW[k]||e2<15)){lc[k]=LCI.marsh;continue;}
       var forestP=sm(380,1100,Pa3)*sm(-4,7,Tm2)*(1-sm(3300,4300,e2)),farmP=sm(-1,9,Tm2)*sm(9,16,Tw)*sm(250,600,Pa3)*(1-sm(4,16,sl))*sm(4000,1200,e2);
-      var use=farmI[k]*farmP*(year<1850?0.8:1)+(0.12+0.25*sm(15,120,popD))*farmP*(nf>-0.1?1:0.4)-0.25*sm(8,25,sl),fz=forestP*(0.55+0.6*(nf+0.3))+0.25*sm(10,35,sl);if(spec.bf==='forest'){fz+=0.35;use*=0.55;}
+      var use=farmI[k]*farmP*(year<1850?0.8:1)+(0.12+0.25*sm(15,120,popD))*farmP*(nf>-0.1?1:0.4)-0.25*sm(8,25,sl),fz=forestP*(0.55+0.6*(nf+0.3))+0.25*sm(10,35,sl);if(spec.bf==='forest'){fz+=0.35;use*=0.55;}if(S.lcB){/* 戰役的區域地圖：林地與農地順著大地圖的分布 */var bz9=S.lcB((cx+0.5)*cs,(cy+0.5)*cs);fz+=0.45*bz9;use-=0.35*bz9;}
       if(use>0.3+0.35*pr2&&use>fz*0.6){if(Pa3<380)lc[k]=LCI.mead;else if(Tm2>12&&Pa3<1000&&pr<0.08)lc[k]=LCI.orch;else if(Tc>-1&&Pa3>700&&Tw<23&&bocZone(cx,cy)&&year>=1700)lc[k]=pr<0.75?LCI.hedge:LCI.mead;else lc[k]=pr<0.72?LCI.field:LCI.mead;continue;}
       if(fz>0.45+0.1*nb){lc[k]=Tc>17&&Pa3>1500?LCI.jung:Tc<-6||Tw<15||(e2>1500&&Tc<0)?LCI.cfor:(nb>0.35&&Tc<0?LCI.cfor:LCI.dfor);continue;}
       lc[k]=Pa3<420?(nb>0?LCI.scrub:LCI.mead):fz>0.25?LCI.scrub:LCI.mead;}
@@ -1232,12 +1232,14 @@ function cmpPlaceTxt(P){var a=[];if(P.rd)a.push(RD[P.rd][1]);if(P.rl&2)a.push(RL
 var CMPKN={city:'城市',town:'市鎮',village:'村落'};
 /* ---------- 區域地圖的取樣器：地勢（雙線性）、起伏（周圍的高低差）、湖泊、大河、氣候 ---------- */
 function cmpBigSampler(BM,x0,y0,Wm,Hm){var cs=BM.cs,GW=BM.GW,GH=BM.GH,el=BM.el,C=BM.clim||{Tj:5,Tl:20,Pj:60,Pl:60};if(BM.hb&&CMPHB.m!==BM){CMPHB.m=BM;CMPHB.h=b64dec(BM.hb);}var H=BM.hb?CMPHB.h:null,hd=cs*(BM.hbK||1);
+  /* 土地利用的偏向：大地圖是森林 → 偏向林地；農地、草地 → 偏向開闊地；市區 → 偏向開闊地 */var lcv=function(i,j){var c=BM.lc[clamp(j,0,GH-1)*GW+clamp(i,0,GW-1)];return c===LCI.dfor||c===LCI.cfor||c===LCI.jung?1:c===LCI.field||c===LCI.hedge||c===LCI.orch||c===LCI.mead?-0.6:isUrban(c)?-0.8:0;};
   /* 海：大地圖的海面格（雙線性，海岸線由區域地圖細部描繪） */var isS=function(i,j){var c=BM.lc[clamp(j,0,GH-1)*GW+clamp(i,0,GW-1)];return c===LCI.sea||c===LCI.shal?1:0;},sea=function(x,y){var fx=(x0+x)/cs-0.5,fy=(y0+y)/cs-0.5,i0=Math.floor(fx),j0=Math.floor(fy),tx=fx-i0,ty=fy-j0;return (isS(i0,j0)*(1-tx)+isS(i0+1,j0)*tx)*(1-ty)+(isS(i0,j0+1)*(1-tx)+isS(i0+1,j0+1)*tx)*ty;};
   var at=function(i,j){return el[clamp(j,0,GH-1)*GW+clamp(i,0,GW-1)];};
   var S={nations:BM.nations||[],elev:function(x,y){var fx=(x0+x)/cs-0.5,fy=(y0+y)/cs-0.5,i0=Math.floor(fx),j0=Math.floor(fy),tx=fx-i0,ty=fy-j0;return (at(i0,j0)*(1-tx)+at(i0+1,j0)*tx)*(1-ty)+(at(i0,j0+1)*(1-tx)+at(i0+1,j0+1)*tx)*ty;},
     relief:function(x,y){var i=Math.floor((x0+x)/cs),j=Math.floor((y0+y)/cs),mn=1e9,mx=-1e9;for(var b=-1;b<=1;b++)for(var a=-1;a<=1;a++){var e=at(i+a,j+b);if(e<mn)mn=e;if(e>mx)mx=e;}return clamp(20+(mx-mn)*0.8,10,1600);},
     clim:function(){return {Tj:C.Tj,Tl:C.Tl,Pj:C.Pj,Pl:C.Pl};},hab:function(x,y){if(!H)return 0.5;var fx=(x0+x)/hd-0.5,fy=(y0+y)/hd-0.5,i0=Math.floor(fx),j0=Math.floor(fy),tx=fx-i0,ty=fy-j0,at2=function(i,j){return H[clamp(j,0,BM.hbH-1)*BM.hbW+clamp(i,0,BM.hbW-1)]/255;};return (at2(i0,j0)*(1-tx)+at2(i0+1,j0)*tx)*(1-ty)+(at2(i0,j0+1)*(1-tx)+at2(i0+1,j0+1)*tx)*ty;},
     land:function(x,y){return sea(x,y)<0.5?1:0;},landF:function(x,y){return 1-sea(x,y);},
+    lcB:function(x,y){var fx=(x0+x)/cs-0.5,fy=(y0+y)/cs-0.5,i0=Math.floor(fx),j0=Math.floor(fy),tx=fx-i0,ty=fy-j0;return (lcv(i0,j0)*(1-tx)+lcv(i0+1,j0)*tx)*(1-ty)+(lcv(i0,j0+1)*(1-tx)+lcv(i0+1,j0+1)*tx)*ty;},
     lake:function(x,y){var i=Math.floor((x0+x)/cs),j=Math.floor((y0+y)/cs);if(i<0||j<0||i>=GW||j>=GH)return 0;return BM.lc[j*GW+i]===LCI.lake?1:0;},
     rivers:[],lat:function(){return BM.lat0||35;}};
   (BM.rivs||[]).forEach(function(R){cmpClip(R.pts,x0,y0,Wm,Hm).forEach(function(P){S.rivers.push({pts:P,cls:R.cls,name:R.name||''});});});
@@ -9133,7 +9135,7 @@ function cmpCond(e){var T=e.tr||{},C=G.cmp,k=T.k||'start';
 function cmpStep(){if(!cmpOn()||!G.started||G.over)return;var C=G.cmp;
   C.ev.forEach(function(e){if(e.done)return;if(e.ok===undefined){if(!cmpCond(e))return;e.ok=G.t;}var dl=(+((e.tr||{}).dl)||0)*60;if(G.t-e.ok<dl)return;e.done=G.t;(e.act||[]).forEach(function(a){try{cmpDo(e,a);}catch(x){}});});
   /* 撤出中的部隊：抵達本方地圖邊緣就離開戰場 */G.units.forEach(function(u){if(!u.cmpExit||u.st==='off'||u.st==='dead')return;var MP=G.map,e=SD(u.side).edge||'W',d=e==='W'?u.x:e==='E'?MP.Wm-u.x:e==='N'?u.y:MP.Hm-u.y;if(d<MP.cs*8)cmpOut(u,'撤出戰場');});}
-function cmpOut(u,why){u.st='off';u.cmpOut=1;u.cmpExit=0;u.path=null;u.ord=null;u.pend=[];u.task='hold';logE(u.side,'cmp',uName(u)+why,u.x,u.y,u.id);}
+function cmpOut(u,why){u.st='off';u.cmpOut=1;u.cmpExit=0;u.path=null;u.ord=null;u.pend=[];u.task='hold';/* 不再當作待抵達的增援 */delete u.arr;logE(u.side,'cmp',uName(u)+why,u.x,u.y,u.id);}
 /* ---------- 動作 ---------- */
 function cmpDo(e,a){var C=G.cmp,k=a.k;
   if(k==='dlg'){var ch=cmpChar(a.who),s=a.side===undefined||a.side===''?-1:+a.side,D={t:G.t,who:a.who||'',n:ch?ch.name:(a.n||''),ti:ch?ch.title||'':'',cs:ch&&ch.side!==undefined?+ch.side:-1,side:s,txt:String(a.txt||''),ps:ch?String(ch.ps||ch.id):'',f:ch&&ch.f?1:0};C.dq.push(D);
