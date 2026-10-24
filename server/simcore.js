@@ -2909,10 +2909,10 @@ function medStep(){var dt=600,h=dt/3600;[0,1].forEach(function(side){var S=medSt
     var dU=(y<1850?0.012:y<1914?0.009:y<1940?0.006:y<1970?0.004:0.0025)*h*(heli?0.6:1),baseT=(y<1850?0.006:y<1914?0.004:y<1940?0.0025:y<1970?0.0012:0.0006)*h;
     meds.forEach(function(m){m.medN=0;});
     G.units.forEach(function(u){if(u.side!==side||!(u.wia>0.05))return;var m=null,bd=1e18;if(u.st!=='dead'){var Rr=R*(heli?1.6:1)*medFx(u,'reach',1);meds.forEach(function(q){var d=dist(q.x,q.y,u.x,u.y);if(d<Rr&&d<bd){bd=d;m=q;}});}
-      if(m){var cap=Math.max(20,mixX(m,'med')*strFrac(m))/144,take=Math.min(u.wia,cap-m.medN);if(take>0){m.medN+=take;u.wia-=take;m.pat=m.pat||[];if(m.pat.length>200)m.pat.shift();var sh=medFx(m,'use',take);m.pat.push(sh>0?{u:u.id,n:take,t:G.t,sh:sh}:{u:u.id,n:take,t:G.t});}}
+      if(m){var cap=Math.max(20,mixX(m,'med')*strFrac(m))/144,take=Math.min(u.wia,cap-m.medN);if(take>0){m.medN+=take;u.wia-=take;m.pat=m.pat||[];if(m.pat.length>200)m.pat.splice(0,2);var sh=medFx(m,'use',take),lt=take*0.5;m.pat.push({u:u.id,n:lt,t:G.t,l:1});m.pat.push(sh>0?{u:u.id,n:take-lt,t:G.t,sh:sh}:{u:u.id,n:take-lt,t:G.t});}}
       var die=u.wia*dU*(u.st==='dead'?2:1)*medFx(u,'dow',1);if(die>0){u.wia-=die;S.dow+=die;u.dow=(u.dow||0)+die;}});
     meds.forEach(function(m){if(!m.pat||!m.pat.length)return;var mq=0,n=0;(m.mix||[]).forEach(function(q){var x=utx(q[0]);if(x.mq){mq+=x.mq*q[1];n+=q[1];}});mq=medFx(m,'mq',n?mq/n:0.5);var keep=[];
-      m.pat.forEach(function(p){var d=p.n*baseT*(1-mq)*2*(p.sh?1+1.5*p.sh:1);p.n-=d;S.dow+=d;if(G.t-p.t>(y<1914?96:48)*3600){var u=uById(p.u),rt=p.n*0.35*(p.sh?1-0.5*p.sh:1);if(u&&alive(u)&&u.st!=='off'){u.men=Math.min(u.men0,u.men+rt);S.rtd+=rt;}p.n=0;}if(p.n>0.05)keep.push(p);});m.pat=keep;});});}
+      m.pat.forEach(function(p){var d=p.n*baseT*(1-mq)*2*(p.sh?1+1.5*p.sh:1)*(p.l?0.2:1);p.n-=d;S.dow+=d;if(G.t-p.t>(p.l?(y<1940?24:12):(y<1914?96:48))*3600){var u=uById(p.u),rt=p.n*(p.l?0.9:0.35)*(p.sh?1-0.5*p.sh:1);if(u&&alive(u)&&u.st!=='off'){u.men=Math.min(u.men0,u.men+rt);S.rtd+=rt;u.rtd=(u.rtd||0)+rt;}p.n=0;}if(p.n>0.05)keep.push(p);});m.pat=keep;});});}
 /* ---------- 戰俘：受降、拒絕受降、押解、收容、勞役、處決、死亡、逃亡與解放 ---------- */
 function powCapture(u,by){if(!G.civ)return;var men=u.captMen||u.men,H=enemyOf(u.side);if(men<1)return;by=by||(u._eid?uById(u._eid):null);if(!by||by.side!==H){by=null;gridNear(u.x,u.y,4000,function(e){if(!by&&e.side===H&&onMap(e)&&ST(e).dom!=='air')by=e;});}
   var L=by?polOf(by,'pow'):polSide(H).pow,P=POWP[L],p=P[3]*((by&&by.rcas>0.1)?1.5:1)*(by&&by.dis!==undefined&&by.dis<40?1.4:1);if(uEra(u).y<1600)p*=1.2;
@@ -3749,11 +3749,7 @@ function armReload(){G.units.forEach(function(a){var x=uxOf(a);if(x.arm&&a.st===
 function asmAuto(){G.units.forEach(function(u){if(!isLeaf(u)||!onMap(u)||u.ms==='rout')return;var q=mslSpec(u);if(!q||!q.ship||!mslLeft(u))return;var s=ST(u);if(s.dom!=='land'&&!SD(u.side).ai)return;if(G.t-(u.asmT||-1e9)<1800||(u.ord&&u.ord.k==='msl'&&u.ord.st!=='done'))return;
   var C=G.ct[u.side],best=null,bd=q.r;for(var id in C){var c=C[id];if(c.dead||c.dom!=='sea'||G.t-c.t>600)continue;var d=dist(u.x,u.y,c.x,c.y);if(d<bd){bd=d;best=c;}}if(!best)return;u.asmT=G.t;mslLaunch(u,{x:best.x,y:best.y,n:Math.min(s.dom==='land'?2:4,mslLeft(u))});});}
 
-/* ---------- 長期作戰：補充兵與裝備修復（脫離戰鬥六小時以上並在補給線內；補充兵需有通往後方的補給樞紐）；回放紀錄自動降低密度 ---------- */
-function sustainStep(){var y=G.set.y||1943,rate=(y<1800?0.006:y<1900?0.01:0.015)/24;[0,1].forEach(function(side){var S=SD(side);if(S.repl===undefined){var m0=0;G.units.forEach(function(u){if(u.side===side&&isLeaf(u)&&!u.irr)m0+=u.men0||0;});S.repl=m0*0.15;S.replIn=m0*0.01/24;}
-  /* 補充兵要從後方送來：必須有地圖外基地，或控制港口、鐵路車站、機場；孤立的守軍只能靠劇本的增援 */var hub=nodesOf(side).some(function(N){return N.k!=='depot';});if(hub)S.repl+=S.replIn;G.units.forEach(function(u){if(u.side!==side||!isLeaf(u)||!alive(u)||u.st==='off'||u.irr||!u.insup)return;var s=ST(u);if(s.dom==='sea'||s.dom==='sub'||s.fl.indexOf('G')>=0)return;if(s.dom==='air'?u.st!=='base':!onMap(u))return;if(G.t-(u.uf||-1e9)<6*3600||G.t-(u.fired||-1e9)<6*3600)return;
-    var dm=hub?Math.min(u.men0-u.men,u.men0*rate,S.repl):0;if(dm>1e-3){var t0=u.trn===undefined?s.trn:u.trn;u.trn=(t0*u.men+Math.min(t0,45)*dm)/(u.men+dm);u.men+=dm;S.repl-=dm;u.repl=(u.repl||0)+dm;S.replT=(S.replT||0)+dm;}
-    var lim=(u.veh0||0)*0.4-(u.vrep||0),dv=Math.min(u.veh0-u.veh,(u.veh0||0)*0.004,lim);if(dv>0.001){u.veh+=dv;u.vrep=(u.vrep||0)+dv;S.vrepT=(S.vrepT||0)+dv;}});});}
+/* ---------- 回放紀錄自動降低密度（補充兵與裝備修復見「補員與車輛修復」） ---------- */
 (function(){var b=recStep;recStep=function(){b();var R=G.rec;if(!R||!R.fr)return;var cap=clamp(Math.round(4e7/Math.max(1,G.units.length*12)),600,3000);if(R.fr.length>cap){var n=R.fr.length,keep=Math.floor(n*0.75);R.fr=R.fr.filter(function(f,i){return i>=keep||i%2===0;});R.dt=Math.min(1800,Math.round(R.dt*1.5));}};})();
 
 /* ---------- 民用補給設施：港口、鐵路車站、機場、倉庫。依地形與聚落配置在戰場上，開戰時中立，部隊佔領後才可作為補給節點 ---------- */
@@ -3810,7 +3806,7 @@ function facClaim(side,k,x,y,name,st){G.fac=G.fac||facGen(G.map,G.set.y);var F=n
 (function(){var b=prepareBattle;prepareBattle=function(){b.apply(null,arguments);if(!G||!G.map)return;if(!G.fac)G.fac=facGen(G.map,G.set.y);if(G.set.sustain===undefined)G.set.sustain=true;embarkStuck();regSeed();};})();
 
 function v6Pre(){trkStep();if(G.step%2===1)samStep();}
-function v6Step(){/* v6 以前的存檔：補上民用設施 */if(!G.fac&&G.map)G.fac=facGen(G.map,G.set.y);autoCvyStep();armStep();if(G.step%10===6)asmAuto();if(G.step%4===2)facStep();if(G.step%10===8)sigintStep();if(G.step%20===12)humintStep();if(G.step%20===16)embarkStuck();if(G.step%120===60&&G.set.sustain!==false)sustainStep();if(G.step%120===9)armReload();}
+function v6Step(){/* v6 以前的存檔：補上民用設施 */if(!G.fac&&G.map)G.fac=facGen(G.map,G.set.y);autoCvyStep();armStep();if(G.step%10===6)asmAuto();if(G.step%4===2)facStep();if(G.step%10===8)sigintStep();if(G.step%20===12)humintStep();if(G.step%20===16)embarkStuck();if(G.step%120===9)armReload();}
 
 /* ==== h17_v8.js ==== */
 /* ===================== v8：油料與易爆設施、可見的後勤運輸、工兵設施、撤出休整、平民互動與第三方、核武當量與各機制年份、AI 吞吐量評估 =====================
@@ -4097,8 +4093,8 @@ function refitLeave(u,why){var s=ST(u);u.st='off';u.path=null;u.pq=0;u.goal=null
 /* 地圖外：每 10 分鐘恢復士氣、體力、組織，補齊物資，從補充兵員池補人 */
 function refitStep(){var h=600/3600;[0,1].forEach(function(side){var S=SD(side);G.units.forEach(function(u){if(u.side!==side||!u.refit||u.st!=='off'||!isLeaf(u))return;var s=ST(u);u.mor=clamp(u.mor+4*h*(u.mor<s.mor?1:0.2),0,100);u.fat=Math.max(0,u.fat-12*h);u.org=Math.min(100,(u.org||0)+6*h);u.ammo=Math.min(100,u.ammo+20*h);u.sup=0;
     if(u.ms==='shaken'&&u.mor>60)u.ms='ok';var L=u.lg;if(L){L.food=Math.min(L.foodCap,L.food+L.foodCap*0.3*h);L.fuel=Math.min(L.fuelCap,L.fuel+L.fuelCap*0.4*h);L.fod=Math.min(L.fodCap,L.fod+L.fodCap*0.3*h);L.hun=Math.max(0,(L.hun||0)-10*h);}
-    if(S.repl>0&&u.men<u.men0){var dm=Math.min(u.men0-u.men,u.men0*0.02*h,S.repl);var t0=u.trn===undefined?s.trn:u.trn;u.trn=(t0*u.men+Math.min(t0,45)*dm)/(u.men+dm);u.men+=dm;S.repl-=dm;u.repl=(u.repl||0)+dm;}
-    if(u.veh<u.veh0)u.veh=Math.min(u.veh0,u.veh+(u.veh0||0)*0.01*h);if(u.wia>0)u.wia=Math.max(0,u.wia-u.wia*0.05*h);
+    if(S.repl>0&&u.men<u.men0){var dm=Math.min(u.men0-u.men,u.men0*0.04*h*(typeof replMul==='function'?replMul():1),S.repl);var t0=u.trn===undefined?s.trn:u.trn;u.trn=(t0*u.men+Math.min(t0,45)*dm)/(u.men+dm);u.men+=dm;S.repl-=dm;u.repl=(u.repl||0)+dm;}
+    if(u.veh<u.veh0)u.veh=Math.min(u.veh0,u.veh+(u.veh0||0)*0.02*h);if(u.wia>0)u.wia=Math.max(0,u.wia-u.wia*0.05*h);
     var ready=u.mor>=Math.min(70,s.mor*0.85)&&u.fat<20&&u.ammo>=95;if(ready&&!u.refit.ready){u.refit.ready=G.t;logE(side,'refit',uName(u)+'休整完畢（'+durTxt(G.t-u.refit.t0)+'），可以重新投入',u.refit.from[0],u.refit.from[1],u.id);}
     /* AI 控制的部隊休整完畢後自動返回 */if(u.refit.ready&&SD(side).ai&&aiControls(u)&&G.t-u.refit.ready>1800)refitReturn(u);});});}
 function refitReturn(u){if(!u.refit||u.st!=='off')return false;var from=u.refit.from,p=lgEdge(u.side,from[0],from[1]),s=ST(u),q=validPos(s,p[0],p[1]);u.x=q[0];u.y=q[1];u.st=s.dom==='air'?'base':'ok';if(s.dom==='air'){u.base=[q[0],q[1]];}u.form='march';u.task='hold';u.ord=null;u.refit=null;u.home=[q[0],q[1]];
@@ -7132,7 +7128,7 @@ function supplierOf(u,L){var R=uEra(u).sup*1000*(hasQ(offOf(u),'logist')?1.3:1),
   flUnits(u.side,'l').forEach(function(q){if(q===u||!isLeaf(q)||!onMap(q)||!q.lg||!q.lg.stk||q._ed<1500)return;var d=dist(q.x,q.y,u.x,u.y);if(d<R&&d<bd&&sum(LCLS,function(c){return q.lg.stk[c];})>0.05){bd=d;best={k:'unit',u:q,st:q.lg.stk};}});if(best)return best;
   L.forEach(function(N){if(N.k==='off'){if(N0edge(u.side,u,R)&&!best)best=N;return;}var d=dist(N.x,N.y,u.x,u.y);if(d<R&&d<bd&&N.status!=='captured'){bd=d;best=N;}});return best;}
 /* 領取：補足口糧（3 日）、草料（2 日）、彈藥（至基數）、燃料（至滿油） */
-function resupply(u,L,src,dt){var st=src.st,busy=G.t-(u.fired||-1e9)<300,rate=busy?0.3:1,fr=u.men0>0?u.men/u.men0:1;function take(c,kg){if(kg<=0)return 0;if(src.k==='off'||src.k==='self'||!st)return kg;var t=Math.min(kg/1000,st[c]);st[c]-=t;return t*1000;}
+function resupply(u,L,src,dt){var st=src.st,busy=G.t-(u.fired||-1e9)<300,rate=(busy?0.3:1)*(u.ammo<30||L.food<L.dayKg*0.5?1.5:1),fr=u.men0>0?u.men/u.men0:1;function take(c,kg){if(kg<=0)return 0;if(src.k==='off'||src.k==='self'||!st)return kg;var t=Math.min(kg/1000,st[c]);st[c]-=t;return t*1000;}
   L.food+=take('food',Math.min(L.foodCap*fr-L.food,L.dayKg*rate*dt/3600*4));L.fod+=take('fod',Math.min(L.fodCap-L.fod,L.fodDay*rate*dt/3600*4));
   var uofT=L.uof*L.basic,ammoKg=(100-u.ammo)/100*uofT,dl=L.uof*L.daily*dt/86400*6*rate,g=take('ammo',Math.min(ammoKg,dl));if(uofT>0)u.ammo=Math.min(100,u.ammo+g/uofT*100);
   var fuelL=L.fuelCap-L.fuel;L.fuel+=take('fuel',Math.min(fuelL,L.fuelCap*rate*dt/3600)*0.8)/0.8;}
@@ -9329,6 +9325,36 @@ function deconStep(){if(G.set.decon===false)return;G.units.forEach(function(u){v
   if(h){g.cont*=0.3;g.filt=Math.min(100,g.filt+40);if(!u._dcLog||G.t-u._dcLog>3600){u._dcLog=G.t;logE(u.side,'cbrn',uName(h)+'為'+uName(u)+'實施除污',u.x,u.y,u.id);}}
   else if(stillFor(u)>=600){g.cont*=0.75;if(!u._dcLog||G.t-u._dcLog>7200){u._dcLog=G.t;logE(u.side,'cbrn',uName(u)+'自行實施簡易除污',u.x,u.y,u.id);}}});}
 (function(){var b=v8Step;v8Step=function(){b.apply(this,arguments);if(!G.started||G.over)return;aretStep();if(G.step%20===7)rotStep();if(typeof cbOn==='function'&&cbOn()){if(G.step%4===1){gasStep();moppStep();}if(G.step%20===17)deconStep();}};})();
+
+/* ==== h64_repl.js ==== */
+/* ===================== 補員與車輛修復（長期作戰；設定「長期作戰」關閉時不發生）
+   補充兵員池：每方開戰時約為總兵力的 15%，之後只要有通往後方的補給樞紐（地圖外基地、港口、鐵路車站或機場），依年代每天補進總兵力的 1～2%。
+   補人：脫離接觸一小時以上、在補給線內的部隊每 10 分鐘補一次。預備隊、休整、輪替整補的部隊最快（每小時約編制的 4%），
+     其他沒有接敵的部隊約 1.5%，行軍中約 0.8%；離最近的補給節點超過 10 公里打六折、超過 25 公里打三折。新兵拉低部隊的訓練水準。
+   修車：戰損的車輛最多約四成可以修復；脫離接觸時每小時修好編制的 1%，五公里內有後勤或工兵單位時 3%。
+   增援點數開啟時，補人與修車依部隊點數付費。設定頁「後勤」的「補員速度」調整整體速度。
+   （輕傷歸隊見 medStep；地圖外休整見 refitStep） ===================== */
+function replMul(){var v=G.set.replSpd;return v===undefined?1:clamp(+v||0,0,3);}
+/* 部隊狀態決定的補人速度（每小時占編制的比例） */
+function replRate(u){var o=u.ord,k=o?o.k:'halt';if(k==='reserve'||k==='rest'||o&&o.dk==='rot')return 0.04;if(u.task==='go'||u.form==='march')return 0.008;return 0.015;}
+/* 離最近的補給節點越遠越慢（地圖外基地以本方地圖邊緣計） */
+function replNear(u){var MP=G.map,d=1e9;nodesOf(u.side).forEach(function(N){var e=SD(u.side).edge||'W',dd=N.k==='off'?(e==='W'?u.x:e==='E'?MP.Wm-u.x:e==='N'?u.y:MP.Hm-u.y):dist(N.x,N.y,u.x,u.y);if(dd<d)d=dd;});return d<10000?1:d<25000?0.6:0.3;}
+/* 補充兵要從後方送來：必須有地圖外基地，或控制港口、鐵路車站、機場；孤立的守軍只能靠劇本的增援 */
+function replHub(side){return nodesOf(side).some(function(N){return N.k!=='depot';});}
+/* 增援點數：付不起的部分不補（回傳實際補得到的比例） */
+function replPay(u,dm,dv){if(typeof rpOn!=='function'||!rpOn())return 1;var w=(u.men0+u.veh0*8)||1,cost=fpMix(u.mix)*(dm+dv*8)/w*0.9;if(!(cost>0)||rpSpend(u.side,cost,'refit'))return 1;var have=Math.max(0,rpHave(u.side)),f=clamp(have/cost,0,1);if(have>0)rpSpend(u.side,have,'refit');return f;}
+function sustainStep(){var y=G.set.y||1943,day=y<1800?0.006:y<1900?0.01:y<1945?0.015:0.02,h=600/3600,M=replMul();
+  [0,1].forEach(function(side){var S=SD(side);if(S.repl===undefined){var m0=0;G.units.forEach(function(u){if(u.side===side&&isLeaf(u)&&!u.irr)m0+=u.men0||0;});S.repl=m0*0.15;S.replIn=m0*day/24;}
+    var hub=replHub(side);if(hub)S.repl+=(S.replIn||0)*h*M;
+    G.units.forEach(function(u){if(u.side!==side||!isLeaf(u)||!alive(u)||u.irr||u.st==='off'||!u.insup)return;var s=ST(u);if(s.dom==='sea'||s.dom==='sub'||s.fl.indexOf('G')>=0)return;if(s.dom==='air'?u.st!=='base':!onMap(u))return;
+      if(G.t-(u.uf||-1e9)<3600||G.t-(u.fired||-1e9)<3600)return;var f=replNear(u)*M,dm=0,dv=0;
+      if(hub&&u.men<u.men0&&S.repl>0)dm=Math.min(u.men0-u.men,u.men0*replRate(u)*h*f,S.repl);
+      /* 修車：戰損的車輛最多約四成可修 */var lim=(u.veh0||0)*0.4-(u.vrep||0);if(u.veh<u.veh0&&lim>0){var mech=false;gridNearS(u.x,u.y,5000,side,function(q){if(!mech&&q!==u&&onMap(q)&&isLeaf(q)&&dist(q.x,q.y,u.x,u.y)<=5000&&(ST(q).fl.indexOf('l')>=0||isEng(q)))mech=true;});dv=Math.min(u.veh0-u.veh,(u.veh0||0)*(mech?0.03:0.01)*h*M,lim);}
+      if(dm<1e-3&&dv<1e-4)return;var pf=replPay(u,dm,dv);dm*=pf;dv*=pf;
+      if(dm>1e-3){var t0=u.trn===undefined?s.trn:u.trn;u.trn=(t0*u.men+Math.min(t0,45)*dm)/(u.men+dm);u.men+=dm;S.repl-=dm;u.repl=(u.repl||0)+dm;u._replD=(u._replD||0)+dm;S.replT=(S.replT||0)+dm;
+        if(u._replD>=Math.max(5,u.men0*0.1)){logE(side,'repl',uName(u)+'補進 '+fmt(u._replD)+' 名補充兵（兵力 '+pct(strFrac(u)*100)+'）',u.x,u.y,u.id);u._replD=0;}}
+      if(dv>1e-4){u.veh+=dv;u.vrep=(u.vrep||0)+dv;S.vrepT=(S.vrepT||0)+dv;}});});}
+(function(){var b=v8Step;v8Step=function(){b.apply(this,arguments);if(G.started&&!G.over&&G.step%20===15&&G.set.sustain!==false)sustainStep();};})();
 if(typeof GKEYS!=='undefined')GKEYS.push('wsys','hyd');
 if(typeof GKEYS!=='undefined')GKEYS.push('sup');
 if(typeof GKEYS!=='undefined')GKEYS.push('dirs','dirSeq');
