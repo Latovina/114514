@@ -5,7 +5,7 @@ const zlib=require('zlib');
 const path=require('path');
 const SIM=require(path.join(__dirname,'simcore.js'));
 const E=SIM.E;
-const F={};['mpFxOn','mpLoad','mpPack','mpQuick','mpTeams','mpBegin','mpDiff','mpFull','mpCmd','mpPatch','mpUnbase','mpDepOp','mpOrbIn','mpForcePts','simStep','replayPack','cmList'].forEach(function(k){F[k]=E(k);});
+const F={};['mpFxOn','mpLoad','saveText','mpQuick','mpTeams','mpBegin','mpDiff','mpFull','mpCmd','mpPatch','mpUnbase','mpDepOp','mpOrbIn','mpForcePts','simStep','replayPack','cmList'].forEach(function(k){F[k]=E(k);});
 const DT=E('DT');
 let dur0=0,set0=null,soPrev={},running=false,speed=60,acc=0,lastTick=Date.now(),snapMs=(workerData&&workerData.snapMs)||500,lastSnap=0,dirty=true,urgent=false,overSent=false,depth=0.4,realSp=0,spHist=[];
 const subs=new Map();/* 連線編號 → {view:-1|0|1,cm,need:true} */
@@ -74,7 +74,7 @@ case 'teams':{(m.teams||[]).forEach(function(T,i){F.mpTeams(i,T.n,T.human);});di
   case 'patch':{const r=F.mpPatch(m.side,m.cm,m.p);if(r.rej&&r.rej.length)F.mpUnbase(m.side,r.rej);res(m,r);break;}
   case 'dep':{res(m,F.mpDepOp(m.side,m.cm,m.dop,m.a,depth));sendInfo();break;}
   case 'orb':{res(m,F.mpOrbIn(m.side,m.cm,m.data,!!m.replace,depth));sendInfo();break;}
-  case 'pack':{const P=await F.mpPack();post({op:'packed',req:m.req,data:JSON.stringify(P)});break;}
+  case 'pack':{const t=await F.saveText();post({op:'packed',req:m.req,data:t});break;}
   case 'replay':{try{const P=await F.replayPack();post({op:'replay',req:m.req,data:JSON.stringify(P)});}catch(e){post({op:'replay',req:m.req,err:e.message});}break;}
   case 'end':{const g=G();if(g&&g.started&&!g.over){g.over={why:m.why||'房主結束作戰',win:-1,t:g.t,score:[0,0]};try{const sc=E('score');g.over.score=[sc(0),sc(1)];const w=g.over.score[0]>g.over.score[1]*1.15?0:g.over.score[1]>g.over.score[0]*1.15?1:-1;g.over.win=w;}catch(e){}}checkOver();break;}
   case 'zed':{const g=G();if(!g||!g.started||g.over)break;E('zedSpawnAt')({x:+m.x,y:+m.y,n:+m.n,k:String(m.k||''),nest:!!m.nest});dirty=true;break;}
