@@ -1675,7 +1675,7 @@ function climMonth(m){var C=G.map.clim||{Tj:5,Tl:20,Pj:60,Pl:70},s=G.map.lat0>=0
 function envInit(){var o=now(),c=climMonth(o.m);G.env={wx:G.set.wxMode==='fixed'?WXI[G.set.wx]||0:pickWx(c,o.h,-1),T:c.T,mud:G.set.mud0||0,snow:c.T<-2?0.3:0,frozen:c.T<-3,nextWx:G.t+3600};envStep(0);}
 function pickWx(c,hour,cur){var r=rnd(),wet=clamp(c.P/140,0.05,0.65),cold=c.T<1,fogP=(hour>=4&&hour<=9?0.12:0.03)*(c.P>50?1:0.4);
   if(cur>=0&&rnd()<0.55)return cur;if(r<fogP)return r<fogP*0.5?WXI.fog:WXI.mist;r=rnd();if(r<wet){var h=rnd();if(cold)return h<0.7?WXI.lsnow:WXI.hsnow;return h<0.6?WXI.lrain:h<0.9?WXI.hrain:WXI.storm;}r=rnd();return r<0.4?WXI.clear:r<0.75?WXI.cloud:WXI.over;}
-function envStep(dt){var E=G.env,o=now(),c=climMonth(o.m),lat=G.map.lat0||35,alt=sunAlt(lat,o.doy,o.h+o.mi/60),moon=moonOf(o);E.alt=alt;E.moon=moon;
+function envStep(dt){var E=G.env;if(!WX[E.wx])E.wx=0;var o=now(),c=climMonth(o.m),lat=G.map.lat0||35,alt=sunAlt(lat,o.doy,o.h+o.mi/60),moon=moonOf(o);E.alt=alt;E.moon=moon;
   E.light=alt>6?1:alt>-6?0.25+0.75*(alt+6)/12:0.04+0.2*moon;E.phase=alt>6?'day':alt>-6?(o.h<12?'dawn':'dusk'):'night';
   E.T=c.T+5*Math.sin((o.h+o.mi/60-9)/24*2*PI)+(E.wx>=WXI.lrain&&E.wx<=WXI.storm?-2:0);
   if(G.set.wxMode!=='fixed'&&G.t>=E.nextWx){var old=E.wx;E.wx=pickWx(c,o.h,E.wx);E.nextWx=G.t+3600*(1+rnd()*2);if(old!==E.wx)logE(-1,'wx','天氣轉為'+WX[E.wx][1]+'，氣溫 '+fx(E.T,0)+' °C');}
