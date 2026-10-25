@@ -2791,7 +2791,7 @@ window.LatoTerrainLib={LTCore:LTCore,LTClimate:LTClimate,LTRivers:LTRivers,LTLay
 "use strict";
 var root=document.getElementById('lato-warsim');
 if(!root)return;
-var LWBUILD="412404cd-online";
+var LWBUILD="8b537da8-online";
 var MPON=1;
 /* ===================== LatoWarsim 作戰模擬：共用工具（數學、亂數、雜訊、幾何、時間、名稱、編碼） ===================== */
 var PI=Math.PI,D2R=PI/180,R2D=180/PI;
@@ -12751,6 +12751,207 @@ function exhStep(){if(!exhOn())return;var h=1/6,t=G.t,night=G.env.light<0.3,T=G.
 (function(){var b=rotRep;rotRep=function(X,u){var r=b(X,u);return r&&exhOn()&&(r.exh||0)>60?null:r;};})();
 /* 線上：變化夠大才送；位置記錄與記號不送 */
 if(typeof MPTOL!=='undefined'){MPTOL.exh=0.5;MPTOL.slp=0.5;MPTOL.mkm=0.5;MPTOL.cday=0.02;MPTOL.strg=0.005;MPTOL.exhN=0.5;}if(typeof MPUX!=='undefined'){MPUX._exx=1;MPUX._exy=1;MPUX.exhL=1;MPUX.fmT=1;MPUX.exhA=1;}
+/* ===================== 戰爭罪的決策與遺留證據；附近友軍與敵軍的反應 =====================
+   一、決策：對平民的行動多了四種違法命令——焚燒村莊、在水源下毒、在存糧下毒、處決（成年男性、難民或被拘留者）。
+       守法、軍紀好的部隊可能拒絕；執行後記為戰爭罪行。
+   二、證據：屠殺、處決（平民、人質、難民、戰俘、督戰隊槍決的自己人）、焚燒與下毒都會在地圖上留下痕跡：
+       遺體、亂葬坑、焦土、被下毒的水源與糧倉。遺體幾天後腐敗，居民會把死者草草掩埋成亂葬坑；
+       犯行的一方可以下令掩埋、湮滅證據（亂葬坑變得難找，但湮滅本身也被記錄）；其他各方可以派部隊調查取證、開挖亂葬坑。
+       被下毒的水源與存糧讓居民一天天中毒死亡、逃離，任何在那裡取水取糧、駐紮的部隊（包括下毒的一方自己）都會中毒；
+       工兵可以清理水源。
+   三、發現：部隊經過時依距離、隱蔽程度、晝夜與兵種發現證據；被下毒的水源與糧倉要等居民死傷傳開，或偵察、醫護、工兵與指揮部隊才查得出來。
+       發現的一方記錄在戰報、讓罪行曝光（國際聲譽下降），記者會報導；看到現場的官兵依死者是誰而恐懼、憤怒或羞愧。
+   四、反應：附近的友軍潰散、被殲滅，官兵士氣下降、恐懼上升；附近的敵軍潰逃、投降或被殲滅，士氣上升。 */
+function evdOn(){return !!G&&G.set.evid!==false;}
+var EVDK={bodies:['遺體','遭殺害者的遺體留在現場'],grave:['亂葬坑','死者被草草掩埋的坑'],burnt:['焦土','被燒毀的房屋、糧倉與田地'],well:['被下毒的水源','水井與水源被投下毒物'],food:['被下毒的存糧','糧倉與存糧被摻了毒']};
+var EVDV={civ:'平民',ref:'難民',host:'人質',pow:'投降的官兵',own:'被自己人槍決的官兵',det:'被拘留的平民'};
+/* 戰爭罪的種類 → 證據的種類與死者身分 */
+var EVDC={mass:['bodies','civ'],host:['bodies','host'],exec:['bodies','pow'],powex:['bodies','pow'],refshot:['bodies','ref'],arson:['burnt','civ'],burn:['burnt','civ'],poisonw:['well','civ'],poisonf:['food','civ'],execc:['bodies','civ'],execr:['bodies','ref'],execd:['bodies','det']};
+MFN.atro='目睹暴行';MFN.rage='復仇怒火';MFN.shame='本軍暴行';MFN.near='附近戰況';KINDN.poison='中毒';CIVK.poison='水源與存糧被下毒';
+function evdL(){return G.evd||(G.evd=[]);}
+function evdById(id){var L=evdL();for(var i=0;i<L.length;i++)if(L[i].id===id)return L[i];return null;}
+function evdNearSet(x,y,R){if(!G.civ)return null;var b=null,bd=R;G.civ.S.forEach(function(g){var d=dist(g.x,g.y,x,y)-(g.r||300);if(d<bd){bd=d;b=g;}});return b;}
+function evdAdd(k,x,y,o){if(!evdOn())return null;var e=Object.assign({id:(G.evdSeq=(G.evdSeq||0)+1),k:k,x:x,y:y,t:G.t,side:-1,by:0,byn:'',vs:-1,vk:'civ',n:0,hid:0,found:{},doc:{},dk:''},o||{});if(e.side>=0)e.found[e.side]=G.t;evdL().push(e);return e;}
+/* 同一地點近期的遺體併在一起 */
+function evdMerge(k,x,y,side,vk,n,o){var L=evdL();for(var i=L.length-1;i>=0;i--){var e=L[i];if(G.t-e.t>12*3600)break;if(e.k===k&&e.side===side&&e.vk===vk&&dist(e.x,e.y,x,y)<800){e.n+=n;e.t1=G.t;if(o&&o.txt)e.txt=o.txt;return e;}}
+  return evdAdd(k,x,y,Object.assign({side:side,vk:vk,n:n},o||{}));}
+/* 戰爭罪紀錄 → 現場留下的證據 */
+(function(){var b=warCrime;warCrime=function(u,kind,victims,txt,ordered){var w=b(u,kind,victims,txt,ordered);try{var M=EVDC[kind];if(!M||!evdOn())return w;var n=Math.round(victims||0);if(M[0]==='bodies'&&n<1)return w;
+    var g=evdNearSet(u.x,u.y,2500),vs=M[1]==='pow'?enemyOf(u.side):g?g.loy:-1,x=g&&M[0]!=='bodies'?g.x:u.x+(rnd()-0.5)*300,y=g&&M[0]!=='bodies'?g.y:u.y+(rnd()-0.5)*300;
+    var e=M[0]==='bodies'?evdMerge('bodies',x,y,u.side,M[1],n,{by:u.id,byn:uName(u),vs:vs,dk:kind,txt:txt}):evdAdd(M[0],x,y,{side:u.side,by:u.id,byn:uName(u),vs:vs,vk:M[1],n:n,dk:kind,txt:txt,g:g?g.i:-1});
+    if(e)e.wi=G.civ.wc.length-1;}catch(err){}return w;};})();
+/* 督戰隊就地槍決自己人：同樣留下遺體 */
+(function(){var b=hit;hit=function(t,src,dm,dv,sup,kind){b(t,src,dm,dv,sup,kind);if(kind==='exec'&&dm>=0.5&&evdOn()&&t&&onMap(t)&&G.started)evdMerge('bodies',t.x+(rnd()-0.5)*200,t.y+(rnd()-0.5)*200,t.side,'own',Math.round(dm),{by:t.id,byn:uName(t),vs:t.side,dk:'iron',txt:uName(t)+'就地處決逃兵與「動搖分子」'});};})();
+/* ---------- 一、新的違法命令 ---------- */
+Object.assign(CIVA,{burn:['焚燒村莊',3600,1,'放火燒毀房屋、糧倉與田地：焦土作戰，居民流離失所、無處棲身，是戰爭罪行'],
+  poisonw:['水源投毒',1800,2,'在水井與水源下毒：自古即被視為違反戰爭慣例，1899 年海牙公約明文禁止使用毒物；居民與任何在這裡取水的部隊都會中毒'],
+  poisonf:['存糧投毒',1800,2,'在糧倉與存糧裡下毒：禁止使用毒物；吃下的人會中毒，包括來這裡徵糧的部隊'],
+  exec:['處決',1800,2,'槍決成年男性、難民或被拘留者：嚴重的戰爭罪行，會留下遺體與亂葬坑，執行的官兵也會受創']});
+(function(){var b=civApply;civApply=function(u,o,T,t){var a=o.opt.act;if(a!=='burn'&&a!=='poisonw'&&a!=='poisonf'&&a!=='exec')return b(u,o,T,t);evdApply(u,o,T,t,a);};})();
+function evdApply(u,o,T,t,a){var side=u.side,C=G.civ,g=t==='S'?T:C.S[T.from],place=placeTxt(T.x,T.y),txt,dd=0,e;
+  if(a==='burn'){if(t!=='S')return;var v=(T.val0||0)*(0.35+0.25*rnd()),pr=civPresent(T);T.loss=(T.loss||0)+v;T.burnt=(T.burnt||0)+v;C.prop.fire+=v;C.cs[side].prop+=v;T.food=0;T.shel=Math.max(0,(T.shel||0)-0.6);T.burnT=G.t;
+    dd=pr*(0.005+0.02*rnd());if(dd>0.5)civCas(T,dd,0.6,'fireS',side);T.unrest=100;T.alarm=1;T.hostT=G.t;attAdd(T,side,-70);attNear(T.x,T.y,15000,side,-20);if(civPresent(T)>30)refSpawn(T,civPresent(T)*0.75);
+    txt=uName(u)+'奉命焚燒'+T.n+'：房屋、糧倉與田地付之一炬，損失約 '+money(v)+(dd>=1?'，約 '+fmt(dd)+' 人葬身火海':'')+'，居民流離失所';}
+  else if(a==='poisonw'||a==='poisonf'){if(t!=='S')return;var days=a==='poisonw'?7+7*rnd():20+10*rnd();if(a==='poisonw'){T.wpois=G.t+days*86400;T.wpby=side;}else{T.fpois=G.t+days*86400;T.fpby=side;}T.pdead=0;T.pknown=0;
+    txt=uName(u)+'奉命在'+T.n+'的'+(a==='poisonw'?'水井與水源':'糧倉與存糧')+'裡下毒';dd=0;}
+  else{var GR=civGroup(T,t),n;if(t==='S'){n=Math.min(T.men*(0.15+0.25*rnd()),u.men*2+20);if(n<1){logE(side,'civ',uName(u)+'在'+place+'找不到可以處決的成年男性',u.x,u.y,u.id);return;}civCas(T,n,1,'exec',side);T.unrest=100;T.alarm=1;attAdd(T,side,-80);}
+    else if(t==='R'){n=Math.min(Math.max(T.m*0.8,GR.n*0.2),u.men*2+20);if(n<1)return;refCas(T,n,1,'refshot',side);}
+    else{n=T.n*0.9;var f=n/Math.max(1,T.n);T.m-=T.m*f;T.w-=T.w*f;T.k-=T.k*f;T.e-=T.e*f;T.n-=n;T.dead=(T.dead||0)+n;civStatAdd(side,n,0,0,0,'exec');}
+    dd=n;attNear(T.x,T.y,20000,side,-35);txt=uName(u)+'奉命在'+place+'處決約 '+fmt(n)+' 名'+(t==='S'?'成年男性居民':t==='R'?'難民':'被拘留的平民');
+    /* 執行的官兵：士氣、軍紀下降，恐懼上升 */u.mor=clamp(u.mor-8,0,100);if(u.dis!==undefined)u.dis=clamp(u.dis-8,0,100);if(typeof fearAdd==='function')fearAdd(u,8,'atro');}
+  logE(side,'civ','⚠ '+txt,u.x,u.y,u.id);e=civEv('crime',side,txt,T.x,T.y,u.id,{dk:a==='exec'?(t==='S'?'execc':t==='R'?'execr':'execd'):a,v:dd,ord:true,wc:1});
+  warCrime(u,a==='exec'?(t==='S'?'execc':t==='R'?'execr':'execd'):a,dd,txt,true);if(a!=='exec'){u.mor=clamp(u.mor-3,0,100);if(u.dis!==undefined)u.dis=clamp(u.dis-4,0,100);}
+  if(G.press)pressOn(e,u);civAftermath(u,T,a,dd);if(G.onPause&&apOn('crime'))G.onPause('對平民的違法行動');}
+/* ---------- 二、被下毒的水源與存糧；遺體腐敗與掩埋 ---------- */
+function evdPoisonStep(){if(!G.civ)return;var h=600/3600;G.civ.S.forEach(function(g){var w=g.wpois&&G.t<g.wpois,f=g.fpois&&G.t<g.fpois;if(!w&&!f)return;var pr=civPresent(g);
+    /* 每天約 2%（水）與 1.2%（糧）的居民中毒死亡；居民發現之後大多不再取用 */if(pr>=1){var rate=(w?0.02:0)+(f?0.012:0);if(g.pknown)rate*=0.15;var c=Math.min(pr*rate*h/24,pr*0.05);if(c>0.02){civCas(g,c,0.7,'poison',w?g.wpby:g.fpby);g.pdead=(g.pdead||0)+c;}
+      if(!g.pknown&&g.pdead>=8){g.pknown=1;g.alarm=1;g.unrest=clamp(g.unrest+30,0,100);if(pr>30)refSpawn(g,pr*0.5);evdL().forEach(function(e){if((e.k==='well'||e.k==='food')&&e.g===g.i)e.rev=1;});}}
+    /* 駐紮在這裡的部隊（不分敵我）：不知道水有毒就會中毒 */gridNear(g.x,g.y,(g.r||300)+200,function(u){if(!onMap(u)||!isLeaf(u)||ST(u).dom!=='land'||dist(u.x,u.y,g.x,g.y)>(g.r||300)+200)return;var known=evdL().some(function(e){return (e.k==='well'&&w||e.k==='food'&&f)&&e.g===g.i&&e.found[u.side];});if(known)return;
+      if(G.t-(u.movedAt||-1e9)<1800)return;var m=u.men*0.003*((w?1:0)+(f?0.6:0))*h;u.pnA=(u.pnA||0)+m;if(u.pnA>=0.5){var q=u.pnA;u.pnA=0;hit(u,null,q,0,0,'poison');u.sick=(u.sick||0)+q*2;u.pnN=(u.pnN||0)+q;if(!u.pnLog){u.pnLog=1;logE(u.side,'evid',uName(u)+'在'+g.n+'有官兵上吐下瀉、陸續倒下：水或食物可能被下了毒',u.x,u.y,u.id);}}});});}
+/* 外部（徵糧、取水）可以查詢這個聚落有沒有被下毒 */
+function evdPoisoned(g,what){if(!g)return false;return what==='water'?!!(g.wpois&&G.t<g.wpois):what==='food'?!!(g.fpois&&G.t<g.fpois):!!(g.wpois&&G.t<g.wpois||g.fpois&&G.t<g.fpois);}
+function evdDecay(){evdL().forEach(function(e){if(e.k!=='bodies'||e.cov)return;var age=G.t-(e.t1||e.t);if(age<2*86400)return;
+    /* 兩天後：附近有居民就會把死者埋了，變成亂葬坑（沒有人掩埋的就一直曝屍） */var g=evdNearSet(e.x,e.y,4000);if(g&&civPresent(g)>20&&!(e.side>=0&&friendNear(e.side,e.x,e.y,1500)>0)&&(hstr('bur|'+e.id+'|'+Math.floor(G.t/86400))%4===0)){e.k='grave';e.bur=G.t;e.burBy='civ';e.hid=Math.max(e.hid,0.2);}});}
+/* ---------- 三、發現 ---------- */
+function evdR(e,u,s){var R={bodies:450,grave:220,burnt:2600,well:120,food:120}[e.k]||300,b=s.br;
+  /* 下毒看不出來：要等居民死傷傳開，或偵察、醫護、工兵與指揮部隊查驗 */if(e.k==='well'||e.k==='food'){if(e.rev)R=500;else if(!/^(med|eng|hq|rec|sof)$/.test(b))return 0;}if(b==='rec'||b==='sof')R*=1.5;
+  if(G.env.light<0.3&&e.k!=='burnt')R*=0.6;return R*(1-0.7*(e.hid||0));}
+function evdStep(){if(!evdOn())return;var L=evdL();if(!L.length)return;G.units.forEach(function(u){if(!isLeaf(u)||!onMap(u))return;var s=ST(u);if(s.dom!=='land'||u.st==='lift')return;
+    for(var i=0;i<L.length;i++){var e=L[i],d=Math.abs(e.x-u.x)+Math.abs(e.y-u.y);if(d>6000)continue;d=dist(e.x,e.y,u.x,u.y);var R=evdR(e,u,s);if(R<=0||d>R)continue;
+      if(!e.found[u.side])evdFound(e,u);var S=u.evS||(u.evS={});if(!S[e.id]){S[e.id]=1;if(e.by!==u.id)evdReact(u,e);}}});}
+function evdTxt(e){var n=e.n>=1?'約 '+fmt(e.n)+' 名'+(EVDV[e.vk]||'死者'):'';return e.k==='bodies'?n+'的遺體':e.k==='grave'?'一處亂葬坑'+(e.ex?'（'+n+'）':''):e.k==='burnt'?'被燒毀的村莊':e.k==='well'?'被下毒的水源':'被下毒的存糧';}
+function evdFound(e,u){var side=u.side;e.found[side]=G.t;var place=placeTxt(e.x,e.y),own=side===e.side,txt=uName(u)+'在'+place+'發現'+evdTxt(e)+(e.vk==='pow'&&e.vs===side?'——是我軍投降的官兵':'');
+  logE(side,'evid',(own?'':'⚠ ')+txt,e.x,e.y,u.id);
+  if(!own&&e.side>=0){var W=G.civ&&G.civ.wc[e.wi];if(W&&!W.known){W.known=true;G.civ.rep[e.side]=clamp(G.civ.rep[e.side]-Math.min(25,3+(e.n||0)/40),0,100);}
+    var ce={t:G.t,k:'crime',s:e.side,txt:place+'發現'+evdTxt(e)+(e.byn?'，疑為'+e.byn+'所為':''),x:e.x,y:e.y,u:u.id,dk:e.dk,v:e.n,wc:1};if(G.press)pressOn(ce,u);if(G.onPause&&apOn('crime')&&!(SD(side)&&SD(side).ai))G.onPause('發現戰爭罪行的證據');}}
+/* 看到現場的官兵：死者是自己人，恐懼加上憤怒或沮喪；平民、難民與人質，恐懼與沮喪（死者是自己同胞則憤怒）；本軍幹的，羞愧——極端政策的部隊則麻木 */
+function evdReact(u,e){var own=u.side===e.side,mine=e.vs===u.side,big=e.n>=20?1.5:1,off=offOf(u),fear=function(v){if(typeof fearAdd==='function')fearAdd(u,v,'atro');},mor=function(k,v){u.mor=clamp(u.mor+v,0,100);mfAdd(u,k,v);};
+  if(e.k==='burnt'&&!e.n){if(!own)mor('atro',-0.5);u.evT=G.t;u.evC=(u.evC||0)+1;u.evK='burn';return;}
+  if(e.k==='well'||e.k==='food'){fear(4);if(!own)mor('atro',-1);u.evT=G.t;u.evC=(u.evC||0)+1;u.evK='poison';return;}
+  if(own){if(polOf(u,'civ')>=4)u.dis=clamp((u.dis||50)-1,0,100);else{mor('shame',-2*big);u.dis=clamp((u.dis||50)-1,0,100);}fear(3);u.evK='own';}
+  else if(e.vk==='pow'&&mine){fear(10*big);if(typeof atroHear==='function')atroHear(u);var hard=(u.dis||50)>55||hasQ(off,'stubborn')||u.irr;mor(hard?'rage':'atro',hard?3:-3);u.evK='pow';}
+  else if(e.vk==='own'){fear(3);u.evK='own2';}
+  else{fear(6*big);if(mine)mor('rage',2);else mor('atro',-1.5*big);u.evK=e.k==='grave'?'grave':'body';}
+  u.evT=G.t;u.evC=(u.evC||0)+1;}
+/* ---------- 四、命令：調查取證、開挖亂葬坑、掩埋湮滅證據、清理水源 ---------- */
+Object.assign(ORDN,{evd:'處理證據'});var EVDA={inv:['調查取證',3*3600],dig:['開挖亂葬坑',6*3600],cov:['掩埋、湮滅證據',4*3600],fix:['清理水源',8*3600]};
+function evdAct(u,o){var e=evdById(o.opt&&o.opt.id),a=o.opt&&o.opt.act;if(!e||!EVDA[a]){u.ord=null;u.task='hold';return true;}
+  if(a==='fix'&&!isEng(u)){logE(u.side,'eng',uName(u)+'不是工兵，無法清理水源',u.x,u.y,u.id);u.ord=null;u.task='hold';return true;}
+  if(a==='cov'&&u.side!==e.side){u.ord=null;u.task='hold';return true;}
+  o.ph='go';var p=validPos(ST(u),e.x,e.y);if(dist(u.x,u.y,e.x,e.y)<250){u.task='at';u.path=null;}else{u.task='go';wantPath(u,p[0],p[1]);}return true;}
+function evdLeaf(u,s,o){var e=evdById(o.opt.id),a=o.opt.act;if(!e){u.ord=null;u.task='hold';return true;}
+  if(o.ph==='go'){if(dist(u.x,u.y,e.x,e.y)>300){if((G.step+u.id)%6===0&&!u.path){var p=validPos(s,e.x,e.y);u.task='go';wantPath(u,p[0],p[1]);}return false;}o.ph='work';o.t1=G.t;u.task='work2';u.path=null;logE(u.side,'evid',uName(u)+'開始'+EVDA[a][0]+'（'+placeTxt(e.x,e.y)+'）',u.x,u.y,u.id);return true;}
+  if(o.ph==='work'){var need=EVDA[a][1]*(isEng(u)&&(a==='dig'||a==='cov'||a==='fix')?0.6:1);if(G.t-o.t1<need)return true;evdDo(u,e,a);u.ord=null;u.task='hold';return true;}return false;}
+function evdDo(u,e,a){var side=u.side,place=placeTxt(e.x,e.y);if(!e.found[side])e.found[side]=G.t;
+  if(a==='inv'||a==='dig'){e.doc[side]=G.t;if(a==='dig'&&e.k==='grave'){e.ex=1;e.hid=0;}var who=e.side>=0&&e.side!==side?G.sides[e.side].name+(e.byn?'（'+e.byn+'）':''):'';
+    logE(side,'evid',uName(u)+(a==='dig'?'開挖':'調查')+place+'的'+(EVDK[e.k]||['現場'])[0]+'，記錄'+evdTxt(e)+(who?'；證據指向'+who:'')+(e.cov?'；現場有被刻意掩埋、湮滅的痕跡':''),e.x,e.y,u.id);
+    if(e.side>=0&&e.side!==side){var W=G.civ&&G.civ.wc[e.wi];if(W){W.known=true;W.doc=1;}}if(a==='dig'){var g2=function(v){if(typeof fearAdd==='function')fearAdd(u,v,'atro');};g2(5);u.mor=clamp(u.mor-2,0,100);mfAdd(u,'atro',-2);}return;}
+  if(a==='cov'){if(e.k==='bodies'){e.k='grave';e.bur=G.t;e.burBy='perp';}e.hid=Math.max(e.hid,0.75);e.cov=G.t;var W2=G.civ&&G.civ.wc[e.wi];if(W2)W2.cov=1;
+    var txt=uName(u)+'在'+place+'掩埋遺體、湮滅'+(EVDK[e.k]||['證據'])[0]+'的痕跡';logE(side,'evid','⚠ '+txt,e.x,e.y,u.id);warCrime(u,'cover',0,txt,true);u.mor=clamp(u.mor-2,0,100);return;}
+  if(a==='fix'){var g=G.civ&&G.civ.S[e.g];if(g){g.wpois=0;g.fpois=0;}e.fix=G.t;logE(side,'evid',uName(u)+'清理了'+place+'被下毒的水源與存糧',e.x,e.y,u.id);}}
+(function(){var b=v4Act;v4Act=function(u,o){if(o.k==='evd')return evdAct(u,o);return b(u,o);};})();
+(function(){var b=v4Leaf;v4Leaf=function(u,s){var o=u.ord;if(o&&o.k==='evd'&&o.opt)return evdLeaf(u,s,o);return b(u,s);};})();
+/* ---------- 五、附近友軍與敵軍的反應 ---------- */
+function rxStep(){var ev=[];G.units.forEach(function(u){if(!isLeaf(u))return;var a=alive(u),m=u.ms;if(u._rxA===undefined){u._rxA=a;u._rxM=m;return;}
+    if(u._rxA&&!a&&u.st==='dead')ev.push([u,'fall']);else if(a&&m==='rout'&&u._rxM!=='rout')ev.push([u,'rout']);else if(a&&u.surr&&!u._rxS){u._rxS=1;ev.push([u,'surr']);}u._rxA=a;u._rxM=m;});
+  ev.forEach(function(q){var v=q[0],k=q[1],big=(v.men0||100)>=300?1.4:1;gridNear(v.x,v.y,1800,function(u){if(u===v||!isLeaf(u)||!onMap(u)||ST(u).dom!=='land'||dist(u.x,u.y,v.x,v.y)>1800)return;
+      if(u.side===v.side){if(k==='fall'){u.mor=clamp(u.mor-2*big,0,100);mfAdd(u,'near',-2*big);if(typeof fearAdd==='function')fearAdd(u,4*big,'cas');u.rxT=G.t;u.rxC=(u.rxC||0)+1;u.rxK='fall';}
+        else if(k==='rout'||k==='surr'){u.mor=clamp(u.mor-1.5*big,0,100);mfAdd(u,'near',-1.5*big);if(typeof fearAdd==='function')fearAdd(u,3*big,'cas');u.rxT=G.t;u.rxC=(u.rxC||0)+1;u.rxK=k==='rout'?'rout':'fsurr';}}
+      else if(v.side>=0&&u.side>=0&&v.side<=1&&u.side<=1){u.mor=clamp(u.mor+(k==='fall'?1.5:1)*big,0,100);mfAdd(u,'near',(k==='fall'?1.5:1)*big);u.rxT=G.t;u.rxC=(u.rxC||0)+1;u.rxK=k==='surr'?'esurr':'ewin';}});});}
+(function(){var b=v8Step;v8Step=function(){b();if(!G.started)return;if(G.step%4===2)rxStep();if(G.step%20===13){evdStep();evdPoisonStep();}if(G.step%120===17)evdDecay();};})();
+/* 線上：證據清單整份同步；部隊的記號不送 */
+if(typeof MPCOL!=='undefined'){MPCOL.push(['evd','id',function(s){return (G.evd||[]).filter(function(e){return s<0||e.found&&e.found[s];}).map(function(e){if(s<0)return e;var c=Object.assign({},e),f={},d={};f[s]=e.found[s];if(e.doc&&e.doc[s])d[s]=e.doc[s];c.found=f;c.doc=d;return c;});}]);MPCC.evd=function(){return G.evd||(G.evd=[]);};MPKEY.evd='id';}if(typeof MPUX!=='undefined'){MPUX.evS=1;MPUX._rxA=1;MPUX._rxM=1;MPUX._rxS=1;MPUX.pnA=1;MPUX.pnLog=1;}
+/* 存檔：證據清單一起帶走 */
+if(typeof GKEYS!=='undefined')GKEYS.push('evd','evdSeq');
+/* ===================== 堤壩與決堤（以水代兵） =====================
+   沿大河的低窪地有防洪堤，1900 年以後河谷收窄處可能有水壩。工兵可以奉命爆破決堤（更早的年代靠人力掘開）：
+   河水或水庫的水沖進低地，幾小時內淹沒道路、田野與村莊：部隊被沖散、車輛泡水，居民大量溺斃、流離失所，浮橋與便橋被沖走。
+   堤防的決口會一直進水，直到工兵堵口；水庫放空後水才慢慢退去。退水後道路受損、低地成為沼澤。
+   以水代兵是最具毀滅性的決策之一：1938 年花園口決堤遲滯了日軍，卻造成數十萬平民死亡、數百萬人流離失所；
+   1977 年日內瓦公約第一附加議定書第 56 條禁止攻擊含有危險力量的工程與設施（堤壩、核電廠）。
+   淹水範圍與既有的河川洪水合併在同一張淹水圖（G.evt.fl），尋路、涉水、部隊撤往高處、存檔與聯機都沿用。 */
+function damOn(){return !!G&&G.set.dam!==false;}
+function damL(){return G.dams||(G.dams=[]);}
+function damById(id){var L=damL();for(var i=0;i<L.length;i++)if(L[i].id===id)return L[i];return null;}
+var DAMK={levee:['堤防','沿河的防洪堤，保護後方的低地'],dam:['水壩','攔河的水壩，後面是水庫']};
+/* 地點：大河邊低窪地最大的兩段堤防；1900 年後再找一處河谷收窄、兩側高起的地方築壩 */
+function damGen(){var MP=G.map,GW=MP.GW,GH=MP.GH,cs=MP.cs,el=MP.el,rv=MP.rv,L=damL();if(L.length||!rv)return;var st=Math.max(1,Math.round(400/cs)),R=Math.round(3000/cs),C=[];
+  for(var y=st;y<GH-st;y+=st)for(var x=st;x<GW-st;x+=st){var k=y*GW+x;if(!(rv[k]>=2||MP.lc[k]===LCI.riv))continue;var e0=el[k],low=0,hi=0;
+    for(var dy=-R;dy<=R;dy+=4)for(var dx=-R;dx<=R;dx+=4){var X=x+dx,Y=y+dy;if(X<0||Y<0||X>=GW||Y>=GH)continue;var q=Y*GW+X;if(isWater(MP.lc[q]))continue;var de=el[q]-e0;if(de<3)low++;if(Math.abs(dx)<=Math.round(800/cs)&&Math.abs(dy)<=Math.round(800/cs)&&de>40)hi++;}
+    C.push({k:k,x:(x+0.5)*cs,y:(y+0.5)*cs,low:low,hi:hi,el:e0});}
+  if(!C.length)return;var pick=function(L2,n,minD){var out=[];L2.forEach(function(c){if(out.length<n&&out.every(function(o){return dist(o.x,o.y,c.x,c.y)>=minD;}))out.push(c);});return out;};
+  var lev=pick(C.filter(function(c){return c.low>=40;}).sort(function(a,b){return b.low-a.low;}),2,6000);lev.forEach(function(c){damAdd('levee',c);});
+  if((G.set.y||1943)>=1900){var dv=C.filter(function(c){return c.hi>=6&&c.low>=15;}).sort(function(a,b){return b.hi-a.hi||b.el-a.el;});var d0=dv.filter(function(c){return lev.every(function(o){return dist(o.x,o.y,c.x,c.y)>=5000;});})[0];if(d0)damAdd('dam',d0);}}
+function damAdd(k,c){var g=typeof evdNearSet==='function'?evdNearSet(c.x,c.y,9000):null,d={id:(G.damSeq=(G.damSeq||0)+1),k:k,x:c.x,y:c.y,c:c.k,el:c.el,n:(g?g.n:placeTxt(c.x,c.y))+(k==='dam'?'水壩':'段堤防'),st:'ok',dead:0,ref:0};damL().push(d);return d;}
+/* ---------- 決堤 ---------- */
+function damHmax(d){return d.k==='dam'?12:3.5;}
+function damRmax(d){return d.k==='dam'?15000:12000;}
+/* 從決口往外、比決口高不到 H 公尺的陸地（廣度優先，記住格數距離） */
+/* 計算用的大陣列放在模組快取（不進存檔）：換了一場作戰就清掉 */
+var DAMC={g:null,m:{}};function damC(d){if(DAMC.g!==G){DAMC.g=G;DAMC.m={};}return DAMC.m[d.id]||(DAMC.m[d.id]={});}
+function damField(d){var Cc=damC(d);if(Cc.D)return Cc.D;var MP=G.map,GW=MP.GW,GH=MP.GH,N=GW*GH,el=MP.el,lim=d.el+damHmax(d)+0.5,Rc=Math.ceil(damRmax(d)/MP.cs),D=new Uint16Array(N).fill(65535),Q=new Int32Array(N),h=0,t=0;
+  D[d.c]=0;Q[t++]=d.c;while(h<t){var k=Q[h++],x=k%GW,y=(k-x)/GW,dk=D[k];if(dk>=Rc)continue;for(var i=0;i<4;i++){var X=x+(i===0?1:i===1?-1:0),Y=y+(i===2?1:i===3?-1:0);if(X<0||Y<0||X>=GW||Y>=GH)continue;var q=Y*GW+X;if(D[q]!==65535||el[q]>lim)continue;D[q]=dk+1;Q[t++]=q;}}
+  Cc.D=D;return D;}
+/* 水位：堤防決口持續進水（堵口後一天內退去）；水壩一兩小時內沖到最高，之後隨水庫放空慢慢退 */
+function damH(d){var t=(G.t-d.bt)/3600,H=damHmax(d);if(d.k==='dam')return H*Math.min(1,t/1)*Math.exp(-Math.max(0,t-2)/36);var r=H*Math.min(1,t/6);if(d.st==='fixed')r*=Math.exp(-(G.t-d.ft)/3600/18);return r;}
+function damR(d){return Math.min(damRmax(d),(d.k==='dam'?6000:2500)*(G.t-d.bt)/3600+300);}
+function damRefuse(u){var L=clamp(polOf(u,'civ'),0,5),p=[0.85,0.65,0.4,0.15,0.05,0][L]*((G.set.y||1943)>=1977?1:(G.set.y||1943)>=1899?0.8:0.6)*(u.dis===undefined?1:u.dis>60?1.15:u.dis<35?0.7:1);
+  if(rnd()<p){logE(u.side,'eng',uName(u)+'拒絕執行決堤的命令（官兵不願淹死下游的百姓）',u.x,u.y,u.id);if(typeof decLog==='function')decLog(u.side,uName(u),'拒絕執行決堤的命令');return true;}return false;}
+function damBreach(d,u){var side=u?u.side:-1;d.st='breach';d.bt=G.t;d.by=side;d.byn=u?uName(u):'';d.hitS={};d.hitU={};damC(d).pk=null;var txt=(u?uName(u)+'奉命':'')+'炸開'+d.n+'：'+(d.k==='dam'?'水庫的水奔騰而下':'河水從決口沖進低地')+'，下游一片汪洋';
+  logE(side,'eng','⚠ '+txt,d.x,d.y,u?u.id:0);if(side>=0)logE(enemyOf(side),'evt','⚠ '+d.n+'決堤，洪水沖向下游的低地',d.x,d.y);
+  if(u&&G.civ){var e=civEv('crime',side,txt,d.x,d.y,u.id,{dk:'dam',v:0,ord:true,wc:1});var w=warCrime(u,'dam',0,txt,true);d.wi=G.civ.wc.indexOf(w);if(G.press)pressOn(e,u);}
+  if(typeof decLog==='function'&&u)decLog(side,uName(u),'爆破'+d.n+'，以水代兵',{crime:1});if(G.onPause&&apOn('crime'))G.onPause(d.n+'決堤');damStep(true);}
+/* 每 10 分鐘：重算淹水範圍、合併到淹水圖；新淹到的村莊與部隊 */
+function damStep(force){var L=damL().filter(function(d){return d.st==='breach'||d.st==='fixed';});var MP=G.map,N=MP.GW*MP.GH;
+  if(!L.length){if(G._flMerged&&G.evt&&G.evt.fl===G._flMerged){G.evt.fl=G._flBase||null;G._flMerged=null;G.evt.fv=(G.evt.fv||0)+1;mapChangedSoft();}return;}
+  G.evt=G.evt||{};if(G.evt.fl!==G._flMerged)G._flBase=G.evt.fl||null;var B=new Uint8Array(N),base=G._flBase,el=MP.el,cs=MP.cs,any=0;
+  L.forEach(function(d){var D=damField(d),H=damH(d),Rc=damR(d)/cs,Cc=damC(d),PK=Cc.pk||(Cc.pk=new Uint8Array(N)),cnt=0;if(H<0.1&&(d.st==='fixed'||d.k==='dam')&&G.t-d.bt>3*3600){damEnd(d);return;}
+    for(var k=0;k<N;k++){var dk=D[k];if(dk===65535||dk>Rc)continue;var dp=H-(el[k]-d.el)-dk*cs/1000*0.25;if(dp<=0.05)continue;var v=Math.min(255,Math.round(dp*10));if(v>B[k])B[k]=v;if(v>PK[k])PK[k]=v;cnt++;}d.area=cnt*cs*cs/1e6;d.amax=Math.max(d.amax||0,d.area);any+=cnt;
+    /* 村莊：第一次淹到時溺斃與逃難；事先有警報的少死很多 */if(G.civ)G.civ.S.forEach(function(g){if(d.hitS[g.i])return;var k=cellAt(g.x,g.y),v=B[k];if(v<4)return;d.hitS[g.i]=G.t;var pr=civPresent(g);if(pr<1)return;var dp=v/10,f=clamp(0.02+0.06*dp,0.02,0.4)*(g.alarm>0.5?0.35:1)*(d.k==='dam'?1.4:1),dd=pr*f;
+      civCas(g,dd,0.85,'flood',d.by);d.dead+=dd;g.loss=(g.loss||0)+(g.val0||0)*0.5;g.food=0;g.unrest=100;g.alarm=1;if(d.by>=0)attAdd(g,d.by,-60);if(civPresent(g)>20)refSpawn(g,civPresent(g)*0.7);d.ref+=pr-dd;
+      logE(-1,'evt','洪水淹沒'+g.n+'，約 '+fmt(dd)+' 人溺斃，倖存者攀上屋頂與高地',g.x,g.y);});
+    /* 部隊：山洪突至，第一次被淹到的部隊有人被沖走（之後依水深撤往高處，由洪水撤離處理） */G.units.forEach(function(u){if(d.hitU[u.id]||!isLeaf(u)||!onMap(u)||ST(u).dom!=='land'||u.st==='lift')return;var v=B[cellAt(u.x,u.y)];if(v<8)return;d.hitU[u.id]=1;u.flC=(u.flC||0)+1;var dp=v/10;
+      hit(u,null,u.men*Math.min(0.12,0.015*dp*(d.k==='dam'?2:1)),u.veh*Math.min(0.5,0.06*dp),25,'storm');u.mor=clamp(u.mor-6,0,100);if(typeof fearAdd==='function')fearAdd(u,10,'storm');});
+    if(G.civ&&d.wi>=0){var W=G.civ.wc[d.wi];if(W)W.v=Math.round(d.dead);}});
+  if(base)for(var k=0;k<N;k++)if(base[k]>B[k])B[k]=base[k];var prev=G._flMerged,ch=!prev||force;if(!ch){var dn=0;for(var i=0;i<N;i+=7)if((prev[i]>0)!==(B[i]>0))dn++;ch=dn>0;}
+  G._flMerged=B;G.evt.fl=B;if(ch){G.evt.fv=(G.evt.fv||0)+1;mapChangedSoft();damBridges(B);}}
+/* 被淹到的浮橋、便橋沖走；水壩潰決時連永久橋梁也可能沖毀 */
+function damBridges(B){var MP=G.map,lost=MP.brg.filter(function(q){var k=q.y*MP.GW+q.x,v=B[k]||0;if(!v)return false;if(q.t==='f'||q.t==='a'||q.t==='e')return v>=10;return v>=60&&(hstr('brg|'+k)%3===0);});if(!lost.length)return;
+  lost.forEach(function(q){var k=q.y*MP.GW+q.x;MP.rd[k]=0;MP.rl[k]=0;});MP.brg=MP.brg.filter(function(q){return lost.indexOf(q)<0;});mapChanged(lost.map(function(q){return q.y*MP.GW+q.x;}));logE(-1,'evt','決堤的洪水沖毀 '+lost.length+' 座橋梁');}
+/* 水退：道路泡水受損，低地成為沼澤 */
+function damEnd(d){d.st=d.st==='fixed'?'closed':'drained';d.et=G.t;var MP=G.map,Cc=damC(d),PK=Cc.pk,N=MP.GW*MP.GH,ks=[],nd=0;if(PK){if(!G.rdd||G.rdd.length!==N)G.rdd=new Uint8Array(N);var soft={};['field','mead','hedge','orch','scrub'].forEach(function(id){soft[LCI[id]]=1;});
+    for(var k=0;k<N;k++){var v=PK[k];if(!v)continue;if(v>=10&&MP.rd[k]){G.rdd[k]=Math.max(G.rdd[k],200);nd++;}if(v>=20&&soft[MP.lc[k]]&&!MP.rd[k]&&!MP.rl[k]&&(Math.imul(k,2246822519)>>>0)%100<45){MP.lc[k]=LCI.marsh;ks.push(k);}}}
+  Cc.pk=null;Cc.D=null;if(ks.length){mapChanged(ks);G._fp=null;}logE(-1,'evt',d.n+'的洪水退去：約 '+fmt(nd*MP.cs/1000,1)+' 公里道路泡水受損'+(ks.length?'，'+fmt(ks.length*MP.cs*MP.cs/1e6,1)+' 平方公里低地成為沼澤':'')+(d.dead>=1?'。洪水共奪走約 '+fmt(d.dead)+' 名平民的性命':''),d.x,d.y);}
+/* 下游會淹到哪裡：估計面積與受威脅的村莊人口 */
+function damRisk(d){var D=damField(d),MP=G.map,cs=MP.cs,H=damHmax(d),el=MP.el,R=damRmax(d)/cs,n=0,pop=0,vil=0;for(var k=0;k<D.length;k++){var dk=D[k];if(dk===65535||dk>R)continue;if(H-(el[k]-d.el)-dk*cs/1000*0.25>0.3)n++;}
+  if(G.civ)G.civ.S.forEach(function(g){var dk=D[cellAt(g.x,g.y)];if(dk===65535||dk>R)return;if(H-(el[cellAt(g.x,g.y)]-d.el)-dk*cs/1000*0.25>0.3){vil++;pop+=civPresent(g);}});return {km2:n*cs*cs/1e6,vil:vil,pop:pop};}
+/* ---------- 命令：爆破決堤、堵口 ---------- */
+Object.assign(ORDN,{dam:'堤壩'});var DAMA={blow:['爆破決堤'],fix:['堵口']};
+function damNeed(d,u,a){if(a==='fix')return 24*3600*(isEng(u)?1:2.5);var y=G.set.y||1943,base=d.k==='dam'?6*3600:2*3600;return base*(y<1850?4:1)*(isEng(u)?1:3);}
+function damAct(u,o){var d=damById(o.opt&&o.opt.id),a=o.opt&&o.opt.act;if(!d||!DAMA[a]||!damOn()){u.ord=null;u.task='hold';return true;}
+  if(a==='blow'&&d.st!=='ok'||a==='fix'&&!(d.st==='breach'&&d.k==='levee')){logE(u.side,'eng',uName(u)+'：'+d.n+(a==='blow'?'已經決堤':'不需要堵口'),u.x,u.y,u.id);u.ord=null;u.task='hold';return true;}
+  if(d.k==='dam'&&!isEng(u)){logE(u.side,'eng',uName(u)+'不是工兵，無法爆破水壩',u.x,u.y,u.id);u.ord=null;u.task='hold';return true;}
+  if(a==='blow'&&damRefuse(u)){u.ord=null;u.task='hold';return true;}
+  o.ph='go';var p=validPos(ST(u),d.x,d.y);if(dist(u.x,u.y,p[0],p[1])<300){u.task='at';u.path=null;}else{u.task='go';wantPath(u,p[0],p[1]);}return true;}
+function damLeaf(u,s,o){var d=damById(o.opt.id),a=o.opt.act;if(!d){u.ord=null;u.task='hold';return true;}
+  if(o.ph==='go'){if(dist(u.x,u.y,d.x,d.y)>500){if((G.step+u.id)%6===0&&!u.path){var p=validPos(s,d.x,d.y);u.task='go';wantPath(u,p[0],p[1]);}return false;}o.ph='work';o.t1=G.t;u.task='work2';u.path=null;
+    logE(u.side,'eng',uName(u)+(a==='blow'?'開始在'+d.n+'埋設炸藥、掘開堤身':'開始堵塞'+d.n+'的決口'),u.x,u.y,u.id);return true;}
+  if(o.ph==='work'){if(a==='blow'&&d.st!=='ok'||a==='fix'&&d.st!=='breach'){u.ord=null;u.task='hold';return true;}if(G.t-o.t1<damNeed(d,u,a))return true;
+    if(a==='blow')damBreach(d,u);else{d.st='fixed';d.ft=G.t;logE(u.side,'eng',uName(u)+'堵住了'+d.n+'的決口，洪水開始退去',d.x,d.y,u.id);}u.ord=null;u.task='hold';return true;}return false;}
+(function(){var b=v4Act;v4Act=function(u,o){if(o.k==='dam')return damAct(u,o);return b(u,o);};})();
+(function(){var b=v4Leaf;v4Leaf=function(u,s){var o=u.ord;if(o&&o.k==='dam'&&o.opt)return damLeaf(u,s,o);return b(u,s);};})();
+/* ---------- AI：形勢危急、敵軍就在堤防保護的低地上，極端政策的一方可能決堤 ---------- */
+function damAI(){if(!damOn())return;[0,1].forEach(function(side){var S=SD(side);if(!S||!S.ai||polSide(side).civ<3)return;var mine=0,theirs=0;G.units.forEach(function(u){if(!isLeaf(u)||!onMap(u))return;if(u.side===side)mine+=u.men+u.veh*8;else if(u.side===enemyOf(side))theirs+=u.men+u.veh*8;});if(!(theirs>mine*1.6))return;
+  damL().forEach(function(d){if(d.st!=='ok')return;var D=damField(d),cs=G.map.cs,en=0,own=0;G.units.forEach(function(u){if(!isLeaf(u)||!onMap(u)||ST(u).dom!=='land')return;var dk=D[cellAt(u.x,u.y)];if(dk===65535||dk*cs>damRmax(d)*0.8)return;if(u.side===side)own+=u.men;else if(u.side===enemyOf(side))en+=u.men+u.veh*8;});
+    if(en<600||own>en*0.3||(hstr('damai|'+d.id+'|'+Math.floor(G.t/7200))%100)>=30)return;var eng=null,bd=15000;G.units.forEach(function(u){if(u.side!==side||!isLeaf(u)||!onMap(u)||!isEng(u)||typeof busyF==='function'&&busyF(u))return;var r=dist(u.x,u.y,d.x,d.y);if(r<bd){bd=r;eng=u;}});
+    if(eng&&!(eng.ord&&eng.ord.k==='dam')){activate(eng,newOrder('dam',{x:d.x,y:d.y,opt:{id:d.id,act:'blow'}}));logE(side,'eng',uName(eng)+'奉命前往'+d.n+'準備決堤，以水阻敵',eng.x,eng.y,eng.id);}});});}
+(function(){var b=v8Step;v8Step=function(){b();if(!G.started)return;if(G.step===1||!G.dams)damGen();if(G.step%20===9)damStep();if(G.step%60===41)damAI();};})();
+/* 河川洪水重算淹水圖之後，馬上把決堤的淹水併回去 */
+(function(){var b=floodCalc;floodCalc=function(){b.apply(this,arguments);if(G.dams&&G.dams.some(function(d){return d.st==='breach'||d.st==='fixed';}))damStep(true);};})();
+(function(){var b=floodStart;floodStart=function(e){b(e);if(G.dams&&G.dams.some(function(d){return d.st==='breach'||d.st==='fixed';}))damStep(true);};})();
+/* 存檔與聯機 */
+if(typeof GKEYS!=='undefined')GKEYS.push('dams','damSeq');
+if(typeof MPCOL!=='undefined'){MPCOL.push(['dam','id',function(){return (G.dams||[]).map(function(d){var c=Object.assign({},d);delete c.hitS;delete c.hitU;return c;});}]);MPCC.dam=function(){return G.dams||(G.dams=[]);};MPKEY.dam='id';}
 /* ===================== 兵牌：北約 APP-6、華約式、明式與二戰德軍式 =====================
    北約式：外框依觀看者的立場（友軍長方形、敵軍菱形、中立方形、不明四葉形；空中只有上半、水下只有下半），內部圖示依兵種，
    上方梯隊記號、下方機動方式（輪型、履帶、牽引）與兵力條，左上角分隊顏色、右上角隊徽；部隊可以自訂圖片。
@@ -23892,6 +24093,392 @@ if(typeof HELP14!=='undefined')HELP14.push('<h4>疲憊值</h4><ul>'+
   '<li>缺乏睡眠：交火、行軍、構工時沒得睡；敵人就在附近時只能輪班淺眠。缺的睡眠超過一天半，疲憊會加速累積；夜裡缺乏睡眠的哨兵容易打瞌睡。</li>'+
   '<li>影響：疲憊越高，射擊、行進、警戒與偵察越差，士氣回復的上限越低、越容易恐懼；精疲力竭（65 以上）還在交火，會開始有人因戰鬥疲勞後送。部隊面板列出原因與影響。</li>'+
   '<li>AI 會讓遠離敵人又累壞的部隊就地休息，精疲力竭的前線部隊也會換下來輪休；接替的部隊不能也是累壞的。設定的「疲憊」可以關閉這套機制。</li></ul>');
+/* ===================== 部隊對話：情境名稱與分類，以及台詞風格
+   平衡（預設，就是 VOXD）、接地氣（粗話、抱怨與閒聊，髒字一律用＊或諧音淡化）、軍事專業（術語、口令與簡報式回報）。
+   各風格沒有寫到的情境用平衡的說法。句子前的標記同 VOXD。 ===================== */
+var VOXN={idle:['閒置','沒有任務、附近沒有敵情時的閒聊'],march:['行軍','行軍途中'],def:['防禦','守在陣地上'],dig:['構工','挖掘工事'],sel:['被點選','點選本方部隊時的回應'],
+ reinf:['增援抵達','剛從後方抵達戰場'],arr:['抵達','到達命令指定的位置'],end:['戰鬥結束','戰局結束時'],xing:['渡河','渡河途中'],wd:['撤退中','撤退或遲滯途中'],atk:['進攻中','執行進攻命令途中'],
+ ack_atk:['受令：進攻','收到進攻、突破、追擊等命令'],ack_def:['受令：防守','收到防禦、固守、構工命令'],ack_mv:['受令：移動','收到移動、偵察、巡邏命令'],ack_wd:['受令：撤退','收到撤退、遲滯命令'],ack_amb:['受令：伏擊','收到伏擊命令'],
+ ack_art:['受令：砲擊','收到砲擊、火力支援命令'],ack_x:['受令：渡河','收到渡河、架橋命令'],ack_rest:['受令：休息','收到休息、輪換、待命命令'],ack:['受令：其他','收到其他命令'],
+ ambw:['伏擊：等待','埋伏中靜待敵人'],ambh:['伏擊：敵人接近','敵人走進伏擊區'],ambgo:['伏擊：開火','伏擊發動'],spot:['發現敵人','剛看到敵人'],tense:['對峙','敵人就在附近，雙方沒有開火'],
+ fire:['遭射擊','剛遭到輕兵器射擊'],combat:['交火中','持續交火時的喊叫'],melee:['白刃戰','近戰、肉搏'],tank:['戰車來襲','遭敵戰車攻擊'],art:['遭砲擊','遭砲兵、迫擊砲、艦砲射擊'],air:['遭空襲','遭飛機攻擊'],
+ heli:['遭直升機攻擊','遭直升機攻擊'],uav:['無人機','遭無人機攻擊或監視'],bomb:['遭轟炸','遭轟炸機轟炸'],pow:['俘虜','敵人投降'],obj:['佔領目標','拿下目標點'],ff:['誤擊','遭友軍誤擊'],
+ gas:['毒氣警報','部隊陷入毒氣'],gas2:['毒氣中','在毒氣裡持續作戰'],nkc:['核爆：近','核爆就在附近'],nkf:['核爆：遠','遠處的核爆'],fo:['輻射落塵','進入落塵或輻射區'],
+ cas:['傷亡','剛有人傷亡'],cas2:['慘重傷亡','兵力剩不到四分之一'],enc:['被包圍','後路被切斷'],shk:['士氣動搖','士氣動搖'],rout:['潰散','部隊潰散'],rly:['重整','潰散後重新集結'],hqx:['指揮部被毀','上級指揮部被摧毀'],
+ fear:['恐懼','極度驚恐'],lst:['背水一戰','走投無路、死戰到底'],dmc:['死人衝鋒','中毒仍反擊衝鋒'],atro:['暴行消息','聽說投降的友軍遭處決'],zed:['屍群','屍群逼近'],dem:['不可名狀之物','不可名狀之物出現'],psy:['低語','聽見低語'],
+ ammo:['彈藥不足','彈藥剩不到三成'],ammo0:['彈藥耗盡','彈藥打光'],fuel:['燃料不足','燃料剩不到四分之一'],fuel0:['燃料耗盡','車輛沒油'],hun:['飢餓','缺糧挨餓'],hun2:['嚴重飢餓','餓到走不動'],civfam:['目睹饑荒','附近平民在挨餓'],
+ exh1:['疲乏','累了，還撐得住'],exh2:['精疲力竭','連日作戰、缺乏睡眠'],exh3:['瀕臨崩潰','撐到極限，開始有人崩潰'],fmarch:['強行軍','一天走得太遠'],strag:['落伍','強行軍時有人跟不上'],nosleep:['缺乏睡眠','好幾天沒好好睡'],rested:['休整完畢','好好休息之後'],
+ air_atk:['飛行員：攻擊','飛行員攻擊目標'],air_aa:['飛行員：遭防空射擊','飛行員遭高射砲或飛彈攻擊'],air_idle:['飛行員：巡航','飛行員沒有接敵'],sea_fire:['艦艇：交戰','艦艇交戰中'],sea_idle:['艦艇：平靜','艦艇沒有接敵']};
+var VOXCAT=[['日常與行動',['idle','march','def','dig','sel','reinf','arr','xing','wd','atk','end']],['收到命令',['ack_atk','ack_def','ack_mv','ack_wd','ack_amb','ack_art','ack_x','ack_rest','ack']],
+ ['接敵與交火',['ambw','ambh','ambgo','spot','tense','fire','combat','melee','tank','pow','obj','ff']],['砲擊與空襲',['art','air','heli','uav','bomb']],['毒氣與核武',['gas','gas2','nkc','nkf','fo']],
+ ['傷亡與士氣',['cas','cas2','enc','shk','rout','rly','hqx']],['恐懼與暴行',['fear','lst','dmc','atro','zed','dem','psy']],['補給',['ammo','ammo0','fuel','fuel0','hun','hun2','civfam']],
+ ['疲憊',['exh1','exh2','exh3','fmarch','strag','nosleep','rested']],['飛行員與艦艇',['air_atk','air_aa','air_idle','sea_fire','sea_idle']]];
+var VOXST={auto:['依部隊素質','訓練好的部隊說話專業，新兵與民兵說話粗，一般部隊兩者都有'],bal:['平衡','預設：一般官兵的說法'],rough:['接地氣','粗話、抱怨、玩笑與閒聊；髒字用＊或諧音淡化'],pro:['軍事專業','術語、口令與簡報式的回報'],mix:['三種混合','三種風格隨機混著說']};
+var VOXP={};
+VOXP.rough={
+ idle:['尼*的，天氣真糟','這鬼地方連隻鳥都沒有','誰偷了我的罐頭？給老子吐出來','打完這仗我要睡他三天三夜','伙房煮的是餿水吧','長官又在畫地圖了，畫了也是白畫','淦，襪子又濕了','有菸沒？借一根，下輩子還你',
+  '他*的，蚊子比敵人還凶','等到發霉了都沒人理','又在等，等個屁啊','聽說上面又要改計畫，靠杯','我賭十塊，今天沒事','誰的臭腳？拿開啦','這鞋是給鬼穿的吧','打牌嗎？輸的去站哨','家裡那位一定又在罵我',
+  '再沒熱水我要瘋了','這鳥地方誰要誰拿去','上面那群人吃香喝辣，我們吃土','明天？明天的事明天再說','[^1900]罐頭肉吃到想吐','[_1900]這硬餅乾能砸死人','[n]誰在打呼？吵死了','[n]冷到懷疑人生',
+  '[r]雨下得跟不要錢一樣','[r]整個人泡在泥巴裡，狗*的','[s]雪下成這樣，凍死老子了','[h]熱得跟蒸籠一樣','[c]手凍到連鼻孔都挖不了','[@arm]這鐵罐子裡悶死人','[@arm]誰在車裡放屁？','[@art]砲擦到發亮又怎樣',
+  '[@sup]又要搬箱子，我是驢嗎？','[@med]繃帶又不夠，上面是睡著了嗎','[@cav]馬吃得比我還好','[!]我真他*的不想待在這','[~]今天還算過得去','[~]活著就好，其他都是屁'],
+ march:['走走走，腳都要走斷了','到底還有多遠？靠杯','誰規劃的路線？出來挨揍','跟上啦，別拖拖拉拉','背包重得跟石頭一樣','這條路是給牛走的吧','又上坡，淦','鞋子磨到腳都爛了','前面的走快點行不行',
+  '停一下會死喔？','走到天荒地老','[r]泥巴吃到嘴裡了，尼*的','[h]曬成人乾了','[n]黑成這樣，誰踩到我的腳！','[@arm]這破路，車都要散架了','[@cav]這馬比我還累','[@art]拖這門砲比拖棺材還累'],
+ def:['挖洞挖到像土撥鼠','沙包再多堆兩層，我還不想死','讓他們來，老子等著','這破洞能擋子彈？騙鬼','機槍架這裡，誰來誰倒楣','他們敢來就請他們吃鉛彈','守守守，守到天荒地老','誰再偷懶不挖，我就把他埋進去',
+  '[@at]坦克敢來就給它一發','[@art]砲口對準那條路，來一個轟一個','[n]今晚誰值哨？別又是我'],
+ dig:['挖到手都起泡了，淦','這土硬得跟老闆的心一樣','又挖到石頭，他*的','挖這麼深是要挖到地球另一邊？','鏟子給我，你挖得比烏龜還慢','[r]挖一鏟水灌一鏟','[@eng]工兵是挖土機嗎？','[c]地凍得跟鐵板一樣'],
+ sel:['在','幹嘛？','又有什麼事？','說吧','等命令啦','又要我們去送死？','別又是苦差事','[!]拜託別叫我們上去','[~]來吧，什麼事'],
+ reinf:['這裡就是前線？','怎麼這麼安靜，毛毛的','他們說這仗很快就打完，騙鬼','那些……是屍體？','新兵報到，老兵在笑什麼？','這地方聞起來不太妙'],
+ arr:['到了，總算','就是這破地方？','停，展開','到了，腳也廢了','到了，然後呢？'],
+ end:['結束了？','停火了……真的假的？','點名吧，看還剩幾個','還活著……老天','他*的，總算結束了'],
+ xing:['水冷死了！','抓緊繩子，別鬆手！','船要翻了，淦！','別讓槍泡水','誰在我旁邊尿尿？'],
+ wd:['交替掩護，快！','別回頭，走！','帶上傷兵，別丟下他','別留東西給那幫傢伙','撤就撤，總比死好'],
+ atk:['衝啊！','散開！散開！','跟上，別掉隊！','衝過去！別停！','給我上！','他*的，這片空地誰想的'],
+ ack_atk:['又要上去？好啦好啦','收到，出發啦','上就上，怕個屁','*的，又是我們','好，要死一起死','又是我們打頭陣，靠杯'],
+ ack_def:['守這裡？行','挖洞吧，兄弟們','守就守，誰怕誰','又要挖土了，淦'],
+ ack_mv:['走了走了','收到，動起來','又要搬家了','跟上，別拖拖拉拉'],
+ ack_wd:['撤？早該撤了','總算要撤了','帶上傷兵，快','別丟東西給他們'],
+ ack_amb:['好，去埋伏','悄悄過去，誰都別出聲','找個好位置，讓他們好看'],
+ ack_art:['收到，砲口調過去','給他們送點禮物','裝填！讓他們嚐嚐'],
+ ack_x:['又要過河？我不會游泳啊','船呢？別說要用游的','水有多深？會淹死人嗎？'],
+ ack_rest:['總算可以睡了','休息？是真的嗎？','先吃點東西再說','老天保佑，終於'],
+ ack:['收到','知道了','好啦','行','又來了'],
+ ambw:['噓，閉嘴','誰再出聲我就揍他','別動，腳麻了也忍著','蚊子咬也別拍','屁都別放','[n]黑成這樣，連自己的手都看不到'],
+ ambh:['來了來了，別急','再近一點，乖','讓這群傢伙走進來','還沒，還沒，忍住','等最後一個進來再招呼'],
+ ambgo:['打！給我打爛他們！','開火！開火！','招呼他們！','就是現在，淦！','一個都別放走！'],
+ spot:['那邊有人！','前面有傢伙在晃','他*的，那是敵人吧？','別裝了，我看到你了','[d]樹林那邊有東西在動','[n]那黑影是人吧？'],
+ tense:['他們在看我們，靠杯','別探頭，想吃子彈嗎','這安靜得讓人發毛','他們在等什麼鬼東西？','誰先動誰先死'],
+ fire:['趴下！淦！','哪個王*蛋在開槍？','子彈從耳邊飛過去了！','找掩護，快！','他*的，打哪來的？','[n]看不到槍口火光，*的'],
+ combat:['給我打！','換彈匣！快！','掩護我，我要過去了！','打他*的！','他們上來了，準備好！','壓住他們！','別省子彈了！','這群傢伙還真多','[^1890]槍管燙到可以煎蛋了','[_1870]裝填！手腳快點！',
+  '[@arm]穿甲彈！給它一發！','[@art]打！把砲打紅！','[!]我們撐不住了！','[~]穩住，瞄準了再打'],
+ melee:['他們衝進來了！','上刺刀！','跟他們拚了！','打他*的！','別讓他們進來！'],
+ tank:['坦克！淦！','鐵王八來了！','有戰車！反坦克的呢？','讓它過去，打後面的步兵','[_1939]那是什麼鐵怪物？'],
+ pow:['他們投降了','手舉起來！','搜身，別讓他們藏東西','別開槍，他們投降了','也是可憐人'],
+ obj:['拿下了！','這裡是我們的了','檢查每一間房子，小心詭雷','清點傷亡……*的，又少了幾個'],
+ ff:['自己人！別打！','王*蛋，那是我們的人！','誰在打我們？停火！','發信號！快！'],
+ art:['砲擊！快進洞！','他*的，又來了！','趴下！不想死就趴下！','這砲火跟下雨一樣','耳朵要聾了','這下真的玩完了……','[!]我受不了了！'],
+ air:['飛機！散開！','頭上有鐵鳥！','躲進樹林，快！','他*的，低空掃射！','趴下！別看天！'],
+ heli:['直升機！打它！','那隻鐵蜻蜓又來了','躲起來，它在找我們','淦，它在繞圈'],
+ uav:['頭上有蒼蠅在嗡嗡叫','無人機！別聚在一起！','那小東西又來了，*的','它在看我們，躲好'],
+ bomb:['轟炸機！老天爺','整片天都是飛機','炸彈下來了！趴下！','地都在跳，尼*的'],
+ gas:['毒氣！毒氣！快戴面具！','面具！他*的快戴上！','[_1914]拿濕布摀住嘴！','聞到怪味了，快！'],
+ gas2:['面具裡悶死了','看不清楚，鏡片都是霧','別脫面具，想死嗎？','喘不過氣來……'],
+ nkc:['老天……那是什麼……','別看！閉上眼！','完了，這下全完了','耳朵……我聽不到……'],
+ nkf:['{dir}那是什麼鬼光？','{dir}的天燒起來了','地在震，他*的','那邊……全沒了吧'],
+ fo:['計數器叫個不停，靠杯','別吃這裡的東西','空氣裡都是灰','我們會不會變成怪物？'],
+ cas:['醫護兵！醫護兵！','他中彈了！','把他拖過來！','{role}倒了！','撐著點，兄弟！','血止不住……'],
+ cas2:['我們沒剩幾個人了','長官倒了！','誰來指揮啊？','一半的人都沒了，他*的','這仗還打得下去嗎？'],
+ enc:['我們被包了！','後路斷了，淦！','四面都是敵人','上面在幹嘛？我們被包了啊！','突圍吧，總比等死好'],
+ shk:['撐不住了啦','誰有命令？上面在幹嘛？','要不要撤啊？','別慌！別慌啦！','這樣打下去會死光'],
+ rout:['跑！快跑！','撤！撤！','管他的，快走！','東西丟了，保命要緊！','別回頭！'],
+ rly:['集合！在這集合！','點名，還有誰？','喘口氣，重新排好','還活著的舉手','*的，總算停下來了'],
+ hqx:['指揮部沒了','長官死了，現在誰說了算？','聯絡不上上面了，靠杯'],
+ fear:['我腿軟了','手抖到槍都拿不穩','我不想上去','心臟要跳出來了','我想回家'],
+ lst:['沒退路了，拚了吧','他們不收俘虜，那就打到底','子彈省著，一發都別浪費','傷兵往後拖','老子死也要拉幾個墊背'],
+ dmc:['咳……跟上……','摀住嘴……往前衝……','咳咳……他們在前面……','衝，*的，衝！'],
+ atro:['他們殺了投降的人','投降也是死，那就打到底','王*蛋……連俘虜都殺','聽說他們全被槍斃了'],
+ zed:['那些鬼東西又來了','打頭！打頭啦！','牠們不會停的！','別讓牠們咬到！','這是什麼鬼世道'],
+ dem:['那……那是什麼鬼東西？','子彈打不進去！','別看它！別看！','它沒有形狀……我要瘋了'],
+ psy:['你聽到了嗎？','有人在叫我的名字','誰在講話？','別聽……別聽……'],
+ ammo:['子彈不多了，省著點','誰還有子彈？借一點','打太快了，靠杯','只剩幾發了'],
+ ammo0:['沒子彈了！淦！','打光了！','撿他們的槍！','上刺刀，沒得選了'],
+ fuel:['油快沒了','這點油跑不了多遠','再不加油就要用推的了','熄火，省油'],
+ fuel0:['沒油了，他*的','車動不了了','棄車吧','把機槍拆下來，用走的'],
+ hun:['餓死了','幾天沒吃東西了，淦','有沒有吃的？什麼都好','肚子叫得比砲還響','[_1950]要是有塊肉就好了'],
+ hun2:['走不動了……','眼前發黑','他昨晚就沒醒過來','[@cav]把馬殺了吧，沒別的辦法'],
+ civfam:['那些孩子好幾天沒吃了','村裡的人在啃樹皮，造孽啊','分一點口糧給他們吧','別看了，看了心裡難受'],
+ exh1:['累死了，尼*的','腿已經不是我的了','站著都能睡著','誰還有提神的？','再走我就倒在這','累到連罵人的力氣都沒了'],
+ exh2:['兄弟們都快掛了','再這樣下去要出事','好幾天沒闔眼了，淦','長官，大家都不行了','請上面換人來吧'],
+ exh3:['他一直盯著地上，叫都不回','有人在哭，停不下來','我真的撐不住了','他把槍丟了，就坐在那'],
+ fmarch:['今天走了{km}公里，腳廢了','強行軍？他*的','走這麼快是要趕投胎嗎？','跟上，別掉隊','一天{km}公里，誰受得了'],
+ strag:['後面有人跟不上了','又有人倒在路邊，靠杯','隊伍一直在掉人','點名少了好幾個'],
+ nosleep:['我已經忘了床長什麼樣子','讓我睡五分鐘，求你了','閉上眼就聽到砲聲','腦袋跟漿糊一樣'],
+ rested:['總算睡了一覺，活過來了','熱的下肚，舒服','洗了把臉，像換了個人','好了，再上去也行'],
+ air_atk:['[@air]目標看到了，下去了','[@air]投彈！吃我這發！','[@air]拉起來！拉起來！','[@air]掃他們！'],
+ air_aa:['[@air]高射砲！淦！','[@air]躲開！','[@air ^1960]飛彈追上來了！','[@air]機身中彈了！'],
+ air_idle:['[@air]天上什麼都沒有','[@air]油還夠','[@air]雲太厚了，看個屁','[@air]好無聊'],
+ sea_fire:['[@sea]敵艦！','[@sea]左滿舵！快！','[@sea]進水了，靠杯！','[@sea]損管隊在幹嘛？'],
+ sea_idle:['[@sea]海上真無聊','[@sea]又要值夜班','[@sea]暈船暈到想死','[@sea]這破船晃個不停']};
+VOXP.pro={
+ idle:['各組回報狀況','檢查武器、彈藥、飲水','哨位按時輪替','保持警戒，不要聚集','保養槍械，清點彈匣','記錄射界與參考點','夜間口令已下達','觀察哨回報：正面無異狀','傷患清點完畢',
+  '[^1925]保持無線電靜默','[^1925]通信檢查，每小時一次','[@arm]車組檢查履帶與油量','[@arm]保養主砲，校正瞄準具','[@art]射擊諸元已預先計算','[@art]砲位偽裝完成','[@eng]雷區標示完成','[@med]救護站開設完成',
+  '[@sup]補給清單已核對','[@hq]各單位位置已標繪','[n]夜間保持燈火管制','[_1890]整隊，點名','[_1890]火藥保持乾燥，檢查燧石'],
+ march:['保持行軍間距','行軍紀律，不要脫隊','前衛報告路況','每小時休息十分鐘','注意側翼警戒','[^1925]保持通信聯絡','[@arm]車距五十公尺','[@arm]注意路面承重','[n]夜間行軍，燈火管制','[_1890]保持隊形，跟著鼓點走'],
+ def:['射界清理完成','主陣地與預備陣地完成','機槍配置在側射位置','標定射擊參考點','構築交通壕','設置障礙與警報裝置','[@at]反裝甲武器配置在伏擊位置','[@art]預先標定防禦火力','[n]夜間加派聽音哨'],
+ dig:['加深掩體，至少一點五公尺','構築掩蓋','排水溝挖好','偽裝網展開','[@eng]優先構築指揮所與觀測所'],
+ sel:['待命中','請指示','報告，部隊就位','收到，聽候指示','[^1925]這裡是本連，請講'],
+ reinf:['增援抵達，向前線指揮官報到','熟悉陣地與任務','領取地圖與口令','接替防區，交接完成'],
+ arr:['已抵達指定位置','到位，展開','抵達，回報','[^1925]到達，完畢'],
+ end:['戰鬥結束','清點人數與裝備','回報戰果','鞏固陣地，準備應付反擊'],
+ xing:['保持間距','渡河中，武器保持乾燥','抓緊繩索','先頭到達對岸，建立灘頭'],
+ wd:['交替掩護！','後撤！','脫離接觸','後衛掩護'],
+ atk:['前進！','散開！','交替前進！','突擊！','[^1925]保持通信，回報進度'],
+ ack_atk:['收到，執行進攻','了解，準備發起攻擊','遵命，前進','收到，攻擊準備完成','[^1925]收到，完畢'],
+ ack_def:['收到，就地防禦','了解，構築陣地','遵命，固守','[^1925]收到，防禦，完畢'],
+ ack_mv:['收到，移動','了解，出發','遵命','收到，前往指定位置'],
+ ack_wd:['收到，撤退','了解，交替掩護後撤','遵命，後撤'],
+ ack_amb:['收到，設伏','了解，進入伏擊位置','遵命，保持靜默'],
+ ack_art:['收到射擊任務','了解，計算諸元','遵命，準備射擊','[^1925]諸元收到，完畢'],
+ ack_x:['收到，準備渡河','了解，渡河準備','遵命'],
+ ack_rest:['收到，休整','了解，輪班休息','遵命'],
+ ack:['收到','了解','遵命','明白'],
+ ambw:['保持靜默','按兵不動，等待信號','偽裝檢查','不得擅自開火','[n]夜間禁菸禁火'],
+ ambh:['敵進入殺傷區','等待主官開火信號','全部進入再打','目標進入預定區域'],
+ ambgo:['開火！','全線射擊！','殺傷區，射擊！','封鎖退路！'],
+ spot:['發現敵人，方位{dir}','接觸！前方有敵','觀察到敵軍活動','敵步兵，數量不明','[^1925]接敵，回報上級'],
+ tense:['保持觀察，不要暴露','敵方可能在偵察我們','不要主動開火','等待命令'],
+ fire:['遭受射擊！','找掩蔽！','確認射擊來源！','火力來自{dir}！','還擊！'],
+ combat:['壓制火力！','交替前進！','機槍，連續射擊！','換彈匣，報告！','注意側翼！','集中火力打機槍陣地','[^1925]回報接戰狀況','[@arm]穿甲彈，裝填完畢！','[@arm]目標，敵戰車，射擊！','[@art]效力射！','[_1870]裝填！舉槍！放！'],
+ melee:['近戰！','上刺刀！','守住缺口！','肉搏！'],
+ tank:['敵戰車！','反裝甲武器準備！','讓戰車通過，阻絕步兵','打履帶！','[^1943]火箭筒就位！'],
+ pow:['敵軍投降','解除武裝，搜身','俘虜後送','依規定處置俘虜'],
+ obj:['目標已佔領','回報：目標確保','肅清殘敵，清查建築','清點傷亡，鞏固陣地'],
+ ff:['友軍！停火！','誤擊！停止射擊！','發射識別信號！','確認敵我識別'],
+ art:['砲擊！進入掩體！','遭敵砲火射擊！','記錄落點方位，回報反砲兵','分散，不要聚集','[^1925]呼叫反砲兵射擊'],
+ air:['空襲警報！','對空警戒！','疏散，進入掩蔽','防空武器射擊！'],
+ heli:['敵直升機！','防空射擊，直升機！','隱蔽，避免暴露'],
+ uav:['無人機！','分散、偽裝','電子靜默','擊落它！'],
+ bomb:['轟炸機編隊！','進入防空掩體','分散隱蔽'],
+ gas:['毒氣！戴面具！','化學警報！','[^1960]提升防護等級，穿上防護服','[^1915]面具檢查，九秒內戴上'],
+ gas2:['保持面具密合','緩慢呼吸','不要脫面具','[^1960]準備除污'],
+ nkc:['核爆！臥倒，掩頭！','閃光，不要直視！','核爆，記錄方位與時間'],
+ nkf:['{dir}方向核爆','記錄核爆方位，回報','準備落塵防護'],
+ fo:['輻射劑量上升','落塵防護','限制停留時間','計算累積劑量'],
+ cas:['醫護兵！','傷患，後送！','{role}負傷！','上止血帶！'],
+ cas2:['傷亡慘重','指揮官陣亡，副手接替指揮','兵力不足半數','請求增援'],
+ enc:['遭包圍！','後方聯絡線被切斷','構築環形防禦','請求突圍命令'],
+ shk:['穩住陣線！','等待命令！','保持紀律！','不要擅離陣地！'],
+ rout:['撤退！撤退！','後撤！','脫離接觸！'],
+ rly:['集合！整頓隊伍！','清點人數','重新編組','檢查彈藥'],
+ hqx:['指揮部遭摧毀','指揮鏈中斷','次一級指揮官接替指揮'],
+ fear:['保持冷靜','深呼吸，專注任務','照訓練做'],
+ lst:['死守陣地','彈藥集中分配','傷患後送','與陣地共存亡'],
+ dmc:['前進……','保持隊形……','繼續推進……'],
+ atro:['敵軍處決投降人員','記錄事證，回報上級','不得報復，遵守戰爭法','[^1949]依日內瓦公約處置'],
+ zed:['射擊頭部！','保持距離！','不要讓它們接近！','組成防線！'],
+ dem:['那是什麼東西？','武器無效！','不要直視！','後撤，重新評估'],
+ psy:['那個聲音……不要理會','保持通信紀律','專注任務'],
+ ammo:['彈藥不足！','節約彈藥','回報彈藥狀況','請求補給'],
+ ammo0:['彈藥耗盡！','請求緊急補給','改用繳獲武器','上刺刀！'],
+ fuel:['燃料不足','請求加油','節約燃料，熄火待命'],
+ fuel0:['燃料耗盡','車輛無法移動','破壞車輛，不留給敵人','拆下武器，徒步撤離'],
+ hun:['口糧不足','請求補給糧食','配給減半'],
+ hun2:['官兵體力不支','嚴重營養不良','請求緊急補給'],
+ civfam:['平民缺糧，回報上級','分配部分口糧給平民','聯絡救援單位'],
+ exh1:['官兵疲勞，請求輪替','體力透支','注意警戒，防止打瞌睡','輪班休息'],
+ exh2:['部隊戰力下降，請求輪替','官兵已連續作戰多日','嚴重缺乏睡眠','請求後撤休整'],
+ exh3:['出現戰鬥疲勞症狀','請求後送傷患','部隊瀕臨崩潰','需要立即輪替'],
+ fmarch:['已行軍{km}公里','強行軍，保持速度','注意掉隊人員','收容隊跟進'],
+ strag:['有人員掉隊','收容掉隊人員','清點人數'],
+ nosleep:['缺乏睡眠，請求輪班休息','注意警戒，防止打瞌睡','輪流休息，兩人一組'],
+ rested:['休整完畢','體力恢復','部隊可以再度投入作戰'],
+ air_atk:['[@air]目標確認','[@air]進入攻擊航線','[@air]投彈','[@air]脫離'],
+ air_aa:['[@air]遭防空火力','[@air]規避','[@air ^1960]飛彈警告！','[@air ^1965]投放熱焰彈'],
+ air_idle:['[@air]空域淨空','[@air]燃油狀況正常','[@air]未發現目標','[@air]持續巡邏'],
+ sea_fire:['[@sea]敵艦，射擊！','[@sea]左滿舵！','[@sea]損管！','[@sea]艙室進水，關閉水密門！'],
+ sea_idle:['[@sea]海況平靜','[@sea ^1918]聲納無接觸','[@sea ^1940]雷達淨空','[@sea]按時輪值']};
+/* 補足較少的情境 */
+(function(){var R=VOXP.rough,P=VOXP.pro,A=function(S,k,L){S[k]=S[k].concat(L);};
+ A(R,'ack_amb',['收到，蹲草叢去','好，讓他們自己送上門']);A(R,'ack_art',['好，給他們加菜']);A(R,'ack_x',['過河？那就脫鞋吧','又要泡水，淦']);A(R,'hqx',['上面被端了，現在怎麼辦？','沒人管了，自己看著辦']);
+ A(P,'ack_wd',['收到，後撤至指定位置']);A(P,'ack_amb',['收到，伏擊位置確認中']);A(P,'ack_x',['收到，準備渡具與橋材']);A(P,'ack_rest',['收到，部隊進入休整']);
+ A(P,'heli',['直升機，方位{dir}！','注意低空目標']);A(P,'bomb',['空襲，全員掩蔽！','注意未爆彈']);A(P,'nkc',['執行核爆防護程序']);A(P,'nkf',['遠方核爆，注意衝擊波','監測輻射劑量']);
+ A(P,'rout',['向集合點撤退！']);A(P,'hqx',['回報上級，請求新的指揮所']);A(P,'fear',['相信你的訓練','跟著班長行動']);A(P,'dmc',['不要停下……']);A(P,'psy',['回報異常狀況']);
+ A(P,'fuel',['回報剩餘油量']);A(P,'hun',['節約糧食，按規定配給']);A(P,'hun2',['官兵已無力作戰']);A(P,'civfam',['協助平民撤往安全地區']);A(P,'strag',['後衛收容掉隊人員']);
+ A(P,'nosleep',['安排輪休，確保睡眠']);A(P,'rested',['休整結束，回報整備狀況']);})();
+/* ===================== 部隊對話：台詞風格與自訂台詞
+   每個情境都可以填自己的台詞（一行一句、可以填很多句）；留白就用預設。自訂的可以「取代預設」或「加在預設之外」。
+   存在這台裝置（localStorage），可以匯出成台詞包分享、再匯入。只影響畫面，不會改變戰局。 ===================== */
+var VOXU={v:1,k:{}},VOXK='lato-warsim-voxu';
+function voxuLoad(){try{var s=localStorage.getItem(VOXK);if(s){var o=JSON.parse(s);if(o&&o.k&&typeof o.k==='object')VOXU={v:1,k:o.k};}}catch(e){}VOX.PC=null;}
+function voxuSave(){try{localStorage.setItem(VOXK,JSON.stringify(VOXU));}catch(e){toast('無法儲存自訂台詞（瀏覽器不允許）');}VOX.PC=null;}
+/* 一句台詞：去掉頭尾空白；太長的截短；最多 200 句 */
+function voxuClean(txt){return String(txt||'').split(/\r?\n/).map(function(s){return s.trim().slice(0,60);}).filter(Boolean).slice(0,200);}
+function voxP1(s){var o={t:s,y0:-1e9,y1:1e9,g:null,m:'',e:''},m=/^\[([^\]]*)\]/.exec(s);if(m){o.t=s.slice(m[0].length);m[1].split(/\s+/).forEach(function(q){if(!q)return;var c=q.charAt(0);if(c==='^')o.y0=+q.slice(1)||-1e9;else if(c==='_')o.y1=+q.slice(1)||1e9;else if(c==='@')o.g=q.slice(1).split(',');else if(q==='!'||q==='~')o.m=q;else o.e+=q.replace(/[^ndrsfch]/g,'');});}return o;}
+function voxSets(){if(VOX.PS)return VOX.PS;var S={bal:voxParse()};['rough','pro'].forEach(function(n){var P={},D=VOXP[n];for(var k in D)P[k]=D[k].map(voxP1);S[n]=P;});return VOX.PS=S;}
+function voxCust(k){if(!VOX.PC){var C={};for(var q in VOXU.k){var R=VOXU.k[q];if(R&&R.L&&R.L.length)C[q]={m:R.m==='add'?'add':'rep',L:R.L.map(voxP1)};}VOX.PC=C;}return VOX.PC[k]||null;}
+/* 這個部隊用哪一種說法 */
+function voxStyleOf(u){var m=UIP.voxS||'bal';if(m==='bal'||m==='rough'||m==='pro')return m;var h=hstr(u.id+'|s|'+VOX.c)%100;if(m==='mix')return h<34?'bal':h<67?'rough':'pro';
+  var t=u.trn||60,g=voxG(u),w=t>=80?[30,10,60]:t>=55?[50,25,25]:[35,55,10];if(u.irr)w=[30,60,10];else if(g==='hq'||g==='air'||g==='sea')w=[w[0],Math.round(w[1]/2),w[2]+Math.round(w[1]/2)];return h<w[0]?'bal':h<w[0]+w[1]?'rough':'pro';}
+function voxCand(A,C,x){var L=[];(A||[]).forEach(function(q){if(!voxOk(q,C,x))return;L.push(q);if(q.g||q.e||q.m)L.push(q,q);});return L;}
+voxPick=function(u,k,x){var S=voxSets(),C=voxCtx(u),cu=voxCust(k),st=voxStyleOf(u),base=S[st]&&S[st][k]&&S[st][k].length?S[st][k]:S.bal[k],L;
+  /* 取代預設：只說自訂的（沒有合適的才用預設）；加在預設之外：自訂的合計約占三分之一 */
+  if(cu&&cu.m==='rep'){L=voxCand(cu.L,C,x);if(!L.length)L=voxCand(base,C,x);}else{L=voxCand(base,C,x);if(cu){var Lc=voxCand(cu.L,C,x),w=Lc.length?Math.max(1,Math.round(L.length/(2*Lc.length))):0;for(var i=0;i<w;i++)L=L.concat(Lc);}}
+  if(!L.length&&base!==S.bal[k])L=voxCand(S.bal[k],C,x);if(!L.length)return null;
+  var i0=hstr(u.id+'|'+k+'|'+(++VOX.c))%L.length,q=null;for(var j=0;j<L.length;j++){var c=L[(i0+j)%L.length];if(VOX.rec.indexOf(c.t)<0){q=c;break;}}q=q||L[i0];VOX.rec.push(q.t);if(VOX.rec.length>40)VOX.rec.shift();
+  return q.t.replace('{dir}',x&&x.dir||'').replace('{km}',x&&x.km||'').replace('{role}',voxRole(u,C));};
+voxuLoad();
+/* ---------- 編輯台詞 ---------- */
+(function(){var st=document.createElement('style');st.textContent='.lw-vxed{max-height:min(68vh,640px);overflow:auto;padding-right:4px}.lw-vxed details.lw-vxc{margin:4px 0;border:1px solid #d5dde5;border-radius:6px;padding:2px 8px}.lw-vxed details.lw-vxc>summary{cursor:pointer;font-weight:700;padding:4px 0}'+
+  '.lw-vxk{border-top:1px solid #edf1f4;padding:6px 0}.lw-vxk:first-of-type{border-top:0}.lw-vxh{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:baseline}.lw-vxh .lw-note{margin:0}.lw-vxn{margin-left:auto;font-size:11px;color:#1565C0}'+
+  '.lw-vxk textarea{width:100%;box-sizing:border-box;min-height:44px;font-size:13px;margin-top:3px;resize:vertical}.lw-vxo{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;font-size:12px;margin-top:2px}.lw-vxo details{flex-basis:100%}.lw-vxo ul{margin:2px 0 4px 18px;padding:0;font-size:12px;color:#455a64}'+
+  '.lw-vxtry{color:#2e7d32;font-size:12px}.lw-vxbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0 8px}.lw-vxbar input[type=search]{flex:1;min-width:140px}';document.head.appendChild(st);})();
+var VXE={q:''};
+function voxDefs(k){var S=voxSets(),o={};['bal','rough','pro'].forEach(function(n){o[n]=(S[n][k]||[]).map(function(q){return q.t;});});return o;}
+function voxKeyHtml(k){var N=VOXN[k]||[k,''],R=VOXU.k[k]||{},L=R.L||[],D=voxDefs(k),ph=D.bal.slice(0,2).join('\n');
+  return '<div class="lw-vxk" data-k="'+k+'"><div class="lw-vxh"><b>'+esc(N[0])+'</b><span class="lw-note">'+esc(N[1])+'</span><span class="lw-vxn">'+(L.length?'自訂 '+L.length+' 句':'用預設')+'</span></div>'+
+   '<textarea data-c="voxu" data-v="'+k+'" rows="'+Math.min(6,Math.max(2,L.length+1))+'" placeholder="'+esc('一行一句，留白就用預設。例如：\n'+ph)+'">'+esc(L.join('\n'))+'</textarea>'+
+   '<div class="lw-vxo"><label><input type="radio" name="vxm-'+k+'" data-c="voxum" data-v="'+k+'" value="rep"'+(R.m!=='add'?' checked':'')+'>取代預設</label><label><input type="radio" name="vxm-'+k+'" data-c="voxum" data-v="'+k+'" value="add"'+(R.m==='add'?' checked':'')+'>加在預設之外</label>'+
+   '<button type="button" class="lw-btn sm" data-a="voxtry" data-v="'+k+'">試說一句</button><span class="lw-vxtry" data-k="vxtry-'+k+'"></span>'+
+   '<details><summary>預設台詞（平衡 '+D.bal.length+'、接地氣 '+D.rough.length+'、軍事專業 '+D.pro.length+' 句）</summary>'+['bal','rough','pro'].map(function(n){return '<div><b>'+VOXST[n][0]+'</b><ul>'+D[n].map(function(t){return '<li>'+esc(t)+'</li>';}).join('')+'</ul></div>';}).join('')+'</details></div></div>';}
+function voxEdBody(){var q=VXE.q.trim();return VOXCAT.map(function(c,i){var ks=c[1].filter(function(k){if(!q)return true;var N=VOXN[k]||[k,''];return (N[0]+N[1]+k).indexOf(q)>=0||(VOXU.k[k]&&VOXU.k[k].L||[]).join('').indexOf(q)>=0;});if(!ks.length)return '';
+  var n=ks.filter(function(k){return VOXU.k[k]&&VOXU.k[k].L&&VOXU.k[k].L.length;}).length;return '<details class="lw-vxc"'+(q||i===0?' open':'')+'><summary>'+esc(c[0])+'（'+ks.length+' 種情境'+(n?'，自訂 '+n+' 種':'')+'）</summary>'+ks.map(voxKeyHtml).join('')+'</details>';}).join('')||'<div class="lw-note">沒有符合的情境。</div>';}
+function voxEdDlg(){document.querySelectorAll('.lw-dlg.lw-vxdlg').forEach(function(d){d.remove();});var tot=0;for(var k in VOXU.k)tot+=(VOXU.k[k].L||[]).length;
+  var d=dlg('<h3 style="margin:0 0 6px">編輯部隊台詞</h3><div class="lw-note">每個情境都可以填自己的台詞，一行一句、可以填很多句；留白就用預設。選「取代預設」只說你的台詞，「加在預設之外」會跟預設混著說。'+
+   '句子前可以加標記限定條件：<code>[^1940]</code> 1940 年起、<code>[_1918]</code> 1918 年以前、<code>[@arm]</code> 只有裝甲（inf 步兵、arm 裝甲、at 反裝甲、art 砲兵、ad 防空、cav 騎兵、eng 工兵、med 醫護、hq 指揮、sup 後勤、air 飛行員、sea 艦艇）、'+
+   '<code>[n]</code> 夜間、<code>[d]</code> 白天、<code>[r]</code> 下雨、<code>[s]</code> 下雪、<code>[f]</code> 起霧、<code>[c]</code> 寒冷、<code>[h]</code> 炎熱、<code>[!]</code> 只在動搖時、<code>[~]</code> 只在鎮定時，可以合併如 <code>[n @inf]</code>；'+
+   '句中可以用 <code>{dir}</code> 方向、<code>{km}</code> 距離（有提供時）、<code>{role}</code> 依兵種的職務。泡泡裡超過 20 個字會被截短。存在這台裝置，只影響畫面。</div>'+
+   '<div class="lw-vxbar"><span>台詞風格</span>'+setSel('voxs','',Object.keys(VOXST).map(function(k){return [k,VOXST[k][0]];}),UIP.voxS||'bal',VOXST[UIP.voxS||'bal'][1])+'<input type="search" data-i="voxq" placeholder="搜尋情境或台詞" value="'+esc(VXE.q)+'">'+
+   '<button type="button" class="lw-btn sm" data-a="voxexp">匯出台詞包</button><label class="lw-btn sm" style="cursor:pointer">匯入台詞包<input type="file" accept=".json,application/json" data-c="voximp" style="display:none"></label><button type="button" class="lw-btn sm" data-a="voxclr"'+(tot?'':' disabled')+'>全部清除</button><button type="button" class="lw-btn sm" data-a="x">關閉</button></div>'+
+   '<div class="lw-note" data-k="vxsum">目前自訂 '+tot+' 句。</div><div class="lw-vxed" data-k="vxbody">'+voxEdBody()+'</div>',true);d.classList.add('lw-vxdlg');return d;}
+function voxEdSum(){var tot=0,n=0;for(var k in VOXU.k){var L=VOXU.k[k].L||[];tot+=L.length;if(L.length)n++;}var el=document.querySelector('.lw-vxdlg [data-k="vxsum"]');if(el)el.textContent='目前自訂 '+n+' 種情境、'+tot+' 句。';var b=document.querySelector('.lw-vxdlg [data-a="voxclr"]');if(b)b.disabled=!tot;}
+CHG.voxu=function(t){var k=t.getAttribute('data-v'),L=voxuClean(t.value),R=VOXU.k[k]||{m:'rep'};if(L.length){R.L=L;VOXU.k[k]=R;}else if(R.m==='add')VOXU.k[k]={m:'add',L:[]};else delete VOXU.k[k];voxuSave();
+  var row=t.closest('.lw-vxk'),n=row&&row.querySelector('.lw-vxn');if(n)n.textContent=L.length?'自訂 '+L.length+' 句':'用預設';voxEdSum();};
+CHG.voxum=function(t){var k=t.getAttribute('data-v'),R=VOXU.k[k]||(VOXU.k[k]={L:[]});R.m=t.value==='add'?'add':'rep';voxuSave();};
+CHG.voxs=function(t){UIP.voxS=t.value;uipSave();VOX.rec=[];var s=t.closest('.lw-vxbar');if(s)t.title=VOXST[t.value][1];};
+INP.voxq=function(t){VXE.q=t.value||'';var b=document.querySelector('.lw-vxdlg [data-k="vxbody"]');if(b)b.innerHTML=voxEdBody();};
+CHG.voximp=function(t){var f=t.files&&t.files[0];if(!f)return;var r=new FileReader();r.onload=function(){try{var o=JSON.parse(r.result),K=o&&(o.k||o.lines);if(!K||typeof K!=='object')throw new Error('不是台詞包');var n=0;
+   for(var k in K){if(!VOXN[k])continue;var R=K[k],L=voxuClean(Array.isArray(R)?R.join('\n'):(R.L||[]).join('\n'));if(!L.length)continue;VOXU.k[k]={m:R.m==='add'?'add':'rep',L:L};n++;}
+   if(o.style&&VOXST[o.style]){UIP.voxS=o.style;uipSave();}voxuSave();voxEdDlg();toast('已匯入 '+n+' 種情境的台詞');}catch(e){toast('無法匯入：'+e.message);}};r.readAsText(f);t.value='';};
+ACT.voxed=function(){voxEdDlg();};
+ACT.voxexp=function(){var o={type:'lato-warsim-vox',v:1,style:UIP.voxS||'bal',k:VOXU.k};download('部隊台詞包.json',JSON.stringify(o,null,1),'application/json');};
+ACT.voxclr=function(){if(!confirm('清除全部自訂台詞？所有情境都會改回預設。'))return;VOXU.k={};voxuSave();voxEdDlg();};
+/* 試說一句：作戰中由選取的（或畫面上第一個）本方部隊說；還沒開打時直接顯示一句 */
+ACT.voxtry=function(t){var k=t.getAttribute('data-v'),me=typeof mySide==='function'?mySide():UI.side,u=null,x={dir:'東北',km:'38'};
+  if(G&&G.started&&G.units){u=(UI.sel||[]).map(uById).filter(function(q){return q&&isLeaf(q)&&onMap(q)&&voxMine(q,me);})[0]||G.units.filter(function(q){return isLeaf(q)&&onMap(q)&&voxMine(q,me)&&ST(q).dom==='land';})[0]||null;}
+  var txt=null;if(u){txt=voxSay(u,k,1,x,true)||voxPick(u,k,x);}else{var cu=voxCust(k),S=voxSets(),st=UIP.voxS==='rough'||UIP.voxS==='pro'?UIP.voxS:'bal',A=cu&&cu.m==='rep'?cu.L:(cu?cu.L:[]).concat(S[st][k]||S.bal[k]||[]);
+    if(A.length){var q=A[Math.floor(Math.random()*A.length)];txt=q.t.replace('{dir}',x.dir).replace('{km}',x.km).replace('{role}','老兵');}}
+  var el=document.querySelector('.lw-vxdlg [data-k="vxtry-'+k+'"]');if(el)el.textContent=txt?'「'+txt+'」':'（這個情境在目前的年代或兵種沒有合適的台詞）';};
+/* 設定：部隊對話一節加上台詞風格與編輯按鈕 */
+(function(){var q=setSecQ('vox');if(!q)return;var h0=q.h;q.h=function(){var n=0;for(var k in VOXU.k)if((VOXU.k[k].L||[]).length)n++;return h0()+setOpt(setRow('台詞風格',setSel('voxs','',Object.keys(VOXST).map(function(k){return [k,VOXST[k][0]];}),UIP.voxS||'bal',Object.keys(VOXST).map(function(k){return VOXST[k][0]+'：'+VOXST[k][1];}).join('；')))+
+  setRow('自訂台詞','<button type="button" class="lw-btn sm" data-a="voxed">編輯台詞…</button><span class="lw-note" style="margin-left:6px">'+(n?'已自訂 '+n+' 種情境':'全部用預設')+'</span>'));};})();
+if(typeof HELP14!=='undefined')HELP14.push('<h4>台詞風格與自訂台詞</h4><ul>'+
+  '<li>設定的「部隊對話」可以選台詞風格：<b>平衡</b>（預設）、<b>接地氣</b>（粗話、抱怨與閒聊，髒字用＊或諧音淡化，例如「尼*的，天氣真糟」）、<b>軍事專業</b>（術語、口令與簡報式回報）、<b>依部隊素質</b>（訓練好的說話專業，新兵與民兵說話粗）或<b>三種混合</b>。</li>'+
+  '<li>按「編輯台詞…」依類別列出全部情境，每種都可以填自己的台詞，一行一句、可以填很多句；留白就用預設。可以選「取代預設」或「加在預設之外」，按「試說一句」馬上看效果。</li>'+
+  '<li>台詞可以加標記限定年代、兵種、晝夜、天候與士氣，例如 <code>[^1940 @arm]</code>；也可以用 {dir}、{km}、{role}。自訂台詞存在這台裝置，可以匯出成台詞包分享給別人匯入。</li></ul>');
+/* ===================== 戰爭罪證據（介面）：地圖標記、點選後的說明與處置、新的違法命令、設定、說明、對話 ===================== */
+setSec('combat','evid',{t:'戰爭罪證據',o:24,h:function(){return setOpt(setRow('留下證據',setChk('setb','evid',G.set.evid!==false,'屠殺、處決、焚燒與下毒會在地圖上留下遺體、亂葬坑、焦土與被下毒的水源；被發現就會曝光，看到的官兵會恐懼、憤怒或羞愧；附近友軍潰散、被殲滅或敵軍投降也會影響士氣')))+
+  '<div class="lw-note">關閉後不再產生新的證據，也不再有附近戰況的士氣反應。</div>';}});
+/* ---------- 新的違法命令 ---------- */
+(function(){var b=civActHtml;civActHtml=function(T,t,acts){var add=t==='S'?['exec','burn','poisonw','poisonf']:['exec'];return b(T,t,acts.concat(add.filter(function(a){return acts.indexOf(a)<0;})));};})();
+(function(){var b=civWarn;civWarn=function(a,T,t,u){if(a!=='burn'&&a!=='poisonw'&&a!=='poisonf'&&a!=='exec')return b(a,T,t,u);var n=t==='S'?civPresent(T):T.n,who=t==='S'?T.n+'的成年男性居民':t==='R'?'這支難民隊伍':'這些被拘留的平民';
+  var m=a==='burn'?'焚燒'+T.n+'會燒毀房屋、存糧與田地，約 '+fmt(n)+' 名居民失去棲身之所、被迫逃離，有人會葬身火海。':a==='poisonw'?'在'+T.n+'的水源下毒，居民會一天天中毒死亡；任何在這裡取水、駐紮的部隊，包括我軍自己，都可能中毒。使用毒物違反戰爭法。':
+    a==='poisonf'?'在'+T.n+'的存糧下毒，吃下的人會中毒；來這裡徵糧、駐紮的部隊也一樣。使用毒物違反戰爭法。':'處決'+who+'（約 '+fmt(t==='S'?(T.men||0)*0.3:n*0.9)+' 人）是最嚴重的戰爭罪行之一。執行的官兵也會因此受創。';
+  return m+'\n\n後果：現場會留下證據（遺體、亂葬坑、焦土、被下毒的水源與存糧），被敵軍、記者或援助團體發現就會曝光；居民與周邊地區轉為敵視、支持游擊隊；部隊士氣與軍紀下降；戰後總結列出下令者與執行部隊。守法的部隊可能拒絕執行。\n\n確定要命令「'+uName(u)+'」執行嗎？';};})();
+/* ---------- 地圖：看得到的證據 ---------- */
+function evdVis(e){var me=UI.side;return me<0||seeAll()||!!(e.found&&e.found[me]!==undefined);}
+function evdIcon(c,e,x,y,z,sel){c.save();c.lineWidth=1;
+  if(e.k==='burnt'){var g=G.civ&&G.civ.S[e.g],r=g?Math.max(z*1.6,(g.r||300)/mpp()):z*2,age=G.t-e.t;c.globalAlpha=0.35;c.fillStyle='#212121';c.beginPath();for(var i=0;i<10;i++){var a=i/10*2*PI,rr=r*(0.75+0.25*((hstr(e.id+'|'+i)%100)/100));c[i?'lineTo':'moveTo'](x+Math.cos(a)*rr,y+Math.sin(a)*rr);}c.closePath();c.fill();
+    if(age<12*3600){c.globalAlpha=0.28*(1-age/(12*3600));c.fillStyle='#616161';for(var j=0;j<4;j++){var k=(performance.now()/1000*0.2+j*0.25)%1;c.beginPath();c.arc(x+(j-1.5)*z*0.5+k*z,y-k*r*1.2,z*(0.5+k),0,2*PI);c.fill();}}
+    c.globalAlpha=1;c.fillStyle='#37474F';c.strokeStyle='#ECEFF1';c.beginPath();c.moveTo(x,y-z*0.8);c.lineTo(x+z*0.6,y+z*0.5);c.lineTo(x-z*0.6,y+z*0.5);c.closePath();c.fill();c.stroke();}
+  else if(e.k==='bodies'){var s=z*(e.n>=20?1:0.8);c.fillStyle='#7F0000';c.strokeStyle='#FFEBEE';c.beginPath();c.moveTo(x,y-s);c.lineTo(x+s,y);c.lineTo(x,y+s);c.lineTo(x-s,y);c.closePath();c.fill();c.stroke();}
+  else if(e.k==='grave'){c.fillStyle=e.cov?'#4E342E':'#6D4C41';c.strokeStyle='#D7CCC8';c.fillRect(x-z,y-z*0.55,z*2,z*1.1);c.strokeRect(x-z,y-z*0.55,z*2,z*1.1);c.strokeStyle='rgba(255,255,255,.5)';c.beginPath();for(var q=-0.6;q<=0.61;q+=0.4){c.moveTo(x+q*z-z*0.2,y+z*0.45);c.lineTo(x+q*z+z*0.2,y-z*0.45);}c.stroke();}
+  else{c.fillStyle=e.k==='well'?'#1565C0':'#8D6E63';c.strokeStyle='#fff';c.beginPath();c.arc(x,y,z*0.75,0,2*PI);c.fill();c.stroke();c.strokeStyle=e.fix?'#A5D6A7':'#FF1744';c.lineWidth=1.6;c.beginPath();c.moveTo(x-z*0.4,y-z*0.4);c.lineTo(x+z*0.4,y+z*0.4);c.moveTo(x+z*0.4,y-z*0.4);c.lineTo(x-z*0.4,y+z*0.4);c.stroke();}
+  if(sel){c.strokeStyle='#FFC107';c.lineWidth=2;c.beginPath();c.arc(x,y,z*1.5,0,2*PI);c.stroke();}c.restore();}
+function evdDraw(c){VW.evm=[];if(!G||!G.started||!G.evd||!G.evd.length||UI.lay.evd===0)return;var S=VW.s,z=clamp(4.5+S*1.1,5,10),sel=UI.selX&&UI.selX.k==='evd'?UI.selX.id:0;
+  G.evd.forEach(function(e){if(!evdVis(e))return;var p=w2s(e.x,e.y);if(p[0]<-60||p[1]<-60||p[0]>VW.cw+60||p[1]>VW.ch+60)return;VW.evm.push({id:e.id,sx:p[0],sy:p[1]});evdIcon(c,e,p[0],p[1],z,e.id===sel);
+    if(S>=2.5){c.save();c.font='10px sans-serif';c.textAlign='center';c.textBaseline='top';c.lineWidth=3;c.strokeStyle='rgba(255,255,255,.85)';c.fillStyle='#4E0000';var t=EVDK[e.k][0]+(e.k==='bodies'&&e.n>=1?' 約 '+fmt(e.n):'');c.strokeText(t,p[0],p[1]+z+2);c.fillText(t,p[0],p[1]+z+2);c.restore();}});}
+(function(){var b=drawUnder;drawUnder=function(c){b.apply(this,arguments);try{evdDraw(c);}catch(e){}};})();
+function evdHit(sx,sy){var best=null,bd=10;(VW.evm||[]).forEach(function(q){var d=dist(sx,sy,q.sx,q.sy);if(d<bd){bd=d;best=q;}});return best;}
+(function(){var b=btClick;btClick=function(x,y,sx,sy,e){if((UI.tool==='sel'||!UI.tool)&&G&&G.started){var q=evdHit(sx,sy);if(q){var me=mySide(),us=UI.sel.map(uById).filter(function(u){return u&&alive(u)&&(me===null||u.side===me);});if(us.length)UI.selPrev=us.map(function(u){return u.id;});
+    UI.selX={k:'evd',id:q.id};UI.sel=[];UI.selC=0;UI.selB=0;btSel();btLeft(true);vDraw(false);return;}}return b.apply(this,arguments);};})();
+(function(){var b=v8Get;v8Get=function(X){if(X&&X.k==='evd'){var e=G&&evdById(X.id);return e&&evdVis(e)?e:null;}return b(X);};})();
+(function(){var b=v8Panel;v8Panel=function(X){if(X&&X.k==='evd'){var e=v8Get(X);return e?evdPanel(e):null;}return b(X);};})();
+(function(){var b=cellTip;cellTip=function(x,y){if(G&&G.started&&VW.cw){var p=w2s(x,y),q=evdHit(p[0],p[1]);if(q){var e=evdById(q.id);if(e)return EVDK[e.k][0]+'：'+evdTxt(e)+'\n點選可查看詳情與處置';}}return b(x,y);};})();
+/* ---------- 說明與處置 ---------- */
+function evdWho(e){var me=mySide();if(e.side<0)return '不明';if(me!==null&&e.side===me)return '本軍（'+esc(e.byn||'')+'）';if(me===null||e.doc&&e.doc[me])return esc(G.sides[e.side].name)+(e.byn?'（'+esc(e.byn)+'）':'');return '不明（調查取證後才能確認）';}
+function evdState(e){var d=G.t-(e.t1||e.t);if(e.k==='bodies')return '曝屍 '+durTxt(d);if(e.k==='grave')return (e.cov?'遭刻意掩埋、湮滅':e.burBy==='civ'?'居民草草掩埋':'掩埋')+(e.ex?'；已開挖':'');if(e.k==='burnt')return '焚毀於 '+durTxt(G.t-e.t)+'前';
+  var g=G.civ&&G.civ.S[e.g],on=g&&(e.k==='well'?g.wpois&&G.t<g.wpois:g.fpois&&G.t<g.fpois);return e.fix?'已清理':on?'仍然有毒'+(g.pdead>=1?'；居民已有約 '+fmt(g.pdead)+' 人中毒死亡':''):'毒性已退';}
+function evdActors(e){var me=mySide();var L=[];G.units.forEach(function(u){if(!isLeaf(u)||!onMap(u)||ST(u).dom!=='land'||u.irr||(me!==null&&u.side!==me))return;var d=dist(u.x,u.y,e.x,e.y);if(d<20000)L.push([d,u]);});L.sort(function(a,b){return a[0]-b[0];});
+  var P=(UI.selPrev||[]).map(uById).filter(function(u){return u&&isLeaf(u)&&onMap(u)&&(me===null||u.side===me);});return P.length?P.slice(0,12):L.slice(0,10).map(function(q){return q[1];});}
+function evdPanel(e){var me=mySide(),own=me!==null&&e.side===me,o=v8H((e.k==='bodies'?'🕯 ':e.k==='grave'?'⚱ ':e.k==='burnt'?'🔥 ':'☣ ')+EVDK[e.k][0])+'<div class="lw-note">'+esc(EVDK[e.k][1])+'</div><div class="lw-kv">'+
+   kv('地點',esc(placeTxt(e.x,e.y)))+(e.n>=1&&(e.k!=='grave'||e.ex||own||me===null)?kv('死者','約 '+fmt(e.n)+' 名'+(EVDV[e.vk]||'')):e.k==='grave'?kv('死者','不明（開挖之後才知道）'):'')+kv('犯行者',evdWho(e))+kv('狀態',esc(evdState(e)))+
+   kv('發現',me===null?Object.keys(e.found||{}).map(function(s){return esc(G.sides[s]?G.sides[s].name:'')+' '+tTxt(e.found[s]).slice(-11);}).join('、'):e.found&&e.found[me]!==undefined?tTxt(e.found[me]).slice(-11):'—')+kv('記錄',e.doc&&(me===null?Object.keys(e.doc).length:e.doc[me])?'已調查取證':'尚未調查')+'</div>';
+  if(e.txt&&(own||me===null||e.doc&&e.doc[me]))o+='<div class="lw-note" style="border-left:3px solid #7F0000;padding-left:6px;margin-top:4px">'+esc(e.txt)+'</div>';
+  var acts=[];if(own)acts.push('cov');else{acts.push('inv');if(e.k==='grave'&&!e.ex)acts.push('dig');if((e.k==='well'||e.k==='food')&&!e.fix)acts.push('fix');}if(own&&(e.k==='well'||e.k==='food')&&!e.fix)acts.push('fix');
+  if(!G.started||!acts.length)return o;var A=evdActors(e);if(!A.length)return o+'<div class="lw-note" style="margin-top:8px">附近 20 公里內沒有可以派去的本方地面部隊。</div>';var cur=A.filter(function(u){return u.id===UI.v8u;})[0]||A[0];UI.v8u=cur.id;
+  o+='<h4 style="margin:10px 0 4px;font-size:13px">處置</h4><div class="lw-opt"><span>執行單位</span><select data-c="v8u">'+A.map(function(u){return '<option value="'+u.id+'"'+(u===cur?' selected':'')+'>'+esc(uName(u))+'（'+kmTxt(dist(u.x,u.y,e.x,e.y))+'）</option>';}).join('')+'</select></div><div class="lw-ob">'+
+   acts.map(function(a){return '<button type="button" data-a="evdo" data-v="'+a+'"'+(a==='cov'?' class="dng"':'')+'>'+(a==='cov'?'⚠ ':'')+EVDA[a][0]+'</button>';}).join('')+'</div><div class="lw-note">'+
+   acts.map(function(a){return '<b>'+EVDA[a][0]+'</b>：'+({inv:'派部隊到現場拍照、清點、蒐集證詞與彈殼，確認是誰做的（約 3 小時，記入戰後總結）',dig:'開挖亂葬坑、清點死者（約 6 小時，工兵較快）；挖掘的官兵會受到衝擊',cov:'掩埋遺體、清理現場，讓證據難以被發現；湮滅證據本身也是罪行，會被記錄',fix:'工兵清理被下毒的水源與存糧（約 8 小時）'})[a];}).join('<br>')+'</div>';return o;}
+ACT.evdo=function(b){var a=b.getAttribute('data-v'),X=UI.selX,e=X&&X.k==='evd'?v8Get(X):null;if(!e||!G.started){toast('現場已經看不到了。');return;}var A=evdActors(e),u=A.filter(function(q){return q.id===UI.v8u;})[0]||A[0];if(!u){toast('附近沒有可以派去的部隊。');return;}
+  if(a==='fix'&&!isEng(u)){toast('清理水源要派工兵部隊。');return;}if(a==='cov'&&typeof confirm==='function'&&!confirm('掩埋遺體、湮滅證據是罪行，會被記錄；之後仍可能被開挖查出。\n\n確定要命令「'+uName(u)+'」執行嗎？'))return;
+  var r=issue(u,'evd',{x:e.x,y:e.y,opt:{id:e.id,act:a}});toast('已命令'+uName(u)+'：'+EVDA[a][0]+(r&&r.sec>0?'（約 '+durTxt(r.sec)+' 後送達）':''));vDraw(false);btLeft(true);};
+if(typeof HELP14!=='undefined')HELP14.push('<h4>戰爭罪的決策與證據</h4><ul>'+
+  '<li>點選聚落、難民或被拘留的平民，除了原本的行動，還可以下達<b>處決</b>、<b>焚燒村莊</b>、<b>水源投毒</b>、<b>存糧投毒</b>等違法命令（會先跳出警告）。守法、軍紀好的部隊可能拒絕執行；執行後記為戰爭罪行，執行的官兵士氣與軍紀下降。</li>'+
+  '<li>屠殺、處決（平民、人質、難民、投降的官兵，或督戰隊槍決的自己人）、焚燒與下毒會在地圖上留下證據：<b>遺體</b>（暗紅菱形）、<b>亂葬坑</b>（褐色長方形）、<b>焦土</b>（燒黑的區域，起初還冒煙）、<b>被下毒的水源與存糧</b>（打叉的圓點）。遺體兩天後多半被居民草草掩埋成亂葬坑。</li>'+
+  '<li>被下毒的水源與存糧讓居民一天天中毒死亡、逃離；在那裡駐紮、取水取糧的部隊不分敵我都會中毒，直到發現或工兵清理。</li>'+
+  '<li>部隊經過時才會發現證據：遺體與焦土容易看到，亂葬坑要靠近，下毒要等居民死傷傳開，或偵察、醫護、工兵與指揮部隊才查得出來。發現後在地圖上標出，戰報記錄，罪行曝光、聲譽下降，記者會報導。</li>'+
+  '<li>看到現場的官兵：死者是投降的自己人，恐懼並憤怒（或沮喪），而且之後更不願投降；死者是平民，恐懼與沮喪（若是自己的同胞則憤怒）；是本軍幹的，羞愧——極端政策下則麻木、軍紀更壞。</li>'+
+  '<li>點選證據可以派部隊<b>調查取證</b>（確認犯行者）、<b>開挖亂葬坑</b>、<b>清理水源</b>；犯行的一方可以<b>掩埋、湮滅證據</b>，讓它更難被發現，但湮滅本身也會被記錄。</li>'+
+  '<li>附近的友軍潰散、投降或被殲滅，官兵士氣下降、恐懼上升；附近的敵軍潰逃、投降或被殲滅，士氣上升。部隊會對這些場面說話。</li></ul>');
+/* ---------- 對話：暴行現場與附近戰況 ---------- */
+Object.assign(VOXN,{ev_body:['發現遺體','經過屠殺或處決的現場'],ev_grave:['發現亂葬坑','發現草草掩埋死者的坑'],ev_burn:['焦土','看到被燒毀的村莊'],ev_poison:['發現下毒','水源或存糧被下毒'],ev_pow:['被處決的自己人','發現投降後遭處決的我軍官兵'],ev_own:['本軍暴行','看到本軍造成的暴行現場'],
+ rx_rout:['友軍潰散','附近的友軍潰散'],rx_fall:['友軍被殲滅','附近的友軍被殲滅'],rx_fsurr:['友軍投降','附近的友軍投降'],rx_ewin:['敵軍潰敗','附近的敵軍潰逃或被殲滅'],rx_esurr:['敵軍投降','附近的敵軍投降']});
+VOXCAT.push(['暴行現場',['ev_body','ev_grave','ev_burn','ev_poison','ev_pow','ev_own']],['附近戰況',['rx_rout','rx_fall','rx_fsurr','rx_ewin','rx_esurr']]);
+Object.assign(VOXD,{ev_body:['那邊……是屍體','都是平民……','有孩子……','他們是被槍斃的','手被綁著……','別看，走吧','誰會幹這種事……','[!]我想吐','[~]記下位置，回報上去','[r]雨水把血沖開了','[n]黑暗裡踩到了什麼……'],
+ ev_grave:['這裡的土是新翻的','下面埋著人','一個坑，好多人','聞到了嗎？','有人在找自己的家人','[~]記下來，以後要開挖'],
+ ev_burn:['整個村子都燒光了','房子只剩焦黑的牆','糧倉也燒了','人呢？都跑了嗎？','煙還沒散','[!]這是要逼死人'],
+ ev_poison:['水井被下毒了！','別喝這裡的水','村民說喝了水就倒下','糧食裡有毒','這裡的東西一口都別碰','[@med]得驗一驗這些水'],
+ ev_pow:['是我們的人……','他們投降了還被槍斃','手還舉著……','這筆帳一定要算','認得他，是三連的','[!]投降也是死','[~]把名牌收好，帶回去'],
+ ev_own:['這是我們的人幹的？','上面下的命令……','別說出去','我沒辦法再看了','督戰隊槍斃的，全是自己人','[!]我們跟他們有什麼不同？'],
+ rx_rout:['旁邊的部隊在跑！','他們撐不住了！','左翼垮了！','別跟著跑！','穩住，別亂！','[!]我們也撤吧……'],
+ rx_fall:['他們全沒了……','那個連被打光了','旁邊沒人了','剛才還在通話……','[~]把位置補起來'],
+ rx_fsurr:['他們投降了……','友軍舉白旗了','我們不能投降','[!]要不要也……'],
+ rx_ewin:['他們在逃！','打垮了！','敵人跑了','追上去！','[~]別追太遠'],
+ rx_esurr:['他們投降了！','白旗！','總算有人投降','收容俘虜','[~]別開槍了']});
+Object.assign(VOXP.rough,{ev_body:['老天……這是人幹的？','狗*的，連小孩都殺','畜生……','手還被綁著，王*蛋','別看了，看了睡不著','[!]我要吐了'],ev_grave:['土是新的，下面有人','*的，一整坑','這味道……','誰幹的，總有一天要算帳'],
+ ev_burn:['燒得一乾二淨，畜生','整個村子沒了','連牛都燒死了','這些人以後住哪？'],ev_poison:['水裡有毒！他*的','別喝！誰都別喝！','連吃的都下毒，夠狠','這招真不是人幹的'],
+ ev_pow:['那是我們的弟兄！','舉手投降還被殺，狗*的','這筆血債要他們還','老子跟他們沒完','[!]投降也是死，那就拚了'],ev_own:['這是我們幹的？靠……','上面的人瘋了','別說出去，誰都別說','*的，我們跟他們一樣爛'],
+ rx_rout:['旁邊的跑了！靠杯','他們嚇破膽了！','別學他們！','守住，*的！'],rx_fall:['旁邊那連整個沒了','*的，全掛了','現在只剩我們了','又少了一批兄弟'],
+ rx_fsurr:['他們舉手了……','友軍投降了，靠','老子才不投降','[!]我們也……'],rx_ewin:['他們跑了！哈！','打爆了！','追！別讓他們跑！','爽，打垮了'],rx_esurr:['他們投降了！','白旗！總算','叫他們把槍丟了','乖乖舉手']});
+Object.assign(VOXP.pro,{ev_body:['發現平民遺體，記錄位置','疑似處決現場','拍照存證，回報上級','標示現場，勿破壞證據','清點遺體數量'],ev_grave:['發現疑似亂葬坑','標示位置，待調查開挖','封鎖現場','回報：可能的集體墓穴'],
+ ev_burn:['村莊遭焚毀','回報：焦土作戰跡象','記錄損害範圍','協助居民疏散'],ev_poison:['水源疑遭下毒，禁止取用','糧食疑遭下毒，封存','通報醫療單位檢驗','警告各單位：勿取用'],
+ ev_pow:['發現我軍被俘人員遺體','疑遭處決，記錄事證','收回識別牌','回報上級，請求調查'],ev_own:['回報：本軍違紀事件','依規定通報憲兵','記錄並移送調查','停止違法行為'],
+ rx_rout:['友鄰部隊潰退！','注意側翼暴露','穩住陣線！','填補缺口！'],rx_fall:['友鄰部隊遭殲滅','側翼失去掩護','回報：友軍損失','調整防線'],rx_fsurr:['友鄰部隊投降','側翼暴露，提高警戒','回報上級','堅守陣地'],
+ rx_ewin:['敵軍潰退','請求指示：是否追擊','鞏固戰果','回報戰果'],rx_esurr:['敵軍投降','解除武裝，收容俘虜','依規定處置俘虜','回報俘虜人數']});
+VOX.P=null;VOX.PS=null;
+(function(){var b=voxDetect;voxDetect=function(u,P,N,s){var r=b(u,P,N,s);N.evC=u.evC||0;N.rxC=u.rxC||0;if(r||P.evC===undefined)return r;
+  if(N.evC>P.evC){var k=u.evK;return [k==='pow'?'ev_pow':k==='own'||k==='own2'?'ev_own':k==='grave'?'ev_grave':k==='burn'?'ev_burn':k==='poison'?'ev_poison':'ev_body',k==='pow'?1:2];}
+  if(N.rxC>P.rxC&&u.rxK)return ['rx_'+u.rxK,u.rxK==='rout'||u.rxK==='fall'?2:3];return null;};})();
+/* ===================== 堤壩與決堤（介面）：地圖標記、點選後的說明與命令、警告、設定、說明、對話 ===================== */
+setSec('combat','dam',{t:'堤壩與決堤',o:25,h:function(){return setOpt(setRow('堤壩',setChk('setb','dam',G.set.dam!==false,'大河邊的低地有防洪堤，河谷可能有水壩；工兵可以奉命爆破決堤，淹沒下游的低地（以水代兵）')))+
+  '<div class="lw-note">關閉後地圖上仍畫出堤壩，但無法決堤。</div>';}});
+var DAMST={ok:'完好',breach:'已決堤，洪水持續湧出',fixed:'決口已堵住，洪水正在退去',closed:'決口已堵住',drained:'水庫已放空'};
+function damDraw(c){VW.dmm=[];if(!G||!G.started||!G.dams||!G.dams.length)return;var S=VW.s,z=clamp(5+S*1.2,6,13),sel=UI.selX&&UI.selX.k==='dam'?UI.selX.id:0;
+  G.dams.forEach(function(d){var p=w2s(d.x,d.y);if(p[0]<-40||p[1]<-40||p[0]>VW.cw+40||p[1]>VW.ch+40)return;VW.dmm.push({id:d.id,sx:p[0],sy:p[1]});var x=p[0],y=p[1],br=d.st!=='ok'&&d.st!=='closed';c.save();
+    if(d.k==='dam'){c.fillStyle='#78909C';c.strokeStyle='#ECEFF1';c.lineWidth=1;c.fillRect(x-z*1.2,y-z*0.35,z*2.4,z*0.7);c.strokeRect(x-z*1.2,y-z*0.35,z*2.4,z*0.7);c.fillStyle='#1E88E5';c.beginPath();c.moveTo(x-z*0.5,y-z*0.4);c.lineTo(x+z*0.5,y-z*0.4);c.lineTo(x,y-z*1.1);c.closePath();c.fill();}
+    else{c.strokeStyle='#ECEFF1';c.lineWidth=z*0.7+2;c.lineCap='round';c.beginPath();c.moveTo(x-z*1.3,y+z*0.2);c.lineTo(x+z*1.3,y-z*0.2);c.stroke();c.strokeStyle='#8D6E63';c.lineWidth=z*0.7;c.beginPath();c.moveTo(x-z*1.3,y+z*0.2);c.lineTo(x+z*1.3,y-z*0.2);c.stroke();}
+    if(br){c.strokeStyle='#D50000';c.lineWidth=2;c.beginPath();c.moveTo(x-z*0.3,y-z*0.7);c.lineTo(x+z*0.1,y-z*0.1);c.lineTo(x-z*0.2,y+z*0.2);c.lineTo(x+z*0.3,y+z*0.7);c.stroke();}
+    if(d.id===sel){c.strokeStyle='#FFC107';c.lineWidth=2;c.beginPath();c.arc(x,y,z*1.7,0,2*PI);c.stroke();}
+    if(S>=1.6){c.font='10px sans-serif';c.textAlign='center';c.textBaseline='top';c.lineWidth=3;c.strokeStyle='rgba(255,255,255,.85)';c.fillStyle=br?'#B71C1C':'#3E2723';var t=d.n+(br?'（決堤）':'');c.strokeText(t,x,y+z);c.fillText(t,x,y+z);}c.restore();});}
+(function(){var b=drawUnder;drawUnder=function(c){b.apply(this,arguments);try{damDraw(c);}catch(e){}};})();
+function damHit(sx,sy){var best=null,bd=14;(VW.dmm||[]).forEach(function(q){var d=dist(sx,sy,q.sx,q.sy);if(d<bd){bd=d;best=q;}});return best;}
+(function(){var b=btClick;btClick=function(x,y,sx,sy,e){if((UI.tool==='sel'||!UI.tool)&&G&&G.started){var q=damHit(sx,sy);if(q&&!(typeof hitAt==='function'&&hitAt(sx,sy))){var me=mySide(),us=UI.sel.map(uById).filter(function(u){return u&&alive(u)&&(me===null||u.side===me);});if(us.length)UI.selPrev=us.map(function(u){return u.id;});
+    UI.selX={k:'dam',id:q.id};UI.sel=[];UI.selC=0;UI.selB=0;btSel();btLeft(true);vDraw(false);return;}}return b.apply(this,arguments);};})();
+(function(){var b=v8Get;v8Get=function(X){if(X&&X.k==='dam')return G&&damById(X.id)||null;return b(X);};})();
+(function(){var b=v8Panel;v8Panel=function(X){if(X&&X.k==='dam'){var d=v8Get(X);return d?damPanel(d):null;}return b(X);};})();
+(function(){var b=cellTip;cellTip=function(x,y){if(G&&G.started&&VW.cw){var p=w2s(x,y),q=damHit(p[0],p[1]);if(q){var d=damById(q.id);if(d)return d.n+'（'+DAMK[d.k][0]+'）：'+DAMST[d.st]+'\n點選可查看詳情與命令';}}return b(x,y);};})();
+function damPanel(d){var r=d.st==='ok'?damRisk(d):null,o=v8H((d.k==='dam'?'🌊 ':'〰 ')+esc(d.n))+'<div class="lw-note">'+esc(DAMK[d.k][1])+'</div><div class="lw-kv">'+kv('種類',DAMK[d.k][0])+kv('狀態',esc(DAMST[d.st]||d.st))+kv('地點',esc(placeTxt(d.x,d.y)));
+  if(r)o+=kv('決堤會淹到','約 '+fx(r.km2,1)+' 平方公里低地'+(r.vil?'，'+r.vil+' 個村鎮、約 '+fmt(r.pop)+' 名居民':''));
+  if(d.st!=='ok'){o+=kv('決堤',(d.byn?esc(d.byn)+'，':'')+tTxt(d.bt).slice(-11))+(d.area?kv('淹水','約 '+fx(d.area,1)+' 平方公里'+(d.amax>d.area+0.05?'（最多 '+fx(d.amax,1)+'）':'')):'')+(d.dead>=1?kv('死難','約 '+fmt(d.dead)+' 名平民溺斃，約 '+fmt(d.ref)+' 人流離失所'):'');}o+='</div>';
+  if(!G.started||!damOn())return o;var acts=d.st==='ok'?['blow']:d.st==='breach'&&d.k==='levee'?['fix']:[];if(!acts.length)return o;var me=mySide(),A=[];G.units.forEach(function(u){if(!isLeaf(u)||!onMap(u)||ST(u).dom!=='land'||u.irr||(me!==null&&u.side!==me))return;if(d.k==='dam'&&!isEng(u))return;var dd=dist(u.x,u.y,d.x,d.y);if(dd<25000)A.push([isEng(u)?0:1,dd,u]);});
+  A.sort(function(a,b){return a[0]-b[0]||a[1]-b[1];});A=A.slice(0,10).map(function(q){return q[2];});if(!A.length)return o+'<div class="lw-note" style="margin-top:8px">附近沒有可以派去的'+(d.k==='dam'?'工兵':'')+'部隊。</div>';var cur=A.filter(function(u){return u.id===UI.v8u;})[0]||A[0];UI.v8u=cur.id;
+  return o+'<h4 style="margin:10px 0 4px;font-size:13px">命令</h4><div class="lw-opt"><span>執行單位</span><select data-c="v8u">'+A.map(function(u){return '<option value="'+u.id+'"'+(u===cur?' selected':'')+'>'+esc(uName(u))+(isEng(u)?'（工兵）':'')+'（'+kmTxt(dist(u.x,u.y,d.x,d.y))+'）</option>';}).join('')+'</select></div><div class="lw-ob">'+
+   acts.map(function(a){return '<button type="button" data-a="damdo" data-v="'+a+'"'+(a==='blow'?' class="dng"':'')+'>'+(a==='blow'?'⚠ ':'')+DAMA[a][0]+'</button>';}).join('')+'</div><div class="lw-note">'+(acts[0]==='blow'?'<b>爆破決堤</b>：工兵約 '+durTxt(damNeed(d,cur,'blow'))+(isEng(cur)?'':'（不是工兵，靠人力掘開要更久）')+'。洪水會淹沒下游的低地，不分敵我。':'<b>堵口</b>：約 '+durTxt(damNeed(d,cur,'fix'))+'，堵住後洪水在一天內退去。')+'</div>';}
+function damWarn(d,u){var r=damRisk(d);return '決堤會讓'+(d.k==='dam'?'水庫的水':'河水')+'沖進下游的低地，約 '+fx(r.km2,1)+' 平方公里一片汪洋'+(r.vil?'，'+r.vil+' 個村鎮、約 '+fmt(r.pop)+' 名居民來不及逃的會溺斃':'')+'；洪水不分敵我，道路、橋梁與田地都會被沖毀。\n\n'+
+  '1938 年花園口決堤遲滯了日軍，卻造成數十萬平民死亡、數百萬人流離失所。1977 年起，攻擊堤壩這類含有危險力量的設施為國際法所禁止。\n\n守法的部隊可能拒絕執行；這個決定會被記錄、報導，並列入戰後總結。\n\n確定要命令「'+uName(u)+'」爆破'+d.n+'嗎？';}
+ACT.damdo=function(b){var a=b.getAttribute('data-v'),X=UI.selX,d=X&&X.k==='dam'?v8Get(X):null;if(!d||!G.started){toast('找不到這處堤壩。');return;}var me=mySide(),u=uById(UI.v8u);if(!u||!onMap(u)||(me!==null&&u.side!==me)){toast('請選擇執行的部隊。');return;}
+  if(a==='blow'&&typeof confirm==='function'&&!confirm(damWarn(d,u)))return;var r=issue(u,'dam',{x:d.x,y:d.y,opt:{id:d.id,act:a}});toast('已命令'+uName(u)+'：'+DAMA[a][0]+(r&&r.sec>0?'（約 '+durTxt(r.sec)+' 後送達）':''));vDraw(false);btLeft(true);};
+if(typeof HELP14!=='undefined')HELP14.push('<h4>堤壩與決堤</h4><ul>'+
+  '<li>大河邊低窪地最大的地方有<b>防洪堤</b>（褐色粗線），1900 年以後河谷收窄處可能有<b>水壩</b>（灰色壩體與藍色三角）。點選可以看到決堤會淹到多大的範圍、多少村鎮與居民。</li>'+
+  '<li>派部隊<b>爆破決堤</b>：工兵約 2 小時（水壩約 6 小時），1850 年以前靠人力掘開要更久，不是工兵也更慢；水壩只有工兵能炸。決堤前會跳出警告，守法的部隊可能拒絕。</li>'+
+  '<li>決堤後河水沖進比決口低的地方，幾小時內越淹越廣；水壩的水一兩小時內沖到最高、之後隨水庫放空慢慢退去，堤防的決口則會一直進水，直到派工兵<b>堵口</b>。</li>'+
+  '<li>淹到的地方：道路與鐵路不通，浮橋、便橋被沖走（水壩潰決時連永久橋梁也可能沖毀）；部隊第一次被洪水捲到會有人被沖走、車輛泡水，之後依水深撤往高處；村莊被淹，居民大量溺斃（事先有警報的少死很多）、倖存者逃難。水退後道路泡水受損、低地成為沼澤。</li>'+
+  '<li>形勢危急、敵軍就在堤防保護的低地上時，政策極端的 AI 可能下令決堤。設定的「堤壩與決堤」可以關閉。</li></ul>');
+/* ---------- 對話：洪水捲到部隊 ---------- */
+VOXN.flood=['洪水','被決堤或氾濫的洪水捲到'];VOXCAT.forEach(function(c){if(c[0]==='毒氣與核武'){c[0]='毒氣、核武與洪水';c[1].push('flood');}});
+VOXD.flood=['水！水沖過來了！','往高處跑！','抓住樹！','車子被沖走了！','水已經到腰了','他被水捲走了……','把槍舉高！','[n]黑暗裡全是水聲','[!]我不會游泳！','[~]手拉手，別散開'];
+VOXP.rough.flood=['靠杯，水怎麼這麼大！','快爬上去，*的！','誰炸的堤？王*蛋！','車沒救了，人先走！'];VOXP.pro.flood=['洪水接近，向高地轉移！','清點人員，回報損失','車輛棄置，人員優先','標示安全路線'];
+VOX.P=null;VOX.PS=null;
+(function(){var b=voxDetect;voxDetect=function(u,P,N,s){var r=b(u,P,N,s);N.flC=u.flC||0;if(r||P.flC===undefined)return r;if(N.flC>P.flC)return ['flood',1];return null;};})();
 /* ===================== 聯機版：在房間裡調整所有模擬設定 =====================
    房主可以在房間頁的「模擬設定」（開戰前不論有沒有載入想定都可以）或作戰中的「設定」分頁調整所有模擬設定；
    改動以「設定路徑 → 值」送到伺服器，所有人一起套用。載入想定前調整的設定，也會套用到之後載入的想定或存檔；「恢復想定的設定」可以撤銷。
