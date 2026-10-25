@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>作戰模擬（LatoWarsim 聯機版）</title>
 <style>
 /* ===== LatoTools 共用樣式（MediaWiki:Gadget-LatoTools.css 已有，不必重貼） ===== */
@@ -195,7 +195,7 @@
 /* 地圖頁：地圖鋪滿，編制／紀錄與單位面板浮在地圖上，可以收合 */
 .lw-land .lw-body:has(>.lw-work>.lw-mh){overflow:hidden;background:#2d3a46;}
 .lw-land .lw-body>.lw-work:has(>.lw-mh){position:absolute;inset:0;display:block;padding:0;height:auto;}
-.lw-land .lw-body>.lw-work>.lw-mh{position:absolute;inset:0;}
+.lw-land .lw-body>.lw-work>.lw-mh{position:absolute;inset:0;height:auto;min-height:0;}
 .lw-land .lw-body>.lw-work>.lw-mh>.lw-mapw{border:0;border-radius:0;min-height:0;}
 .lw-land .lw-body>.lw-work:has(>.lw-mh)>.lw-pane{position:absolute;top:10px;bottom:10px;z-index:8;width:290px;background:rgba(255,255,255,.95);border:1px solid rgba(20,30,40,.18);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.3);}
 /* 不用 backdrop-filter 毛玻璃：地圖每一幀都在變，模糊要每幀重算，大型想定的畫面更新會掉三分之一 */
@@ -349,6 +349,28 @@
 .lw-hkt td.n{white-space:nowrap;text-align:right;}
 .lw-hkdup{color:#b3261e;font-size:11px;}
 .lw-hkt kbd{display:inline-block;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;background:#f4f3ef;border:1px solid #cfccc4;border-bottom-width:2px;border-radius:4px;padding:0 5px;white-space:nowrap;}
+/* ===== 手機直向：底部分頁列、底部抽屜式面板、精簡的頂列與提示 ===== */
+#lato-warsim.lw-land.lw-port{--rail:0px;--tabh:56px;--barh:44px;}
+.lw-land.lw-port .lw-tabs{top:auto!important;bottom:0!important;left:0;right:0;width:auto;height:calc(var(--tabh) + env(safe-area-inset-bottom,0px));padding:0 2px env(safe-area-inset-bottom,0px);flex-direction:row;align-items:stretch;overflow-x:auto;overflow-y:hidden;gap:0;border-top:1px solid #33414f;}
+.lw-land.lw-port .lw-tabs button{flex:0 0 auto;min-width:58px;padding:5px 4px 3px;border-left:0;border-top:3px solid transparent;}
+.lw-land.lw-port .lw-tabs button.on{border-left-color:transparent;border-top-color:#7cb6ff;}
+.lw-land.lw-port .lw-tabs button i{font-size:18px;}
+.lw-land.lw-port .lw-body{left:0;bottom:calc(var(--tabh) + env(safe-area-inset-bottom,0px));}
+.lw-land.lw-port .lw-body>.lw-work:has(>.lw-mh)>.lw-pane,.lw-land.lw-port .lw-body>.lw-work:has(>.lw-mh)>.lw-pane:not(.lw-left){top:auto!important;bottom:0!important;left:0!important;right:0!important;width:auto!important;max-height:44%;border-radius:14px 14px 0 0;border-bottom:0;box-shadow:0 -6px 18px rgba(0,0,0,.28);}
+.lw-land.lw-port .lw-ptg{top:auto;transform:none;bottom:calc(var(--padb,0px) + 8px);max-width:none;padding:6px 10px;font-size:12.5px;border-radius:16px!important;border:1px solid rgba(20,30,40,.25)!important;}
+.lw-land.lw-port .lw-ptg.l{left:8px;}.lw-land.lw-port .lw-ptg.r{right:8px;}
+.lw-land.lw-port .lw-mapw .lw-zm{right:8px;bottom:calc(var(--padb,0px) + 48px);}
+.lw-land.lw-port .lw-mapw .lw-ly{left:8px;right:8px;}
+.lw-land.lw-port .lw-mapw .lw-evb{left:8px;top:44px;max-width:calc(100% - 16px);}
+.lw-land.lw-port .lw-sheet.on{top:calc(var(--barh) + 4px);bottom:calc(var(--tabh) + env(safe-area-inset-bottom,0px) + 4px);left:4px;right:4px;border-radius:10px;}
+.lw-land.lw-port .lw-wxhud{transform:scale(.78);transform-origin:left top;top:40px!important;bottom:auto!important;left:6px!important;}
+.lw-port .lw-toasts{top:calc(var(--barh) + 8px);bottom:auto;}
+.lw-port .lw-toast{font-size:12.5px;padding:7px 12px;}
+.lw-land.lw-port .lw-bar{gap:4px;padding:0 6px;}
+.lw-land.lw-port .lw-bar button,.lw-land.lw-port .lw-bar select{font-size:13px;}
+.lw-touch .lw-bx [data-a="keyhelp"]{display:none;}
+.lw-touch .lw-btn,.lw-touch .lw-tc button{min-height:34px;}
+.lw-touch .lw-mapw .lw-zm button{width:40px;height:40px;font-size:18px;}
 /* ===== LatoArmory 介面（整合到裝備庫） ===== */
 
 /* ===== LatoTools 共用樣式（MediaWiki:Gadget-LatoTools.css 已有，不必重貼） ===== */
@@ -2769,6 +2791,7 @@ window.LatoTerrainLib={LTCore:LTCore,LTClimate:LTClimate,LTRivers:LTRivers,LTLay
 "use strict";
 var root=document.getElementById('lato-warsim');
 if(!root)return;
+var LWBUILD="7754dc61-online";
 var MPON=1;
 /* ===================== LatoWarsim 作戰模擬：共用工具（數學、亂數、雜訊、幾何、時間、名稱、編碼） ===================== */
 var PI=Math.PI,D2R=PI/180,R2D=180/PI;
@@ -12673,7 +12696,7 @@ function viewMount(host){host.innerHTML='<div class="lw-mapw"><canvas class="lw-
 function lyRender(){if(!VW.ly)return;var L=UI.lay,o='';[['lbl','地名'],['grid','方格'],['units','部隊'],['ord','命令'],['ct','敵情'],['bt','戰鬥'],['fr','戰線'],['sup','補給'],['fx','火力'],['civ','平民'],['evt','事件']].forEach(function(q){o+='<label><input type="checkbox" data-ly="'+q[0]+'"'+(L[q[0]]?' checked':'')+'>'+q[1]+'</label>';});
   o+='<select data-ly="lvl" title="顯示層級">'+[['auto','層級：自動'],['1','連'],['2','營'],['3','團'],['4','旅'],['5','師']].map(function(q){return '<option value="'+q[0]+'"'+(UI.lvl===q[0]?' selected':'')+'>'+q[1]+'</option>';}).join('')+'</select>';
   VW.ly.innerHTML=o;VW.ly.onchange=function(e){var t=e.target,k=t.getAttribute('data-ly');if(k==='lvl')UI.lvl=t.value;else UI.lay[k]=t.checked?1:0;vDraw(true);};}
-function vResize(fit){if(!VW.wrap)return;var cw=VW.wrap.clientWidth,ch=VW.wrap.clientHeight;if(!cw||!ch)return;VW.cw=cw;VW.ch=ch;VW.dpr=Math.min(2,window.devicePixelRatio||1);[VW.cb,VW.ct].forEach(function(c){c.width=Math.round(cw*VW.dpr);c.height=Math.round(ch*VW.dpr);});if(fit)vFit();else vDraw(true);}
+function vResize(fit){if(!VW.wrap)return;var cw=VW.wrap.clientWidth,ch=VW.wrap.clientHeight;if(!cw||!ch)return;VW.cw=cw;VW.ch=ch;VW.dpr=Math.min(VW.dprMax||2,window.devicePixelRatio||1);[VW.cb,VW.ct].forEach(function(c){c.width=Math.round(cw*VW.dpr);c.height=Math.round(ch*VW.dpr);});if(fit)vFit();else vDraw(true);}
 function vFit(){if(!G||!G.map)return;var MP=G.map,s=Math.min(VW.cw/MP.GW,VW.ch/MP.GH)*0.98;VW.s=s;VW.s0=s;VW.ox=(VW.cw-MP.GW*s)/2;VW.oy=(VW.ch-MP.GH*s)/2;VW.fit=true;vDraw(true);}
 function vZoom(f,cx,cy){var s0=VW.s,s=clamp(s0*f,(VW.s0||0.2)*0.6,60);f=s/s0;VW.ox=cx-(cx-VW.ox)*f;VW.oy=cy-(cy-VW.oy)*f;VW.s=s;vDraw(true);}
 function vCenter(x,y,minS){var cs=G.map.cs;if(minS&&VW.s<minS)VW.s=minS;VW.ox=VW.cw/2-x/cs*VW.s;VW.oy=VW.ch/2-y/cs*VW.s;vDraw(true);}
@@ -13844,7 +13867,7 @@ function fxPlanesStep(now,W){var seen={};G.units.forEach(function(u){if(u.st!=='
 function fxPlanePos(u){var ip=u&&FX.ip[u.id];return ip?fxIpPos(ip,performance.now()/1000):[u.x,u.y];}
 
 /* ---------- 粒子 ---------- */
-function fxCap(){return Math.round((FX.lvl>=2?2600:900)*(typeof GFX!=='undefined'?GFX.fxMul:1));}
+function fxCap(){return Math.round((FX.lvl>=2?2600:900)*(typeof GFX!=='undefined'?GFX.fxMul*(GFX.memMul||1):1));}
 /* 煙：依「煙霧」設定縮短、變淡、縮小，並限制畫面上同時存在的數量，避免煙把戰場蓋住；校正試射的白色標定煙不受影響 */
 var SMK=[null,{d:0.55,a:0.55,r:0.75,cap:160},{d:0.85,a:0.85,r:0.95,cap:360}];
 function fxSmoke(o){if(o.mk)return true;var S=SMK[FX.smk];if(!S)return false;if(FX.smN+FX.smNb>=S.cap*(FX.lvl>=2?1:0.6)*(typeof GFX!=='undefined'?GFX.fxMul:1))return false;FX.smNb++;o.d*=S.d;o.a*=S.a;o.r1=o.r0+(o.r1-o.r0)*S.r;if(o.p1!==undefined){o.p0*=S.r;o.p1*=S.r;}return true;}
@@ -22783,6 +22806,241 @@ if(typeof HELP14!=='undefined')HELP14.push('<h4>部隊對話</h4><ul>'+
   '<li>本方部隊依當下的處境在兵牌右上方冒出簡短的對話：遭射擊、砲擊、空襲、直升機、無人機、轟炸、戰車、白刃戰、毒氣、核爆與落塵、被包圍、傷亡、士氣動搖、潰散與重整、恐懼、背水一戰、彈藥燃料不足、飢餓、收到命令與抵達、佔領、俘虜、誤擊、指揮部被毀、增援抵達、伏擊、防禦、行軍、渡河、撤退、進攻、閒置等。緊急的用紅框。</li>'+
   '<li>每種處境有多種說法，依年代（火繩槍、燧發槍、一戰、二戰、冷戰、現代）、兵種（步兵、裝甲、砲兵、騎兵、工兵、醫護、指揮部、後勤、飛行員、艦艇）、晝夜與天候、士氣挑選，同一句話短時間內不重複。沒有新狀況時，畫面上的部隊偶爾閒聊；點選本方部隊時它會回一句。</li>'+
   '<li>對話只在畫面上，不會改變戰局；部隊面板列出最近聽到的幾句。可以在設定的「畫面 → 部隊對話」關閉、只留緊急的、調整閒聊的多寡、同時顯示的句數與停留時間。正式的狀況回報仍經由無線電或傳令送到司令部（收件匣的「報告」）。</li></ul>');
+/* ===================== 更多畫面效果與音效 =====================
+   畫面：夜間地形變暗（部隊符號不變），照明彈、爆炸、火光與開火的槍口在黑暗中照出一圈亮光；
+   照明彈（1880 年起）在夜間交火的地方升起、隨風緩緩飄落；探照燈（1915–1965 年）在夜間從防空部隊照向敵機；
+   車輛在乾燥的地面上揚起塵土、下雪時揚起雪霧；艦艇拖出白色航跡；落在水面的砲彈與炸彈激起水柱而不是火球。
+   聲音：步兵發起攻擊時的哨音（1900–1960 年）或軍號（1900 年以前），行軍縱隊的鼓聲（1870 年以前），
+   毒氣警報（手搖響板；1946 年起為電動警報），空襲警報（1930 年起），無線電回報的雜音與提示音、電報的滴答聲，
+   照明彈升空、砲彈落水，以及畫面中央附近戰車與車輛的引擎聲。
+   只讀模擬狀態、只用 Math.random，開關不會改變戰局。 */
+var FX2={fl:[],seen:{},trail:{},ord:{},gas:{},cv:null,cx:null,drawn:0,last:0,tick:0,lastTs:0,callT:0,drumT:0,alarmT:0,sirenT:0,radioT:0,bubT:0,veh:null,st:{fl:0,dust:0,spl:0,call:0,alarm:0,siren:0,radio:0}};
+function fx2On(k){return UIP[k]!==0;}
+function fx2Y(u){var E=u&&uEra(u)||{};return E.fan?1650:(E.y||1943);}
+function fx2Water(x,y){var MP=G&&G.map;if(!MP||!MP.lc)return false;var k=cellAt(x,y);return isWater(MP.lc[k]);}
+/* ---------- 夜色圖層：在地形與煙之上、部隊符號之下 ---------- */
+function fx2Mount(){if(!VW.wrap||!VW.ct||(FX2.cv&&FX2.cv.isConnected))return;var cv=document.createElement('canvas');cv.className='lw-night';cv.style.cssText='position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none';
+  var ref=FX.cs&&FX.cs.isConnected?FX.cs:VW.ct;ref.insertAdjacentElement('beforebegin',cv);FX2.cv=cv;FX2.cx=cv.getContext('2d');fx2Size();}
+function fx2Size(){if(!FX2.cv||!VW.cw)return;var d=VW.dpr||1;FX2.cv.width=Math.round(VW.cw*d);FX2.cv.height=Math.round(VW.ch*d);FX2.drawn=1;}
+(function(){var b=viewMount;viewMount=function(host){b(host);fx2Mount();};})();
+(function(){var b=vResize;vResize=function(fit){var r=b.apply(this,arguments);fx2Size();return r;};})();
+/* 夜色的濃淡：黃昏開始變暗，深夜最暗；陰天與霧更暗一些 */
+function fx2NightA(){if(!G||!G.env||!fx2On('night'))return 0;var L=G.env.light;if(!(L<0.75))return 0;var W=WX[G.env.wx]||WX[0];return clamp((0.75-L)/0.6,0,1)*0.5*(W[2]<0.6?1.12:1);}
+/* ---------- 照明彈與探照燈 ---------- */
+function fx2Flare(x,y,side){var cap=FX.lvl>=2?6:3;if(FX2.fl.length>=cap)return null;var W=G.env||{},wd=W.wd===undefined?0.6:W.wd,ws=clamp((W.ws||4)/10,0.3,2),f={x:x,y:y,side:side,t0:performance.now()/1000,d:6+Math.random()*3,vx:Math.cos(wd)*ws*18,vy:Math.sin(wd)*ws*18};FX2.fl.push(f);FX2.st.fl++;
+  if(SND.on&&SND.ac&&SND.ac.state==='running'&&fx2On('sCall')!==false){var P=sndAt(x,y);if(P.g>0.03&&sndTok('pop')){var t=SND.ac.currentTime+0.02;sndNoise(t,'highpass',1400,0.7,P.g*0.35,0.002,0.05,P.pan);sndNoise(t+0.25,'bandpass',3200,1.2,P.g*0.06,0.3,2.6,P.pan);}}return f;}
+function fx2FlPos(f,now){var a=now-f.t0;return [f.x+f.vx*a,f.y+f.vy*a,a/f.d];}
+/* 夜間交火時偶爾升起照明彈：在交戰雙方之間、偏向敵方 */
+function fx2FlareTick(now){if(!fx2On('flare')||FX.lvl<1||!UI.run||fx2NightA()<0.12)return;var C=[];
+  G.units.forEach(function(u){if(C.length>=30||!isLeaf(u)||!onMap(u)||G.t-(u.fired||-1e9)>DT*2||!u._eid||fx2Y(u)<1880)return;var s=ST(u);if(s.dom!=='land')return;var e=uById(u._eid);if(!e)return;var p=w2s(u.x,u.y);if(p[0]<-100||p[1]<-100||p[0]>VW.cw+100||p[1]>VW.ch+100)return;C.push([u,e]);});
+  if(!C.length||Math.random()>Math.min(0.5,C.length*0.06))return;var q=C[(Math.random()*C.length)|0],u=q[0],e=q[1],k=0.55+Math.random()*0.25;fx2Flare(u.x+(e.x-u.x)*k+(Math.random()-0.5)*300,u.y+(e.y-u.y)*k+(Math.random()-0.5)*300,u.side);}
+/* 探照燈：夜間的防空部隊照向 9 公里內的敵機（1915–1965 年） */
+function fx2Beams(){var out=[];if(!fx2On('flare')||fx2NightA()<0.15||FX.lvl<1)return out;var me=UI.side,fog=me>=0&&G.set.fog&&!seeAll(),A=G.units.filter(function(a){return a.st==='air'&&alive(a);});if(!A.length)return out;
+  G.units.forEach(function(u){if(out.length>=6||!isLeaf(u)||!onMap(u))return;var s=ST(u);if(s.br!=='ad'||s.dom!=='land')return;var y=fx2Y(u);if(y<1915||y>1965)return;if(fog&&u.side!==me)return;var p=w2s(u.x,u.y);if(p[0]<-200||p[1]<-200||p[0]>VW.cw+200||p[1]>VW.ch+200)return;
+    var best=null,bd=9000;A.forEach(function(a){if(a.side===u.side)return;var d=dist(u.x,u.y,a.x,a.y);if(d<bd){bd=d;best=a;}});if(best)out.push({u:u,a:best});});return out;}
+/* ---------- 每一畫格：夜色、亮光、照明彈、探照燈、航跡 ---------- */
+function fx2Lights(now,m){var L=[],cw=VW.cw,ch=VW.ch,vis=function(p,r){return p[0]>-r&&p[1]>-r&&p[0]<cw+r&&p[1]<ch+r;};
+  FX2.fl.forEach(function(f){var q=fx2FlPos(f,now),p=w2s(q[0],q[1]),r=Math.max(520/m,70),k=q[2]<0.1?q[2]/0.1:q[2]>0.85?(1-q[2])/0.15:1;k*=0.92+Math.random()*0.08;if(vis(p,r))L.push([p[0],p[1],r,0.95*k,1]);});
+  for(var i=0;i<FX.P.length&&L.length<80;i++){var P=FX.P[i];if(P.k!=='fb'&&P.k!=='fl'&&P.k!=='nk')continue;var f=(FX.clk-P.t0)/P.d;if(f<0||f>=1)continue;var p=w2s(P.x,P.y),r=P.k==='nk'?Math.max(6000/m,200):Math.max((P.sz||20)*8/m,P.k==='fl'?28:45);if(vis(p,r))L.push([p[0],p[1],r,(P.k==='fl'?0.6:0.85)*(1-f),2]);}
+  if(UI.run||FX.hold>0)(FX2.fire||[]).forEach(function(q){var p=w2s(q[0],q[1]);if(vis(p,40))L.push([p[0],p[1],22+Math.random()*12,0.32+Math.random()*0.18,3]);});
+  return L;}
+function fx2Draw(now){var c=FX2.cx;if(!c||!FX2.cv||!FX2.cv.isConnected)return;var on=G&&G.started&&!G.replay&&UI.tab==='battle'&&UI.lay.fx!==0&&FX.lvl>0,a=on?fx2NightA():0,wk=on&&fx2On('dust')&&mpp()<40;
+  if(!on||(a<=0.01&&!wk&&!FX2.fl.length)){if(FX2.drawn){var d0=VW.dpr||1;c.setTransform(d0,0,0,d0,0,0);c.clearRect(0,0,VW.cw,VW.ch);FX2.drawn=0;}return;}
+  var d=VW.dpr||1,m=mpp();c.setTransform(d,0,0,d,0,0);c.clearRect(0,0,VW.cw,VW.ch);FX2.drawn=1;
+  if(wk)fx2Wakes(c,now);
+  if(a>0.01){c.globalCompositeOperation='source-over';c.globalAlpha=1;c.fillStyle='rgba(8,14,34,'+a.toFixed(3)+')';c.fillRect(0,0,VW.cw,VW.ch);var L=fx2Lights(now,m);
+    c.globalCompositeOperation='destination-out';L.forEach(function(l){var g=c.createRadialGradient(l[0],l[1],0,l[0],l[1],l[2]);g.addColorStop(0,'rgba(0,0,0,'+clamp(l[3],0,1).toFixed(3)+')');g.addColorStop(0.55,'rgba(0,0,0,'+clamp(l[3]*0.55,0,1).toFixed(3)+')');g.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=g;c.beginPath();c.arc(l[0],l[1],l[2],0,2*PI);c.fill();});
+    /* 火光帶一點暖色 */c.globalCompositeOperation='lighter';L.forEach(function(l){if(l[4]===1)return;var g=c.createRadialGradient(l[0],l[1],0,l[0],l[1],l[2]*0.6);g.addColorStop(0,'rgba(255,140,40,'+(0.16*l[3]).toFixed(3)+')');g.addColorStop(1,'rgba(255,140,40,0)');c.fillStyle=g;c.beginPath();c.arc(l[0],l[1],l[2]*0.6,0,2*PI);c.fill();});
+    var B=FX2.beams||[];B.forEach(function(q){var p0=w2s(q.u.x,q.u.y),pa=typeof fxPlanePos==='function'?fxPlanePos(q.a):[q.a.x,q.a.y],p1=w2s(pa[0],pa[1]),dx=p1[0]-p0[0],dy=p1[1]-p0[1],len=Math.hypot(dx,dy)||1,nx=-dy/len,ny=dx/len,w=Math.max(10,len*0.08),g=c.createLinearGradient(p0[0],p0[1],p1[0],p1[1]);
+      g.addColorStop(0,'rgba(235,240,255,0.30)');g.addColorStop(1,'rgba(235,240,255,0.06)');c.fillStyle=g;c.beginPath();c.moveTo(p0[0]+nx*2,p0[1]+ny*2);c.lineTo(p1[0]+nx*w,p1[1]+ny*w);c.lineTo(p1[0]-nx*w,p1[1]-ny*w);c.lineTo(p0[0]-nx*2,p0[1]-ny*2);c.closePath();c.fill();});
+    c.globalCompositeOperation='source-over';}
+  /* 照明彈本身：白中帶黃的亮點，後面拖著一縷煙 */
+  FX2.fl=FX2.fl.filter(function(f){var q=fx2FlPos(f,now);if(q[2]>=1)return false;var p=w2s(q[0],q[1]),k=q[2]>0.85?(1-q[2])/0.15:1;c.globalCompositeOperation='lighter';var g=c.createRadialGradient(p[0],p[1],0,p[0],p[1],16);g.addColorStop(0,'rgba(255,250,220,'+(0.9*k).toFixed(3)+')');g.addColorStop(0.3,'rgba(255,235,160,'+(0.45*k).toFixed(3)+')');g.addColorStop(1,'rgba(255,235,160,0)');
+    c.fillStyle=g;c.beginPath();c.arc(p[0],p[1],16,0,2*PI);c.fill();c.globalCompositeOperation='source-over';c.globalAlpha=0.35*k;c.strokeStyle='#cfd2d6';c.lineWidth=2;c.beginPath();c.moveTo(p[0],p[1]-3);c.lineTo(p[0]-f.vx*0.4/m,p[1]-14);c.stroke();c.globalAlpha=1;return true;});c.globalCompositeOperation='source-over';c.globalAlpha=1;}
+/* 艦艇的航跡：最近幾秒的位置連成逐漸變寬變淡的白線 */
+function fx2Wakes(c,now){var T=FX2.trail;for(var id in T){var R=T[id];if(R.pts.length<2)continue;var u=uById(+id);if(!u||!alive(u)){delete T[id];continue;}c.lineCap='round';
+  for(var k=1;k<R.pts.length;k++){var a0=w2s(R.pts[k-1][0],R.pts[k-1][1]),a1=w2s(R.pts[k][0],R.pts[k][1]),age=(R.pts.length-k)/R.pts.length;c.globalAlpha=0.5*(1-age);c.strokeStyle='#F4F8FB';c.lineWidth=1.4+age*5;c.beginPath();c.moveTo(a0[0],a0[1]);c.lineTo(a1[0],a1[1]);c.stroke();}}c.globalAlpha=1;}
+/* 夜間正在開火的部隊位置（槍口的亮光） */
+function fx2FireTick(){var out=[],me=UI.side,fog=me>=0&&G.set.fog&&!seeAll();G.units.forEach(function(u){if(out.length>=60||!isLeaf(u)||!onMap(u)||G.t-(u.fired||-1e9)>DT*2)return;if(fog&&u.side!==me&&!known(me,u.id,120))return;var p=w2s(u.x,u.y);if(p[0]<-40||p[1]<-40||p[0]>VW.cw+40||p[1]>VW.ch+40)return;out.push([u.x,u.y]);});FX2.fire=out;}
+/* ---------- 揚塵、雪霧、航跡的取樣（約每 0.3 秒） ---------- */
+function fx2Move(now){if(!fx2On('dust')||FX.lvl<1)return;var W=WX[G.env.wx]||WX[0],rain=W[3]>0,snow=W[4]>0,m=mpp(),n=0,me=UI.side,fog=me>=0&&G.set.fog&&!seeAll();if(m>40)return;
+  G.units.forEach(function(u){if(n>=40||!isLeaf(u)||!onMap(u)||u.st==='air'||u.st==='lift')return;var s=ST(u);if(fog&&u.side!==me&&!known(me,u.id,60))return;var p=w2s(u.x,u.y);if(p[0]<-60||p[1]<-60||p[0]>VW.cw+60||p[1]>VW.ch+60)return;
+    var x=u.x,y=u.y,L=fx2Mv(u,now);
+    if(s.dom==='sea'){var R=FX2.trail[u.id]||(FX2.trail[u.id]={pts:[]});if(L.mv){R.pts.push([x,y]);if(R.pts.length>9)R.pts.shift();}else if(R.pts.length&&now-L.mt>6)R.pts.shift();return;}
+    if(s.dom!=='land'||now-L.mt>3||!L.dx&&!L.dy||rain&&!snow)return;var dx=L.dx,dy=L.dy,dd=Math.hypot(dx,dy)||1;var veh=(u.veh||0)>0&&(s.mob==='track'||s.mob==='wheel'||/^(arm|mech|mot|sup|rec)$/.test(s.br))&&fx2Y(u)>=1915;if(!veh)return;n++;
+    var bx=x-dx/dd*60,by=y-dy/dd*60,col=snow?'240,244,248':'176,156,120';for(var j=0;j<2;j++){fxP({k:'sm',x:bx+(Math.random()-0.5)*80,y:by+(Math.random()-0.5)*80,t0:FX.clk+j*0.1,d:2.4,r0:4,r1:snow?14:20,p0:2,p1:6,a:snow?0.4:0.32,c:col});FX2.st.dust++;}});
+  if(Math.random()<0.02){for(var id in FX2.seen)if(now-FX2.seen[id].ct>20)delete FX2.seen[id];}}
+/* 部隊最近的移動：位置一步才更新一次，所以記住最後移動的時間與方向 */
+function fx2Mv(u,now){var L=FX2.seen[u.id];if(!L){L=FX2.seen[u.id]={x:u.x,y:u.y,mt:-1e9,dx:0,dy:0,ct:now,mv:false};return L;}L.ct=now;L.mv=false;var dx=u.x-L.x,dy=u.y-L.y;if(Math.abs(dx)+Math.abs(dy)>5){L.dx=dx;L.dy=dy;L.x=u.x;L.y=u.y;L.mt=now;L.mv=true;}return L;}
+/* ---------- 落水：水柱與白沫，而不是火球與焦痕 ---------- */
+(function(){var b=fxEx;fxEx=function(x,y,sz,t0){if(fx2On('dust')&&G&&G.map&&fx2Water(x,y)){fx2Splash(x,y,sz,t0===undefined?FX.clk:t0);return;}return b.apply(this,arguments);};})();
+function fx2Splash(x,y,sz,t0){var m=mpp(),big=sz>=25;fxP({k:'fl',x:x,y:y,t0:t0,d:0.12,r:Math.max(sz*0.9/m,big?7:5),c:'#FFFFFF'});fxP({k:'rg',x:x,y:y,t0:t0,d:big?0.9:0.6,r0:Math.max(sz*0.4/m,3),r1:Math.max(sz*2.4/m,big?28:16),c:'#E3F2FD'});
+  for(var j=0;j<(big?4:2);j++)fxP({k:'sm',x:x+(Math.random()-0.5)*sz,y:y+(Math.random()-0.5)*sz,t0:t0+j*0.08,d:2.2+Math.random(),r0:4,r1:big?30:18,p0:2,p1:big?10:7,a:0.55,c:'236,242,248',mk:1});FX2.st.spl++;
+  if(SND.on&&SND.ac&&SND.ac.state==='running'){var P=sndAt(x,y,big);if(P.g>0.03&&sndTok('splash')){var t=SND.ac.currentTime+0.02+Math.max(0,t0-FX.clk);sndNoise(t,'lowpass',650,0.8,P.g*0.5,0.01,0.7,P.pan);sndTone(t,'sine',150,55,0.35,P.g*0.35,0.005,0.35,P.pan);}}}
+/* ---------- 聲音 ---------- */
+SNDR.pop=[2,2];SNDR.splash=[4,3];SNDR.call=[0.5,1];SNDR.drum=[0.4,1];SNDR.alarm=[0.1,1];SNDR.siren=[0.02,1];SNDR.radio=[1.5,2];
+var SNDF2={
+ /* 哨音：顫音的尖銳哨聲，吹兩次 */
+ whistle:function(t,pan,g){var ac=SND.ac;for(var r=0;r<2;r++){var t0=t+r*0.62,o=ac.createOscillator(),lfo=ac.createOscillator(),lg=ac.createGain(),gg=ac.createGain();o.type='sine';o.frequency.value=2850;lfo.type='square';lfo.frequency.value=27;lg.gain.value=260;lfo.connect(lg);lg.connect(o.frequency);
+   gg.gain.setValueAtTime(0.0001,t0);gg.gain.linearRampToValueAtTime(g,t0+0.03);gg.gain.setValueAtTime(g,t0+0.42);gg.gain.exponentialRampToValueAtTime(0.0001,t0+0.5);o.connect(gg);sndPan(gg,pan);o.start(t0);lfo.start(t0);o.stop(t0+0.52);lfo.stop(t0+0.52);sndVoice(o);}},
+ /* 軍號：衝鋒號（C 調軍號的泛音列） */
+ bugle:function(t,pan,g,notes){var ac=SND.ac,tt=t;(notes||[[392,0.13],[523,0.13],[659,0.13],[784,0.32],[659,0.13],[784,0.55]]).forEach(function(q){var o=ac.createOscillator(),lp=ac.createBiquadFilter(),gg=ac.createGain(),v=ac.createOscillator(),vg=ac.createGain();o.type='sawtooth';o.frequency.value=q[0];v.frequency.value=5.5;vg.gain.value=q[0]*0.006;v.connect(vg);vg.connect(o.frequency);
+   lp.type='lowpass';lp.frequency.value=1900;lp.Q.value=1.2;gg.gain.setValueAtTime(0.0001,tt);gg.gain.linearRampToValueAtTime(g,tt+0.025);gg.gain.setValueAtTime(g*0.85,tt+q[1]*0.8);gg.gain.exponentialRampToValueAtTime(0.0001,tt+q[1]);o.connect(lp);lp.connect(gg);sndPan(gg,pan);o.start(tt);v.start(tt);o.stop(tt+q[1]+0.02);v.stop(tt+q[1]+0.02);sndVoice(o);tt+=q[1]+0.03;});},
+ /* 行軍鼓：一小節，重音帶一聲低音 */
+ drum:function(t,pan,g){[0,0.12,0.24,0.3,0.36,0.48,0.6,0.72].forEach(function(o,i){var acc=i===0||i===4;sndNoise(t+o,'bandpass',1900,0.9,g*(acc?1:0.6),0.002,0.07,pan);if(acc)sndTone(t+o,'sine',130,70,0.12,g*0.7,0.003,0.12,pan);});},
+ /* 毒氣警報：手搖響板（一連串喀噠聲）；1946 年起改用電動警報（兩音交替） */
+ rattle:function(t,pan,g){for(var k=0;k<30;k++)sndNoise(t+k*0.055+Math.random()*0.01,'bandpass',2600,1.4,g*(0.7+Math.random()*0.3),0.001,0.03,pan);},
+ klaxon:function(t,pan,g){var ac=SND.ac;for(var k=0;k<4;k++){var o=ac.createOscillator(),lp=ac.createBiquadFilter(),gg=ac.createGain(),t0=t+k*0.42;o.type='square';o.frequency.value=k%2?520:660;lp.type='lowpass';lp.frequency.value=2000;gg.gain.setValueAtTime(0.0001,t0);gg.gain.linearRampToValueAtTime(g,t0+0.02);gg.gain.setValueAtTime(g,t0+0.36);gg.gain.exponentialRampToValueAtTime(0.0001,t0+0.4);o.connect(lp);lp.connect(gg);sndPan(gg,pan);o.start(t0);o.stop(t0+0.42);sndVoice(o);}},
+ /* 空襲警報：緩緩升高再降下的長鳴，兩次 */
+ siren:function(t,pan,g){var ac=SND.ac;for(var r=0;r<2;r++){var t0=t+r*6.2,o=ac.createOscillator(),o2=ac.createOscillator(),gg=ac.createGain();o.type='sawtooth';o2.type='sine';[o,o2].forEach(function(x,i){var mul=i?1.5:1;x.frequency.setValueAtTime(180*mul,t0);x.frequency.linearRampToValueAtTime(620*mul,t0+2.6);x.frequency.setValueAtTime(620*mul,t0+3.6);x.frequency.linearRampToValueAtTime(200*mul,t0+6);});
+   var lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1400;gg.gain.setValueAtTime(0.0001,t0);gg.gain.linearRampToValueAtTime(g,t0+1.2);gg.gain.setValueAtTime(g,t0+4.4);gg.gain.exponentialRampToValueAtTime(0.0001,t0+6);o.connect(lp);o2.connect(lp);lp.connect(gg);sndPan(gg,pan);o.start(t0);o2.start(t0);o.stop(t0+6.05);o2.stop(t0+6.05);sndVoice(o);}},
+ /* 無線電：一小段雜訊加上提示音 */
+ radio:function(t,pan,g){sndNoise(t,'bandpass',2300,0.8,g*0.5,0.005,0.14,pan);sndTone(t+0.16,'sine',1150,1150,0.07,g*0.4,0.004,0.06,pan);},
+ /* 電報：幾聲滴答 */
+ telegraph:function(t,pan,g){[0,0.08,0.24,0.32,0.4,0.56].forEach(function(o,i){sndTone(t+o,'square',820,820,i%3===1?0.12:0.04,g*0.25,0.002,i%3===1?0.11:0.035,pan);});}};
+function fx2SndOk(){return SND.on&&SND.ac&&SND.ac.state==='running';}
+/* 號令：步兵、騎兵開始進攻時（畫面上的部隊、離畫面中央近的才聽得到） */
+function fx2Calls(now){if(!fx2On('sCall'))return;var cw=VW.cw,ch=VW.ch,R=Math.hypot(cw,ch)/2,best=null,bd=1e9,drum=null,dd=1e9,me=UI.side;
+  G.units.forEach(function(u){if(!isLeaf(u)||!onMap(u))return;var s=ST(u),o=u.ord,k=o?(o.dk||o.k):'';if(s.dom!=='land'||!/^(inf|cav|pike|mg|abn|mtn|mar|gue|vg)$/.test(s.br))return;if(me>=0&&u.side!==me&&!seeAll())return;var oid=o?o.oid:0,P=FX2.ord[u.id];FX2.ord[u.id]=oid;
+    var p=w2s(u.x,u.y),r=Math.hypot(p[0]-cw/2,p[1]-ch/2)/R;if(r>1)return;if(P!==undefined&&oid&&oid!==P&&o.st==='exec'&&/^(attack|storm|breakthrough|penetrate|pursue|eager)$/.test(k)&&r<bd){bd=r;best=u;}
+    if(u.form==='march'&&o&&o.st==='exec'&&fx2Y(u)<=1870&&r<dd){dd=r;drum=u;}});
+  if(best&&now-FX2.callT>3){var y=fx2Y(best),P=sndAt(best.x,best.y);if(P.g>0.02&&sndTok('call')){FX2.callT=now;FX2.st.call++;var t=SND.ac.currentTime+0.05;if(y>=1900&&y<=1960)SNDF2.whistle(t,P.pan,P.g*0.12);else if(y<1900)SNDF2.bugle(t,P.pan,P.g*0.16);}}
+  if(drum&&now-FX2.drumT>5&&UI.run){var P2=sndAt(drum.x,drum.y);if(P2.g>0.03&&sndTok('drum')){FX2.drumT=now;SNDF2.drum(SND.ac.currentTime+0.05,P2.pan,P2.g*0.22);}}}
+/* 警報：畫面上的本方部隊陷入毒氣；敵方轟炸機接近畫面 */
+function fx2Alarms(now){if(!fx2On('sAlarm'))return;var me=UI.side,cb=!!((G.cbx&&G.cbx.length)||G.cbgr),hit=null,cw=VW.cw,ch=VW.ch;
+  if(cb&&typeof gasAt==='function'){G.units.forEach(function(u){if(hit||!isLeaf(u)||!onMap(u)||(me>=0&&u.side!==me))return;var p=w2s(u.x,u.y);if(p[0]<0||p[1]<0||p[0]>cw||p[1]>ch)return;var g=gasAt(u.x,u.y)>0.02,P=FX2.gas[u.id];FX2.gas[u.id]=g;if(g&&!P)hit=u;});}
+  if(hit&&now-FX2.alarmT>20){var y=fx2Y(hit),P=sndAt(hit.x,hit.y,true);if(y>=1915&&sndTok('alarm')){FX2.alarmT=now;FX2.st.alarm++;var t=SND.ac.currentTime+0.05;if(y<1946)SNDF2.rattle(t,P.pan,Math.max(0.05,P.g*0.3));else SNDF2.klaxon(t,P.pan,Math.max(0.04,P.g*0.12));}}
+  if(now-FX2.sirenT>120&&UI.run){var c=s2w(cw/2,ch/2),bomb=null;G.units.forEach(function(a){if(bomb||a.st!=='air'||!alive(a)||(me>=0&&a.side===me))return;if(me>=0&&G.set.fog&&!seeAll()&&!known(me,a.id,120))return;if(typeof airRole!=='function'||airRole(a)!=='bomber')return;if(dist(a.x,a.y,c[0],c[1])<12000)bomb=a;});
+    if(bomb&&fx2Y(bomb)>=1930&&sndTok('siren')){FX2.sirenT=now;FX2.st.siren++;SNDF2.siren(SND.ac.currentTime+0.05,0,0.07);}}}
+/* 無線電與電報：兵牌上冒出新的回報時 */
+(function(){var b=bubScan;bubScan=function(){b.apply(this,arguments);try{var q=null;BUB.L.forEach(function(x){if(!q||x.t0>q.t0)q=x;});if(!q||q.t0<=FX2.radioT)return;FX2.radioT=q.t0;if(!fx2On('sRadio')||!fx2SndOk())return;var u=uById(q.u);if(!u)return;var y=fx2Y(u),P=sndAt(u.x,u.y,true);if(!sndTok('radio'))return;FX2.st.radio++;var t=SND.ac.currentTime+0.03,gg=Math.max(0.05,P.g*0.18);
+  if(y>=1925)SNDF2.radio(t,P.pan,gg);else if(y>=1850)SNDF2.telegraph(t,P.pan,gg);}catch(e){}};})();
+/* 引擎聲：畫面中央附近正在移動的戰車或車輛（一個聲音，依距離漸強漸弱） */
+function fx2VehVoice(){var ac=SND.ac,g=ac.createGain();g.gain.value=0;var pn=ac.createStereoPanner?ac.createStereoPanner():null;if(pn){g.connect(pn);pn.connect(SND.out);}else g.connect(SND.out);var V={g:g,pn:pn,nodes:[]};
+  var o=ac.createOscillator();o.type='sawtooth';o.frequency.value=46;var lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=190;o.connect(lp);lp.connect(g);o.start();V.nodes.push(o);V.f=o.frequency;
+  var n=ac.createBufferSource();n.buffer=SND.noise;n.loop=true;var bp=ac.createBiquadFilter();bp.type='bandpass';bp.frequency.value=780;bp.Q.value=1.1;var am=ac.createGain();am.gain.value=0.25;var l=ac.createOscillator();l.frequency.value=11;var lg=ac.createGain();lg.gain.value=0.22;l.connect(lg);lg.connect(am.gain);n.connect(bp);bp.connect(am);am.connect(g);n.start(0,Math.random());l.start();V.nodes.push(n,l);V.lfo=l.frequency;
+  V.stop=function(){V.nodes.forEach(function(x){try{x.stop();}catch(e){}});try{g.disconnect();}catch(e){}};return V;}
+function fx2Veh(now){var ac=SND.ac;if(!ac)return;var want=null;if(fx2On('sVeh')&&fx2SndOk()&&UI.run&&mpp()<15){var cw=VW.cw,ch=VW.ch,R=Math.hypot(cw,ch)/2,bd=0.45,me=UI.side;
+    G.units.forEach(function(u){if(!isLeaf(u)||!onMap(u)||u.st==='air')return;var s=ST(u);if(s.dom!=='land'||!(s.br==='arm'||(s.hard>=0.5&&(u.veh||0)>0))||fx2Y(u)<1916)return;if(me>=0&&u.side!==me&&!known(me,u.id,60))return;if(now-fx2Mv(u,now).mt>4)return;
+      var p=w2s(u.x,u.y),r=Math.hypot(p[0]-cw/2,p[1]-ch/2)/R;if(r<bd){bd=r;want={u:u,r:r,p:p};}});}
+  var V=FX2.veh,t=ac.currentTime;if(!want){if(V){V.g.gain.setTargetAtTime(0,t,0.3);(function(VV){setTimeout(function(){VV.stop();},1500);})(V);FX2.veh=null;}return;}
+  if(!V)V=FX2.veh=fx2VehVoice();var z=Math.pow(clamp(8/mpp(),0.15,1),0.5),g=clamp(1-want.r/0.45,0,1);V.g.gain.setTargetAtTime(0.09*g*z,t,0.25);if(V.pn)V.pn.pan.setTargetAtTime(clamp((want.p[0]-VW.cw/2)/(VW.cw/2),-1,1)*0.7,t,0.2);V.f.setTargetAtTime(40+Math.random()*12,t,0.5);}
+/* ---------- 主迴圈 ---------- */
+function fx2Frame(ts){requestAnimationFrame(fx2Frame);try{if(!G||!G.started||G.replay||UI.tab!=='battle'){if(FX2.drawn&&FX2.cx){FX2.cx.setTransform(1,0,0,1,0,0);FX2.cx.clearRect(0,0,FX2.cv.width,FX2.cv.height);FX2.drawn=0;}if(FX2.veh)fx2Veh(0);return;}
+  if(FX2.g!==G){FX2.g=G;FX2.fl=[];FX2.seen={};FX2.trail={};FX2.ord={};FX2.gas={};}var now=ts/1000;
+  if(now-FX2.tick>0.3){FX2.tick=now;if(fx2NightA()>0.01){FX2.beams=fx2Beams();fx2FireTick();}else{FX2.beams=null;FX2.fire=null;}if(UI.run){fx2FlareTick(now);fx2Move(now);}if(fx2SndOk()){fx2Calls(now);fx2Alarms(now);}fx2Veh(now);}fx2Draw(now);}catch(e){if(!FX2.err){FX2.err=1;if(window.console)console.warn('fx2',e);}}}
+requestAnimationFrame(fx2Frame);
+/* ---------- 設定 ---------- */
+setSec('gfx','fx2',{t:'夜色與環境效果',o:13.5,local:true,h:function(){return setOpt(setRow('夜色',setChk('fx2c','night',UIP.night!==0,'夜間地形變暗，火光、照明彈與開火的槍口照出亮光（部隊符號不會變暗）'))+
+  setRow('照明彈與探照燈',setChk('fx2c','flare',UIP.flare!==0,'夜間交火時升起照明彈（1880 年起）；防空部隊的探照燈照向敵機（1915–1965 年）'))+setRow('揚塵與水面',setChk('fx2c','dust',UIP.dust!==0,'車輛揚起塵土或雪霧、艦艇的航跡、落水的水柱')))+'<div class="lw-note">需要開啟「畫面效果」；簡易圖形模式下不顯示。</div>';}});
+setSec('gfx','sfx2',{t:'號令、警報與通訊聲',o:13.6,local:true,h:function(){return setOpt(setRow('號令',setChk('fx2c','sCall',UIP.sCall!==0,'步兵發起攻擊時的哨音（1900–1960 年）或軍號（1900 年以前）、行軍縱隊的鼓聲（1870 年以前）、照明彈升空'))+
+  setRow('警報',setChk('fx2c','sAlarm',UIP.sAlarm!==0,'毒氣警報（響板；1946 年起為電動警報）、空襲警報（1930 年起，敵方轟炸機接近時）'))+setRow('無線電與電報',setChk('fx2c','sRadio',UIP.sRadio!==0,'部隊回報送達時的無線電雜音與提示音（1925 年起）或電報聲'))+
+  setRow('車輛引擎',setChk('fx2c','sVeh',UIP.sVeh!==0,'放大地圖時，畫面中央附近行駛中的戰車與車輛')))+'<div class="lw-note">需要開啟「音效」。</div>';}});
+CHG.fx2c=function(t){UIP[t.getAttribute('data-f')]=t.checked?1:0;uipSave();if(G&&G.map)vDraw(false);};
+if(typeof HELP14!=='undefined')HELP14.push('<h4>夜色、照明與更多音效</h4><ul>'+
+  '<li>夜間地形會變暗（部隊符號不變），爆炸、火光、照明彈與開火的槍口照出一圈亮光。1880 年起，夜間交火的地方會升起照明彈，隨風緩緩飄落；1915–1965 年的防空部隊在夜間以探照燈照向敵機。</li>'+
+  '<li>車輛在乾燥的地面上揚起塵土，下雪時揚起雪霧；艦艇拖出航跡；砲彈與炸彈落在水面激起水柱。</li>'+
+  '<li>聲音：步兵發起攻擊時的哨音（1900–1960 年）或軍號（1900 年以前），行軍縱隊的鼓聲（1870 年以前），毒氣警報（響板，1946 年起電動警報），敵方轟炸機接近時的空襲警報（1930 年起），部隊回報送達時的無線電聲（1925 年起）或電報聲，以及放大地圖時附近戰車的引擎聲。</li>'+
+  '<li>可以在設定的「畫面 → 夜色與環境效果」「號令、警報與通訊聲」分別關閉。</li></ul>');
+/* ===================== 穩定性：錯誤紀錄、模擬出錯時暫停、閃退後從自動存檔復原、切到背景時暫停並存檔、省記憶體模式 =====================
+   瀏覽器分頁閃退多半是記憶體不足（手機上尤其常見）或作業系統在背景把分頁關掉；這裡做幾件事：
+   一、記錄執行中的錯誤（最近 15 筆，存在這台裝置），設定頁可以複製錯誤報告；
+   二、模擬連續出錯時自動暫停並說明，而不是每一格都重複出錯、畫面卡住；
+   三、作戰進行中記下「仍在作戰」的標記，正常關閉頁面時清除；下次開啟時若標記還在，代表上次是閃退，開始頁提示從自動存檔繼續；
+   四、切換到其他程式或分頁時暫停作戰並立刻自動存檔（手機常在背景關掉分頁）；
+   五、省記憶體模式（手機與記憶體 4 GB 以下的裝置自動開啟）：畫布解析度上限 1.5 倍、兵牌圖快取變小、特效數量減少。 */
+var SAFE={E:[],sf:0,toastT:0,bgp:0,mob:false,low:false,liveT:0};
+(function(){try{var c=window.matchMedia&&matchMedia('(pointer:coarse)').matches,s=Math.min(screen.width||9999,screen.height||9999);SAFE.mob=!!c&&s<=820;var dm=navigator.deviceMemory;SAFE.low=SAFE.mob||(dm>0&&dm<=4);}catch(e){}})();
+function safeLow(){var m=UIP.lowMem||'auto';return m==='on'||(m==='auto'&&SAFE.low);}
+function safeApply(){var low=safeLow();VW.dprMax=low?1.5:2;SPC.pxMax=low?3e6:12e6;if(typeof GFX!=='undefined')GFX.memMul=low?0.6:1;}
+/* ---------- 錯誤紀錄 ---------- */
+function errLoad(){try{var a=JSON.parse(localStorage.getItem('lato-warsim-err')||'[]');return Array.isArray(a)?a:[];}catch(e){return [];}}
+function errRec(e,where,src){var msg=String(e&&e.message||e||'未知錯誤').slice(0,300),k=(e&&e.stack?String(e.stack):'').slice(0,900),now=Date.now(),L=errLoad();
+  if(L.length&&L[0].m===msg&&now-(L[0].ts||0)<60000){L[0].n=(L[0].n||1)+1;}else L.unshift({ts:now,t:new Date(now).toISOString().replace('T',' ').slice(0,19),m:msg,w:where||'',s:src||'',k:k,tab:UI.tab||'',gt:G&&G.t||0,n:1});
+  if(L.length>15)L.length=15;try{localStorage.setItem('lato-warsim-err',JSON.stringify(L));}catch(x){}SAFE.E=L;
+  if(now-SAFE.toastT>60000&&typeof toast==='function'){SAFE.toastT=now;toast('發生錯誤，已記錄（設定 → 畫面 → 穩定性與錯誤紀錄可複製錯誤報告）',5000);}}
+window.addEventListener('error',function(ev){var e=ev.error;if(e&&e._rec)return;errRec(e||ev.message,'頁面',(ev.filename||'')+':'+(ev.lineno||0)+':'+(ev.colno||0));});
+window.addEventListener('unhandledrejection',function(ev){var e=ev.reason;if(e&&e._rec)return;errRec(e,'非同步');});
+/* 已記錄的錯誤之後仍丟出去（不在這一格中斷，讓瀏覽器與測試照常看得到） */function errLater(e){try{if(e&&typeof e==='object')e._rec=1;}catch(x){}setTimeout(function(){throw e;},0);}
+function errReport(){var L=errLoad(),o=['LatoWarsim 錯誤報告','版本：'+(typeof LWBUILD!=='undefined'?LWBUILD:'?')+'　時間：'+new Date().toISOString().replace('T',' ').slice(0,19),
+  '瀏覽器：'+navigator.userAgent,'畫面：'+screen.width+'×'+screen.height+'，像素比 '+(window.devicePixelRatio||1)+'（使用 '+VW.dpr+'）'+(navigator.deviceMemory?'，記憶體約 '+navigator.deviceMemory+' GB':'')+'，'+(SAFE.mob?'觸控裝置':'桌面')+(safeLow()?'，省記憶體模式':''),
+  G&&G.map?'作戰：'+(G.map.name||'')+'，'+(G.started?'第 '+durTxt(G.t):'部署中')+'，單位 '+G.units.length+' 個'+(G.over?'（已結束）':''):'作戰：無',''];
+  if(!L.length)o.push('沒有錯誤紀錄。');L.forEach(function(q,i){o.push((i+1)+'. ['+q.t+'] '+q.w+'：'+q.m+(q.n>1?'（'+q.n+' 次）':'')+(q.s?'\n   位置 '+q.s:'')+'\n   分頁 '+q.tab+'，作戰時間 '+Math.round(q.gt)+' 秒'+(q.k?'\n   '+q.k.split('\n').slice(0,6).join('\n   '):''));});return o.join('\n');}
+/* ---------- 模擬與繪圖出錯：記錄；模擬連續出錯就暫停 ---------- */
+(function(){var b=simStep;simStep=function(){try{var r=b.apply(this,arguments);SAFE.sf=0;return r;}catch(e){SAFE.sf++;errRec(e,'模擬');if(SAFE.sf>=2&&UI.run)UI.pauseReq='模擬發生錯誤而暫停（已記錄；可在設定的「穩定性與錯誤紀錄」複製錯誤報告）';if(SAFE.sf<=3)errLater(e);else if(e&&typeof e==='object')e._rec=1;}};})();
+(function(){var b=vDraw;vDraw=function(){try{return b.apply(this,arguments);}catch(e){errRec(e,'繪圖');var n=Date.now();if(!SAFE.dT||n-SAFE.dT>30000){SAFE.dT=n;errLater(e);}}};})();
+/* ---------- 閃退後復原 ---------- */
+function safeLiveSet(){try{if(G&&G.map&&G.started&&!G.over&&!G.replay&&!(typeof mpActive==='function'&&mpActive()))localStorage.setItem('lato-warsim-live',JSON.stringify({ts:Date.now(),n:G.map.name||'',gt:G.t}));else localStorage.removeItem('lato-warsim-live');}catch(e){}}
+function safeLiveGet(){try{var o=JSON.parse(localStorage.getItem('lato-warsim-live')||'null');return o&&o.ts&&Date.now()-o.ts<3*86400000?o:null;}catch(e){return null;}}
+function safeLiveClr(){try{localStorage.removeItem('lato-warsim-live');}catch(e){}}
+setInterval(function(){if(G&&G.started)safeLiveSet();},20000);
+/* 正常關閉或離開頁面：清掉標記（作業系統直接關掉分頁時不會觸發，下次開啟就知道是閃退） */window.addEventListener('pagehide',function(ev){if(!ev.persisted)safeLiveClr();});
+/* 開始頁：上次是閃退就提示從自動存檔繼續 */
+(function(){var b=PAGES.start;PAGES.start=function(host){var r=b.apply(this,arguments);try{var L=typeof EDONLY==='undefined'?safeLiveGet():null;if(L&&!(G&&G.started)){var m=host.querySelector('.lw-main');if(m){var d=document.createElement('div');d.className='lw-card lw-crash';d.style.cssText='border-left:4px solid #C62828';
+    d.innerHTML='<h3 style="margin:0 0 4px">上次的作戰意外中斷</h3><div class="lw-note">「'+esc(L.n||'作戰')+'」在 '+esc(new Date(L.ts).toLocaleString())+'（作戰第 '+esc(durTxt(L.gt||0))+'）沒有正常結束，可能是瀏覽器閃退或分頁在背景被關閉。作戰進行中每兩分鐘、以及切換到其他程式時都會自動存到這個瀏覽器。</div><div class="lw-row" data-k="crashb"><span class="lw-note">正在尋找自動存檔……</span></div>';
+    m.insertBefore(d,m.firstChild);idbGet('autoMeta').then(function(a){var e=d.querySelector('[data-k="crashb"]');if(!e)return;e.innerHTML=a?'<button type="button" class="lw-btn pri" data-a="crashgo">從自動存檔繼續（'+esc(a.name||'')+(a.started?'，作戰第 '+esc(durTxt(a.t)):'')+'）</button><button type="button" class="lw-btn" data-a="crashx">不用了</button>':'<span class="lw-note">找不到自動存檔。</span><button type="button" class="lw-btn" data-a="crashx">知道了</button>';}).catch(function(){});}}}catch(e){}return r;};})();
+ACT.crashgo=function(){safeLiveClr();ACT.autoload();};ACT.crashx=function(){safeLiveClr();var d=root.querySelector('.lw-crash');if(d)d.remove();};
+/* ---------- 切到背景：暫停並存檔 ---------- */
+document.addEventListener('visibilitychange',function(){if(!G||!G.started||G.replay||G.over)return;var mp=typeof mpActive==='function'&&mpActive();
+  if(document.hidden){if(mp)return;if(UI.run&&UIP.bgPause!==0){UI.run=false;SAFE.bgp=1;try{barRender();}catch(e){}}if(!UI.saving&&typeof autoSave==='function'){UI.saving=true;autoSave(false).then(function(){UI.saving=false;safeLiveSet();},function(){UI.saving=false;});}}
+  else if(SAFE.bgp){SAFE.bgp=0;toast('切換到其他程式時已自動暫停並存檔，按 ▶ 繼續。',4500);}});
+/* ---------- 省記憶體：兵牌圖快取用像素預算；淘汰時立刻釋放畫布 ---------- */
+function spcFree(keep){var M=SPC.m;for(var k in M){var c=M[k]&&M[k].cv;if(c&&c!==keep){c.width=0;c.height=0;}}SPC.m={};SPC.n=0;SPC.px=0;}
+/* 快取快滿（張數或像素）時先自己清掉並釋放，原本的「滿 900 張就丟掉」不會發生；剛畫好的這一張不釋放 */
+(function(){var b=symSprite;symSprite=function(){if(SPC.n>=899)spcFree();var n0=SPC.n,sp=b.apply(this,arguments);if(SPC.n>n0&&sp&&sp.cv){SPC.px=(SPC.px||0)+sp.cv.width*sp.cv.height;if(SPC.px>(SPC.pxMax||12e6))spcFree(sp.cv);}return sp;};})();
+(function(){var b=vResize;vResize=function(fit){safeApply();return b.apply(this,arguments);};})();
+safeApply();
+/* 第一次使用的手機：特效預設為「簡化」 */(function(){try{if(SAFE.mob&&!localStorage.getItem('lato-warsim-fx')&&FX.lvl>1){FX.lvl=1;FX.smk=1;}}catch(e){}})();
+/* ---------- 設定 ---------- */
+setSec('gfx','safe',{t:'穩定性與錯誤紀錄',o:40,local:true,h:function(){var L=errLoad();return setOpt(setRow('切到背景時',setChk('bgpause','',UIP.bgPause!==0,'切換到其他程式或分頁時暫停作戰（並立刻自動存檔）'))+
+  setRow('省記憶體',setSel('lowmem','',[['auto','自動（預設；手機與記憶體較少的裝置開啟）'],['on','開啟'],['off','關閉']],UIP.lowMem||'auto','畫布解析度上限 1.5 倍、兵牌圖快取變小、特效數量減少；手機閃退時建議開啟')))+
+  '<div class="lw-note">目前：'+(safeLow()?'省記憶體模式':'一般模式')+'，畫布像素比 '+VW.dpr+(navigator.deviceMemory?'，裝置記憶體約 '+navigator.deviceMemory+' GB':'')+'。作戰進行中每兩分鐘自動存到這個瀏覽器；分頁意外關閉後，開始頁會提示從自動存檔繼續。</div>'+
+  '<div class="lw-sub"><b>錯誤紀錄</b>'+(L.length?'<div class="lw-ce lw-errl">'+L.slice(0,5).map(function(q){return '<div>'+esc(q.t.slice(5,16))+'　'+esc(q.w)+'：'+esc(q.m)+(q.n>1?'（'+q.n+' 次）':'')+'</div>';}).join('')+'</div>':'<div class="lw-note">沒有錯誤紀錄。</div>')+
+  '<div class="lw-row"><button type="button" class="lw-btn sm" data-a="errcopy">複製錯誤報告</button><button type="button" class="lw-btn sm" data-a="errclr"'+(L.length?'':' disabled')+'>清除紀錄</button></div><div class="lw-note">遇到閃退或錯誤時，把錯誤報告貼給開發者，可以更快找到原因。報告只包含錯誤訊息、瀏覽器與畫面資訊，不含帳號或個人資料。</div></div>';}});
+CHG.bgpause=function(t){UIP.bgPause=t.checked?1:0;uipSave();};CHG.lowmem=function(t){UIP.lowMem=t.value;uipSave();safeApply();spcFree();try{vResize(false);}catch(e){}setSecRe('safe');};
+ACT.errclr=function(){try{localStorage.removeItem('lato-warsim-err');}catch(e){}SAFE.E=[];setSecRe('safe');};
+ACT.errcopy=function(){var s=errReport(),done=function(){toast('錯誤報告已複製。',3000);},fb=function(){var d=dlg('<h3>錯誤報告</h3><div class="lw-note">全選後複製：</div><textarea style="width:100%;height:50vh;font:12px monospace" readonly>'+esc(s)+'</textarea><div class="lw-row"><button type="button" class="lw-btn" data-a="x">關閉</button></div>');var ta=d.querySelector('textarea');ta.focus();ta.select();};
+  try{if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(s).then(done,fb);else fb();}catch(e){fb();}};
+if(typeof HELP14!=='undefined')HELP14.push('<h4>穩定性：閃退與錯誤</h4><ul>'+
+  '<li>作戰進行中每兩分鐘（實際時間）自動存到這個瀏覽器，切換到其他程式或分頁時也會立刻存一次並暫停作戰（可在設定的「畫面 → 穩定性與錯誤紀錄」關閉暫停）。如果分頁意外關閉，下次開啟時開始頁會提示「從自動存檔繼續」。</li>'+
+  '<li>手機與記憶體較少的裝置會自動使用省記憶體模式：畫布解析度上限 1.5 倍、兵牌圖快取變小、特效數量減少。閃退時也可以手動開啟，或把畫面效果調成「簡化」或改用簡易圖形模式。</li>'+
+  '<li>模擬連續出錯時會自動暫停並說明，不會一直重複出錯；所有錯誤都記在這台裝置，可在同一個設定區複製錯誤報告給開發者。</li></ul>');
+/* ===================== 手機：直向全螢幕地圖、底部分頁列、底部抽屜式面板、長按代替右鍵、觸控時放大點選範圍 =====================
+   觸控裝置在直向時也用全螢幕地圖：分頁移到畫面底部，左右兩個浮動面板改成從底部拉起的抽屜（一次只開一個），
+   地圖適配與拖曳範圍扣掉抽屜的高度。長按地圖等於滑鼠右鍵（快速移動），手指點兵牌的範圍放大。
+   橫向的手機沿用原本的全螢幕版面。 */
+var PHN={port:false,touch:false,lp:0,tip:false};
+function mobPortWant(){var w=window.innerWidth,h=window.innerHeight;return !!UI.land&&h>w&&(SAFE.mob||w<=700);}
+/* 觸控裝置：直向也開全螢幕地圖（使用者沒有自己選版面時） */
+(function(){var b=landWant;landWant=function(){var m=UIP.land;if((m===undefined||m===null||m==='auto')&&SAFE.mob&&typeof EDONLY==='undefined')return true;return b();};})();
+/* 直向時兩個面板改成底部抽屜，一次只開一個；預設只開右側（部隊資訊） */
+(function(){var b=lpOpen;lpOpen=function(){return PHN.port?!!UI.pL:b();};})();
+(function(){var b=landCls;landCls=function(){PHN.port=mobPortWant();root.classList.toggle('lw-port',PHN.port);root.classList.toggle('lw-touch',SAFE.mob);b();if(PHN.port){if(UI.pR===undefined)UI.pR=1;root.classList.toggle('lw-norp',!UI.pR);landPads();}};})();
+(function(){var b=panelToggle;panelToggle=function(s){if(!PHN.port)return b(s);if(s==='l'){UI.pL=UI.pL?0:1;if(UI.pL)UI.pR=0;}else{UI.pR=UI.pR?0:1;if(UI.pR)UI.pL=0;}landCls();landHandleTxt();vDraw(true);};})();
+(function(){var b=landHandleTxt;landHandleTxt=function(){b();if(!PHN.port)return;root.querySelectorAll('.lw-ptg').forEach(function(h){var s=h.getAttribute('data-v'),open=s==='l'?!!UI.pL:!!UI.pR;h.textContent=(open?'▾ ':'▴ ')+(s==='l'?'編制':'資訊');});};})();
+/* 抽屜佔掉的高度：地圖置中、縮放按鈕與面板開關都在抽屜上方 */
+(function(){var b=landPads;landPads=function(){if(!PHN.port){VW.padB=0;root.style.setProperty('--padb','0px');return b();}if(UI.land&&UI.sheetOn)return;var W=UI.baseEl?UI.baseEl.querySelector(':scope>.lw-work'):null,mh=W&&W.querySelector(':scope>.lw-mh'),h=0;
+  if(mh)W.querySelectorAll(':scope>.lw-pane').forEach(function(P){if(P.offsetHeight&&getComputedStyle(P).display!=='none')h=Math.max(h,P.offsetHeight);
+    /* 抽屜的內容換了（例如點選部隊），高度跟著變：重新量 */if(!P._mobRO&&typeof ResizeObserver!=='undefined'){P._mobRO=1;(PHN.ro||(PHN.ro=new ResizeObserver(function(){if(PHN.port)landPads();}))).observe(P);}});
+  VW.padL=0;VW.padR=0;VW.padB=h;root.style.setProperty('--padl','0px');root.style.setProperty('--padr','0px');root.style.setProperty('--padb',h+'px');};})();
+vClamp=function(){var MP=G.map,W=MP.GW*VW.s,H=MP.GH*VW.s,m=24,pl=VW.padL||0,pr=VW.padR||0,pb=VW.padB||0,vw=VW.cw-pl-pr,vh=VW.ch-pb;if(!(W>0&&H>0))return;if(W+2*m<=vw)VW.ox=pl+(vw-W)/2;else VW.ox=clamp(VW.ox,VW.cw-pr-W-m,pl+m);if(H+2*m<=vh)VW.oy=(vh-H)/2;else VW.oy=clamp(VW.oy,vh-H-m,m);};
+vFit=function(){if(!G||!G.map)return;var MP=G.map,pl=VW.padL||0,pr=VW.padR||0,pb=VW.padB||0,w=Math.max(120,VW.cw-pl-pr),h=Math.max(120,VW.ch-pb),s=Math.min(w/MP.GW,h/MP.GH)*0.98;VW.s=s;VW.s0=s;VW.ox=pl+(w-MP.GW*s)/2;VW.oy=(h-MP.GH*s)/2;VW.fit=true;vDraw(true);};
+/* 轉向（直橫切換）時重新排版 */
+window.addEventListener('resize',function(){if(!UI.landInit||!UI.land)return;var p=mobPortWant();if(p!==PHN.port){landCls();landHandleTxt();if(G&&G.map&&VW.wrap&&VW.wrap.isConnected)setTimeout(function(){landPads();vFit();},60);}});
+/* 直向時點選新的部隊：自動拉起資訊抽屜 */
+(function(){var b=btSel;btSel=function(){var r=b.apply(this,arguments);try{if(PHN.port&&UI.sel&&UI.sel.length&&UI.sel[0]!==PHN.selId&&!UI.pR&&!UI.pL){UI.pR=1;landCls();landHandleTxt();}PHN.selId=UI.sel&&UI.sel.length?UI.sel[0]:0;}catch(e){}return r;};})();
+/* ---------- 觸控：長按等於右鍵、點選範圍放大 ---------- */
+(function(){var bd=vDown,bm=vMove,bu=vUp;
+  vDown=function(e){PHN.touch=e.pointerType!=='mouse';bd(e);clearTimeout(PHN.lp);PHN.lp=0;if(PHN.touch&&VW.drag&&VW.drag.kind==='pan'&&UI.onRight&&Object.keys(VW.ptr).length===1){var D=VW.drag;
+    PHN.lp=setTimeout(function(){PHN.lp=0;if(VW.drag!==D||D.moved||VW.pinch)return;var w=s2w(D.sx0,D.sy0);VW.drag=null;try{if(navigator.vibrate)navigator.vibrate(12);}catch(x){}UI.onRight(w[0],w[1]);vDraw(false);
+      if(!PHN.tip){PHN.tip=true;toast('長按地圖等於滑鼠右鍵：已選取部隊時快速下達移動命令。',3500);}},560);}};
+  vMove=function(e){bm(e);if(PHN.lp&&(!VW.drag||VW.drag.moved||VW.pinch)){clearTimeout(PHN.lp);PHN.lp=0;}};
+  vUp=function(e){clearTimeout(PHN.lp);PHN.lp=0;return bu(e);};})();
+(function(){var b=hitAt;hitAt=function(sx,sy){var h=b(sx,sy);if(h||!PHN.touch)return h;var best=null,bd=1e9;(VW.items||[]).forEach(function(it){if(it.sx===undefined)return;var d=dist(sx,sy,it.sx,it.sy);if(d<Math.max(24,(it.h||14)*1.2)&&d<bd){bd=d;best=it;}});return best;};})();
+if(typeof HELP14!=='undefined')HELP14.push('<h4>手機與觸控</h4><ul>'+
+  '<li>手機直向也是全螢幕地圖：分頁在畫面底部；部隊資訊與編制樹是從底部拉起的抽屜，用地圖下方的「資訊」「編制」開關（一次開一個）。點選新的部隊時資訊抽屜會自動拉起。</li>'+
+  '<li>兩指縮放、單指拖曳地圖；長按地圖等於滑鼠右鍵（已選取部隊時快速下達移動命令）；手指點兵牌時判定範圍較大。</li>'+
+  '<li>手機會自動使用省記憶體模式，第一次使用時畫面效果預設為「簡化」；切換到其他程式時作戰自動暫停並存檔。</li></ul>');
 /* ===================== 聯機版：在房間裡調整所有模擬設定 =====================
    房主可以在房間頁的「模擬設定」（開戰前不論有沒有載入想定都可以）或作戰中的「設定」分頁調整所有模擬設定；
    改動以「設定路徑 → 值」送到伺服器，所有人一起套用。載入想定前調整的設定，也會套用到之後載入的想定或存檔；「恢復想定的設定」可以撤銷。

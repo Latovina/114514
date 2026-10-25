@@ -322,3 +322,6 @@ function resetGame(R){if(R.phase==='over')rbgmClear(R);if(R.w){try{R.w.terminate
 server.listen(CFG.port,CFG.host,function(){try{fs.writeFileSync(PIDF,String(process.pid));}catch(e){}console.log(CFG.serverName+' '+VERSION+' 已啟動：http://'+(CFG.host==='0.0.0.0'?'localhost':CFG.host)+':'+CFG.port+'/  資料夾：'+DATA+(CFG.publicUrl?'  對外網址：'+CFG.publicUrl:''));});
 function shutdown(){console.log('關閉中，儲存進行中的作戰…');const L=[...ROOMS.values()].filter(R=>R.w&&R.phase!=='setup');Promise.all(L.map(autosave)).then(function(){try{writeJ('users.json',USERS);writeJ('sessions.json',SESS);writeJ('replays.json',REPL);}catch(e){}try{fs.unlinkSync(PIDF);}catch(e){}process.exit(0);});setTimeout(function(){process.exit(0);},15000);}
 process.on('SIGINT',shutdown);process.on('SIGTERM',shutdown);
+/* 主執行緒意外的錯誤：記錄下來、房間照常運作（不讓一個錯誤踢掉所有玩家）；一分鐘內錯誤超過 50 次才結束，交給 systemd 重新啟動並從自動存檔恢復房間 */
+const CRASH={n:0,t:0};function crashLog(k,e){const now=Date.now();if(now-CRASH.t>60000){CRASH.t=now;CRASH.n=0;}CRASH.n++;console.error(new Date().toISOString(),k,e&&e.stack||e);if(CRASH.n>50&&!CRASH.down){CRASH.down=1;console.error('錯誤過多，結束程序');shutdown();}}
+process.on('uncaughtException',e=>crashLog('uncaughtException',e));process.on('unhandledRejection',e=>crashLog('unhandledRejection',e));

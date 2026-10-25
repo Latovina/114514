@@ -127,6 +127,7 @@ systemctl start lato-warsim
 | 網頁開得了，但一直「未連線」 | WebSocket 被擋：使用 Cloudflare 代理時要確認「網路 → WebSockets」是開啟的；用 Nginx 的話要有 `Upgrade` 設定（見附錄 B）。 |
 | 很慢、延遲大 | 大地圖、大量部隊很吃 CPU。房主可以調低時間速度；在 `config.json` 調低 `maxRooms`，或換更多核心的 VPS（每個進行中的房間各用一個核心）。 |
 | 記憶體不足（服務自己重開） | 加 2 GB swap：`fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo '/swapfile none swap sw 0 0' >> /etc/fstab` |
+| 玩家說突然斷線、房間不見 | 伺服器遇到意外的錯誤時會記在紀錄裡（`journalctl -u lato-warsim -n 100`，找 `uncaughtException`），房間照常運作；一分鐘內錯誤超過 50 次才會存檔後結束，由 systemd 重新啟動並從自動存檔恢復房間。把紀錄裡的錯誤訊息貼給開發者。玩家那邊的瀏覽器錯誤可在「設定 → 畫面 → 穩定性與錯誤紀錄」複製錯誤報告。 |
 | 安裝腳本說 80／443 已被占用 | 這台主機已經有 Nginx 或 Apache；腳本會略過 Caddy，請照附錄 B 設定。 |
 
 ## 附錄 A：之後想改用 Cloudflare 代理（橘色雲朵）
