@@ -2791,7 +2791,7 @@ window.LatoTerrainLib={LTCore:LTCore,LTClimate:LTClimate,LTRivers:LTRivers,LTLay
 "use strict";
 var root=document.getElementById('lato-warsim');
 if(!root)return;
-var LWBUILD="8b537da8-online";
+var LWBUILD="a56eec89-online";
 var MPON=1;
 /* ===================== LatoWarsim 作戰模擬：共用工具（數學、亂數、雜訊、幾何、時間、名稱、編碼） ===================== */
 var PI=Math.PI,D2R=PI/180,R2D=180/PI;
@@ -12952,6 +12952,64 @@ function damAI(){if(!damOn())return;[0,1].forEach(function(side){var S=SD(side);
 /* 存檔與聯機 */
 if(typeof GKEYS!=='undefined')GKEYS.push('dams','damSeq');
 if(typeof MPCOL!=='undefined'){MPCOL.push(['dam','id',function(){return (G.dams||[]).map(function(d){var c=Object.assign({},d);delete c.hitS;delete c.hitU;return c;});}]);MPCC.dam=function(){return G.dams||(G.dams=[]);};MPKEY.dam='id';}
+/* ===================== 動態戰場地形：彈坑、戰場墓地、規劃的戰壕系統 =====================
+   一、彈坑：砲兵射擊、地毯式轟炸、飛彈與核爆在落點留下彈坑（每格 0～255 的密度，存成稀疏表）。
+       彈坑讓越野的車輛、馬匹走得很慢（徒步影響較小）；落在道路上的算路面損壞，沿用修路系統；彈坑也給趴在裡面的步兵一點掩蔽。
+   二、戰場墓地：各處陣亡的官兵依地點累計，戰事平息後被集體掩埋成墓坑，地圖上看得到（不是罪行；經過的官兵會有些不安）。
+   三、戰壕：在地圖上畫出戰壕路線並指派部隊挖掘；每 100 公尺一段，依人數、工兵、年代的機具、天候、是否遭射擊計算進度。
+       挖好的戰壕給在裡面的部隊（不分敵我，奪下的戰壕也能用）深厚的掩體；挖到一半也有部分效果。 ===================== */
+function crtOn(){return !!G&&G.set.crt!==false;}
+function crtGet(k){return G.crt?G.crt[k]||0:0;}
+function crtAdd(x,y,r,inc){if(!crtOn()||!(inc>0))return;var MP=G.map,cs=MP.cs,GW=MP.GW,GH=MP.GH,R=Math.max(0,Math.round(r/cs)),cx=Math.floor(x/cs),cy=Math.floor(y/cs),C=G.crt||(G.crt={}),N=GW*GH;if(!G.rdd||G.rdd.length!==N)G.rdd=new Uint8Array(N);var rc=0;
+  for(var dy=-R;dy<=R;dy++)for(var dx=-R;dx<=R;dx++){var X=cx+dx,Y=cy+dy;if(X<0||Y<0||X>=GW||Y>=GH)continue;var d2=dx*dx+dy*dy;if(d2>R*R+R)continue;var k=Y*GW+X;if(isWater(MP.lc[k]))continue;var f=R?1-0.5*Math.sqrt(d2)/R:1,v=inc*f;
+    C[k]=Math.min(255,Math.round((C[k]||0)+v));if(MP.rd[k]){var o=G.rdd[k];G.rdd[k]=Math.min(255,o+Math.round(v*0.6));if(G.rdd[k]>=120&&o<120)rc++;}}G.crtV=(G.crtV||0)+1;if(rc)mapChangedSoft();}
+/* 砲兵：每一步依砲數與射速，把砲彈平均落在目標圓內 */
+(function(){var b=artyFire;artyFire=function(u,s,M){var r=b.apply(this,arguments);try{if(crtOn()&&M&&M.x!==undefined&&u.ammo>0){var R=Math.max(G.map.cs,M.r||300),cells=Math.max(1,PI*R*R/(G.map.cs*G.map.cs)),sh=Math.max(1,(u.veh||1)*strFrac(u))*(M.mul||1)*DT/60*2;crtAdd(M.x,M.y,R,sh*40/cells);}}catch(e){}return r;};})();
+(function(){var b=carpetHit;carpetHit=function(side,src,cx,cy,ang,L,W,tons,o){var r=b.apply(this,arguments);try{if(crtOn()){var rho=tons/Math.max(0.01,L*W/1e6),n=Math.max(1,Math.round(L/Math.max(G.map.cs*4,W)));for(var i=0;i<n;i++){var f=(i+0.5)/n-0.5;crtAdd(cx+Math.cos(ang)*L*f,cy+Math.sin(ang)*L*f,Math.max(W/2,G.map.cs),Math.min(255,rho*0.9));}}}catch(e){}return r;};})();
+(function(){var b=mslImpact;mslImpact=function(S){var r=b.apply(this,arguments);try{if(crtOn()&&S&&S.x!==undefined)crtAdd(S.tx!==undefined?S.tx:S.x,S.ty!==undefined?S.ty:S.y,G.map.cs,60);}catch(e){}return r;};})();
+(function(){var b=nukeAt;nukeAt=function(side,x,y,Y,src){var r=b.apply(this,arguments);try{if(crtOn())crtAdd(x,y,Math.max(60,40*Math.pow(Y||1,1/3)),255);}catch(e){}return r;};})();
+/* 彈坑：越野行進變慢；趴在彈坑裡的步兵多一點掩蔽 */
+var CRTM=[0.15,0.3,0.5,0.6,0.3];
+(function(){var b=speedAt;speedAt=function(u,s,pf){var v=b(u,s,pf);if(!G.crt||s.dom!=='land')return v;var k=cellAt(u.x,u.y),c=G.crt[k];if(!c||G.map.rd[k])return v;return v*(1-c/255*(CRTM[s.mobi]||0.3));};})();
+(function(){var b=hit;hit=function(t,src,dm,dv,sup,kind){if(G.crt&&t&&(kind==='fire'||kind==='art')&&dm>0){var c=G.crt[cellAt(t.x,t.y)];if(c&&ST(t).mobi===0)dm*=1-0.2*c/255;}return b(t,src,dm,dv,sup,kind);};})();
+/* ---------- 二、戰場墓地 ---------- */
+if(typeof EVDK!=='undefined'){EVDK.bgrave=['戰場墓地','陣亡的官兵被集體掩埋在這裡'];EVDV.kia='陣亡官兵';}
+function bgStep(){if(!crtOn()||typeof evdAdd!=='function')return;var K=G.kg||(G.kg={});G.units.forEach(function(u){if(!isLeaf(u)||ST(u).dom!=='land')return;var k0=u._kia0===undefined?(u.kia||0):u._kia0,d=(u.kia||0)-k0;u._kia0=u.kia||0;if(!(d>0.2)||!onMap(u))return;
+    var key=Math.floor(u.x/1000)+'_'+Math.floor(u.y/1000),q=K[key]||(K[key]={n:0,sx:0,sy:0});q.n+=d;q.sx+=u.x*d;q.sy+=u.y*d;});}
+function bgBury(){if(!G.kg)return;Object.keys(G.kg).forEach(function(key){var q=G.kg[key];if(q.n<15)return;var x=q.sx/q.n,y=q.sy/q.n,quiet=true;gridNear(x,y,2000,function(u){if(G.t-(u.fired||-1e9)<3*3600||G.t-(u.uf||-1e9)<3*3600)quiet=false;});if(!quiet)return;
+    var e=evdAdd('bgrave',x,y,{side:-1,vk:'kia',n:Math.round(q.n),dk:'bury'});if(e)gridNear(x,y,3000,function(u){if(u.side>=0)e.found[u.side]=e.found[u.side]||G.t;});delete G.kg[key];});}
+/* ---------- 三、戰壕 ---------- */
+Object.assign(ORDN,{trench:'挖戰壕'});
+function trnL(){return G.trn||(G.trn=[]);}
+function trnById(id){var L=trnL();for(var i=0;i<L.length;i++)if(L[i].id===id)return L[i];return null;}
+/* 路線切成每段約 100 公尺：[x0,y0,x1,y1,長度,進度] */
+function trnMake(id,side,P){var S=[],tot=0;for(var i=0;i+3<P.length;i+=2){var x0=P[i],y0=P[i+1],x1=P[i+2],y1=P[i+3],L=dist(x0,y0,x1,y1),n=Math.max(1,Math.ceil(L/100));for(var j=0;j<n;j++){var a=j/n,b2=(j+1)/n;S.push([x0+(x1-x0)*a,y0+(y1-y0)*a,x0+(x1-x0)*b2,y0+(y1-y0)*b2,L/n,0]);tot+=L/n;}}
+  var T={id:id,side:side,pts:P.slice(),s:S,len:tot,t0:G.t};trnL().push(T);return T;}
+function trnDone(T){var d=0;T.s.forEach(function(q){d+=q[4]*Math.min(1,q[5]);});return T.len>0?d/T.len:0;}
+/* 挖掘速度（公尺／小時）：每人約 0.25 公尺，工兵快八成，1940 年後的工兵有機具；凍土、下雨、遭射擊、疲勞都變慢 */
+function trnRate(u){var y=G.set.y||1943,T=G.env.T,W=WX[G.env.wx]||WX[0],r=u.men*0.25*(isEng(u)?1.8:1)*(isEng(u)&&y>=1940?1.5:1)*(T!==undefined&&T<-5?0.4:1)*(W[3]>0?0.75:1)*(G.t-(u.uf||-1e9)<600?0.25:1)*(1-(u.fat||0)/200);return Math.max(1,r);}
+function trnSeg(T,u,o){var f0=o.opt.f0||0,f1=o.opt.f1===undefined?1:o.opt.f1,n=T.s.length,i0=Math.floor(f0*n),i1=Math.max(i0+1,Math.ceil(f1*n)),best=-1,bd=1e18;for(var i=i0;i<i1&&i<n;i++){var q=T.s[i];if(q[5]>=1)continue;var d=dist(u.x,u.y,(q[0]+q[2])/2,(q[1]+q[3])/2);if(d<bd){bd=d;best=i;}}return best;}
+function trnAct(u,o){var p=o.opt||{};if(ST(u).dom!=='land'||!p.tid){u.ord=null;u.task='hold';return true;}var T=trnById(p.tid)||(p.pts&&p.pts.length>=4?trnMake(p.tid,u.side,p.pts):null);if(!T){u.ord=null;u.task='hold';return true;}
+  o.ph='go';o.seg=trnSeg(T,u,o);if(o.seg<0){logE(u.side,'eng',uName(u)+'負責的戰壕已經挖好',u.x,u.y,u.id);u.ord=null;u.task='hold';return true;}var q=T.s[o.seg],mx=(q[0]+q[2])/2,my=(q[1]+q[3])/2,pp=validPos(ST(u),mx,my);if(dist(u.x,u.y,mx,my)<150){u.task='at';u.path=null;}else{u.task='go';wantPath(u,pp[0],pp[1]);}return true;}
+function trnLeaf(u,s,o){var T=trnById(o.opt.tid);if(!T){u.ord=null;u.task='hold';return true;}if(o.seg===undefined||o.seg<0||T.s[o.seg][5]>=1){o.seg=trnSeg(T,u,o);if(o.seg<0){logE(u.side,'eng',uName(u)+'挖好了分配的戰壕（全線完成 '+pct(trnDone(T)*100)+'）',u.x,u.y,u.id);u.ord=null;u.task='hold';return true;}o.ph='go';}
+  var q=T.s[o.seg],mx=(q[0]+q[2])/2,my=(q[1]+q[3])/2;if(o.ph==='go'){if(dist(u.x,u.y,mx,my)>150){if((G.step+u.id)%6===0&&!u.path){var pp=validPos(s,mx,my);u.task='go';wantPath(u,pp[0],pp[1]);}return false;}o.ph='dig';u.task='work2';u.path=null;if(!o.t1){o.t1=G.t;logE(u.side,'eng',uName(u)+'開始挖戰壕（'+placeTxt(mx,my)+'）',u.x,u.y,u.id);}return true;}
+  if(o.ph==='dig'){q[5]=Math.min(1,q[5]+trnRate(u)*DT/3600/Math.max(1,q[4]));u.fat=clamp((u.fat||0)+0.04,0,100);u.ent=Math.max(u.ent||0,0.2+0.5*q[5]);if(q[5]>=1)o.seg=-1;return true;}return false;}
+(function(){var b=v4Act;v4Act=function(u,o){if(o.k==='trench')return trnAct(u,o);return b(u,o);};})();
+(function(){var b=v4Leaf;v4Leaf=function(u,s){var o=u.ord;if(o&&o.k==='trench'&&o.opt)return trnLeaf(u,s,o);return b(u,s);};})();
+/* 在戰壕裡的部隊（不分敵我）：沒在移動就有深厚的掩體 */
+function trnStep(){var L=trnL();if(!L.length)return;G.units.forEach(function(u){if(!isLeaf(u)||!onMap(u)||ST(u).dom!=='land'||G.t-(u.movedAt||-1e9)<300)return;var best=0;
+    L.forEach(function(T){for(var i=0;i<T.s.length;i++){var q=T.s[i];if(q[5]<0.05)continue;var d=trnSegD(u.x,u.y,q[0],q[1],q[2],q[3]);if(d<70)best=Math.max(best,q[5]>=1?0.9:0.2+0.5*q[5]);}});if(best>0){u.ent=Math.max(u.ent||0,best);u.inTr=G.t;}});}
+function trnSegD(px,py,x0,y0,x1,y1){var dx=x1-x0,dy=y1-y0,L2=dx*dx+dy*dy,t=L2?clamp(((px-x0)*dx+(py-y0)*dy)/L2,0,1):0;return dist(px,py,x0+dx*t,y0+dy*t);}
+(function(){var b=v8Step;v8Step=function(){b();if(!G.started)return;if(G.step%20===15){bgStep();trnStep();}if(G.step%720===300)bgBury();};})();
+/* 存檔與聯機 */
+if(typeof GKEYS!=='undefined')GKEYS.push('crt','crtV','kg','trn');
+if(typeof MPCOL!=='undefined'){MPCOL.push(['crt','id',function(){var o=[],C=G.crt||{};for(var k in C)o.push({id:+k,v:C[k]>>4<<4});return o;}],['trn','id',function(){return G.trn||[];}]);
+  MPCC.crt=function(){if(!G._crtA)G._crtA=[];return G._crtA;};MPCC.trn=function(){return G.trn||(G.trn=[]);};MPKEY.crt='id';MPKEY.trn='id';}
+if(typeof MPUX!=='undefined'){MPUX._kia0=1;MPUX.inTr=1;}
+/* 戰場墓地不是罪行：經過時只記錄、有些不安 */
+(function(){var b=evdReact;evdReact=function(u,e){if(e.k!=='bgrave')return b(u,e);if(typeof fearAdd==='function')fearAdd(u,2,'atro');u.evT=G.t;u.evC=(u.evC||0)+1;u.evK='bgrave';};})();
+(function(){var b=evdFound;evdFound=function(e,u){if(e.k!=='bgrave')return b(e,u);e.found[u.side]=G.t;logE(u.side,'evid',uName(u)+'經過'+placeTxt(e.x,e.y)+'的戰場墓地（約 '+fmt(e.n)+' 名陣亡官兵）',e.x,e.y,u.id);};})();
+(function(){var b=evdR;evdR=function(e,u,s){return e.k==='bgrave'?300*(G.env.light<0.3?0.6:1):b(e,u,s);};})();
 /* ===================== 兵牌：北約 APP-6、華約式、明式與二戰德軍式 =====================
    北約式：外框依觀看者的立場（友軍長方形、敵軍菱形、中立方形、不明四葉形；空中只有上半、水下只有下半），內部圖示依兵種，
    上方梯隊記號、下方機動方式（輪型、履帶、牽引）與兵力條，左上角分隊顏色、右上角隊徽；部隊可以自訂圖片。
@@ -24479,6 +24537,45 @@ VOXD.flood=['水！水沖過來了！','往高處跑！','抓住樹！','車子�
 VOXP.rough.flood=['靠杯，水怎麼這麼大！','快爬上去，*的！','誰炸的堤？王*蛋！','車沒救了，人先走！'];VOXP.pro.flood=['洪水接近，向高地轉移！','清點人員，回報損失','車輛棄置，人員優先','標示安全路線'];
 VOX.P=null;VOX.PS=null;
 (function(){var b=voxDetect;voxDetect=function(u,P,N,s){var r=b(u,P,N,s);N.flC=u.flC||0;if(r||P.flC===undefined)return r;if(N.flC>P.flC)return ['flood',1];return null;};})();
+/* ===================== 動態戰場地形（介面）：彈坑與戰壕的繪製、手繪「規劃戰壕」、戰場墓地、滑鼠提示、設定、說明、對話 ===================== */
+setSec('combat','crt',{t:'彈坑與戰場墓地',o:26,h:function(){return setOpt(setRow('彈坑',setChk('setb','crt',G.set.crt!==false,'砲擊、轟炸、飛彈與核爆留下彈坑：越野的車輛與馬匹走得慢，落在道路上算路面損壞；步兵趴在彈坑裡多一點掩蔽。陣亡的官兵在戰事平息後被集體掩埋成戰場墓地')))+
+  '<div class="lw-note">戰壕在手繪工具的「規劃戰壕」：選取部隊後在地圖上畫出路線，部隊會分段挖掘。</div>';}});
+/* ---------- 手繪：規劃戰壕 ---------- */
+DRK.trench=['規劃戰壕','line','#5D4037','trench'];
+(function(){var b=canOrd;canOrd=function(u,k){if(k==='trench'){var L=isLeaf(u)?[u]:leavesOf(u).filter(alive);return L.some(function(q){return ST(q).dom==='land';});}return b(u,k);};})();
+(function(){var b=drawOrderFor;drawOrderFor=function(kind,P,u,i,n){if(kind!=='trench')return b(kind,P,u,i,n);var side=u.side,tid=side*1e6+(G.dseq||0),f0=i/n,f1=(i+1)/n,m=plAt(P,(f0+f1)/2);
+  return {k:'trench',o:{x:m.x,y:m.y,opt:{tid:tid,pts:P.map(function(v){return Math.round(v);}),f0:f0,f1:f1}}};};})();
+/* ---------- 地圖：彈坑 ---------- */
+function crtMap(){if(G.crt)return G.crt;var A=G._crtA;if(!A||!A.length)return null;if(G._crtM&&G._crtMn===A.length&&G._crtMv===G.crtV)return G._crtM;var M={};A.forEach(function(q){M[q.id]=q.v;});G._crtM=M;G._crtMn=A.length;G._crtMv=G.crtV;return M;}
+function crtDraw(c){if(!G||!G.started||G.set.crt===false||VW.s<1.8)return;var C=crtMap();if(!C)return;var MP=G.map,GW=MP.GW,s=VW.s,x0=Math.floor(-VW.ox/s)-1,y0=Math.floor(-VW.oy/s)-1,x1=x0+Math.ceil(VW.cw/s)+2,y1=y0+Math.ceil(VW.ch/s)+2;c.save();c.lineWidth=1;
+  for(var key in C){var k=+key,x=k%GW,y=(k-x)/GW;if(x<x0||x>x1||y<y0||y>y1)continue;var v=C[key],n=v>=160?3:v>=60?2:1,px=VW.ox+x*s,py=VW.oy+y*s;for(var j=0;j<n;j++){var h=hstr('crt|'+k+'|'+j),cx=px+((h%97)/97)*s,cy=py+(((h>>8)%89)/89)*s,r=Math.max(1.2,s*(0.12+((h>>16)%10)/60));
+      c.fillStyle='rgba(62,39,35,'+(0.25+0.4*v/255)+')';c.beginPath();c.arc(cx,cy,r,0,2*PI);c.fill();c.strokeStyle='rgba(141,110,99,.6)';c.beginPath();c.arc(cx,cy,r+1,0,2*PI);c.stroke();}}c.restore();}
+/* ---------- 地圖：戰壕（之字形，挖好的是實線、挖到一半的半透明、規劃中的是虛線） ---------- */
+var TRV={t:0,m:{}};
+function trnSeen(T){var me=UI.side;if(me<0||seeAll()||T.side===me)return true;var now=performance.now();if(now-TRV.t>2000){TRV.t=now;TRV.m={};}if(TRV.m[T.id]!==undefined)return TRV.m[T.id];var ok=G.units.some(function(u){if(u.side!==me||!onMap(u))return false;return T.s.some(function(q){return q[5]>0.05&&dist(u.x,u.y,q[0],q[1])<2500;});});TRV.m[T.id]=ok;return ok;}
+function trnDraw(c){if(!G||!G.started||!G.trn||!G.trn.length)return;c.save();c.lineJoin='round';G.trn.forEach(function(T){if(!trnSeen(T))return;var mine=UI.side<0||T.side===UI.side;
+  T.s.forEach(function(q){if(!mine&&q[5]<0.05)return;var a=w2s(q[0],q[1]),b2=w2s(q[2],q[3]),dx=b2[0]-a[0],dy=b2[1]-a[1],L=Math.hypot(dx,dy);if(L<0.5)return;var ux=dx/L,uy=dy/L,nx=-uy,ny=ux,w=Math.max(2,Math.min(5,VW.s*0.35)),p=q[5];
+    if(p<0.05){c.setLineDash([4,4]);c.strokeStyle='rgba(93,64,55,.55)';c.lineWidth=1.5;c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b2[0],b2[1]);c.stroke();c.setLineDash([]);return;}
+    c.strokeStyle=p>=1?'#4E342E':'rgba(109,76,65,'+(0.35+0.5*p)+')';c.lineWidth=p>=1?2:1.5;c.beginPath();var st=Math.max(6,w*2),n=Math.max(1,Math.floor(L/st));for(var i=0;i<=n;i++){var t=i/n*L,s2=(i%2?1:-1)*w;c[i?'lineTo':'moveTo'](a[0]+ux*t+nx*s2,a[1]+uy*t+ny*s2);}c.stroke();
+    if(p<1){c.setLineDash([3,3]);c.strokeStyle='rgba(93,64,55,.45)';c.lineWidth=1;c.beginPath();c.moveTo(a[0]+ux*L*p,a[1]+uy*L*p);c.lineTo(b2[0],b2[1]);c.stroke();c.setLineDash([]);}});});c.restore();}
+(function(){var b=drawUnder;drawUnder=function(c){try{crtDraw(c);trnDraw(c);}catch(e){}b.apply(this,arguments);};})();
+/* ---------- 戰場墓地：灰色的墓坑與一排小墓標 ---------- */
+(function(){var b=evdIcon;evdIcon=function(c,e,x,y,z,sel){if(e.k!=='bgrave')return b(c,e,x,y,z,sel);c.save();c.fillStyle='#78909C';c.strokeStyle='#ECEFF1';c.lineWidth=1;c.fillRect(x-z,y-z*0.45,z*2,z*0.9);c.strokeRect(x-z,y-z*0.45,z*2,z*0.9);c.strokeStyle='#263238';c.lineWidth=1.2;c.beginPath();
+  for(var i=-1;i<=1;i++){c.moveTo(x+i*z*0.55,y-z*0.25);c.lineTo(x+i*z*0.55,y+z*0.25);c.moveTo(x+i*z*0.55-z*0.15,y-z*0.08);c.lineTo(x+i*z*0.55+z*0.15,y-z*0.08);}c.stroke();if(sel){c.strokeStyle='#FFC107';c.lineWidth=2;c.beginPath();c.arc(x,y,z*1.5,0,2*PI);c.stroke();}c.restore();};})();
+(function(){var b=evdPanel;evdPanel=function(e){if(e.k!=='bgrave')return b(e);return v8H('⚰ 戰場墓地')+'<div class="lw-note">'+esc(EVDK.bgrave[1])+'</div><div class="lw-kv">'+kv('地點',esc(placeTxt(e.x,e.y)))+kv('埋葬','約 '+fmt(e.n)+' 名陣亡官兵')+kv('時間',tTxt(e.t).slice(-11))+'</div>';};})();
+/* ---------- 滑鼠提示 ---------- */
+(function(){var b=cellTip;cellTip=function(x,y){var t=b(x,y);try{if(!G||!G.started)return t;var C=crtMap(),k=cellAt(x,y),v=C?C[k]:0,a=[];if(v)a.push((v>=160?'彈坑密布':v>=60?'到處是彈坑':'有幾個彈坑')+'：越野的車輛與馬匹走得慢，步兵可以趴在裡面掩蔽');
+  (G.trn||[]).forEach(function(T){if(!trnSeen(T))return;T.s.forEach(function(q){if(a.length<3&&q[5]>0.05&&trnSegD(x,y,q[0],q[1],q[2],q[3])<60)a.push('戰壕'+(q[5]>=1?'（已挖好）':'（挖了 '+pct(q[5]*100)+'）')+(UI.side<0||T.side===UI.side?'，全線完成 '+pct(trnDone(T)*100):''));});});
+  if(a.length)t+='\n'+a.join('\n');}catch(e){}return t;};})();
+if(typeof HELP14!=='undefined')HELP14.push('<h4>動態戰場地形</h4><ul>'+
+  '<li><b>彈坑</b>：砲兵射擊的目標圈、地毯式轟炸的路線、飛彈與核爆的落點留下彈坑（放大地圖時畫成褐色的小坑）。越野的輪型車輛、畜力與馬匹走得很慢、履帶車輛也慢，徒步影響較小；落在道路上的算路面損壞，可以派工兵修路。步兵趴在彈坑裡多一點掩蔽。</li>'+
+  '<li><b>戰場墓地</b>：各處陣亡的官兵依地點累計，戰事平息後被集體掩埋（灰色墓坑與墓標）。它不是罪行，但經過的官兵會有些不安。屠殺與處決留下的亂葬坑見「戰爭罪的決策與證據」。</li>'+
+  '<li><b>規劃戰壕</b>：手繪工具選「規劃戰壕」，先選取部隊再在地圖上畫出路線，路線依部隊數分段，各自前往挖掘；沒選部隊時只畫出規劃。每 100 公尺一段，一個百人的連約 4 小時挖好一段；工兵快八成，1940 年後的工兵有機具更快；凍土、下雨、遭射擊與疲勞都會變慢，挖掘也會累。</li>'+
+  '<li>挖好的戰壕（之字形實線）給在裡面、沒在移動的部隊深厚的掩體，挖到一半也有部分效果；不分敵我，奪下的戰壕也能用。看得到自己的戰壕，敵人的戰壕要有部隊在附近才看得到。</li></ul>');
+VOXN.ev_bgrave=['戰場墓地','經過集體掩埋陣亡官兵的墓坑'];VOXCAT.forEach(function(c){if(c[0]==='暴行現場')c[1].push('ev_bgrave');});
+VOXD.ev_bgrave=['這裡埋了好多弟兄','一整排的墳','又是新翻的土','連名字都沒留下','記住這個地方','[~]願他們安息','[!]下一個會不會是我'];
+VOXP.rough.ev_bgrave=['*的，一整片墳','這些傢伙比我還倒楣','別看了，走吧','總有一天輪到我們'];VOXP.pro.ev_bgrave=['經過戰場墓地','記錄墓地位置','向陣亡將士致敬','保持行進'];VOX.P=null;VOX.PS=null;
+(function(){var b=voxDetect;voxDetect=function(u,P,N,s){var r=b(u,P,N,s);if(r&&r[0]==='ev_body'&&u.evK==='bgrave')return ['ev_bgrave',3];return r;};})();
 /* ===================== 聯機版：在房間裡調整所有模擬設定 =====================
    房主可以在房間頁的「模擬設定」（開戰前不論有沒有載入想定都可以）或作戰中的「設定」分頁調整所有模擬設定；
    改動以「設定路徑 → 值」送到伺服器，所有人一起套用。載入想定前調整的設定，也會套用到之後載入的想定或存檔；「恢復想定的設定」可以撤銷。
