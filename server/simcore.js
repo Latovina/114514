@@ -1759,6 +1759,10 @@ function roeIdOk(u,t,ts,d){return true;}
 /* 部隊可不可以自行出擊等（授權模組會依本方的授權表），以及行動前的請示 */
 function authMay(u,k){return G.set.iniP===true||aiControls(u);}
 function authGo(u,k,d){return true;}
+/* 飛機出擊的掛載（掛載模組會依命令或任務選定，並調整空戰能力） */
+function ldPick(u,o){}
+function ldTxt(u){return '';}
+function ldAA(u,s){return s.aa||0;}
 var PACE=[['rush','急行',1.3,1.6,0.8],['normal','標準',1,1,1],['careful','謹慎',0.7,0.8,1.2]];
 var FMS=[['line','橫隊'],['column','縱隊（衝擊）'],['skirmish','散兵線']];
 function optOf(u){return (u.ord&&u.ord.opt)||{};}
@@ -1933,7 +1937,7 @@ function rearmOf(s){return s.fl.indexOf('Y')>=0?7200:s.fl.indexOf('A')>=0?2700:s
 function airStep(u,s){if(u.lift&&u.st==='air'){carrierStep(u,s);return;}if(u.lift&&u.st!=='air')u.lift=null;var o=u.ord,W=WX[G.env.wx][5],B=baseOf(u);
   if(u.st==='base'){u.x=B[0];u.y=B[1];if(u.readyT&&G.t<u.readyT)return;if(u.readyT){if(typeof airRearm==='function'&&!airRearm(u)){u.readyT=G.t+600;if(!u.noSupLog||G.t-u.noSupLog>3600){u.noSupLog=G.t;logE(u.side,'log',uName(u)+'：基地燃料或彈藥不足，延後出擊',u.x,u.y,u.id);}return;}u.readyT=0;u.ammo=100;u.fuel=endOf(s);}
     if(o&&o.st!=='done'&&o.x!==undefined&&o.k!=='halt'&&o.k!=='rest'){if(W<=0.05||(G.env.light<0.3&&s.nv<1&&s.fl.indexOf('Y')<0&&s.fl.indexOf('Z')<0&&o.k!=='patrol')){if(!u.gnd){u.gnd=1;logE(u.side,'air',uName(u)+'因'+(W<=0.05?WX[G.env.wx][1]:'夜間')+'無法出擊',u.x,u.y,u.id);}return;}
-      u.gnd=0;u.st='air';u.fuel=u.fuel||endOf(s);u.task='go';u.path={pts:[u.x,u.y,o.x,o.y],i:2};u.sorties=(u.sorties||0)+1;logE(u.side,'air',uName(u)+'起飛執行'+ORDN[o.k]+'（第 '+u.sorties+' 架次）',u.x,u.y,u.id);}return;}
+      u.gnd=0;u.st='air';u.fuel=u.fuel||endOf(s);u.task='go';u.path={pts:[u.x,u.y,o.x,o.y],i:2};u.sorties=(u.sorties||0)+1;ldPick(u,o);logE(u.side,'air',uName(u)+'起飛執行'+ORDN[o.k]+'（第 '+u.sorties+' 架次'+ldTxt(u)+'）',u.x,u.y,u.id);}return;}
   u.fuel-=DT;var v=s.vr/3.6,tHome=dist(u.x,u.y,B[0],B[1])/v;
   if(u.task!=='rtb'&&(u.fuel<tHome*1.15+300||u.ammo<8||W<=0.05||u.ms==='rout'||!o||o.k==='halt'||o.k==='rest')){u.task='rtb';u.path={pts:[u.x,u.y,B[0],B[1]],i:2};}
   if(u.task==='rtb'){u.path={pts:[u.x,u.y,B[0],B[1]],i:2};moveStep(u,s,1);if(!u.path){u.st='base';u.task='base';u.readyT=G.t+rearmOf(s)*(u.ms==='rout'?1.5:1);if(u.ms==='rout')u.ms='shaken';logE(u.side,'air',uName(u)+'返回基地整補',u.x,u.y,u.id);}return;}
@@ -2154,8 +2158,8 @@ function airFight(){var A=G.units.filter(function(u){return u.st==='air'&&alive(
     A.forEach(function(a){if(a.side===g.side)return;var d=dist(g.x,g.y,a.x,a.y);if(d<bd&&aaSees(g,a,d)){bd=d;best=a;}});if(!best)return;var es=ST(best),F=AA*0.03*dm*strFrac(g)*vis*(1-g.sup/150)*clamp(es.sig,0.3,3)/(1+es.arm/3)*AAK*(0.7+0.6*rnd())*ctrMul(g,best,'aa')*(sam?clamp(1.5-bd/R,0.5,1):1);
     hit(best,g,F*best.men/Math.max(1,best.veh),F,6,'aa');g.ammo=Math.max(0,g.ammo-0.1);});
   /* 空戰 */
-  A.forEach(function(f){var s=ST(f);if(!(s.aa>0)||f.ms==='rout'||f.task==='rtb'&&s.fl.indexOf('Y')<0)return;var R=Math.max(3000,Math.min(Math.max(s.rE,3000),s.spot*0.6)),best=null,bd=R;
-    A.forEach(function(e){if(e.side===f.side)return;var d=dist(f.x,f.y,e.x,e.y);if(d<bd&&airSees(f,e,d)){bd=d;best=e;}});if(!best)return;var es=ST(best),rel=clamp(1+0.12*(s.aa-es.aa),0.3,2.5),F=s.aa*0.05*dm*strFrac(f)*rel*AAK/(1+es.arm/4)*(G.env.light<0.3&&s.nv<1?0.3:1)*(0.7+0.6*rnd())*ctrMul(f,best,'air')*firstLook(f,best,bd);
+  A.forEach(function(f){var s=ST(f),fa=ldAA(f,s);if(!(fa>0)||f.ms==='rout'||f.task==='rtb'&&s.fl.indexOf('Y')<0)return;var R=Math.max(3000,Math.min(Math.max(s.rE,3000),s.spot*0.6)),best=null,bd=R;
+    A.forEach(function(e){if(e.side===f.side)return;var d=dist(f.x,f.y,e.x,e.y);if(d<bd&&airSees(f,e,d)){bd=d;best=e;}});if(!best)return;var es=ST(best),rel=clamp(1+0.12*(fa-ldAA(best,es)),0.3,2.5),F=fa*0.05*dm*strFrac(f)*rel*AAK/(1+es.arm/4)*(G.env.light<0.3&&s.nv<1?0.3:1)*(0.7+0.6*rnd())*ctrMul(f,best,'air')*firstLook(f,best,bd);
     hit(best,f,F*best.men/Math.max(1,best.veh),F,10,'air');});
   /* 對地攻擊 */
   A.forEach(function(a){var s=ST(a),o=a.ord,SA=saOf(a,s),HA=haOf(a,s);if(!o||a.task!=='loiter'||a.ammo<=0||a.ms==='rout')return;if(!/strike|bomb|attack|bombard/.test(o.k)&&!(o.k==='patrol'&&s.fl.indexOf('Y')>=0))return;if(SA<=0&&HA<=0)return;
@@ -10702,6 +10706,41 @@ function encStep(){G.units.forEach(function(F){if(isLeaf(F)||!alive(F)||F.hqLost
   sendOrder(F,sp,newOrder('attack',{x:p[0],y:p[1],sub:1,opt:{tac:'flank',tol:35,pace:'normal'},dk:'encircle'}),false);logE(F.side,'ini',uName(F)+(off?'（'+off.rank+off.name+'）':'')+'主動派'+uName(sp)+'迂迴到敵軍側後（'+placeTxt(p[0],p[1])+'）',p[0],p[1],F.id);});}
 (function(){var b=v8Step;v8Step=function(){b.apply(this,arguments);if(!G||!G.started||G.over)return;if(G.step%20===11)encStep();};})();
 if(typeof GKEYS!=='undefined')GKEYS.push('authS');
+
+/* ==== h75_ld.js ==== */
+/* ===================== 飛機的出擊掛載：每一架次起飛前選定（從基地起飛、飛到戰場上空算一次任務），回基地整補後下一趟可以換 =====================
+   標準掛載就是過去的能力；空戰（機槍或空對空飛彈）、炸彈、機砲與火箭、空對地飛彈或精準導引武器、魚雷或反艦飛彈、反輻射飛彈、偵察相機或莢艙，
+   各自改變這一趟的對空、對地、對艦能力與偵察範圍；精準武器誤傷平民較少，炸彈較多。沒有指定時依任務自動選（巡邏掛空戰、偵察掛相機、
+   打船艦掛反艦武器、打防空陣地掛反輻射飛彈，其他用標準掛載）。能選什麼依機種與年代。 ===================== */
+/* n：[早期名稱, 晚期名稱]，ny：改用晚期名稱的年份；y0：最早年份；role：可用的機種 */
+var LDK={
+ std:{n:['標準掛載'],y0:0,sa:1,ha:1,aa:1,sp:1,civ:1,ship:1,role:'*',d:'原廠的標準配置，攻守兼顧'},
+ aa:{n:['機槍空戰','空對空飛彈'],ny:1955,y0:0,sa:0.35,ha:0.25,aa:1.25,sp:1,civ:1,ship:0.5,role:'fighter|attack|heli',d:'專打飛機：空戰較強，幾乎不能對地'},
+ bomb:{n:['炸彈'],y0:1912,sa:1.3,ha:1.15,aa:0.6,sp:1,civ:1.3,ship:1,role:'fighter|attack|heli',d:'對地面集結的部隊與設施；掛彈後空戰較差，轟炸面積大、平民傷亡較多'},
+ cas:{n:['機槍掃射','機砲與火箭'],ny:1940,y0:1915,sa:1.15,ha:0.9,aa:0.85,sp:1,civ:1,ship:0.6,role:'fighter|attack|heli',d:'低空近接支援地面部隊'},
+ agm:{n:['空對地飛彈','精準導引武器'],ny:1990,y0:1965,sa:0.6,ha:1.6,aa:0.8,sp:1,civ:0.4,ship:1.2,role:'fighter|attack|bomber|heli|uav',d:'打戰車、碉堡與點目標，誤傷平民較少'},
+ ashm:{n:['魚雷','反艦飛彈'],ny:1960,y0:1915,sa:0.4,ha:0.5,aa:0.7,sp:1,civ:1,ship:2.2,role:'attack|bomber|heli',d:'專打船艦，對陸地目標效果差'},
+ sead:{n:['反輻射飛彈'],y0:1965,sa:0.5,ha:0.7,aa:0.85,sp:1,civ:0.6,ship:0.8,ad:2.2,role:'fighter|attack|uav',d:'壓制雷達與防空陣地'},
+ recon:{n:['偵察相機','偵察莢艙'],ny:1975,y0:1914,sa:0.15,ha:0.1,aa:0.7,sp:1.6,civ:1,ship:0.3,role:'fighter|attack|uav|recon',d:'看得更遠更清楚，幾乎不能攻擊'}};
+function ldY(){return G.set.y||1943;}
+function ldName(k,y){var L=LDK[k];if(!L)return '';y=y||ldY();return L.n[L.ny&&y>=L.ny&&L.n[1]?1:0];}
+function ldOk(u,k){var L=LDK[k];if(!L||ST(u).dom!=='air')return false;if(k==='std')return true;var r=airRole(u);if(ldY()<L.y0||!r||L.role.split('|').indexOf(r)<0)return false;var s=ST(u);return k==='recon'||k==='aa'?true:(s.sa>0||s.ha>0);}
+function ldList(u){return Object.keys(LDK).filter(function(k){return ldOk(u,k);});}
+/* 依任務自動選：巡邏掛空戰、偵察掛相機、目標附近有船掛反艦武器、有防空陣地掛反輻射飛彈，其他用標準掛載 */
+function ldAuto(u,o){var k=o?o.k:'',L=function(q){return ldOk(u,q)?q:'';};if(/^(patrol|escort|cap)$/.test(k))return L('aa')||'std';if(k==='recon')return L('recon')||'std';
+  if(o&&o.x!==undefined&&(AIRRUNK.test(k)||k==='strike')){var C=G.ct[u.side]||{},ship=0,sam=0,n=0;for(var id in C){var c=C[id];if(c.dead||G.t-c.t>3600||dist(c.x,c.y,o.x,o.y)>(o.r||3000)+1500)continue;n++;if(c.dom==='sea'||c.dom==='sub')ship++;else if(c.br==='ad')sam++;}
+    if(ship&&ship>=n/2&&L('ashm'))return 'ashm';if(sam&&L('sead'))return 'sead';}return 'std';}
+ldPick=function(u,o){var w=o&&o.opt&&o.opt.ld;u.ld=w&&w!=='auto'&&ldOk(u,w)?w:ldAuto(u,o);u.ldN=u.sorties||0;};
+ldTxt=function(u){return u.ld&&u.ld!=='std'?'，掛載'+ldName(u.ld):'';};
+function ldOf(u){return u&&u.st==='air'&&u.ld&&LDK[u.ld]?LDK[u.ld]:null;}
+(function(){var b=saOf;saOf=function(u,s){var v=b(u,s),L=ldOf(u);return L?v*L.sa:v;};})();
+(function(){var b=haOf;haOf=function(u,s){var v=b(u,s),L=ldOf(u);return L?v*L.ha:v;};})();
+ldAA=function(u,s){var v=s.aa||0,L=ldOf(u);return L?v*L.aa:v;};
+(function(){var b=spotOf;spotOf=function(u,s){var v=b(u,s),L=ldOf(u);return L&&L.sp!==1?v*L.sp:v;};})();
+/* 對艦與壓制防空：命中時依目標調整 */
+(function(){var b=hit;hit=function(t,src,dm,dv,sup,kind){var L=src&&ldOf(src);if(L&&t){var ts=ST(t),f=ts.dom==='sea'||ts.dom==='sub'?L.ship:L.ad&&ts.dom==='land'&&((ts.aa||0)>0||ts.br==='ad')?L.ad:1;if(f!==1){dm*=f;dv*=f;}}return b.call(this,t,src,dm,dv,sup,kind);};})();
+/* 平民：精準武器誤傷較少，炸彈較多 */
+(function(){var b=civHitAir;civHitAir=function(a,s,x,y,SA,fr,dm,area){var L=ldOf(a);return b.call(this,a,s,x,y,L?SA*L.civ:SA,fr,dm,area);};})();
 if(typeof GKEYS!=='undefined')GKEYS.push('wsys','hyd');
 if(typeof GKEYS!=='undefined')GKEYS.push('sup');
 if(typeof GKEYS!=='undefined')GKEYS.push('dirs','dirSeq');
