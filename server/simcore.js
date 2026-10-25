@@ -7707,7 +7707,7 @@ var MPPRE={cmAssign:1};
 function mpCmd(s,cm,name,args){var f=MPFN[name];if(!f)return {err:'聯機模式不支援這個操作（'+name+'）。'};if(!G||!G.started&&!MPPRE[name])return {err:'作戰尚未開始。'};var a=mpDec(args||[]);var why=f[0](s,cm,a);if(why)return {err:why};
   var r;try{r=f[1](a);}catch(e){return {err:'執行失敗：'+e.message};}G._tv=(G._tv||1)+1;return {ok:1,val:mpEnc(r)};}
 /* 設定修改：部隊、本方、自己的指揮官，只接受白名單欄位 */
-var MPWU={name:'s',nmLock:'b',ttl:'s',ttlAuto:'n',ration:'o',noTurn:'n',hdM:'n',fmU:'s',artRole:'s',quar:'n',comm:'n',xc:'n',pol:'o',radMode:'s',aip:'o',arr:'o',femR:'n',img:'s',note:'s'};
+var MPWU={name:'s',nmLock:'b',ttl:'s',ttlAuto:'n',ration:'o',noTurn:'n',hdM:'n',fmU:'s',artRole:'s',quar:'n',comm:'n',xc:'n',pol:'o',radMode:'s',aip:'o',arr:'o',femR:'n',img:'s',sym:'s',fcol:'s',ins:'s',note:'s'};
 var MPWS={nm:'o',ration:'o',ldoc:'s',mopp:'n',moppSet:'n',nosur:'n',lgXc:'n',lgVeh:'o',stpl:'o',callQ:'o',vax0:'o',pol:'o',rft:'o',snk:'o',lgRk:'o',lgBad:'n',lgAm:'n'};
 var MPWC={n:'s',ms:'s',dd:'s',oa:'s',rs:'s',ai:'b'};
 function mpOkVal(t,v){if(v===null)return true;var j;try{j=JSON.stringify(v);}catch(e){return false;}if(j&&j.length>60000)return false;if(t==='s')return typeof v==='string'&&v.length<=400||v===undefined;if(t==='n')return v===undefined||typeof v==='number'&&isFinite(v)||typeof v==='boolean';if(t==='b')return v===undefined||typeof v==='boolean'||v===0||v===1;return v===undefined||typeof v==='object'||typeof v==='string'||typeof v==='number';}
