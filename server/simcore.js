@@ -1598,7 +1598,7 @@ function roadStep(){var MP=G.map,N=MP.GW*MP.GH,cs=MP.cs;if(G.set.roadDyn===false
 /* 彈坑：砲擊、空襲落在道路上（約數小時後被填平） */
 function roadDmg(x,y,R,amt){if(G.set.roadDyn===false)return;var MP=G.map,N=MP.GW*MP.GH;if(!G.rdd||G.rdd.length!==N)G.rdd=new Uint8Array(N);var D=G.rdd;brushCells(MP,x/MP.cs,y/MP.cs,Math.max(1,R/MP.cs),function(k){if(MP.rd[k])D[k]=Math.min(255,D[k]+amt);});}
 /* 封鎖：本方已知敵軍所在的路段（30 分鐘內的情報），非攻擊性的移動會繞開 */
-function roadEnemy(){var MP=G.map,B=8,CW=Math.ceil(MP.GW/B),CH=Math.ceil(MP.GH/B);G.eav=[0,1].map(function(sd){var A=new Uint8Array(CW*CH),C=G.ct[sd]||{};for(var id in C){var c=C[id];if(G.t-c.t>1800||c.dom==='air'||c.dom==='sea'||c.dom==='sub')continue;var bx=Math.floor(c.x/MP.cs/B),by=Math.floor(c.y/MP.cs/B),r=Math.ceil(1200/MP.cs/B);for(var y=by-r;y<=by+r;y++)for(var x=bx-r;x<=bx+r;x++)if(x>=0&&y>=0&&x<CW&&y<CH)A[y*CW+x]=1;}return A;});G.eavW=CW;}
+function roadEnemy(){var MP=G.map,B=8,CW=Math.ceil(MP.GW/B),CH=Math.ceil(MP.GH/B);G.eav=SIDES().map(function(sd){var A=new Uint8Array(CW*CH),C=G.ct[sd]||{};for(var id in C){var c=C[id];if(G.t-c.t>1800||c.dom==='air'||c.dom==='sea'||c.dom==='sub')continue;var bx=Math.floor(c.x/MP.cs/B),by=Math.floor(c.y/MP.cs/B),r=Math.ceil(1200/MP.cs/B);for(var y=by-r;y<=by+r;y++)for(var x=bx-r;x<=bx+r;x++)if(x>=0&&y>=0&&x<CW&&y<CH)A[y*CW+x]=1;}return A;});G.eavW=CW;}
 function roadAvoid(u){var E=G.eav&&G.eav[u.side];if(!E)return null;var o=u.ord;if(o&&/attack|storm|breakthrough|penetrate|pursue|siege|crossing|recon|persuade|landing|airdrop|airlift|joint/.test(o.k))return null;var GW=G.map.GW,CW=G.eavW;return function(k){var x=k%GW,y=(k/GW)|0;return E[(y>>3)*CW+(x>>3)]?4:1;};}
 /* 前方 1.5 公里的路段嚴重受阻 → 改走野外繞行（每 15 分鐘最多重新規劃一次） */
 function roadAhead(u,s){if(!G.rdi||!u.path||!u.goal||s.dom!=='land'||(G.step+u.id)%4)return false;if(G.t-(u.rrT||-1e9)<900)return false;var P=u.path,d=0,px=u.x,py=u.y,bad=0,why=0;for(var i=P.i;i<P.pts.length&&d<1500;i+=2){var x=P.pts[i],y=P.pts[i+1],L=dist(px,py,x,y),n=Math.max(1,Math.ceil(L/G.map.cs));for(var j=1;j<=n;j++){var k=cellAt(px+(x-px)*j/n,py+(y-py)*j/n),jv=G.rdj?G.rdj[k]:0;if(G.rdi[k]>=160||jv>=160){bad=k;why=G.rdi[k]>=jv?G.rdr[k]:G.rdjr[k];break;}}if(bad)break;d+=L;px=x;py=y;}
@@ -1682,7 +1682,31 @@ var DT=30;/* 每步 30 秒 */
 function now(){return dateOf(G.set.y,G.set.m,G.set.d,G.t+G.set.h*3600+(G.set.mi||0)*60);}
 function rnd(){return G._r?G._r():Math.random();}
 function SD(i){return G.sides[i];}
-function enemyOf(s){return s===0?1:0;}
+/* ---------- 陣營：兩方或三方（第三方 G.sides[2]）；各方之間的關係（G.dip：war 交戰、neu 中立、ally 同盟）決定誰是敵軍 ---------- */
+function nSides(){return G&&G.sides?G.sides.length:2;}
+var SIDXC=[[],[0],[0,1],[0,1,2],[0,1,2,3]];
+function SIDES(){return SIDXC[nSides()]||SIDXC[2];}
+function relOf(a,b){if(a===b)return 'self';if(!(a>=0)||!(b>=0))return 'neu';var D=G.dip;if(!D||!D[a])return 'war';return D[a][b]||'war';}
+function hostile(a,b){return a!==b&&a>=0&&b>=0&&relOf(a,b)==='war';}
+/* 各方一份的陣列 */
+function sA0(){var a=[];for(var i=0;i<nSides();i++)a.push(0);return a;}
+function sAO(){var a=[];for(var i=0;i<nSides();i++)a.push({});return a;}
+function sAL(){var a=[];for(var i=0;i<nSides();i++)a.push([]);return a;}
+function sAV(v){var a=[];for(var i=0;i<nSides();i++)a.push(v);return a;}
+/* 主要的敵方：兩方時就是另一方；三方時是交戰對象中兵力最多的一方（沒有交戰對象時取兵力最多的他方） */
+var EOFC={g:null,k:'',v:[]};
+function enemyOf(s){if(!G||!G.sides||G.sides.length<3||!(s>=0))return s===0?1:0;var k=G.step+'|'+(G.dipV||0);if(EOFC.g!==G||EOFC.k!==k){EOFC.g=G;EOFC.k=k;EOFC.v=[];}var v=EOFC.v[s];if(v!==undefined)return v;
+  var b=-1,bm=-1,i,m;for(i=0;i<G.sides.length;i++){if(i===s||!hostile(s,i))continue;m=sideStr(i).m;if(m>bm){bm=m;b=i;}}if(b<0)for(i=0;i<G.sides.length;i++){if(i===s)continue;m=sideStr(i).m;if(m>bm){bm=m;b=i;}}EOFC.v[s]=b<0?(s===0?1:0):b;return EOFC.v[s];}
+/* 觀測的對象：其他各方，以及是否交戰（交戰的才算敵軍） */
+var SPSE=[],SPS2=[[[1,true]],[[0,true]]],SPSC={g:null,v:-1,L:[]};
+function spotSides(s){if(!(s>=0))return SPSE;var n=nSides();if(n<3)return SPS2[s]||SPSE;var v=G.dipV||0;if(SPSC.g!==G||SPSC.v!==v){SPSC.g=G;SPSC.v=v;SPSC.L=[];}var L=SPSC.L[s];if(L)return L;L=[];for(var i=0;i<n;i++)if(i!==s)L.push([i,hostile(s,i)]);SPSC.L[s]=L;return L;}
+/* 與某方交戰的各方（兩方時就是另一方） */
+var HSC={g:null,v:-1,L:[]},HS2=[[1],[0]];
+function hostSides(s){if(!(s>=0))return SPSE;var n=nSides();if(n<3)return HS2[s]||SPSE;var v=G.dipV||0;if(HSC.g!==G||HSC.v!==v){HSC.g=G;HSC.v=v;HSC.L=[];}var L=HSC.L[s];if(L)return L;L=[];for(var i=0;i<n;i++)if(i!==s&&hostile(s,i))L.push(i);HSC.L[s]=L;return L;}
+/* 可以攻佔的目標：不是本方的，而且是無主或交戰對象的（兩方時就是不是本方的） */
+function objTgt(side,o){return o.own!==side&&(o.own<0||nSides()<3||hostile(side,o.own));}
+/* 沒有任何交戰對象（三方作戰中保持中立的一方） */
+function atPeace(side){return nSides()>=3&&!hostSides(side).length;}
 /* ---------- 環境：太陽高度、月相、天氣、地面狀況 ---------- */
 function sunAlt(lat,doy,hour){var dec=23.44*Math.sin(2*PI*(284+doy)/365)*D2R,H=(hour-12)*15*D2R,phi=lat*D2R;return Math.asin(Math.sin(phi)*Math.sin(dec)+Math.cos(phi)*Math.cos(dec)*Math.cos(H))*R2D;}
 function moonOf(o){var days=(Date.UTC(clamp(o.y,1900,2100),o.m-1,o.d)-Date.UTC(2000,0,6))/864e5+(o.y<1900||o.y>2100?(o.y-clamp(o.y,1900,2100))*365.2425:0),ph=((days%29.53)+29.53)%29.53/29.53;return 0.5-0.5*Math.cos(2*PI*ph);}
@@ -1998,7 +2022,7 @@ function tacStep(u,s,o,ed){var opt=o.opt||{},loss=(o.m0||1)-strFrac(u),cont=u._e
 var GCS=4000;/* 空間格網尺寸（公尺） */
 /* 細格網（1 公里，計數排序後的連續陣列）：半徑 3 公里以內的查詢只看附近幾格，密集部署時候選單位少很多 */
 var GF=1000,GFR=3000;
-function gridBuild(){var g={},gs=[{},{}],MP=G.map,FW=Math.max(1,Math.ceil(MP.Wm/GF)+2),FH=Math.max(1,Math.ceil(MP.Hm/GF)+2),n=FW*FH,cnt=new Int32Array(n+1),L=[],ci=[];
+function gridBuild(){var g={},gs=sAO(),MP=G.map,FW=Math.max(1,Math.ceil(MP.Wm/GF)+2),FH=Math.max(1,Math.ceil(MP.Hm/GF)+2),n=FW*FH,cnt=new Int32Array(n+1),L=[],ci=[];
   G.units.forEach(function(u){if(!onMap(u))return;var key=Math.floor(u.x/GCS)+Math.floor(u.y/GCS)*4096;(g[key]||(g[key]=[])).push(u);var S=gs[u.side];if(S)(S[key]||(S[key]=[])).push(u);var fx=clamp(Math.floor(u.x/GF)+1,0,FW-1),fy=clamp(Math.floor(u.y/GF)+1,0,FH-1),c=fy*FW+fx;L.push(u);ci.push(c);cnt[c+1]++;});
   for(var i=0;i<n;i++)cnt[i+1]+=cnt[i];var pos=cnt.slice(0,n),it=new Array(L.length);for(var j=0;j<L.length;j++)it[pos[ci[j]]++]=L[j];G._grid=g;G._gs=gs;G._gf={W:FW,H:FH,st:cnt,it:it};}
 /* 只查某一方的單位（觀測只需要看敵方） */
@@ -2014,22 +2038,25 @@ function sigOf(t,ts,air){var MP=G.map,k=cellAt(t.x,t.y),c=MP.lc[k],f=ts.sig;if(t
   if(ts.fl.indexOf('S')>=0&&!fired)f*=0.25;if(G.t-(t.movedAt||-1e9)<70)f*=1.4;if(fired)f*=G.env.light<0.3?4:2.5;if(t.ent>0.5&&!fired)f*=0.7;if(t.form==='march')f*=1.3;if(air&&ts.dom==='land')f*=0.8;var op=optOf(t);if(!fired&&t.ord){if(t.ord.k==='attack'&&op.tac==='infil')f*=0.45;if(op.post==='ambush'&&!t.ambT||op.post==='hide')f*=0.4;}return f;}
 function spotStep(){gridBuild();var MP=G.map,best={},seen0=[{},{}],light=G.env.light;G.units.forEach(function(u){u._seen=null;u._ed=1e9;u._eid=0;u._ep=0;u._cav=0;});
   G.units.forEach(function(o){if(!onMap(o)||o.ms==='rout'&&ST(o).dom!=='air')return;var s=ST(o),R0=spotOf(o,s);if(R0<=0)return;var air=s.dom==='air',vm=visMul(s.nv,air),h0=hgtOf(o),Rmax=R0*vm*3.2,seen=[],qk=s.fl.indexOf('r')>=0||s.br==='rec'?0.85:0.5;
-    gridNearS(o.x,o.y,Math.min(Rmax,60000),1-o.side,function(t){if(t.side===o.side||!onMap(t))return;var ts=ST(t),d=dist(o.x,o.y,t.x,t.y);if(d>Rmax)return;if(t._sgS!==G.step){t._sgS=G.step;t._sg=sigOf(t,ts,false);}var R=R0*vm*(air&&ts.dom==='land'?t._sg*0.8:t._sg);if(ts.dom==='air')R=Math.max(R,R0*Math.max(0.35,vm)*ts.sig*(air?1.2:0.9));
+    var SS=spotSides(o.side),hs=true,sf=function(t){if(t.side===o.side||!onMap(t))return;var ts=ST(t),d=dist(o.x,o.y,t.x,t.y);if(d>Rmax)return;if(t._sgS!==G.step){t._sgS=G.step;t._sg=sigOf(t,ts,false);}var R=R0*vm*(air&&ts.dom==='land'?t._sg*0.8:t._sg);if(ts.dom==='air')R=Math.max(R,R0*Math.max(0.35,vm)*ts.sig*(air?1.2:0.9));
       if(ts.dom==='sub'&&!air&&s.dom!=='sea'&&s.dom!=='sub')return;if(d>500&&optOf(t).post==='reverse'&&t.ord&&/defend|screen/.test(t.ord.k))R*=0.5;if(d>R)return;var th=hgtOf(t);if(!(air||ts.dom==='air')&&d>MP.cs*2&&!los(o.x,o.y,h0,t.x,t.y,th))return;
-      seen.push(t.id);var q=d<R*qk?1:0.5,id=t.id,cur=best[o.side+':'+id];if(!cur||cur.q<q)best[o.side+':'+id]={side:o.side,t:t,q:q,obs:o};
-      if(d<o._ed){o._ed=d;o._eid=t.id;}if(d<2000)o._ep+=t.men;if(d<700&&ts.fl.indexOf('c')>=0)o._cav=1;});o._seen=seen;});
+      var q=d<R*qk?1:0.5;if(!hs){spotN(o,t,ts,q);return;}seen.push(t.id);var id=t.id,cur=best[o.side+':'+id];if(!cur||cur.q<q)best[o.side+':'+id]={side:o.side,t:t,q:q,obs:o};
+      if(d<o._ed){o._ed=d;o._eid=t.id;}if(d<2000)o._ep+=t.men;if(d<700&&ts.fl.indexOf('c')>=0)o._cav=1;};for(var si=0;si<SS.length;si++){hs=SS[si][1];gridNearS(o.x,o.y,Math.min(Rmax,60000),SS[si][0],sf);}o._seen=seen;});
   /* 回報：觀測到的接觸依指揮鏈回報延遲送入本方情報圖（同一目標取最快者） */
   for(var key in best){var b=best[key],t=b.t,o=b.obs,rd=reportDelay(o);G.rq[b.side].push({at:G.t+rd,id:t.id,x:t.x+(b.q<1?(rnd()-0.5)*400:0),y:t.y+(b.q<1?(rnd()-0.5)*400:0),t:G.t,q:b.q,by:o.id});
     if(!G.firstContact){G.firstContact=G.t;logE(-1,'contact','首次接觸：'+uName(o)+'在'+placeTxt(o.x,o.y)+'發現敵軍',t.x,t.y,o.id);if(G.onPause&&apOn('contact'))G.onPause('首次接觸');}}
   /* 附近的已知敵軍（本方情報圖，10 分鐘內）作為單位行為依據 */
-  var CB=[ctBuckets(0),ctBuckets(1)];G.units.forEach(function(u){if(!onMap(u)||u._eid)return;var C=G.ct[u.side];gridNearCt(u,C,CB[u.side]);});void seen0;void light;}
+  var CB=SIDES().map(function(s){return ctBuckets(s);});G.units.forEach(function(u){if(!onMap(u)||u._eid)return;var C=G.ct[u.side];gridNearCt(u,C,CB[u.side]);});void seen0;void light;}
+/* 非交戰方（中立、同盟）的部隊：看得到就知道，直接記在 G.ctN（不進敵情圖，也不經指揮鏈回報） */
+function spotN(o,t,ts,q){var N=G.ctN||(G.ctN=[]);while(N.length<nSides())N.push({});var C=N[o.side],c=C[t.id];if(c&&c.t===G.t&&c.q>=q)return;
+  C[t.id]={id:t.id,x:t.x,y:t.y,t:G.t,q:Math.max(q,c&&G.t-c.t<1800?c.q:0),side:t.side,ech:dispEch(t),dom:ts.dom,br:ts.br,sym:ts.sym,men:Math.round(t.men/50)*50,veh:t.veh,name:q>=1||c&&c.name?uName(t):'',ms:t.ms};}
 /* 10 分鐘內的已知敵軍按 3 公里方格分桶：每個單位只看周圍九格，不必逐一比對整張情報圖 */
 function ctBuckets(side){var C=G.ct[side]||{},B=new Map();for(var id in C){var c=C[id];if(G.t-c.t>600)continue;var k=(Math.floor(c.x/3000)+5000)*20000+Math.floor(c.y/3000)+5000,L=B.get(k);if(!L)B.set(k,L=[]);L.push(+id);}return B;}
 function gridNearCt(u,C,BK){var bd=3000,bi=0;if(!BK){for(var id in C){var c=C[id];if(G.t-c.t>600)continue;var d=dist(u.x,u.y,c.x,c.y);if(d<bd){bd=d;bi=+id;}}if(bi){u._ed=bd;u._eid=bi;}return;}
   var gx=Math.floor(u.x/3000)+5000,gy=Math.floor(u.y/3000)+5000;for(var ax=-1;ax<=1;ax++)for(var ay=-1;ay<=1;ay++){var L=BK.get((gx+ax)*20000+gy+ay);if(!L)continue;for(var i=0;i<L.length;i++){var q=L[i],c2=C[q],d2=dist(u.x,u.y,c2.x,c2.y);if(d2<bd||d2===bd&&bi&&q<bi){bd=d2;bi=q;}}}if(bi){u._ed=bd;u._eid=bi;}}
 /* 回報延遲：由觀測單位經指揮鏈到最高司令部（每 5 分鐘重算一次） */
 function reportDelay(o){if(o._rdT&&G.t-o._rdT<300)return o._rd;var e=orderDelayEst(o);o._rd=e.sec*0.8;o._rdT=G.t;return o._rd;}
-function reportStep(){for(var s=0;s<2;s++){var Q=G.rq[s],keep=[],C=G.ct[s];for(var i=0;i<Q.length;i++){var r=Q[i];if(r.at>G.t){keep.push(r);continue;}var t=uById(r.id);if(!t)continue;var c=C[r.id];
+function reportStep(){for(var s=0;s<nSides();s++){var Q=G.rq[s],keep=[],C=G.ct[s];for(var i=0;i<Q.length;i++){var r=Q[i];if(r.at>G.t){keep.push(r);continue;}var t=uById(r.id);if(!t)continue;if(nSides()>=3&&(t.side===s||!hostile(s,t.side))){if(t.side!==s&&t.side>=0)spotN({side:s},t,ST(t),r.q);continue;}var c=C[r.id];
       if(!c||r.t>=c.t){var ts=ST(t);C[r.id]={id:r.id,x:r.x,y:r.y,t:r.t,q:Math.max(r.q,c&&G.t-c.t<1800?c.q:0),side:t.side,ech:dispEch(t),dom:ts.dom,br:ts.br,sym:ts.sym,men:Math.round(t.men/50)*50,veh:t.veh,name:(c&&c.q>=1)||r.q>=1?uName(t):'',ms:t.ms,dead:!alive(t),by:r.by,cb:c&&c.cb};}}G.rq[s]=keep;
     for(var id in C){if(+id>=9e8)continue;var c2=C[id],tu=uById(+id);if(!tu||!alive(tu)){if(G.t-c2.t>600)delete C[id];else c2.dead=1;}else if(G.t-c2.t>4*3600)delete C[id];}}}
 /* 目前可見（本方情報圖中，指定秒數內更新者） */
@@ -2146,8 +2173,8 @@ var ART_D=0.9;
 /* 城鎮受砲擊累積損毀，達門檻變成廢墟（廢墟提供更好的掩護，但車輛難以通行） */
 function dmgArr(){var MP=G.map,N=MP.GW*MP.GH;if(!MP.dmg||MP.dmg.length!==N)MP.dmg=new Uint8Array(N);return MP.dmg;}
 function urbanDamage(x,y,R,amt,side,cause){var MP=G.map,D=dmgArr();for(var i=0;i<6;i++){var a=rnd()*2*PI,r=Math.sqrt(rnd())*R,k=cellAt(x+Math.cos(a)*r,y+Math.sin(a)*r),c=MP.lc[k];if(!isUrban(c)||c===LCI.rubble)continue;var d0=D[k],v=d0+amt*(0.5+rnd());if(v>=200){D[k]=255;MP.lc[k]=LCI.rubble;(G._rubK=G._rubK||[]).push(k);v=255;}else D[k]=v;if(G.civ)civProp(k,(v-d0)/255,cause||'set',side===undefined?-1:side);}}
-function cbNotice(u){if(u.cbP)return;var en=enemyOf(u.side),hq=sideCmd(en),E=hq?uEra(hq):ERA[6];if(!(E.cb>0))return;u.cbP=1;G.cbq.push({side:en,id:u.id,at:G.t+E.cb*60*(0.6+0.8*rnd()),x:u.x,y:u.y});}
-function cbStep(){var keep=[];G.cbq.forEach(function(q){if(G.t<q.at){keep.push(q);return;}var u=uById(q.id);if(!u)return;u.cbP=0;if(!alive(u)||dist(u.x,u.y,q.x,q.y)>300||G.t-(u.lastArt||-1e9)>1800)return;var s=ST(u);
+function cbNotice(u){if(u.cbP)return;var L=nSides()<3?[enemyOf(u.side)]:SIDES().filter(function(s){return hostile(u.side,s);});L.forEach(function(en){var hq=sideCmd(en),E=hq?uEra(hq):ERA[6];if(!(E.cb>0))return;u.cbP=1;G.cbq.push({side:en,id:u.id,at:G.t+E.cb*60*(0.6+0.8*rnd()),x:u.x,y:u.y});});}
+function cbStep(){var keep=[];G.cbq.forEach(function(q){if(G.t<q.at){keep.push(q);return;}var u=uById(q.id);if(!u)return;u.cbP=0;if(!alive(u)||dist(u.x,u.y,q.x,q.y)>300||G.t-(u.lastArt||-1e9)>1800||!hostile(q.side,u.side))return;var s=ST(u);
     G.ct[q.side][u.id]={id:u.id,x:u.x+(rnd()-0.5)*200,y:u.y+(rnd()-0.5)*200,t:G.t,q:0.7,side:u.side,ech:dispEch(u),dom:s.dom,br:s.br,sym:s.sym,men:Math.round(u.men/50)*50,veh:u.veh,name:'',ms:u.ms,cb:1};
     if(!u.cbLog||G.t-u.cbLog>1800){u.cbLog=G.t;logE(q.side,'cb','反砲兵偵測：在'+placeTxt(u.x,u.y)+'定位到敵砲兵陣地',u.x,u.y);}});G.cbq=keep;}
 /* ---------- 空中：防空射擊、空戰、對地攻擊（含飛龍吐息） ---------- */
@@ -2155,11 +2182,11 @@ function aaRange(aa){return aa<3?2500:aa<6?4000:aa<9?8000:aa<12?15000:40000;}
 function airFight(){var A=G.units.filter(function(u){return u.st==='air'&&alive(u);});if(!A.length)return;var dm=DT/60;
   /* 防空 */
   G.units.forEach(function(g){if(!onMap(g)||g.st==='air'||g.ms==='rout')return;var s=ST(g),AA=aaOf(g,s);if(!(AA>0)||g.ammo<=0)return;var R=aaRangeU(g,AA),sam=samOf(g),vis=!sam&&G.env.light<0.3&&s.nv<1&&uEra(g).i<6?0.3:1,best=null,bd=R;
-    A.forEach(function(a){if(a.side===g.side)return;var d=dist(g.x,g.y,a.x,a.y);if(d<bd&&aaSees(g,a,d)){bd=d;best=a;}});if(!best)return;var es=ST(best),F=AA*0.03*dm*strFrac(g)*vis*(1-g.sup/150)*clamp(es.sig,0.3,3)/(1+es.arm/3)*AAK*(0.7+0.6*rnd())*ctrMul(g,best,'aa')*(sam?clamp(1.5-bd/R,0.5,1):1);
+    A.forEach(function(a){if(!hostile(g.side,a.side))return;var d=dist(g.x,g.y,a.x,a.y);if(d<bd&&aaSees(g,a,d)){bd=d;best=a;}});if(!best)return;var es=ST(best),F=AA*0.03*dm*strFrac(g)*vis*(1-g.sup/150)*clamp(es.sig,0.3,3)/(1+es.arm/3)*AAK*(0.7+0.6*rnd())*ctrMul(g,best,'aa')*(sam?clamp(1.5-bd/R,0.5,1):1);
     hit(best,g,F*best.men/Math.max(1,best.veh),F,6,'aa');g.ammo=Math.max(0,g.ammo-0.1);});
   /* 空戰 */
   A.forEach(function(f){var s=ST(f),fa=ldAA(f,s);if(!(fa>0)||f.ms==='rout'||f.task==='rtb'&&s.fl.indexOf('Y')<0)return;var R=Math.max(3000,Math.min(Math.max(s.rE,3000),s.spot*0.6)),best=null,bd=R;
-    A.forEach(function(e){if(e.side===f.side)return;var d=dist(f.x,f.y,e.x,e.y);if(d<bd&&airSees(f,e,d)){bd=d;best=e;}});if(!best)return;var es=ST(best),rel=clamp(1+0.12*(fa-ldAA(best,es)),0.3,2.5),F=fa*0.05*dm*strFrac(f)*rel*AAK/(1+es.arm/4)*(G.env.light<0.3&&s.nv<1?0.3:1)*(0.7+0.6*rnd())*ctrMul(f,best,'air')*firstLook(f,best,bd);
+    A.forEach(function(e){if(!hostile(f.side,e.side))return;var d=dist(f.x,f.y,e.x,e.y);if(d<bd&&airSees(f,e,d)){bd=d;best=e;}});if(!best)return;var es=ST(best),rel=clamp(1+0.12*(fa-ldAA(best,es)),0.3,2.5),F=fa*0.05*dm*strFrac(f)*rel*AAK/(1+es.arm/4)*(G.env.light<0.3&&s.nv<1?0.3:1)*(0.7+0.6*rnd())*ctrMul(f,best,'air')*firstLook(f,best,bd);
     hit(best,f,F*best.men/Math.max(1,best.veh),F,10,'air');});
   /* 對地攻擊 */
   A.forEach(function(a){var s=ST(a),o=a.ord,SA=saOf(a,s),HA=haOf(a,s);if(!o||a.task!=='loiter'||a.ammo<=0||a.ms==='rout')return;if(!/strike|bomb|attack|bombard/.test(o.k)&&!(o.k==='patrol'&&s.fl.indexOf('Y')>=0))return;if(SA<=0&&HA<=0)return;
@@ -2177,13 +2204,13 @@ function applyDamage(){for(var id in G._inc){var t=uById(+id),I=G._inc[id];if(!t
       var ff=tw>0?fs/tw:0;if(ff>0.4){t.flankT=G.t;ml*=1+0.4*Math.min(1.5,ff);}ml*=1-0.25*(t.ent||0);if(I.k&&(I.k.airstrike||I.k.air)&&profIdxOf(t)<=1)ml*=1.2;}
     t.mor=clamp(t.mor-ml,0,100);
     var tot=0,k;for(k in I.by)tot+=I.by[k];for(k in I.by){var a=uById(+k);if(a){var sh=I.by[k]/tot;a.kills=(a.kills||0)+m*sh;a.vkills=(a.vkills||0)+v*sh;}}
-    G.stats[t.side].cas+=m;G.stats[t.side].vl+=v;var kt=0,kk;for(kk in I.k)kt+=I.k[kk];var R=btAct(t.id),byS=G.stats[t.side].byK||(G.stats[t.side].byK={});t.byK=t.byK||{};for(kk in I.k){var sh2=I.k[kk]/kt;t.byK[kk]=(t.byK[kk]||0)+m*sh2;byS[kk]=(byS[kk]||0)+m*sh2;if(R){R.cause=R.cause||[{},{}];R.cause[t.side][kk]=(R.cause[t.side][kk]||0)+m*sh2;R.vc=R.vc||[{},{}];R.vc[t.side][kk]=(R.vc[t.side][kk]||0)+v*sh2;}}
+    G.stats[t.side].cas+=m;G.stats[t.side].vl+=v;var kt=0,kk;for(kk in I.k)kt+=I.k[kk];var R=btAct(t.id),byS=G.stats[t.side].byK||(G.stats[t.side].byK={});t.byK=t.byK||{};for(kk in I.k){var sh2=I.k[kk]/kt;t.byK[kk]=(t.byK[kk]||0)+m*sh2;byS[kk]=(byS[kk]||0)+m*sh2;if(R){R.cause=R.cause||sAO();if(!R.cause[t.side])R.cause[t.side]={};R.cause[t.side][kk]=(R.cause[t.side][kk]||0)+m*sh2;R.vc=R.vc||sAO();if(!R.vc[t.side])R.vc[t.side]={};R.vc[t.side][kk]=(R.vc[t.side][kk]||0)+v*sh2;}}
     if(m+v>0.05){var nm=Object.keys(I.by).map(function(id){var a=uById(+id);return a?uName(a):'';}).filter(Boolean);t.ce=t.ce||[];t.ce.push({t:G.t,k:Object.keys(I.k).sort(function(a,b){return I.k[b]-I.k[a];})[0],m:m,v:v,by:nm.slice(0,3),n:nm.length});if(t.ce.length>40)t.ce.shift();}
     if(strFrac(t)<deathF(t))destroy(t,'cas');}G._inc={};}
 var KINDN={fire:'直射火力',melee:'突擊與白刃',art:'砲兵火力',air:'空戰',aa:'防空火力',airstrike:'空中攻擊',breath:'龍息',grapple:'海怪纏鬥',nuke:'戰術核武',rad:'輻射',drop:'空降時防空火力',storm:'天災（颱風、洪水、山崩）',quake:'地震',burn:'野火'};
 function destroy(u,why,msg){if(!alive(u)||u.hqLost)return;var s=ST(u);if(!isLeaf(u)){u.hqLost=G.t;u.hqRe=G.t+3600*(1.6-0.06*((u.off||{}).cmd||5));u.men=0;u.veh=0;u.path=null;logE(u.side,'hq',uName(u)+'的司令部被摧毀！指揮中斷，預計 '+durTxt(u.hqRe-G.t)+' 後重建',u.x,u.y,u.id);if(G.onPause&&apOn('hq'))G.onPause('司令部被摧毀');return;}
   u.st='dead';u.deadT=G.t;u.why=why;if(why==='capt'){u.captMen=u.men;G.stats[u.side].capt+=u.men;if(G.civ)powCapture(u,u._capBy?uById(u._capBy):null);}else if(G.civ&&u.wia>0){/* 殲滅：留在原地的傷兵多數不治或被俘 */}u.path=null;u.mis=null;var verb=s.dom==='sea'||s.dom==='sub'?'被擊沉':s.dom==='air'?'被擊落':why==='capt'?'被俘':'被殲滅';
-  logE(u.side,u.surr?'surr':'dead',msg||(uName(u)+verb+'（'+placeTxt(u.x,u.y)+'）'),u.x,u.y,u.id);if(G.set.dynMor!==false&&s.dom==='land'&&G._grid)gridNear(u.x,u.y,2000,function(f){if(f.side!==u.side&&onMap(f)&&dist(f.x,f.y,u.x,u.y)<2000){f.mor=clamp(f.mor+2.5,0,100);mfAdd(f,'win',2.5);}});(function up(p){if(p<0)return;var F=uById(p);if(!F)return;if(!leavesOf(F).some(function(x){return alive(x)||x.st==='off';})){F.st='dead';F.deadT=G.t;logE(F.side,'dead',uName(F)+'已無可用兵力',F.x,F.y,F.id);up(F.p);}})(u.p);}
+  logE(u.side,u.surr?'surr':'dead',msg||(uName(u)+verb+'（'+placeTxt(u.x,u.y)+'）'),u.x,u.y,u.id);if(G.set.dynMor!==false&&s.dom==='land'&&G._grid)gridNear(u.x,u.y,2000,function(f){if(hostile(f.side,u.side)&&onMap(f)&&dist(f.x,f.y,u.x,u.y)<2000){f.mor=clamp(f.mor+2.5,0,100);mfAdd(f,'win',2.5);}});(function up(p){if(p<0)return;var F=uById(p);if(!F)return;if(!leavesOf(F).some(function(x){return alive(x)||x.st==='off';})){F.st='dead';F.deadT=G.t;logE(F.side,'dead',uName(F)+'已無可用兵力',F.x,F.y,F.id);up(F.p);}})(u.p);}
 
 /* ===================== 戰術核武：爆心全毀區、重創區、輕傷區、震撼區；地表焦土與廢墟、橋梁損毀、殘留輻射區 ===================== */
 function nukeR(Y){var c=Math.cbrt(Math.max(0.01,Y));return [400*c,1100*c,2200*c,3500*c];}
@@ -2205,14 +2232,14 @@ function nukeAt(side,x,y,Y,src){var MP=G.map,R=nukeR(Y),civ=0,hitN=0;G.nukes=G.n
 function radStep(){if(!G.rad||!G.rad.length)return;var dm=DT*4/3600;G.rad=G.rad.filter(function(z){return G.t<z.t1;});G.rad.forEach(function(z){var dec=1-(G.t-z.t0)/(z.t1-z.t0);gridNear(z.x,z.y,z.r,function(u){if(!onMap(u)||ST(u).dom==='air'||dist(u.x,u.y,z.x,z.y)>z.r)return;var hard=ST(u).hard;hit(u,null,u.men*0.04*dm*dec*(1-0.6*hard),0,5,'rad');u.mor=clamp(u.mor-2*dm*dec,0,100);if(!u.radLog){u.radLog=1;logE(u.side,'nuke',uName(u)+'進入輻射污染區（'+placeTxt(u.x,u.y)+'）',u.x,u.y,u.id);}});});}
 /* 核打擊排程：彈頭飛行時間後引爆；導引火箭可能被區域防空攔截 */
 function nukeStep(){if(!G.nq||!G.nq.length)return;var keep=[];G.nq.forEach(function(q){if(G.t<q.at){keep.push(q);return;}var src=uById(q.src);
-    if(q.via==='rkt'){var sams=0;G.units.forEach(function(e){if(e.side!==q.side&&onMap(e)&&aaOf(e,ST(e))>=8&&dist(e.x,e.y,q.x,q.y)<25000)sams++;});if(sams&&rnd()<Math.min(0.5,sams*0.1)){logE(-1,'nuke','☢ '+G.sides[q.side].name+'發射的核彈頭在空中被攔截',q.x,q.y);return;}}
+    if(q.via==='rkt'){var sams=0;G.units.forEach(function(e){if(hostile(q.side,e.side)&&onMap(e)&&aaOf(e,ST(e))>=8&&dist(e.x,e.y,q.x,q.y)<25000)sams++;});if(sams&&rnd()<Math.min(0.5,sams*0.1)){logE(-1,'nuke','☢ '+G.sides[q.side].name+'發射的核彈頭在空中被攔截',q.x,q.y);return;}}
     nukeAt(q.side,q.x,q.y,q.Y,src,q.wk);});G.nq=keep;}
 /* 可實施核打擊的單位與一般的最大當量（千噸）；當量可自訂，超過一般上限時會提醒 */
 function nukeCap(u){var s=ST(u),E=uEra(u),y=G.set.y||1943,ny=typeof featY==='function'?featY('nuke'):1945;if(!G.set.nuke||!G.set.nuke.on||E.fan||y<ny||!isLeaf(u))return 0;if(s.dom==='air'&&s.fl.indexOf('B')>=0&&(s.sa>0||s.ha>0))return y<ny+5?25:y<ny+10?500:10000;if(y<ny+8)return 0;if(indOf(u,s)>=20000)return y<1970?20:10;if(indOf(u,s)>=14000)return 1;return 0;}
 
 /* ==== h5_core.js ==== */
 /* ===================== 模擬主迴圈：士氣、疲勞、補給、目標點、勝負、增援、司令部重建；新局與狀態 ===================== */
-function newSide(i){return i===0?{name:'藍軍',color:'#2B6CD4',edge:'W',ai:false,depots:[]}:{name:'紅軍',color:'#D23B3B',edge:'E',ai:true,depots:[]};}
+function newSide(i){return i===0?{name:'藍軍',color:'#2B6CD4',edge:'W',ai:false,depots:[]}:i===2?{name:'綠軍',color:'#2E9D57',edge:'N',ai:true,depots:[]}:{name:'紅軍',color:'#D23B3B',edge:'E',ai:true,depots:[]};}
 /* 自動暫停：所有觸發條件與預設值（設定頁與作戰頁的工具列共用） */
 var APDEF={contact:true,meet:true,rout:false,hq:true,obj:true,reinf:false,end:true,nuke:true,snuke:true,strike:false,evt:true,crime:false,att:false,convoy:true,req:true};
 function apOn(k){var A=G.set.autoPause||{};return A[k]!==undefined?!!A[k]:!!APDEF[k];}
@@ -2226,7 +2253,7 @@ function stat0(){return {cas:0,vl:0,capt:0,sorties:0};}
 /* 開戰準備：初始化每個單位的戰鬥狀態 */
 function prepareBattle(){G._r=mb32(hstr(G.set.seed+'|sim'));reix();G._tv++;G.units.forEach(function(u){var s=ST(u);if(u.men0===undefined)initStrength(u);if(u.prof!==undefined&&PROF[u.prof])u.trn=PROF[u.prof][2];u.ms=u.ms||'ok';u.form=u.form||'deployed';u.task=u.task||'hold';u.sup=u.sup||0;u.fat=u.fat||0;u.org=u.org===undefined?100:u.org;u.ammo=u.ammo===undefined?100:u.ammo;
     if(!u.lg)logInit(u);else logRecalc(u);if(u.st!=='off'&&u.st!=='dead'){if(s.dom==='air'&&isLeaf(u)){u.st='base';u.base=u.base||[u.x,u.y];u.fuel=endOf(s);}else u.st='ok';u.ent=Math.max(u.ent||0,ftEnt(u));}if(!u.home)u.home=[u.x,u.y];});
-  dupNames();[0,1].forEach(function(i){var S=G.sides[i];if(!S.ration){var hq=sideCmd(i);S.ration=defRation(hq?uEra(hq).y:G.set.y);}if(!S.nodes||!S.nodes.length){S.nodes=[];defaultNodes(i);}});G.units.forEach(function(u){if(u.lg)logRecalc(u);});envInit();if(G.set.civ!==false)civInit();evtInit();G.units.forEach(function(u){if(isLeaf(u)&&ST(u).dom==='land')disInit(u);});if(typeof v4Init==='function')v4Init();G.started=true;logE(-1,'start','作戰開始：'+clockTxt(now())+'，'+WX[G.env.wx][1]+'，氣溫 '+fx(G.env.T,0)+' °C，'+(G.env.phase==='day'?'白天':G.env.phase==='night'?'夜間':G.env.phase==='dawn'?'黎明':'黃昏'));}
+  dupNames();SIDES().forEach(function(i){var S=G.sides[i];if(!S.ration){var hq=sideCmd(i);S.ration=defRation(hq?uEra(hq).y:G.set.y);}if(!S.nodes||!S.nodes.length){S.nodes=[];defaultNodes(i);}});G.units.forEach(function(u){if(u.lg)logRecalc(u);});envInit();if(G.set.civ!==false)civInit();evtInit();G.units.forEach(function(u){if(isLeaf(u)&&ST(u).dom==='land')disInit(u);});if(typeof v4Init==='function')v4Init();G.started=true;logE(-1,'start','作戰開始：'+clockTxt(now())+'，'+WX[G.env.wx][1]+'，氣溫 '+fx(G.env.T,0)+' °C，'+(G.env.phase==='day'?'白天':G.env.phase==='night'?'夜間':G.env.phase==='dawn'?'黎明':'黃昏'));}
 function sideStr(side){var m=0,m0=0;G.units.forEach(function(u){if(u.side!==side||!isLeaf(u)||u.st==='off'||u.irr)return;var fl=ST(u).fl;if(fl.indexOf('u')>=0||fl.indexOf('G')>=0)return;m+=u.st==='dead'?0:u.men+u.veh*8;m0+=u.men0+u.veh0*8;});return {m:m,m0:m0,f:m0?m/m0:0};}
 /* ---------- 一步（30 秒） ---------- */
 function simStep(){if(G.over)return;G.t+=DT;G.step++;envStep(DT);
@@ -2252,8 +2279,8 @@ function moraleStep(){var fearSrc=G.units.filter(function(u){return onMap(u)&&ST
 function fatigueStep(){var night=G.env.light<0.3;G.units.forEach(function(u){if(!onMap(u))return;var s=ST(u),mv=G.t-(u.movedAt||-1e9)<DT+1,cb=G.t-(u.fired||-1e9)<DT+1||G.t-(u.uf||-1e9)<DT+1,d=0;
     if(mv)d+=(s.mobi===0?0.12*(u.lg&&u.lg.ld?clamp(1+(u.lg.ld-30)/50,0.8,1.6):1):s.mobi===1?0.1:s.dom==='land'?0.05:0.02)*paceOf(u)[3];if(cb)d+=0.08;if(night&&(mv||cb))d+=0.05;if(!mv&&!cb)d-=u.ord&&u.ord.k==='rest'?0.25:0.06;u.fat=clamp(u.fat+d,0,100);});}
 /* ---------- 目標點：單方地面部隊在範圍內 10 分鐘即取得控制 ---------- */
-function objStep(){(G.obj||[]).forEach(function(ob){var n=[0,0],R=obR(ob);gridNear(ob.x,ob.y,R,function(u){if(!onMap(u)||u.ms==='rout'||ST(u).dom==='air'||u.st==='air')return;if(dist(u.x,u.y,ob.x,ob.y)<=R)n[u.side]+=u.men+u.veh*8;});
-    var hold=n[0]>0&&n[1]===0?0:n[1]>0&&n[0]===0?1:-1;if(hold>=0&&ob.own!==hold){if(ob.cand!==hold){ob.cand=hold;ob.ct=G.t;}else if(G.t-ob.ct>=objCapT()){var prev=ob.own;ob.own=hold;ob.tOwn=G.t;logE(hold,'obj',G.sides[hold].name+'佔領目標「'+ob.name+'」'+(prev>=0?'（自'+G.sides[prev].name+'手中奪取）':''),ob.x,ob.y);if(G.onPause&&apOn('obj'))G.onPause('目標易手');}}else if(hold<0||ob.own===hold){ob.cand=-1;}});}
+function objStep(){(G.obj||[]).forEach(function(ob){var n=sA0(),R=obR(ob);gridNear(ob.x,ob.y,R,function(u){if(!onMap(u)||u.ms==='rout'||ST(u).dom==='air'||u.st==='air')return;if(dist(u.x,u.y,ob.x,ob.y)<=R)n[u.side]+=u.men+u.veh*8;});
+    var hold=-1,np=0;for(var hi=0;hi<n.length;hi++)if(n[hi]>0){np++;hold=hi;}if(np!==1)hold=-1;if(hold>=0&&ob.own!==hold){if(ob.cand!==hold){ob.cand=hold;ob.ct=G.t;}else if(G.t-ob.ct>=objCapT()){var prev=ob.own;ob.own=hold;ob.tOwn=G.t;logE(hold,'obj',G.sides[hold].name+'佔領目標「'+ob.name+'」'+(prev>=0?'（自'+G.sides[prev].name+'手中奪取）':''),ob.x,ob.y);if(G.onPause&&apOn('obj'))G.onPause('目標易手');}}else if(hold<0||ob.own===hold){ob.cand=-1;}});}
 /* ---------- 司令部重建 ---------- */
 function hqRebuild(){G.units.forEach(function(F){if(!F.hqLost||!alive(F)||G.t<F.hqRe)return;var L=leavesOf(F).filter(onMap);if(!L.length)return;F.hqLost=0;F.men=F.men0*0.6;F.veh=F.veh0*0.6;var c=centroid(L);F.x=c[0];F.y=c[1];logE(F.side,'hq',uName(F)+'的司令部完成重建',F.x,F.y,F.id);});}
 /* ---------- 勝負 ---------- */
@@ -2284,24 +2311,30 @@ function btTier(R){var m=R.men[0]+R.men[1],T=G.set.tiers||[2000,20000,200000];re
 function placeName(x,y){var MP=G.map,best=null,bd=1e18;(MP.set||[]).forEach(function(s){var d=dist(x,y,s.x*MP.cs,s.y*MP.cs)/(s.kind==='city'?3:s.kind==='town'?1.8:1);if(d<bd){bd=d;best=s;}});if(best&&bd<6000)return best.name;
   var bl=null,bd2=1e18;(MP.lbl||[]).forEach(function(l){if(!l.t)return;var d=dist(x,y,l.x*MP.cs,l.y*MP.cs);if(d<bd2){bd2=d;bl=l;}});if(bl&&bd2<8000)return bl.t;return best?best.name:'無名高地';}
 function btName(R){var nm=R.place+TIERN[R.tier],same=G.bt.list.filter(function(Q){return Q!==R&&!Q.parent&&Q.place===R.place&&Q.tier===R.tier;}).length;return same?'第'+'二三四五六七八九十'.charAt(Math.min(8,same-1))+'次'+nm:nm;}
-function btNew(x,y){var R={id:++G.bt.seq,tier:0,x:x,y:y,bb:[x,y,x,y],t0:G.t,t1:G.t,active:true,u:[{},{}],men:[0,0],veh:[0,0],init:[0,0],later:[0,0],reinf:[0,0],n:{},ev:[],kids:[],parent:0,wx:G.env?G.env.wx:0,ph:G.env?G.env.phase:'day'};
+function btNew(x,y){var R={id:++G.bt.seq,tier:0,x:x,y:y,bb:[x,y,x,y],t0:G.t,t1:G.t,active:true,u:sAO(),men:sA0(),veh:sA0(),init:sA0(),later:sA0(),reinf:sA0(),n:{},ev:[],kids:[],parent:0,wx:G.env?G.env.wx:0,ph:G.env?G.env.phase:'day'};
   R.place=placeName(x,y);R.name=btName(R);G.bt.list.push(R);R.ev.push({t:G.t,txt:'在'+placeTxt(x,y)+'爆發'+TIERN[0]});return R;}
-function btAdd(R,u,kind){var S=R.u[u.side],e=S[u.id];if(!e){var s=ST(u);e=S[u.id]={m0:u.men,v0:u.veh,t:G.t,name:uName(u),ech:dispEch(u),br:s.br,dom:s.dom,reinf:!!u.isReinf,late:G.t-R.t0>600};R.men[u.side]+=u.men;R.veh[u.side]+=u.veh;
+/* 戰鬥紀錄補齊到目前的陣營數（三方作戰） */
+function btPadR(R){while(R.u.length<nSides()){R.u.push({});R.men.push(0);R.veh.push(0);R.init.push(0);R.later.push(0);R.reinf.push(0);}}
+function btMen(R){var m=0;for(var i=0;i<R.men.length;i++)m+=R.men[i]||0;return m;}
+/* 這場戰鬥有參戰的各方（兩方作戰時固定是 0、1） */
+function btSides(R){if(nSides()<3)return [0,1];return SIDES().filter(function(s){var U=R.u[s];if(!U)return false;for(var k in U)return true;return false;});}
+function btAdd(R,u,kind){if(!(u.side>=0))return;if(!R.u[u.side])btPadR(R);var S=R.u[u.side],e=S[u.id];if(!e){var s=ST(u);e=S[u.id]={m0:u.men,v0:u.veh,t:G.t,name:uName(u),ech:dispEch(u),br:s.br,dom:s.dom,reinf:!!u.isReinf,late:G.t-R.t0>600};R.men[u.side]+=u.men;R.veh[u.side]+=u.veh;
     if(e.late)R.later[u.side]+=u.men;else R.init[u.side]+=u.men;if(u.isReinf)R.reinf[u.side]+=u.men;if(e.late&&u.men+u.veh*8>=150)R.ev.push({t:G.t,txt:G.sides[u.side].name+'投入'+uName(u)+'（'+fmt(u.men)+' 人）'+(u.isReinf?'〔增援〕':'')});}
   G.bt.byUnit[u.id]=R.id;if(kind)R.n[kind]=(R.n[kind]||0)+1;}
 function btNear(x,y){var best=null,bd=1e18;G.bt.list.forEach(function(R){if(!R.active||R.parent||G.t-R.t1>900)return;var L=1200+600*R.tier,dx=Math.max(R.bb[0]-x,0,x-R.bb[2]),dy=Math.max(R.bb[1]-y,0,y-R.bb[3]),d=Math.sqrt(dx*dx+dy*dy);if(d<=L&&d<bd){bd=d;best=R;}});return best;}
-function btMerge(A,B){A=btTop(A);B=btTop(B);if(!A||!B||A===B)return A||B;var big=A.men[0]+A.men[1]>=B.men[0]+B.men[1]?A:B,sm=big===A?B:A;btFreeze(sm);
-  for(var s=0;s<2;s++)for(var id in sm.u[s]){var e=sm.u[s][id];if(!big.u[s][id]){big.u[s][id]=Object.assign({},e,{m1:undefined,v1:undefined,fate:undefined});big.men[s]+=e.m0;big.veh[s]+=e.v0;if(e.late||sm.t0>big.t0+600)big.later[s]+=e.m0;else big.init[s]+=e.m0;if(e.reinf)big.reinf[s]+=e.m0;}G.bt.byUnit[id]=big.id;}
+function btMerge(A,B){A=btTop(A);B=btTop(B);if(!A||!B||A===B)return A||B;var big=btMen(A)>=btMen(B)?A:B,sm=big===A?B:A;btFreeze(sm);btPadR(big);
+  for(var s=0;s<sm.u.length;s++)for(var id in sm.u[s]){var e=sm.u[s][id];if(!big.u[s][id]){big.u[s][id]=Object.assign({},e,{m1:undefined,v1:undefined,fate:undefined});big.men[s]+=e.m0;big.veh[s]+=e.v0;if(e.late||sm.t0>big.t0+600)big.later[s]+=e.m0;else big.init[s]+=e.m0;if(e.reinf)big.reinf[s]+=e.m0;}G.bt.byUnit[id]=big.id;}
   big.t0=Math.min(big.t0,sm.t0);big.t1=Math.max(big.t1,sm.t1);big.bb=[Math.min(big.bb[0],sm.bb[0]),Math.min(big.bb[1],sm.bb[1]),Math.max(big.bb[2],sm.bb[2]),Math.max(big.bb[3],sm.bb[3])];for(var k in sm.n)big.n[k]=(big.n[k]||0)+sm.n[k];
   big.kids.push(sm.id);sm.parent=big.id;sm.active=false;sm.end=G.t;sm.res=btOutcome(sm);big.ev.push({t:G.t,txt:sm.name+'與本戰鬥連成一片，併入'});return big;}
 /* 凍結：記錄結束時的兵力與單位下場 */
-function btFreeze(R){for(var s=0;s<2;s++)for(var id in R.u[s]){var e=R.u[s][id],u=uById(+id);if(e.m1!==undefined)continue;e.m1=u&&alive(u)?u.men:0;e.v1=u&&alive(u)?u.veh:0;e.fate=!u?'?':u.st==='dead'?(u.why==='capt'?(u.surr?'surr':'capt'):'dead'):u.ms==='rout'?'rout':u.ms==='shaken'?'shaken':'ok';e.capt=u&&u.why==='capt'?(u.captMen||0):0;}}
+function btFreeze(R){for(var s=0;s<R.u.length;s++)for(var id in R.u[s]){var e=R.u[s][id],u=uById(+id);if(e.m1!==undefined)continue;e.m1=u&&alive(u)?u.men:0;e.v1=u&&alive(u)?u.veh:0;e.fate=!u?'?':u.st==='dead'?(u.why==='capt'?(u.surr?'surr':'capt'):'dead'):u.ms==='rout'?'rout':u.ms==='shaken'?'shaken':'ok';e.capt=u&&u.why==='capt'?(u.captMen||0):0;}}
 function btLoss(R,s){var m=0,v=0,capt=0,dead=0,rout=0,m0=0,v0=0,n=0;for(var id in R.u[s]){var e=R.u[s][id],u=uById(+id),cm=e.m1!==undefined?e.m1:(u&&alive(u)?u.men:0),cv=e.v1!==undefined?e.v1:(u&&alive(u)?u.veh:0),fate=e.fate||(!u?'?':u.st==='dead'?(u.why==='capt'?(u.surr?'surr':'capt'):'dead'):u.ms);
     m+=Math.max(0,e.m0-cm);v+=Math.max(0,e.v0-cv);m0+=e.m0;v0+=e.v0;n++;if(fate==='capt'||fate==='surr'){capt+=e.capt||(u&&u.captMen)||0;}if(fate==='dead'||fate==='capt'||fate==='surr')dead++;if(fate==='rout')rout++;}
   return {m:m,v:v,capt:capt,dead:dead,rout:rout,m0:m0,v0:v0,n:n,f:m0+v0*8?(m+v*8)/(m0+v0*8):0};}
 function btPresence(R,s){var p=0,M=1500;for(var id in R.u[s]){var u=uById(+id);if(!u||!alive(u)||u.ms==='rout'||u.st==='air'||u.st==='base')continue;if(u.x>=R.bb[0]-M&&u.x<=R.bb[2]+M&&u.y>=R.bb[1]-M&&u.y<=R.bb[3]+M)p+=u.men+u.veh*8;}return p;}
-function btOutcome(R){var L=[btLoss(R,0),btLoss(R,1)],P=[btPresence(R,0),btPresence(R,1)],ctl=P[0]>0&&P[1]===0?0:P[1]>0&&P[0]===0?1:P[0]>P[1]*3?0:P[1]>P[0]*3?1:-1,res;
-  if(ctl<0)res={ctl:-1,k:'stale',txt:'雙方僵持，戰場未分勝負'};else{var me=L[ctl].f,en=L[enemyOf(ctl)].f,nm=G.sides[ctl].name;
+function btOutcome(R){var SS=SIDES(),L=SS.map(function(s){return btLoss(R,s);}),P=SS.map(function(s){return btPresence(R,s);}),ctl=-1,res;
+  if(SS.length<3)ctl=P[0]>0&&P[1]===0?0:P[1]>0&&P[0]===0?1:P[0]>P[1]*3?0:P[1]>P[0]*3?1:-1;else{var o=SS.slice().sort(function(a,b){return P[b]-P[a];});ctl=P[o[0]]>0&&P[o[0]]>P[o[1]]*3?o[0]:-1;}
+  if(ctl<0)res={ctl:-1,k:'stale',txt:SS.length<3?'雙方僵持，戰場未分勝負':'各方僵持，戰場未分勝負'};else{var me=L[ctl].f,en=SS.length<3?L[enemyOf(ctl)].f:Math.max.apply(null,SS.filter(function(s){return s!==ctl&&L[s].n>0;}).map(function(s){return L[s].f;}).concat([0])),nm=G.sides[ctl].name;
     if(en>=0.3&&en>=me*2)res={ctl:ctl,k:'decisive',txt:nm+'決定性勝利，控制戰場'};else if(me>en*1.5&&me>0.1)res={ctl:ctl,k:'pyrrhic',txt:nm+'付出慘重代價後控制戰場（慘勝）'};else res={ctl:ctl,k:'win',txt:nm+'勝利，控制戰場'};}
   res.L=L;res.P=P;return res;}
 /* ---------- 每步：處理接觸 → 建立／併入戰鬥；後續投入；規模升級；結束 ---------- */
@@ -2311,15 +2344,15 @@ function btStep(){var T=G._touch||[];G._touch=[];for(var i=0;i<T.length;i+=3){va
     /* 後續投入：進入戰場範圍、帶著作戰命令（攻擊、防禦、支援、砲擊、預備）的部隊 */
     var M=Math.max(1500,0.5*Math.max(R.bb[2]-R.bb[0],R.bb[3]-R.bb[1])+800);G.units.forEach(function(u){/* 本戰鬥已併入別的戰鬥：不再加入部隊 */if(!R.active||R.parent)return;if(!onMap(u)||G.bt.byUnit[u.id]===R.id)return;if(u.x<R.bb[0]-M||u.x>R.bb[2]+M||u.y<R.bb[1]-M||u.y>R.bb[3]+M)return;var o=u.ord;
       var cm=(o&&/attack|defend|support|bombard|reserve|strike|screen/.test(o.k))||(u._ed<1500);if(!cm)return;var ra=btAct(u.id);if(ra&&ra!==R){btMerge(ra,R);return;}btAdd(R,u,null);});
-    var nt=btTier(R);if(nt>R.tier){var old=R.name;R.tier=nt;R.name=btName(R);R.ev.push({t:G.t,txt:'雙方累計投入 '+fmt(R.men[0]+R.men[1])+' 人，規模升級為「'+TIERN[nt]+'」'});logE(-1,'bt',old+'規模擴大，升級為'+R.name+'（雙方投入 '+fmt(R.men[0]+R.men[1])+' 人）',(R.bb[0]+R.bb[2])/2,(R.bb[1]+R.bb[3])/2);}
+    var nt=btTier(R);if(nt>R.tier){var old=R.name;R.tier=nt;R.name=btName(R);R.ev.push({t:G.t,txt:'雙方累計投入 '+fmt(btMen(R))+' 人，規模升級為「'+TIERN[nt]+'」'});logE(-1,'bt',old+'規模擴大，升級為'+R.name+'（雙方投入 '+fmt(btMen(R))+' 人）',(R.bb[0]+R.bb[2])/2,(R.bb[1]+R.bb[3])/2);}
     if(G.t-R.t1>1800)btClose(R);});}
-function btClose(R){if(!R.active)return;R.active=false;R.end=R.t1;btFreeze(R);R.res=btOutcome(R);logE(-1,'bt',R.name+'結束：'+R.res.txt+'（'+G.sides[0].name+'損失 '+fmt(R.res.L[0].m)+' 人，'+G.sides[1].name+'損失 '+fmt(R.res.L[1].m)+' 人）',(R.bb[0]+R.bb[2])/2,(R.bb[1]+R.bb[3])/2);}
+function btClose(R){if(!R.active)return;R.active=false;R.end=R.t1;btFreeze(R);R.res=btOutcome(R);logE(-1,'bt',R.name+'結束：'+R.res.txt+'（'+btSides(R).map(function(s){return G.sides[s].name+'損失 '+fmt(R.res.L[s].m)+' 人';}).join('，')+'）',(R.bb[0]+R.bb[2])/2,(R.bb[1]+R.bb[3])/2);}
 function btCloseAll(){G.bt.list.forEach(function(R){if(R.active)btClose(R);});}
 /* 戰報事件：記錄到單位所屬的進行中戰鬥 */
 function btLog(e){if(!G.bt||!e.u)return;var R=btAct(e.u);if(R&&R.ev.length<400&&/dead|rout|assault|hq|reinf|rally|ff|air|arty|obj|eng|surr|twd|eager|refuse|panic|rejoin|siege|nuke|abn|amph/.test(e.k))R.ev.push({t:e.t,txt:e.txt});}
 /* ---------- 戰報內容（供介面與匯出） ---------- */
-function btView(R){var res=R.active||!R.res?btOutcome(R):R.res,L=res.L,men=R.men[0]+R.men[1],sides=[0,1].map(function(s){var list=[];for(var id in R.u[s]){var e=R.u[s][id],u=uById(+id);list.push({id:+id,name:e.name,ech:e.ech,br:e.br,m0:e.m0,v0:e.v0,m:e.m1!==undefined?e.m1:(u&&alive(u)?u.men:0),v:e.v1!==undefined?e.v1:(u&&alive(u)?u.veh:0),fate:e.fate||(!u?'?':u.st==='dead'?(u.why==='capt'?(u.surr?'surr':'capt'):'dead'):u.ms),late:e.late,reinf:e.reinf,t:e.t});}
-    list.sort(function(a,b){return b.m0+b.v0*8-a.m0-a.v0*8;});return {name:G.sides[s].name,color:G.sides[s].color,men:R.men[s],veh:R.veh[s],init:R.init[s],later:R.later[s],reinf:R.reinf[s],L:L[s],list:list};});
+function btView(R){var res=R.active||!R.res?btOutcome(R):R.res,L=res.L,men=btMen(R),sides=btSides(R).map(function(s){var list=[];for(var id in R.u[s]){var e=R.u[s][id],u=uById(+id);list.push({id:+id,name:e.name,ech:e.ech,br:e.br,m0:e.m0,v0:e.v0,m:e.m1!==undefined?e.m1:(u&&alive(u)?u.men:0),v:e.v1!==undefined?e.v1:(u&&alive(u)?u.veh:0),fate:e.fate||(!u?'?':u.st==='dead'?(u.why==='capt'?(u.surr?'surr':'capt'):'dead'):u.ms),late:e.late,reinf:e.reinf,t:e.t});}
+    list.sort(function(a,b){return b.m0+b.v0*8-a.m0-a.v0*8;});return {side:s,name:G.sides[s].name,color:G.sides[s].color,men:R.men[s]||0,veh:R.veh[s]||0,init:R.init[s]||0,later:R.later[s]||0,reinf:R.reinf[s]||0,L:L[s]||btLoss(R,s),list:list};});
   return {id:R.id,name:R.name,tier:R.tier,tierN:TIERN[R.tier],active:R.active,t0:R.t0,t1:R.active?G.t:R.end,place:R.place,where:placeTxt((R.bb[0]+R.bb[2])/2,(R.bb[1]+R.bb[3])/2),men:men,res:res,sides:sides,n:R.n,ev:R.ev.slice().sort(function(a,b){return a.t-b.t;}),kids:R.kids.map(btGet).filter(Boolean),parent:R.parent,wx:WX[R.wx]?WX[R.wx][1]:'',ph:R.ph};}
 var FATE={ok:'完好',shaken:'動搖',rout:'潰散',dead:'被殲滅',capt:'被俘',surr:'投降','?':'不明'};
 function tTxt(t){return clockTxt(dateOf(G.set.y,G.set.m,G.set.d,t+G.set.h*3600+(G.set.mi||0)*60));}
@@ -2329,9 +2362,9 @@ function btText(R,depth){var V=btView(R),o=[],ind=new Array((depth||0)+1).join('
   o.push(ind+'結果：'+V.res.txt);if(V.ev.length){o.push(ind+'經過：');V.ev.slice(0,60).forEach(function(e){o.push(ind+'  '+tTxt(e.t).slice(-5)+'　'+e.txt);});}
   V.kids.forEach(function(K){o.push('');o.push(btText(K,(depth||0)+1));});return o.join('\n');}
 /* 戰區總覽（整個想定） */
-function theaterView(){var top=G.bt.list.filter(function(R){return !R.parent;}),men=[0,0],cnt=[0,0,0,0];top.forEach(function(R){men[0]+=R.men[0];men[1]+=R.men[1];});G.bt.list.forEach(function(R){cnt[R.tier]++;});
-  var st=[0,1].map(function(s){var S=sideStr(s);return {name:G.sides[s].name,color:G.sides[s].color,cas:G.stats[s].cas,vl:G.stats[s].vl,capt:G.stats[s].capt,surr:G.stats[s].surr||0,f:S.f};});
-  var tot=men[0]+men[1],T=G.set.tiers||[2000,20000,200000],tier=tot>=T[2]?3:tot>=T[1]?2:tot>=T[0]?1:0;return {name:(G.map.name||'作戰地區')+(tier>=3?'戰區':'作戰地區'),tier:tier,top:top,men:men,cnt:cnt,sides:st};}
+function theaterView(){var top=G.bt.list.filter(function(R){return !R.parent;}),men=sA0(),cnt=[0,0,0,0];top.forEach(function(R){for(var i=0;i<men.length;i++)men[i]+=R.men[i]||0;});G.bt.list.forEach(function(R){cnt[R.tier]++;});
+  var st=SIDES().map(function(s){var S=sideStr(s);return {side:s,name:G.sides[s].name,color:G.sides[s].color,cas:G.stats[s].cas,vl:G.stats[s].vl,capt:G.stats[s].capt,surr:G.stats[s].surr||0,f:S.f};});
+  var tot=men.reduce(function(a,b){return a+b;},0),T=G.set.tiers||[2000,20000,200000],tier=tot>=T[2]?3:tot>=T[1]?2:tot>=T[0]?1:0;return {name:(G.map.name||'作戰地區')+(tier>=3?'戰區':'作戰地區'),tier:tier,top:top,men:men,cnt:cnt,sides:st};}
 function theaterText(){var V=theaterView(),o=['# '+V.name+' 戰報','作戰時間：'+tTxt(0)+' 起，已進行 '+durTxt(G.t),''];V.sides.forEach(function(s){o.push(s.name+'：傷亡 '+fmt(s.cas)+' 人、裝備損失 '+fmt(s.vl,1)+'、被俘 '+fmt(s.capt)+'；剩餘戰力 '+pct(s.f*100));});
   o.push('戰鬥統計：'+V.cnt.map(function(n,i){return TIERN[i]+' '+n;}).join('、'));if(G.over)o.push('結果：'+G.over.why+'，'+(G.over.win>=0?G.sides[G.over.win].name+'獲勝':'不分勝負'));o.push('');
   V.top.slice().sort(function(a,b){return b.tier-a.tier||a.t0-b.t0;}).forEach(function(R){o.push(btText(R,0));o.push('');});return o.join('\n');}
@@ -2476,39 +2509,42 @@ function frontInit(){var MP=G.map,cs=Math.max(250,Math.ceil(Math.max(MP.Wm,MP.Hm
   G.front={cs:cs,W:W,H:H,own:new Int8Array(N).fill(-1),wet:wet,hist:[],ver:1,nextH:0,init:0};return G.front;}
 /* exp(-x) 查表（x 到 3.2 為止，每格 1/400）：前線影響力只需要概略值 */
 var FEXS=400,FEXP=(function(){var t=new Float32Array(3.3*400|0);for(var i=0;i<t.length;i++)t[i]=Math.exp(-(i+0.5)/400);return t;})();
-function frontStep(){var F=G.front;if(!F||!F.own||!F.wet)F=frontInit();var W=F.W,H=F.H,cs=F.cs,N=W*H,I=[new Float32Array(N),new Float32Array(N)],first=!F.init,any=[0,0];
-  G.units.forEach(function(u){if(!onMap(u)||!isLeaf(u)||u.ms==='rout'||u.amph)return;var s=ST(u);if(s.dom!=='land')return;any[u.side]=1;var w=Math.sqrt(u.men+u.veh*8+1),sg=clamp(rangeOf(s)*0.5+frontW(u)*0.5,500,3500),R=sg*2.5,k2=1/(2*sg*sg),A=I[u.side],
+function frontStep(){var F=G.front;if(!F||!F.own||!F.wet)F=frontInit();var W=F.W,H=F.H,cs=F.cs,N=W*H,I=SIDES().map(function(){return new Float32Array(N);}),first=!F.init,any=sA0();
+  G.units.forEach(function(u){if(!onMap(u)||!isLeaf(u)||u.ms==='rout'||u.amph)return;var s=ST(u);if(s.dom!=='land'||!I[u.side])return;any[u.side]=1;var w=Math.sqrt(u.men+u.veh*8+1),sg=clamp(rangeOf(s)*0.5+frontW(u)*0.5,500,3500),R=sg*2.5,k2=1/(2*sg*sg),A=I[u.side],
       i0=Math.max(0,Math.floor((u.x-R)/cs)),i1=Math.min(W-1,Math.floor((u.x+R)/cs)),j0=Math.max(0,Math.floor((u.y-R)/cs)),j1=Math.min(H-1,Math.floor((u.y+R)/cs));
     var RR=R*R,kq=k2*FEXS;for(var j=j0;j<=j1;j++){var dy=(j+0.5)*cs-u.y,dy2=dy*dy,row=j*W;for(var i=i0;i<=i1;i++){var dx=(i+0.5)*cs-u.x,d2=dx*dx+dy2;if(d2<=RR)A[row+i]+=w*FEXP[(d2*kq)|0];}}});
-  if(first&&!any[0]&&!any[1])return;var ch=0;
-  for(var k=0;k<N;k++){if(F.wet[k])continue;var a=I[0][k],b=I[1][k],o=F.own[k],n=o;if(first){if(a>0.2||b>0.2)n=a>=b?0:1;}else if(a>0.4&&a>b*2.2)n=0;else if(b>0.4&&b>a*2.2)n=1;if(n!==o){F.own[k]=n;ch++;}}
+  if(first&&!any.some(function(v){return v;}))return;var ch=0,NI=I.length;
+  if(NI<3){for(var k=0;k<N;k++){if(F.wet[k])continue;var a=I[0][k],b=I[1][k],o=F.own[k],n=o;if(first){if(a>0.2||b>0.2)n=a>=b?0:1;}else if(a>0.4&&a>b*2.2)n=0;else if(b>0.4&&b>a*2.2)n=1;if(n!==o){F.own[k]=n;ch++;}}}
+  else for(k=0;k<N;k++){if(F.wet[k])continue;var t1=-1,v1=0,v2=0;for(var si=0;si<NI;si++){var v=I[si][k];if(v>v1){v2=v1;v1=v;t1=si;}else if(v>v2)v2=v;}var o3=F.own[k],n3=o3;if(first){if(v1>0.2)n3=t1;}else if(v1>0.4&&v1>v2*2.2)n3=t1;if(n3!==o3){F.own[k]=n3;ch++;}}
   if(first){F.init=1;frontFill(F);}if(ch||first)F.ver++;
-  if(G.t>=(F.nextH||0)){F.nextH=G.t+1800;var c=[0,0];for(k=0;k<N;k++){if(F.own[k]>=0)c[F.own[k]]++;}F.hist.push({t:G.t,o:rleEnc(F.own),a:c});if(F.hist.length>2000)F.hist.splice(1,1);}}
+  if(G.t>=(F.nextH||0)){F.nextH=G.t+1800;var c=sA0();for(k=0;k<N;k++){if(F.own[k]>=0)c[F.own[k]]++;}F.hist.push({t:G.t,o:rleEnc(F.own),a:c});if(F.hist.length>2000)F.hist.splice(1,1);}}
 /* 開戰時：尚未有人控制的陸地，歸給最近的一方（兩軍之間的中線就是初始戰線） */
 function frontFill(F){var W=F.W,H=F.H,q=[],h=0;for(var k=0;k<W*H;k++)if(F.own[k]>=0)q.push(k);while(h<q.length){var c=q[h++],x=c%W,y=(c/W)|0;for(var d=0;d<4;d++){var X=x+(d===0?1:d===1?-1:0),Y=y+(d===2?1:d===3?-1:0);if(X<0||Y<0||X>=W||Y>=H)continue;var n=Y*W+X;if(F.own[n]>=0||F.wet[n])continue;F.own[n]=F.own[c];q.push(n);}}}
 function rleEnc(A){var o=[],v=A[0],n=0;for(var i=0;i<A.length;i++){if(A[i]===v)n++;else{o.push(v,n);v=A[i];n=1;}}o.push(v,n);return o;}
 function rleDec(R,N){var A=new Int8Array(N).fill(-1),p=0;for(var i=0;i<R.length;i+=2){var v=R[i],n=R[i+1];for(var j=0;j<n&&p<N;j++)A[p++]=v;}return A;}
 /* 等值線（marching squares）：只在雙方控制區相接處畫線 */
-function frontSegs(own,W,H,cs){var N=W*H,v=new Float32Array(N),b=new Float32Array(N),segs=[];for(var k=0;k<N;k++)v[k]=own[k]===0?1:own[k]===1?-1:0;
+/* 三方：任兩方交界各畫一次 */
+function frontSegsAll(own,W,H,cs){if(nSides()<3)return frontSegs(own,W,H,cs);var o=[];for(var a=0;a<nSides();a++)for(var b2=a+1;b2<nSides();b2++)o=o.concat(frontSegs(own,W,H,cs,a,b2));return o;}
+function frontSegs(own,W,H,cs,sa,sb){if(sa===undefined){sa=0;sb=1;}var N=W*H,v=new Float32Array(N),b=new Float32Array(N),segs=[];for(var k=0;k<N;k++)v[k]=own[k]===sa?1:own[k]===sb?-1:0;
   for(var j=0;j<H;j++)for(var i=0;i<W;i++){var s=0,n=0;for(var dj=-1;dj<=1;dj++)for(var di=-1;di<=1;di++){var X=i+di,Y=j+dj;if(X<0||Y<0||X>=W||Y>=H)continue;s+=v[Y*W+X];n++;}b[j*W+i]=s/n;}
   function L(p,q,vp,vq){var t=vp/((vp-vq)||1e-9);t=clamp(t,0,1);return [p[0]+(q[0]-p[0])*t,p[1]+(q[1]-p[1])*t];}
   for(j=0;j<H-1;j++)for(i=0;i<W-1;i++){var k0=j*W+i,a=b[k0],bq=b[k0+1],c=b[k0+W],d=b[k0+W+1],idx=(a>0?8:0)|(bq>0?4:0)|(d>0?2:0)|(c>0?1:0);if(idx===0||idx===15)continue;
-    var h0=0,h1=0;for(var dj2=-1;dj2<=2&&!(h0&&h1);dj2++)for(var di2=-1;di2<=2;di2++){var X2=i+di2,Y2=j+dj2;if(X2<0||Y2<0||X2>=W||Y2>=H)continue;var o=own[Y2*W+X2];if(o===0)h0=1;else if(o===1)h1=1;}if(!h0||!h1)continue;
+    var h0=0,h1=0;for(var dj2=-1;dj2<=2&&!(h0&&h1);dj2++)for(var di2=-1;di2<=2;di2++){var X2=i+di2,Y2=j+dj2;if(X2<0||Y2<0||X2>=W||Y2>=H)continue;var o=own[Y2*W+X2];if(o===sa)h0=1;else if(o===sb)h1=1;}if(!h0||!h1)continue;
     var x0=(i+0.5)*cs,y0=(j+0.5)*cs,x1=x0+cs,y1=y0+cs,TL=[x0,y0],TR=[x1,y0],BR=[x1,y1],BL=[x0,y1],top=L(TL,TR,a,bq),right=L(TR,BR,bq,d),bot=L(BL,BR,c,d),left=L(TL,BL,a,c);
     switch(idx){case 1:case 14:segs.push(left,bot);break;case 2:case 13:segs.push(bot,right);break;case 3:case 12:segs.push(left,right);break;case 4:case 11:segs.push(top,right);break;case 5:segs.push(left,top,bot,right);break;case 6:case 9:segs.push(top,bot);break;case 7:case 8:segs.push(left,top);break;case 10:segs.push(left,bot,top,right);break;}}
   return segs;}
 function frontAt(F,t){if(!F||!F.hist||!F.hist.length||t<F.hist[0].t)return null;var lo=0,hi=F.hist.length-1;while(lo<hi){var m=(lo+hi+1)>>1;if(F.hist[m].t<=t)lo=m;else hi=m-1;}return F.hist[lo];}
-function frontOldSegs(F,t){var h=frontAt(F,t);if(!h)return null;if(!h._segs)h._segs=frontSegs(rleDec(h.o,F.W*F.H),F.W,F.H,F.cs);return h._segs;}
+function frontOldSegs(F,t){var h=frontAt(F,t);if(!h)return null;if(!h._segs)h._segs=frontSegsAll(rleDec(h.o,F.W*F.H),F.W,F.H,F.cs);return h._segs;}
 /* 繪製：控制區淡色、目前戰線（粗線）、三小時前的戰線（虛線，顯示推進） */
 function drawFront(c){var F=G.front;if(!F||!F.own||!F.init)return;var p0=w2s(0,0),p1=w2s(F.W*F.cs,F.H*F.cs);
-  if(F._cvV!==F.ver||!F._cv){F._cvV=F.ver;var cv=F._cv||(F._cv=mkCanvas(F.W,F.H)),x=cv.getContext('2d'),id=x.createImageData(F.W,F.H),D=id.data,cc=[rgbOf(G.sides[0].color),rgbOf(G.sides[1].color)];
-    for(var k=0;k<F.W*F.H;k++){var o=F.own[k];if(o<0)continue;D[k*4]=cc[o][0];D[k*4+1]=cc[o][1];D[k*4+2]=cc[o][2];D[k*4+3]=46;}x.putImageData(id,0,0);F._segs=frontSegs(F.own,F.W,F.H,F.cs);}
+  if(F._cvV!==F.ver||!F._cv){F._cvV=F.ver;var cv=F._cv||(F._cv=mkCanvas(F.W,F.H)),x=cv.getContext('2d'),id=x.createImageData(F.W,F.H),D=id.data,cc=G.sides.map(function(S){return rgbOf(S.color);});
+    for(var k=0;k<F.W*F.H;k++){var o=F.own[k];if(o<0||!cc[o])continue;D[k*4]=cc[o][0];D[k*4+1]=cc[o][1];D[k*4+2]=cc[o][2];D[k*4+3]=46;}x.putImageData(id,0,0);F._segs=frontSegsAll(F.own,F.W,F.H,F.cs);}
   c.save();c.imageSmoothingEnabled=true;c.drawImage(F._cv,p0[0],p0[1],p1[0]-p0[0],p1[1]-p0[1]);
   c.lineCap='round';c.lineJoin='round';var old=frontOldSegs(F,G.t-3*3600);if(old&&old.length){c.strokeStyle='rgba(94,30,120,.5)';c.lineWidth=1.6;c.setLineDash([6,5]);segDraw(c,old);c.setLineDash([]);}
   c.strokeStyle='rgba(255,255,255,.8)';c.lineWidth=6;segDraw(c,F._segs);c.strokeStyle='#5E1E78';c.lineWidth=3;segDraw(c,F._segs);c.restore();}
 function segDraw(c,S){c.beginPath();for(var i=0;i+1<S.length;i+=2){var a=w2s(S[i][0],S[i][1]),b=w2s(S[i+1][0],S[i+1][1]);c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);}c.stroke();}
 /* 控制面積（百分比）的時間序列 */
-function frontSeries(){var F=G.front;if(!F||!F.hist)return [];var land=0;for(var k=0;k<F.W*F.H;k++)if(!F.wet||!F.wet[k])land++;land=land||1;return F.hist.map(function(h){return {t:h.t,a:[h.a[0]/land*100,h.a[1]/land*100]};});}
+function frontSeries(){var F=G.front;if(!F||!F.hist)return [];var land=0;for(var k=0;k<F.W*F.H;k++)if(!F.wet||!F.wet[k])land++;land=land||1;return F.hist.map(function(h){return {t:h.t,a:h.a.map(function(v){return (v||0)/land*100;})};});}
 function packFront(F){if(!F||!F.own)return null;return {cs:F.cs,W:F.W,H:F.H,own:rleEnc(F.own),hist:F.hist.map(function(h){return {t:h.t,o:h.o,a:h.a};}),nextH:F.nextH||0,init:F.init||0};}
 function unpackFront(P){if(!P)return null;var F=frontInit();if(F.W!==P.W||F.H!==P.H)return F;F.own=rleDec(P.own,F.W*F.H);F.hist=P.hist||[];F.nextH=P.nextH||0;F.init=P.init||0;F.ver++;return F;}
 
@@ -2848,7 +2884,7 @@ function polGen(side,force){var P=polSide(side),D=DOCT[P.doct]||DOCT.mixed,r=mb3
 var POLWHY=[['m','士氣低落'],['d','軍紀渙散'],['h','斷糧挨餓'],['o','補給中斷'],['c','傷亡慘重'],['e','遭到包圍'],['g','遭游擊隊襲擊'],['r','敵軍暴行激起報復心理'],['f','疲憊不堪']];
 function polDyn(){if(G.set.polDyn===false||!G.civ)return;var grp={},C=G.civ;G.units.forEach(function(u){if(!isLeaf(u)||!onMap(u)||u.irr||ST(u).dom!=='land'||u.st==='lift')return;var H=polHolder(u);(grp[H.id]=grp[H.id]||{H:H,L:[]}).L.push(u);});
   Object.keys(grp).forEach(function(id){var H=grp[id].H,L=grp[id].L,n=L.length,men=0,a={m:0,d:0,h:0,o:0,c:0,e:0,g:0,f:0};L.forEach(function(u){var w=Math.max(1,u.men);men+=w;a.m+=u.mor*w;a.d+=(u.dis===undefined?70:u.dis)*w;a.h+=((u.lg&&u.lg.hun)||0)*w;a.o+=Math.min(48,(u.oos||0)/3600)*w;a.c+=(u.rcas||0)*w;a.e+=(G.t-(u.encT||-1e9)<1800||u.besieged&&G.t-u.besieged<1800?1:0)*w;a.g+=(G.t-(u.gueT||-1e9)<12*3600?1:0)*w;a.f+=(u.fat||0)*w;});
-    for(var q in a)a[q]/=men;var c0=centroid(L),en=enemyOf(H.side),rv=0;C.wc.forEach(function(w){if(w.side===en&&G.t-w.t<12*3600&&w.x!==undefined&&dist(w.x,w.y,c0[0],c0[1])<20000)rv+=w.k==='exec'||w.k==='mass'?2:1;});
+    for(var q in a)a[q]/=men;var c0=centroid(L),en=enemyOf(H.side),rv=0;C.wc.forEach(function(w){if((nSides()<3?w.side===en:hostile(H.side,w.side))&&G.t-w.t<12*3600&&w.x!==undefined&&dist(w.x,w.y,c0[0],c0[1])<20000)rv+=w.k==='exec'||w.k==='mass'?2:1;});
     var x={m:clamp((55-a.m)/35,0,1),d:clamp((50-a.d)/40,0,1),h:clamp(a.h/60,0,1),o:clamp(a.o/24,0,1),c:clamp(a.c/0.25,0,1),e:a.e,g:a.g,r:clamp(rv/3,0,1),f:clamp((a.f-60)/40,0,1)};
     var off=offOf(H)||{},mit=(H._pmT&&G.t-H._pmT<1800?H._pm:(H._pmT=G.t,H._pm=!!mpNear({side:H.side,x:c0[0],y:c0[1]},9000)))?0.35:0;mit+=(hasQ(off,'inspire')?0.3:0)+(hasQ(off,'careful')?0.2:0)-(hasQ(off,'reckless')?0.2:0)-((off.agg||0)>=8?0.15:0)+((polSide(H.side).press||'control')==='free'?0.1:0);
     var T={pow:0.8*x.m+0.5*x.d+0.6*x.h+0.4*x.o+1.0*x.c+0.4*x.e+0.3*x.g+0.9*x.r+0.2*x.f-mit,civ:0.8*x.m+0.6*x.d+0.8*x.h+0.5*x.o+0.5*x.c+0.3*x.e+1.2*x.g+0.5*x.r+0.3*x.f-mit};
@@ -2862,17 +2898,17 @@ function polLog(H,k,a,b,why){var T2=k==='pow'?POWP:CIVP,worse=b>a,txt=uName(H)+'
 /* ---------- 狀態 ---------- */
 function civStat0(){return {civK:0,civW:0,civKF:0,civKC:0,refBlock:0,refShot:0,powHeld:0,powDied:0,powExec:0,powEsc:0,powLib:0,incid:0,crimes:0,loot:0,rapeV:0,slavV:0,deport:0,prop:0,mil:0,camps:0,shel:0};}
 function civInit(){var MP=G.map,S=G.set,y=S.y,AM=ageMix(y),ev=(EVACR[S.evac||'part']||EVACR.part)[1],W=WEALTH[S.wealth||'mid']||WEALTH.mid,mob=(MOBN[S.mob||'mid']||MOBN.mid)[1],dev=eraDev(y),per=curPer(),r=mb32(hstr(S.seed+'|civ'));
-  var C={S:[],R:[],P:[],cs:[civStat0(),civStat0()],ev:[],wc:[],rep:[60,60],prop:{set:0,inf:0,mil:[0,0],loot:0,fire:0,quake:0,flood:0,other:0},val0:0,seq:0,cg:{},dec:[]};G.civ=C;
+  var C={S:[],R:[],P:[],cs:SIDES().map(function(){return civStat0();}),ev:[],wc:[],rep:sAV(60),prop:{set:0,inf:0,mil:sA0(),loot:0,fire:0,quake:0,flood:0,other:0},val0:0,seq:0,cg:{},dec:[]};G.civ=C;
   (MP.set||[]).forEach(function(s,i){var pop=s.pop||0,ad=pop*(1-AM[0]-AM[1]),men=ad*0.5*(1-mob),wom=ad*0.5,kid=pop*AM[0],eld=pop*AM[1],e=ev*(0.9+0.2*r());
     var g={i:i,n:s.name,x:s.x*MP.cs,y:s.y*MP.cs,r:Math.max(250,s.r||300),kind:s.kind,pop0:pop,men:men*(1-e*0.6),wom:wom*(1-e*1.1>0?1-e*1.1:0.02),kid:kid*Math.max(0.02,1-e*1.2),eld:eld*(1-e*0.7),evac:0,dead:{m:0,w:0,k:0,e:0},wnd:0,fled:0,camp:0,loy:-1,occ:-1,occT:0,cand:-1,candT:0,unrest:0,alarm:0,shel:0,hung:0,food:30*W[2],pend:0,sick:0,hitT:-1e9,val0:0,loss:0,looted:0,burnt:0,tot0:0};
     g.evac=pop-(g.men+g.wom+g.kid+g.eld);g.tot0=pop;g.val0=pop*W[1]*dev*per*(s.kind==='city'?1.4:s.kind==='town'?1:0.6);C.val0+=g.val0;C.S.push(g);});
-  civLoyal(r);[0,1].forEach(function(sd){if(!polSide(sd).gen){polGen(sd);polSide(sd).gen=1;}});
+  civLoyal(r);SIDES().forEach(function(sd){if(!polSide(sd).gen){polGen(sd);polSide(sd).gen=1;}});
   logE(-1,'civ','作戰地區約有 '+fmt(civPresent())+' 名平民'+(civEvacSum()>0?'，開戰前已撤離約 '+fmt(civEvacSum())+' 人':'')+'；房屋與設施估值約 '+money(C.val0));}
 function civPresent(g){if(g)return g.men+g.wom+g.kid+g.eld;var s=0;(G.civ?G.civ.S:[]).forEach(function(q){s+=q.men+q.wom+q.kid+q.eld;});return s;}
 function civEvacSum(){var s=0;G.civ.S.forEach(function(q){s+=q.evac;});return s;}
 /* 民心歸屬：開戰時由最近的己方地面部隊決定（原控制方），或依設定 */
-function civLoyal(r){var L=G.set.loy||'home';G.civ.S.forEach(function(g){if(L==='s0'||L==='s1'){g.loy=L==='s0'?0:1;return;}if(L==='neutral'){g.loy=-1;return;}if(L==='split'){g.loy=r()<0.5?0:1;return;}
-    var bd=[1e18,1e18];G.units.forEach(function(u){if(!isLeaf(u)||u.st==='off'||ST(u).dom!=='land')return;var d=dist(u.x,u.y,g.x,g.y);if(d<bd[u.side])bd[u.side]=d;});g.loy=bd[0]<bd[1]?0:1;g.occ=g.loy;});}
+function civLoyal(r){var L=G.set.loy||'home';G.civ.S.forEach(function(g){if(L==='s0'||L==='s1'){g.loy=L==='s0'?0:1;return;}if(L==='neutral'){g.loy=-1;return;}if(L==='split'){g.loy=nSides()<3?(r()<0.5?0:1):Math.min(nSides()-1,Math.floor(r()*nSides()));return;}
+    var bd=sAV(1e18);G.units.forEach(function(u){if(!isLeaf(u)||u.st==='off'||ST(u).dom!=='land'||!(u.side>=0))return;var d=dist(u.x,u.y,g.x,g.y);if(d<bd[u.side])bd[u.side]=d;});if(bd.length<3)g.loy=bd[0]<bd[1]?0:1;else{g.loy=0;for(var bi=1;bi<bd.length;bi++)if(bd[bi]<bd[g.loy])g.loy=bi;}g.occ=g.loy;});}
 /* ---------- 事件與決策紀錄（戰後總結用） ---------- */
 function civEv(kind,side,txt,x,y,uid,d){var e=Object.assign({t:G.t,k:kind,s:side,txt:txt,x:x,y:y,u:uid},d||{});G.civ.ev.push(e);if(G.civ.ev.length>4000)G.civ.ev.shift();logE(side,kind,txt,x,y,uid);return e;}
 function decLog(side,who,txt,d){if(!G.civ)return;var e=Object.assign({t:G.t,s:side,who:who,txt:txt},d||{});G.civ.dec.push(e);if(G.civ.dec.length>3000)G.civ.dec.shift();}
@@ -2915,7 +2951,7 @@ function woundSplit(t,m,K){if(m<=0)return;var S=medStat(t.side),kt=0,kk,kf=0;for
 function medFx(u,k,v){return k==='use'?0:v;}
 function medR(side){var hq=sideCmd(side),y=hq?uEra(hq).y:G.set.y;return y<1800?5000:y<1900?9000:y<1940?15000:y<1965?25000:40000;}
 /* 每 10 分鐘：傷兵後送與治療 */
-function medStep(){var dt=600,h=dt/3600;[0,1].forEach(function(side){var S=medStat(side),hq=sideCmd(side),y=hq?uEra(hq).y:G.set.y,R=medR(side),meds=G.units.filter(function(u){return u.side===side&&onMap(u)&&isLeaf(u)&&ST(u).fl.indexOf('D')>=0&&ST(u).dom!=='air';}),heli=G.units.some(function(u){return u.side===side&&alive(u)&&ST(u).fl.indexOf('n')>=0;});
+function medStep(){var dt=600,h=dt/3600;SIDES().forEach(function(side){var S=medStat(side),hq=sideCmd(side),y=hq?uEra(hq).y:G.set.y,R=medR(side),meds=G.units.filter(function(u){return u.side===side&&onMap(u)&&isLeaf(u)&&ST(u).fl.indexOf('D')>=0&&ST(u).dom!=='air';}),heli=G.units.some(function(u){return u.side===side&&alive(u)&&ST(u).fl.indexOf('n')>=0;});
     var dU=(y<1850?0.012:y<1914?0.009:y<1940?0.006:y<1970?0.004:0.0025)*h*(heli?0.6:1),baseT=(y<1850?0.006:y<1914?0.004:y<1940?0.0025:y<1970?0.0012:0.0006)*h;
     meds.forEach(function(m){m.medN=0;});
     G.units.forEach(function(u){if(u.side!==side||!(u.wia>0.05))return;var m=null,bd=1e18;if(u.st!=='dead'){var Rr=R*(heli?1.6:1)*medFx(u,'reach',1);meds.forEach(function(q){var d=dist(q.x,q.y,u.x,u.y);if(d<Rr&&d<bd){bd=d;m=q;}});}
@@ -2924,7 +2960,7 @@ function medStep(){var dt=600,h=dt/3600;[0,1].forEach(function(side){var S=medSt
     meds.forEach(function(m){if(!m.pat||!m.pat.length)return;var mq=0,n=0;(m.mix||[]).forEach(function(q){var x=utx(q[0]);if(x.mq){mq+=x.mq*q[1];n+=q[1];}});mq=medFx(m,'mq',n?mq/n:0.5);var keep=[];
       m.pat.forEach(function(p){var d=p.n*baseT*(1-mq)*2*(p.sh?1+1.5*p.sh:1)*(p.l?0.2:1);p.n-=d;S.dow+=d;if(G.t-p.t>(p.l?(y<1940?24:12):(y<1914?96:48))*3600){var u=uById(p.u),rt=p.n*(p.l?0.9:0.35)*(p.sh?1-0.5*p.sh:1);if(u&&alive(u)&&u.st!=='off'){u.men=Math.min(u.men0,u.men+rt);S.rtd+=rt;u.rtd=(u.rtd||0)+rt;}p.n=0;}if(p.n>0.05)keep.push(p);});m.pat=keep;});});}
 /* ---------- 戰俘：受降、拒絕受降、押解、收容、勞役、處決、死亡、逃亡與解放 ---------- */
-function powCapture(u,by){if(!G.civ)return;var men=u.captMen||u.men,H=enemyOf(u.side);if(men<1)return;by=by||(u._eid?uById(u._eid):null);if(!by||by.side!==H){by=null;gridNear(u.x,u.y,4000,function(e){if(!by&&e.side===H&&onMap(e)&&ST(e).dom!=='air')by=e;});}
+function powCapture(u,by){if(!G.civ)return;var men=u.captMen||u.men,H=enemyOf(u.side),T3=nSides()>=3,hs=function(e){return T3?hostile(u.side,e.side):e.side===H;};if(men<1)return;by=by||(u._eid?uById(u._eid):null);if(!by||!hs(by)){by=null;gridNear(u.x,u.y,4000,function(e){if(!by&&hs(e)&&onMap(e)&&ST(e).dom!=='air')by=e;});}if(T3&&by)H=by.side;
   var L=by?polOf(by,'pow'):polSide(H).pow,P=POWP[L],p=P[3]*((by&&by.rcas>0.1)?1.5:1)*(by&&by.dis!==undefined&&by.dis<40?1.4:1);if(uEra(u).y<1600)p*=1.2;
   if(by&&rnd()<p){var kill=men*(L>=5?0.85+0.15*rnd():0.25+0.6*rnd());G.civ.cs[H].powExec+=kill;G.stats[u.side].exec=(G.stats[u.side].exec||0)+kill;men-=kill;
     var e=warCrime(by,'exec',kill,uName(by)+'拒絕受降，處決約 '+fmt(kill)+' 名投降的'+G.sides[u.side].name+'官兵（'+placeTxt(u.x,u.y)+'）',L>=4);civEv('crime',H,e.txt,u.x,u.y,by.id,{v:kill,wc:1});}
@@ -2985,17 +3021,17 @@ function campStep(dt){var h=dt/3600;G.units.forEach(function(u){if(!alive(u)||!i
     if(crowd>1.2&&(!u.crLog||G.t-u.crLog>6*3600)){u.crLog=G.t;logE(u.side,'ref',uName(u)+'嚴重超收（'+fmt(n)+'／'+fmt(cap)+' 人），衛生與配給惡化',u.x,u.y,u.id);}});}
 /* ---------- 每步：警戒、交叉火力、逃難、佔領與民怨、糧食 ---------- */
 function civStep(){if(!G.civ||G.set.civ===false)return;var C=G.civ;
-  if(G.step%4===0){C.S.forEach(function(g){var p=civPresent(g);if(p<1)return;var eng=0,enemy=[0,0],EU=[];gridNear(g.x,g.y,g.r+2500,function(u){if(!onMap(u)||ST(u).dom==='air'||u.st==='lift')return;var d=dist(u.x,u.y,g.x,g.y);if(d<g.r+400&&(G.t-(u.fired||-1e9)<120||G.t-(u.uf||-1e9)<120)){eng++;if(EU.length<30)EU.push(u);}if(d<g.r+2500)enemy[u.side]++;});
+  if(G.step%4===0){C.S.forEach(function(g){var p=civPresent(g);if(p<1)return;var eng=0,enemy=sA0(),EU=[];gridNear(g.x,g.y,g.r+2500,function(u){if(!onMap(u)||ST(u).dom==='air'||u.st==='lift')return;var d=dist(u.x,u.y,g.x,g.y);if(d<g.r+400&&(G.t-(u.fired||-1e9)<120||G.t-(u.uf||-1e9)<120)){eng++;if(EU.length<30)EU.push(u);}if(d<g.r+2500&&u.side>=0)enemy[u.side]++;});
       EU.forEach(function(u){civHit(u.x,u.y,300,0.0012,'fire',-1,0.3);});
-      var hostile=g.loy>=0?enemy[enemyOf(g.loy)]:0,tgt=eng>0?1:G.t-g.hitT<1800?1:hostile>0?0.6:(enemy[0]+enemy[1]>0?0.25:0);g.alarm=tgt>g.alarm?g.alarm+(tgt-g.alarm)*0.5:g.alarm*0.995;g.shel=clamp(g.shel+(g.alarm>0.5?0.06:-0.01),0,1);});}
+      var hst=g.loy>=0?(nSides()<3?enemy[enemyOf(g.loy)]:SIDES().reduce(function(a,s){return a+(hostile(g.loy,s)?enemy[s]:0);},0)):0,tgt=eng>0?1:G.t-g.hitT<1800?1:hst>0?0.6:(enemy.some(function(v){return v>0;})?0.25:0);g.alarm=tgt>g.alarm?g.alarm+(tgt-g.alarm)*0.5:g.alarm*0.995;g.shel=clamp(g.shel+(g.alarm>0.5?0.06:-0.01),0,1);});}
   if(G.step%20===10){var dt=600;C.cg={};C.R.forEach(function(Q){if(Q.st==='go'||Q.st==='stop'){var k=Math.floor(Q.x/1000)+'|'+Math.floor(Q.y/1000);C.cg[k]=(C.cg[k]||0)+Q.n;}});
     C.S.forEach(function(g){var p=civPresent(g);if(p<1)return;var keep=g.tot0*0.1,siege=g.loy>=0&&civEncircled(g),rate=g.alarm>0.25?Math.pow(g.alarm,2)*0.22*(siege?0.15:1)*(G.set.y<1900?0.7:1):0;g.pend+=Math.max(0,Math.min(p-keep,p*rate*dt/3600));if(g.pend>=40||g.pend>=p*0.1&&g.pend>=5){refSpawn(g,g.pend);g.pend=0;}
       civOcc(g,dt);civFood(g,dt,siege);});
     refStep(dt);powStep(dt);campStep(dt);medStep();}}
-function civEncircled(g){var q=[0,0,0,0],en=enemyOf(g.loy);gridNear(g.x,g.y,g.r+3000,function(e){if(e.side!==en||!onMap(e)||ST(e).dom==='air')return;var a=Math.atan2(e.y-g.y,e.x-g.x);q[(Math.floor((a+PI)/(PI/2))+4)%4]=1;});return q[0]+q[1]+q[2]+q[3]>=3;}
+function civEncircled(g){var q=[0,0,0,0],en=enemyOf(g.loy);gridNear(g.x,g.y,g.r+3000,function(e){if((nSides()<3?e.side!==en:!hostile(g.loy,e.side))||!onMap(e)||ST(e).dom==='air')return;var a=Math.atan2(e.y-g.y,e.x-g.x);q[(Math.floor((a+PI)/(PI/2))+4)%4]=1;});return q[0]+q[1]+q[2]+q[3]>=3;}
 /* 佔領：只有一方地面部隊在場 30 分鐘；非原屬方佔領時民怨上升 */
-function civOcc(g,dt){var n=[0,0];gridNear(g.x,g.y,g.r+500,function(u){if(!onMap(u)||u.ms==='rout'||ST(u).dom!=='land'||u.st==='lift'||ST(u).fl.indexOf('u')>=0)return;if(dist(u.x,u.y,g.x,g.y)<=g.r+500)n[u.side]++;});
-  var hold=n[0]&&!n[1]?0:n[1]&&!n[0]?1:-1;if(hold>=0&&hold!==g.occ){if(g.cand!==hold){g.cand=hold;g.candT=G.t;}else if(G.t-g.candT>=1800){var prev=g.occ;g.occ=hold;g.occT=G.t;if(g.loy>=0&&hold!==g.loy&&civPresent(g)>50)logE(hold,'civ',G.sides[hold].name+'佔領'+g.n+'（居民約 '+fmt(civPresent(g))+' 人）',g.x,g.y);void prev;}}else if(hold<0||hold===g.occ)g.cand=-1;
+function civOcc(g,dt){var n=sA0();gridNear(g.x,g.y,g.r+500,function(u){if(!onMap(u)||u.ms==='rout'||ST(u).dom!=='land'||u.st==='lift'||ST(u).fl.indexOf('u')>=0)return;if(dist(u.x,u.y,g.x,g.y)<=g.r+500)n[u.side]++;});
+  var hold=-1,np=0;for(var hi=0;hi<n.length;hi++)if(n[hi]){np++;hold=hi;}if(np!==1)hold=-1;if(hold>=0&&hold!==g.occ){if(g.cand!==hold){g.cand=hold;g.candT=G.t;}else if(G.t-g.candT>=1800){var prev=g.occ;g.occ=hold;g.occT=G.t;if(g.loy>=0&&hold!==g.loy&&civPresent(g)>50)logE(hold,'civ',G.sides[hold].name+'佔領'+g.n+'（居民約 '+fmt(civPresent(g))+' 人）',g.x,g.y);void prev;}}else if(hold<0||hold===g.occ)g.cand=-1;
   var h=dt/3600;if(g.loy>=0&&g.occ>=0&&g.occ!==g.loy&&civPresent(g)>20){var L=civPolNear(g),d=(0.6+CIVP[L][6]*0.8)*h,sec=0,ca=0;gridNear(g.x,g.y,g.r+5000,function(u){if(u.side!==g.occ||!onMap(u))return;var f=ST(u).fl;if(f.indexOf('I')>=0&&dist(u.x,u.y,g.x,g.y)<g.r+3000)sec++;if(f.indexOf('V')>=0)ca++;});
     d-=sec*1.5*h+ca*1.2*h+(L<=1?0.4*h:0);if(g.hung>40)d+=1.5*h;g.unrest=clamp(g.unrest+d,0,100);}else g.unrest=clamp(g.unrest-0.5*h,0,100);}
 /* 佔領當地的部隊政策（最近的佔領方編制） */
@@ -3007,7 +3043,7 @@ function civFood(g,dt,siege){var d=dt/86400,p=civPresent(g);if(p<1)return;var re
 function civCongest(u){if(!G.civ||!G.civ.R.length)return 1;var n=G.civ.cg[Math.floor(u.x/1000)+'|'+Math.floor(u.y/1000)]||0;if(n<300)return 1;return clamp(1-Math.min(0.55,n/8000)*(rdMP(u)?0.35:1),0.4,1);}/* 關閉動態路況時沿用的難民壅塞 */
 /* ---------- 統計（報告用） ---------- */
 function campDead(n){var C=G.civ,D=C.rdead||(C.rdead={m:0,w:0,k:0,e:0});D.m+=n*0.15;D.w+=n*0.35;D.k+=n*0.35;D.e+=n*0.15;C.kill=(C.kill||0)+0;}
-function civSum(){var C=G.civ,o={pop0:0,pres:0,evac:0,dead:{m:0,w:0,k:0,e:0},wnd:0,fled:0,camp:0,out:C.out||0,kill:C.kill||0,wound:C.wound||0,occ:[0,0],unrest:0,val0:C.val0,loss:0,refRoad:0,refN:0};
+function civSum(){var C=G.civ,o={pop0:0,pres:0,evac:0,dead:{m:0,w:0,k:0,e:0},wnd:0,fled:0,camp:0,out:C.out||0,kill:C.kill||0,wound:C.wound||0,occ:sA0(),unrest:0,val0:C.val0,loss:0,refRoad:0,refN:0};
   C.S.forEach(function(g){o.pop0+=g.tot0;o.pres+=civPresent(g);o.evac+=g.evac;o.dead.m+=g.dead.m;o.dead.w+=g.dead.w;o.dead.k+=g.dead.k;o.dead.e+=g.dead.e;o.wnd+=g.wnd;o.fled+=g.fled;o.camp+=g.camp;o.loss+=g.loss;if(g.occ>=0&&g.loy>=0&&g.occ!==g.loy)o.occ[g.occ]++;o.unrest=Math.max(o.unrest,g.unrest);});
   o.trap=C.trap||0;C.R.forEach(function(Q){if(Q.st==='go'||Q.st==='stop'||Q.st==='trap'){o.refRoad+=Q.n;o.refN++;}});var RD2=C.rdead;if(RD2){o.dead.m+=RD2.m;o.dead.w+=RD2.w;o.dead.k+=RD2.k;o.dead.e+=RD2.e;}var P=C.prop;o.propTot=P.set+P.inf+P.loot+P.fire+P.quake+P.flood+P.other;o.milTot=P.mil[0]+P.mil[1];return o;}
 
@@ -3099,7 +3135,7 @@ var DZ={dys:['痢疾',2,0.03,0.003,5],chol:['霍亂',0.3,0.35,0.01,4],typh:['傷
 function dzRates(y,T,P,static_,crowd,hun){var R={};R.dys=sm(12,28,T)*1.5+0.3;R.chol=y>=1817&&y<1960?sm(20,30,T)*sm(60,200,P):0.05*sm(20,30,T);R.typh=y<1950?sm(10,25,T)+0.2:0.1;R.tyfe=y<1950?sm(10,-5,T)*crowd:0.05*crowd;R.mal=sm(20,27,T)*sm(80,200,P)*2;R.flu=sm(12,0,T)+(y>=1918&&y<=1919?3:0);R.pox=y<1900?1:0;R.plag=y<1750?1:0;R.foot=y>=1914&&y<=1945&&T<10&&P>60&&static_?1:0;
   for(var k in R)R[k]*=(1+hun);return R;}
 function sickAdd(u,n,dk){if(n<=0)return;n=Math.min(n,u.men*0.5);u.men-=n;u.sick=(u.sick||0)+n;u.dzk=dk;medStat(u.side).sick+=n;}
-function disStep(){var dt=600,d=dt/86400,o=now(),c=climMonth(o.m),T=G.env.T,P=c.P*(G.evt.mons?1.6:1);[0,1].forEach(function(side){var hq=sideCmd(side),y=hq?uEra(hq).y:G.set.y,mq=y<1850?0.1:y<1914?0.3:y<1945?0.55:y<1970?0.8:0.92,sex=polSide(side).sex||'ban';
+function disStep(){var dt=600,d=dt/86400,o=now(),c=climMonth(o.m),T=G.env.T,P=c.P*(G.evt.mons?1.6:1);SIDES().forEach(function(side){var hq=sideCmd(side),y=hq?uEra(hq).y:G.set.y,mq=y<1850?0.1:y<1914?0.3:y<1945?0.55:y<1970?0.8:0.92,sex=polSide(side).sex||'ban';
     G.units.forEach(function(u){if(u.side!==side||!isLeaf(u)||!onMap(u)||ST(u).dom!=='land')return;var men=u.men;if(men<1&&!(u.sick>0))return;var lg=u.lg||{},crowd=1+(u.pw||u.ref?2:0),stat=u.ent>0.5&&G.t-(u.movedAt||-1e9)>12*3600,R=dzRates(y,T,P,stat,crowd,clamp(((lg.hun||0)-40)/60,0,1)),med=flUnits(side,'D').some(function(q){return onMap(q)&&dist(q.x,q.y,u.x,u.y)<6000;}),san=(1-mq*0.7)*(med?0.6:1);
       R.vd=({ban:0.4,tol:3,reg:1.5,coer:2.5})[sex]*(u.ord&&/rest|reserve|halt/.test(u.ord.k)?1.5:0.5);var newC=0,best=null,bv=0;for(var k in R){var v=men*DZ[k][1]/1000*R[k]*san*d;newC+=v;if(v>bv){bv=v;best=k;}}
       var near=0;gridNear(u.x,u.y,1500,function(q){if(q!==u&&q.sick>q.men*0.03)near++;});newC*=1+near*0.3;if(newC>0.001)sickAdd(u,newC,best);
@@ -3158,7 +3194,7 @@ function discDo(u,k,g,mp,ff,pn,Lc,Lp){var C=G.civ,crime=!!CRIMEK[k],ordered=crim
 function awolStep(){G.units.forEach(function(u){if(u.awolN&&G.t>=u.awolT){if(alive(u))u.men=Math.min(u.men0,u.men+u.awolN*0.85);medStat(u.side).desert+=u.awolN*0.15;u.awolN=0;}});}
 /* ---------- 游擊隊 ---------- */
 function gueType(y){var L=[['gu1600',1600],['gu1700',1690],['gu1800',1790],['gu1860',1850],['gu1914',1880],['gu1940',1930],['gu1970',1950],['gu2000',1990],['gu2020',2015]],k='gu1940';L.forEach(function(q){if(y>=q[1])k=q[0];});return k;}
-function gueStep(){if(!G.civ)return;var S=evtSet(),f=S.freq||1,h=600/3600,act=[0,0];G.units.forEach(function(u){if(u.irr&&alive(u))act[u.side]++;});
+function gueStep(){if(!G.civ)return;var S=evtSet(),f=S.freq||1,h=600/3600,act=sA0();G.units.forEach(function(u){if(u.irr&&alive(u)&&u.side>=0)act[u.side]++;});
   G.civ.S.forEach(function(g){if(g.loy<0||g.occ<0||g.occ===g.loy||g.unrest<35)return;var p=civPresent(g);if(p<80||act[g.loy]>=14)return;var L=civPolNear(g),rate=(g.unrest-30)/70*0.05*f*Math.pow(p/2000,0.3)*CIVP[L][7]*h;if(rnd()>rate)return;
     var side=g.loy,tk=gueType(G.set.y),men=Math.round(clamp(20+p*0.01+g.unrest*0.6,20,160)),pos=validPos({dom:'land'},g.x+(rnd()-0.5)*g.r*2,g.y+(rnd()-0.5)*g.r*2),t=typeOf(tk),nm=gueName(g,side),r=mb32(hstr('gue|'+G.t+'|'+g.i));
     NMS.side=side;var u=newUnit(side,{name:nm,p:-1,ech:1,mix:[[tk,1]],off:newOfficer(r,1)});initStrength(u);var k0=men/Math.max(1,t.men);u.men0=u.men=men;u.veh=u.veh0=0;void k0;u.irr=1;u.x=pos[0];u.y=pos[1];u.hd=0;u.home=[g.x,g.y];u.gH=g.i;u.ms='ok';u.form='deployed';u.st='ok';u.task='hold';u.ammo=100;u.fat=0;u.org=100;u.mor=clamp(50+g.unrest*0.3,40,85);logInit(u);reix();dupNames();act[side]++;g.gueT=G.t;
@@ -3174,7 +3210,7 @@ function gueAct(){G.units.forEach(function(u){if(!u.irr)return;if(u.st==='off'){
     if(rnd()<0.004&&G.set.y>=1860){var site=demoNear(u.x,u.y,3000);if(site&&enemyNear(u.side,site.x,site.y,1500)===0){blowBridge(site,u);if(G.civ)propInf('bridge',site.list&&site.list[0]?site.list[0].c:2,u.side,1);logE(u.side,'gue',uName(u)+'破壞'+placeTxt(site.x,site.y)+'的橋梁',site.x,site.y,u.id);}}});}
 function gueSpot(u){var MP=G.map,best=[u.x,u.y],bv=-1;for(var i=0;i<14;i++){var a=rnd()*2*PI,r=500+rnd()*3000,x=u.x+Math.cos(a)*r,y=u.y+Math.sin(a)*r,k=cellAt(x,y),c=MP.lc[k];if(isWater(c))continue;var v=(LC[c][5]<0.6?2:0)+(MP.rd[cellAt(x+150,y)]||MP.rd[cellAt(x-150,y)]||MP.rd[cellAt(x,y+150)]?2:0)+rnd();if(v>bv){bv=v;best=[x,y];}}return best;}
 /* 反游擊：治安部隊靠近隱匿的游擊隊時可能破獲；嚴酷政策下的掃蕩會牽連平民 */
-function cinStep(){G.units.forEach(function(u){if(!u.irr||u.st!=='off'||!alive(u))return;var g=G.civ.S[u.gH];if(!g)return;var sec=null;gridNear(g.x,g.y,g.r+3000,function(q){if(!sec&&q.side!==u.side&&onMap(q)&&ST(q).fl.indexOf('I')>=0)sec=q;});if(!sec||rnd()>0.08)return;var L=polOf(sec,'civ'),v=u.men*(0.3+0.5*rnd());u.men-=v;G.stats[u.side].capt+=v;
+function cinStep(){G.units.forEach(function(u){if(!u.irr||u.st!=='off'||!alive(u))return;var g=G.civ.S[u.gH];if(!g)return;var sec=null;gridNear(g.x,g.y,g.r+3000,function(q){if(!sec&&hostile(u.side,q.side)&&onMap(q)&&ST(q).fl.indexOf('I')>=0)sec=q;});if(!sec||rnd()>0.08)return;var L=polOf(sec,'civ'),v=u.men*(0.3+0.5*rnd());u.men-=v;G.stats[u.side].capt+=v;
     if(L>=3){var c=Math.round(5+v*(L-2)*0.5);civCas(g,c,0.8,'exec',sec.side);g.unrest=clamp(g.unrest+10,0,100);var e=warCrime(sec,'host',c,uName(sec)+'在'+g.n+'掃蕩游擊隊，株連處決平民約 '+c+' 人',L>=4);civEv('crime',sec.side,e.txt,g.x,g.y,sec.id,{wc:1});}else{g.unrest=clamp(g.unrest-5,0,100);logE(sec.side,'gue',uName(sec)+'在'+g.n+'破獲游擊隊據點，逮捕約 '+fmt(v)+' 人',g.x,g.y,sec.id);}
     if(u.men<8){u.st='dead';u.deadT=G.t;u.why='capt';}});}
 /* ---------- 缺糧、缺彈與補給事故 ---------- */
@@ -3182,7 +3218,7 @@ function shortStep(){var f=evtSet().freq||1;awolStep();if(G.civ)cinStep();G.unit
     if(L.food<=0&&L.hun>40&&(!u.fdLog||G.t-u.fdLog>12*3600)){u.fdLog=G.t;logE(u.side,'short',uName(u)+'斷糧，官兵挨餓（飢餓程度 '+fmt(L.hun)+'）',u.x,u.y,u.id);reqAuto(u,'supply');}
     if(u.ammo<10&&G.t-(u.fired||-1e9)<1800&&(!u.amLog||G.t-u.amLog>12*3600)){u.amLog=G.t;logE(u.side,'short',uName(u)+'彈藥即將告罄（剩 '+fmt(u.ammo)+'%）',u.x,u.y,u.id);reqAuto(u,'ammo');}
     if(u.dudT&&G.t>u.dudT)u.dudT=0;});
-  [0,1].forEach(function(side){if(rnd()>0.5*f/144)return;var N=nodesOf(side).filter(function(n){return n.k!=='off';}),U=G.units.filter(function(u){return u.side===side&&isLeaf(u)&&onMap(u)&&ST(u).dom==='land';});var W=[['depotfire',N.length?1:0],['spoil',U.length?1.2:0],['dud',U.length?1:0],['fuel',U.length&&G.set.y>=1914?0.8:0],['breakdown',N.length&&G.set.y>=1914?0.8:0]],k=wpick(rnd,W,function(q){return q[1];})[0];
+  SIDES().forEach(function(side){if(rnd()>0.5*f/144)return;var N=nodesOf(side).filter(function(n){return n.k!=='off';}),U=G.units.filter(function(u){return u.side===side&&isLeaf(u)&&onMap(u)&&ST(u).dom==='land';});var W=[['depotfire',N.length?1:0],['spoil',U.length?1.2:0],['dud',U.length?1:0],['fuel',U.length&&G.set.y>=1914?0.8:0],['breakdown',N.length&&G.set.y>=1914?0.8:0]],k=wpick(rnd,W,function(q){return q[1];})[0];
     if(k==='depotfire'&&N.length){var n=N[Math.floor(rnd()*N.length)],lf=0.2+0.4*rnd();LCLS.forEach(function(c){n.st[c]*=1-lf;});logE(side,'short','補給站「'+n.name+'」發生火災，存量損失約 '+pct(lf*100),n.x,n.y);}
     else if(U.length){var u=U[Math.floor(rnd()*U.length)];if(k==='spoil'&&u.lg){u.lg.food*=0.5;sickAdd(u,u.men*0.01,'dys');logE(side,'short',uName(u)+'的口糧腐敗，半數報廢，並有人腹瀉',u.x,u.y,u.id);}else if(k==='dud'){u.dudT=G.t+12*3600;logE(side,'short',uName(u)+'領到一批瑕疵彈藥，火力下降',u.x,u.y,u.id);}else if(k==='fuel'&&u.lg){u.lg.fuel*=0.7;logE(side,'short',uName(u)+'的燃料遭汙染，部分車輛拋錨',u.x,u.y,u.id);}
       else if(k==='breakdown'&&N.length){var n2=N[Math.floor(rnd()*N.length)];n2.slowT=G.t+12*3600;logE(side,'short','往「'+n2.name+'」的運輸車隊大量故障，運量下降',n2.x,n2.y);}}});}
@@ -3195,7 +3231,7 @@ function persStep(){G.units.forEach(function(u){if(!isLeaf(u)||!onMap(u)||!u.ord
       else if(rnd()<p*2){var d=t.men*(0.03+0.1*rnd());t.men-=d;if(G.civ){G.civ.cs[u.side].powHeld+=d;var P={id:++G.civ.seq,side:u.side,from:t.side,n:d,wnd:0,x:t.x,y:t.y,st:'col',by:u.id,esc:0,t0:G.t,dead:0,exec:0,lvl:polOf(u,'pow'),un:uName(t)};G.civ.P.push(P);powRoute(P);}G.stats[t.side].capt+=d;logE(u.side,'pers',uName(t)+'約 '+fmt(d)+' 人陣前投誠',t.x,t.y,u.id);}});
     if(!n&&(!u.pLog||G.t-u.pLog>3*3600)){u.pLog=G.t;if(aiControls(u)&&G.t-(u.ord.t1||0)>3600){u.ord=null;u.task='hold';}else logE(u.side,'pers',uName(u)+'：勸降範圍內沒有已知的敵軍',u.x,u.y,u.id);}});}
 /* ---------- 後方休整與福利：勞軍、輪休、性服務政策 ---------- */
-function welStep(){[0,1].forEach(function(side){var P=polSide(side),show=P.show||'occ',sex=P.sex||'ban',S=SD(side);
+function welStep(){SIDES().forEach(function(side){var P=polSide(side),show=P.show||'occ',sex=P.sex||'ban',S=SD(side);
     if(show!=='none'){var per=show==='reg'?10:24;if(G.t-(S.showT||-1e9)>=per*3600){S.showT=G.t;var tr=G.units.filter(function(u){return u.side===side&&onMap(u)&&isLeaf(u)&&ST(u).fl.indexOf('O')>=0;}),n=0;
         G.units.forEach(function(u){if(u.side!==side||!isLeaf(u)||!onMap(u)||ST(u).dom!=='land'||G.t-(u.uf||-1e9)<3600)return;var near=tr.some(function(q){return dist(q.x,q.y,u.x,u.y)<6000;}),idle=!u.ord||/rest|reserve|halt/.test(u.ord.k);if(!(near&&idle)&&!(show==='reg'&&u.insup&&idle))return;var b=near?Math.max(3,mixX(tr[0],'ent'))*(tr.length?1:0.4):2;u.mor=clamp(u.mor+b,0,Math.max(u.morB||u.mor,(u.morB||60)+8));u.fat=clamp(u.fat-(near?10:3),0,100);if(u.dis!==undefined)u.dis=clamp(u.dis+2,0,100);n++;});
         if(n)logE(side,'wel',(tr.length?uName(tr[0])+'在'+placeTxt(tr[0].x,tr[0].y)+'慰問演出':'後方寄來慰問品與家書')+'，'+n+' 個單位士氣提振');}}
@@ -3209,7 +3245,9 @@ function welStep(){[0,1].forEach(function(side){var P=polSide(side),show=P.show|
    15 分鐘內沒有指示時由現地指揮官依性格自行處置。 */
 function meetCheck(u,s,ed,uf){if(s.dom!=='land'||u.ms==='rout'||u.irr||!(u.form==='march'||u.formTo==='march')||u.task!=='go')return false;var ro=roleOf(u);if(ro!=='man'&&ro!=='rec'&&ro!=='fire')return false;
   if(!(uf||ed<clamp(rangeOf(s)*2.5,1200,3000)))return false;if(u.meetT&&G.t-u.meetT<3600)return false;var M0=u.meet&&(G.meets||[]).filter(function(q){return q.id===u.meet;})[0];if(M0&&M0.st==='open')return false;var e=uById(u._eid);if(e&&ST(e).dom!=='land')e=null;if(!e&&!uf)return false;if(!e&&u.ufBy)e=uById(u.ufBy);return !!meetStart(u,e);}
-function meetStart(u,e){var sA=u.side,sB=enemyOf(sA),R=2500,M={id:(G.meetSeq=(G.meetSeq||0)+1),t:G.t,x:e?(u.x+e.x)/2:u.x,y:e?(u.y+e.y)/2:u.y,u:[[],[]],st:'open',dec:[null,null],pl:[[],[]]};
+/* 遭遇戰的另一方（三方作戰時遭遇戰仍是兩方之間） */
+function meetOth(M,sd){return M.sB!==undefined?(sd===M.sA?M.sB:M.sA):1-sd;}
+function meetStart(u,e){var sA=u.side,sB=e&&e.side>=0&&e.side!==sA?e.side:enemyOf(sA),R=2500,M={id:(G.meetSeq=(G.meetSeq||0)+1),t:G.t,x:e?(u.x+e.x)/2:u.x,y:e?(u.y+e.y)/2:u.y,u:sAL(),st:'open',dec:sAV(null),pl:sAL(),sA:sA,sB:sB};
   function join(q){if(!isLeaf(q)||!onMap(q)||ST(q).dom!=='land'||q.ms==='rout'||q.irr||q.st==='lift')return;var ro=roleOf(q);if(ro!=='man'&&ro!=='rec'&&ro!=='fire')return;if(q.meetT&&G.t-q.meetT<1800&&q!==u)return;var moving=q.task==='go'||q.form==='march'||q.formTo==='march';if(!moving&&q!==u&&q!==e)return;
     M.u[q.side].push(q.id);q.meet=M.id;q.meetT=G.t;if(q.form==='march'||q.formTo==='march'){var E2=uEra(q);q.formTo='deployed';q.formT=G.t+E2.deploy*60*(1.3-0.006*(q.trn||60))*0.5;}
     if(moving){q.path=null;q.goal=null;q.pq=0;q.task='hold';q.meetHold=G.t+1500;}}
@@ -3221,7 +3259,7 @@ function meetStart(u,e){var sA=u.side,sB=enemyOf(sA),R=2500,M={id:(G.meetSeq=(G.
   return M;}
 /* 本方情報圖中，遭遇點附近的敵軍 */
 function meetEnemy(M,sd){var C=G.ct[sd]||{},n=0,sx=0,sy=0,men=0;for(var id in C){var c=C[id];if(G.t-c.t>900||c.dom==='air'||dist(c.x,c.y,M.x,M.y)>3500)continue;n++;sx+=c.x;sy+=c.y;men+=(c.men||0)+(c.veh||0)*4;}if(n)return {x:sx/n,y:sy/n,men:men,n:n};
-  /* 情報還沒回報上來：以現場看得到、正在接觸的敵軍估計 */M.u[1-sd].forEach(function(id){var q=uById(id);if(!q||!alive(q))return;n++;sx+=q.x;sy+=q.y;men+=q.men+q.veh*4;});return n?{x:sx/n,y:sy/n,men:men,n:n}:{x:M.x,y:M.y,men:0,n:0};}
+  /* 情報還沒回報上來：以現場看得到、正在接觸的敵軍估計 */(M.u[meetOth(M,sd)]||[]).forEach(function(id){var q=uById(id);if(!q||!alive(q))return;n++;sx+=q.x;sy+=q.y;men+=q.men+q.veh*4;});return n?{x:sx/n,y:sy/n,men:men,n:n}:{x:M.x,y:M.y,men:0,n:0};}
 function meetAI(M,sd,ids){var q=uById(ids[0]),F=q&&q.p>=0?uById(q.p):q,P=aiOf(F||q),own=sum(ids.map(uById).filter(Boolean),function(x){return x.men+x.veh*6;}),en=Math.max(1,meetEnemy(M,sd).men),ratio=own/en;
   if(ratio>=1.8||P.agg>=0.5&&ratio>=0.7)return 'attack';if(ratio<0.4&&P.hold<0.6)return 'withdraw';return 'hold';}
 /* 執行決定：直接交給現場部隊（反應時間照算，不經過整條指揮鏈） */
@@ -3231,8 +3269,8 @@ function meetDecide(M,sd,k,who,ids){ids=ids||M.u[sd];var tg=meetEnemy(M,sd),n=0;
     else receiveOrder(q,fire?newOrder('support',{sup:q.p>=0?q.p:undefined}):newOrder('defend',{x:q.x,y:q.y,face:f,opt:{post:'hasty'}}));n++;});
   if(!n)return;var KN={attack:'就地發起攻擊',hold:'就地駐紮、轉入防禦',withdraw:'脫離接觸、遲滯後撤'};M.dec[sd]=M.dec[sd]||{k:k,who:who,t:G.t};logE(sd,'tac','遭遇戰（'+placeTxt(M.x,M.y)+'）：'+(who==='AI'?'':who==='現地'?'現地指揮官自行決定':'依玩家指示')+KN[k],M.x,M.y,ids[0]);decLog(sd,who==='AI'?uName(uById(ids[0])||{name:'AI'}):who==='現地'?'現地指揮官':'玩家','遭遇戰（'+placeTxt(M.x,M.y)+'）：'+KN[k]);}
 /* 逾時與結束：玩家 15 分鐘內沒有指示 → 現地指揮官依性格處置；參戰部隊 20 分鐘沒有交火 → 結束 */
-function meetStep(){(G.meets||[]).forEach(function(M){if(M.st!=='open')return;[0,1].forEach(function(sd){var pl=(M.pl[sd]||[]).filter(function(id){var q=uById(id);return q&&alive(q)&&q.meet===M.id&&q.meetHold>0;});if(pl.length&&G.t-M.t>900){var q=uById(pl[0]),off=offOf(q)||{},k=G.set.iniP===true&&((off.agg||5)>=6||hasQ(off,'reckless'))?'attack':'hold';/* 玩家部隊預設不自行進攻（下級主動性開啟時依指揮官性格） */meetDecide(M,sd,k,'現地',pl);(G.inbox||[]).forEach(function(m){if(m.k==='meet'&&m.mid===M.id&&m.side===sd&&!m.done)m.done='逾時：現地指揮官決定'+(k==='attack'?'進攻':'駐紮');});}});
-    var hot=M.u[0].concat(M.u[1]).some(function(id){var q=uById(id);return q&&alive(q)&&G.t-(q.uf||-1e9)<1200;});if(!hot&&G.t-M.t>1200){M.st='done';M.t1=G.t;logE(-1,'tac','遭遇戰結束（'+placeTxt(M.x,M.y)+'）',M.x,M.y);}});}
+function meetStep(){(G.meets||[]).forEach(function(M){if(M.st!=='open')return;(M.sB!==undefined?[M.sA,M.sB]:[0,1]).forEach(function(sd){var pl=(M.pl[sd]||[]).filter(function(id){var q=uById(id);return q&&alive(q)&&q.meet===M.id&&q.meetHold>0;});if(pl.length&&G.t-M.t>900){var q=uById(pl[0]),off=offOf(q)||{},k=G.set.iniP===true&&((off.agg||5)>=6||hasQ(off,'reckless'))?'attack':'hold';/* 玩家部隊預設不自行進攻（下級主動性開啟時依指揮官性格） */meetDecide(M,sd,k,'現地',pl);(G.inbox||[]).forEach(function(m){if(m.k==='meet'&&m.mid===M.id&&m.side===sd&&!m.done)m.done='逾時：現地指揮官決定'+(k==='attack'?'進攻':'駐紮');});}});
+    var hot=[].concat.apply([],M.u).some(function(id){var q=uById(id);return q&&alive(q)&&G.t-(q.uf||-1e9)<1200;});if(!hot&&G.t-M.t>1200){M.st='done';M.t1=G.t;logE(-1,'tac','遭遇戰結束（'+placeTxt(M.x,M.y)+'）',M.x,M.y);}});}
 function reqAuto(u,k){if(typeof reqSend==='function'&&u.p>=0){var P=uById(u.p);if(P)reqSend(u,P,k,{x:u.x,y:u.y,auto:1});}}
 
 /* ==== h13_res.js ==== */
@@ -3300,7 +3338,7 @@ function sgDirect(s){return s.fl.indexOf('X')>=0&&!(s.ind>0)&&s.dom==='land';}
 function sgStep(){var MP=G.map;G.units.forEach(function(u){if(!isLeaf(u)||!onMap(u)||u.ms==='rout'||u.ammo<=0||u.men<5)return;var s=ST(u);if(!sgDirect(s)||u.task==='go'||u.path||u.formTo)return;
   var R=Math.min(s.rM||800,1600),o=u.ord,tx=o&&o.x!==undefined?o.x:null,ty=o&&o.y!==undefined?o.y:null,best=-1,bd=1e18;
   brushCells(MP,u.x/MP.cs,u.y/MP.cs,Math.ceil(R/MP.cs),function(k){if(MP.ft[k]<4)return;var p=cellXY(k),d=dist(p[0],p[1],u.x,u.y);if(d>R)return;var sc=d+(tx!==null?dist(p[0],p[1],tx,ty)*0.5:0);if(sc<bd){bd=sc;best=k;}});
-  if(best<0)return;var p=cellXY(best),en=enemyOf(u.side);if(enemyNear(u.side,p[0],p[1],1500)===0&&!(G.obj||[]).some(function(q){return q.own===en&&dist(q.x,q.y,p[0],p[1])<Math.max(2000,obR(q)*2.5);}))return;
+  if(best<0)return;var p=cellXY(best),en=enemyOf(u.side);if(enemyNear(u.side,p[0],p[1],1500)===0&&!(G.obj||[]).some(function(q){return (nSides()<3?q.own===en:hostile(u.side,q.own))&&dist(q.x,q.y,p[0],p[1])<Math.max(2000,obR(q)*2.5);}))return;
   var n=Math.max(1,Math.round((u.veh||1)*strFrac(u)));for(var i=0;i<n;i++)wallHit(u,s,p[0],p[1],80);u.ammo=Math.max(0,u.ammo-1.5);u.fired=G.t;u.lastArt=G.t;
   if(!u.sgLog||G.t-u.sgLog>3600){u.sgLog=G.t;logE(u.side,'arty',uName(u)+'以攻城砲轟擊'+placeTxt(p[0],p[1])+'的城牆與工事',p[0],p[1],u.id);}
   if(G.civ&&rnd()<0.35)civHit(p[0]+(rnd()-0.5)*400,p[1]+(rnd()-0.5)*400,250,0.0003*n,'art',u.side);});}
@@ -3328,9 +3366,9 @@ function kitBuildF(u,bk){if(!u.kit)return 1;if(bk==='pos'&&u.kit.sandbag>0){u.ki
    新聞政策：放任（記者自由採訪，包括本方的失誤與罪行）、控制（隨軍審查）、脅迫（驅逐、拘押記者，只准宣傳稿）。
    記者隨部隊行動，可能傷亡或被俘；報導影響後方民心與國際聲望。戰後總結列出所有人的決定、傷亡、後果與財產損失。 */
 var OUTLETZ=['日報','晨報','時報','通訊社','新聞社','廣播電台','週刊'],OUTLETW=['Gazette','Herald','Times','Chronicle','Telegraph','Press Agency','Courier'];
-function pressInit(){var y=G.set.y,P={R:[],A:[],seq:0,home:[60,60]};G.press=P;var on=typeof featOn!=='function'||featOn('press',y),nOwn=on?(y>=1914?3:y>=1850||featY('press')<1850?2:0):0,nNeu=on?(y>=1940?2:y>=1860?1:0):0,r=mb32(hstr(G.set.seed+'|press'));
-  [0,1].forEach(function(side){for(var i=0;i<nOwn;i++)P.R.push(newReporter(side,side,r));});for(var j=0;j<nNeu;j++)P.R.push(newReporter(-1,j%2,r));
-  P.R.forEach(function(R){reporterEmbed(R,r);});[0,1].forEach(function(side){var pp=polSide(side).press||'control';if(pp==='coerce'){P.R.forEach(function(R){if(R.side!==side&&R.host===side&&rnd()<0.7){R.st='expelled';logE(side,'press',G.sides[side].name+'驅逐隨軍的'+R.org+'記者'+R.nm);}});}});}
+function pressInit(){var y=G.set.y,P={R:[],A:[],seq:0,home:sAV(60)};G.press=P;var on=typeof featOn!=='function'||featOn('press',y),nOwn=on?(y>=1914?3:y>=1850||featY('press')<1850?2:0):0,nNeu=on?(y>=1940?2:y>=1860?1:0):0,r=mb32(hstr(G.set.seed+'|press'));
+  SIDES().forEach(function(side){for(var i=0;i<nOwn;i++)P.R.push(newReporter(side,side,r));});for(var j=0;j<nNeu;j++)P.R.push(newReporter(-1,j%nSides(),r));
+  P.R.forEach(function(R){reporterEmbed(R,r);});SIDES().forEach(function(side){var pp=polSide(side).press||'control';if(pp==='coerce'){P.R.forEach(function(R){if(R.side!==side&&R.host===side&&rnd()<0.7){R.st='expelled';logE(side,'press',G.sides[side].name+'驅逐隨軍的'+R.org+'記者'+R.nm);}});}});}
 /* 媒體名稱：本國媒體以本國城市命名（依該方的命名風格），國際媒體以外國城市命名；不借用戰區的地名 */
 function newReporter(side,host,r){var st=side>=0?(SD(side).pst||'zh'):(r()<0.5?'west':'westzh'),nm=personName(r,st,r()<(G.set.y>=1940?0.3:0.1)),NG=nameGen(G.set.seed+'|press|'+side+'|'+Math.floor(r()*1e9),st==='west'||st==='westzh'?st:'zh'),town=NG.city();
   var org=st==='west'?(side<0?'The ':'')+town+' '+OUTLETW[Math.floor(r()*OUTLETW.length)]:town+OUTLETZ[Math.floor(r()*OUTLETZ.length)];return {id:(G.press.seq=(G.press.seq||0)+1),nm:nm,side:side,host:host,org:org,emb:0,st:'ok',x:0,y:0,n:0};}
@@ -3351,7 +3389,7 @@ function pressArt(R,head,body,tone,e,truth,quiet){var P=G.press,a={t:G.t,side:R.
   /* 影響：揭露罪行降低後方支持與國際聲望；宣傳暫時提振 */if(e&&e.wc&&truth!==false&&e.s>=0){P.home[e.s]=clamp(P.home[e.s]-(R.side===e.s?3:1.5),0,100);if(G.civ)G.civ.rep[e.s]=clamp(G.civ.rep[e.s]-(R.side<0?2:1),0,100);var w=G.civ.wc.filter(function(q){return q.t===e.t&&q.side===e.s;})[0];if(w)w.known=true;}
   if(tone==='propaganda'&&R.host>=0)P.home[R.host]=clamp(P.home[R.host]+0.5,0,100);if(!quiet)logE(R.side>=0?R.side:-1,'press','【'+R.org+'】'+head);return a;}
 /* 每六小時：戰況綜合報導 */
-function pressDigest(){var P=G.press;if(!P)return;[0,1].forEach(function(side){var R=P.R.filter(function(q){return q.host===side&&(q.st==='ok'||q.st==='wia');})[0];if(!R)return;var me=G.stats[side],en=G.stats[enemyOf(side)],pol=R.side<0?'free':polSide(side).press||'control',f=pol==='free'?[1,1]:pol==='control'?[0.6,1.5]:[0.25,2.5];
+function pressDigest(){var P=G.press;if(!P)return;SIDES().forEach(function(side){var R=P.R.filter(function(q){return q.host===side&&(q.st==='ok'||q.st==='wia');})[0];if(!R)return;var me=G.stats[side],en=G.stats[enemyOf(side)],pol=R.side<0?'free':polSide(side).press||'control',f=pol==='free'?[1,1]:pol==='control'?[0.6,1.5]:[0.25,2.5];
     var head=pol==='coerce'?'我軍節節勝利，敵軍潰不成軍':me.cas>en.cas*1.3&&pol==='free'?'前線傷亡慘重，戰局膠著':'前線激戰持續',body='據'+R.org+'報導，開戰以來我方傷亡約 '+fmt(me.cas*f[0])+' 人，敵軍傷亡約 '+fmt(en.cas*f[1])+' 人。'+(G.civ&&pol==='free'?'平民死亡約 '+fmt(G.civ.kill||0)+' 人，逃難者約 '+fmt(civSum().fled)+' 人。':'');
     pressArt(R,head,body,pol==='coerce'?'propaganda':pol==='control'?'pro':'neutral',null,pol==='free');});}
 /* ---------- 戰後報導 ---------- */
@@ -3362,12 +3400,12 @@ function pressFinal(){var P=G.press,o=[];if(!P)return o;var cs=G.civ?civSum():nu
       else if(pol==='control'){a.head=win===side?'我軍獲勝':win<0?'激戰後雙方對峙':'前線部隊奉命後撤';a.paras.push('據軍方公布，敵軍傷亡約 '+fmt(en.cas*1.5)+' 人，我方傷亡約 '+fmt(me.cas*0.6)+' 人。');var wcO=G.civ?G.civ.wc.filter(function(w){return w.side===side&&w.known;}).length:0;if(wcO)a.paras.push('對於外界指控的違紀事件，軍方表示將「依法調查」。');}
       else{a.head=win===side?'勝利的代價':win<0?'沒有贏家的戰鬥':'戰敗的檢討';a.paras.push('我方陣亡約 '+fmt(me.kia||0)+' 人、負傷 '+fmt(me.wia||0)+' 人、被俘 '+fmt(me.capt||0)+' 人；敵方傷亡約 '+fmt(en.cas)+' 人。');if(cs)a.paras.push('平民死亡約 '+fmt(cs.kill)+' 人，其中兒童約 '+fmt(cs.dead.k)+' 人；逃離家園者約 '+fmt(cs.fled)+' 人。');var mine=G.civ?G.civ.wc.filter(function(w){return w.side===side;}):[];if(mine.length)a.paras.push('本國部隊被控涉及 '+mine.length+' 起戰爭罪行，包括：'+mine.slice(0,4).map(function(w){return w.txt;}).join('；')+'。');}}
     else{a.head='戰區人道危機';if(cs){a.paras.push('根據現場記者與人道組織的估計，戰區內平民至少 '+fmt(cs.kill)+' 人死亡、'+fmt(cs.wound)+' 人受傷，約 '+fmt(cs.fled)+' 人逃離家園，'+fmt(cs.camp)+' 人住進收容所。');}
-      [0,1].forEach(function(s){var W=G.civ?G.civ.wc.filter(function(w){return w.side===s&&w.known;}):[];if(W.length)a.paras.push(G.sides[s].name+'被指控犯下 '+W.length+' 起戰爭罪行（'+W.slice(0,3).map(function(w){return w.txt;}).join('；')+(W.length>3?'……':'')+'）。');});
+      SIDES().forEach(function(s){var W=G.civ?G.civ.wc.filter(function(w){return w.side===s&&w.known;}):[];if(W.length)a.paras.push(G.sides[s].name+'被指控犯下 '+W.length+' 起戰爭罪行（'+W.slice(0,3).map(function(w){return w.txt;}).join('；')+(W.length>3?'……':'')+'）。');});
       var det=P.R.filter(function(q){return q.st==='det'||q.st==='expelled';}).length,dead=P.R.filter(function(q){return q.st==='kia';}).length;if(det||dead)a.paras.push('採訪期間有 '+dead+' 名記者殉職、'+det+' 名記者遭拘押或驅逐。');}
     a.paras.push('（'+R.length+' 名記者採訪，'+alive+' 名平安歸來）');o.push(a);});return o;}
 /* ---------- 戰後總結：所有人的決定、傷亡、後果與財產損失 ---------- */
 function warSummary(){var o={sides:[],civ:G.civ?civSum():null,dec:G.civ?G.civ.dec.slice():[],wc:G.civ?G.civ.wc.slice():[],ev:G.evt?G.evt.H.slice():[],press:pressFinal()};
-  [0,1].forEach(function(s){var S=G.stats[s],L=G.units.filter(function(u){return u.side===s&&isLeaf(u);}),men0=sum(L,function(u){return u.st==='off'?0:u.men0||0;}),fem=sum(L,function(u){return u.st==='off'?0:(u.men0||0)*femOf(u);}),pol=polSide(s),C=G.civ?G.civ.cs[s]:null;
+  SIDES().forEach(function(s){var S=G.stats[s],L=G.units.filter(function(u){return u.side===s&&isLeaf(u);}),men0=sum(L,function(u){return u.st==='off'?0:u.men0||0;}),fem=sum(L,function(u){return u.st==='off'?0:(u.men0||0)*femOf(u);}),pol=polSide(s),C=G.civ?G.civ.cs[s]:null;
     var forms=G.units.filter(function(u){return u.side===s&&!isLeaf(u)&&u.pol&&(u.pol.pow!==undefined||u.pol.civ!==undefined);}).map(function(F){var E=F.polE||{},mx=E.mx||{};return {n:uName(F),pow:polBase(F,'pow'),civ:polBase(F,'civ'),powM:mx.pow,civM:mx.civ,ai:F.aip&&aiControls(F)?aiName(F):''};});
     o.sides.push({name:G.sides[s].name,men0:men0,fem:men0?fem/men0:0,kia:S.kia||0,wia:S.wia||0,dow:S.dow||0,rtd:S.rtd||0,sick:S.sick||0,dis:S.dis||0,desert:S.desert||0,capt:S.capt||0,exec:S.exec||0,powD:S.powD||0,lib:S.lib||0,kiaF:S.kiaF||0,wiaF:S.wiaF||0,vl:S.vl||0,cas:S.cas||0,pol:pol,forms:forms,C:C,rep:G.civ?G.civ.rep[s]:60,home:G.press?G.press.home[s]:60,mil:G.civ?G.civ.prop.mil[s]:0});});return o;}
 function warSummaryText(){var W=warSummary(),L=[],n=function(v){return fmt(Math.round(v||0));};L.push('【戰後總結】'+(G.map.name||'')+'　'+tTxt(0)+' － '+tTxt(G.t)+'（'+durTxt(G.t)+'）');if(G.over)L.push('結果：'+G.over.why+'，'+(G.over.win>=0?G.sides[G.over.win].name+'獲勝':'不分勝負'));
@@ -3498,13 +3536,13 @@ function mslLaunch(u,o){var q=mslSpec(u),n=Math.min(o.n||4,mslLeft(u));if(!q||n<
   var tg=mslTarget(u.side,o.x,o.y,q),ax=tg?tg.x:o.x,ay=tg?tg.y:o.y,S={id:(G.mslSeq=(G.mslSeq||0)+1),side:u.side,src:u.id,nm:q.nm,kind:q.kind,x0:u.x,y0:u.y,x:ax,y:ay,tid:tg?tg.id:0,n:n,v:q.v,w:q.w,pk:q.pk,ship:!!q.ship,sk:q.kind==='asm'?20000:(ST(u).fl.indexOf('p')>=0&&q.y0>=2000?400:250),t0:G.t,eta:G.t+Math.max(DT,dist(u.x,u.y,ax,ay)/q.v)};
   (G.msl=G.msl||[]).push(S);u.mslN-=n;u.fired=G.t;u.lastArt=G.t;var st=G.stats[u.side];st.msl=(st.msl||0)+n;
   logE(u.side,'arty','🚀 '+uName(u)+'發射 '+n+' 枚'+q.nm+'，目標'+placeTxt(ax,ay)+'，約 '+durTxt(S.eta-G.t)+' 後抵達',u.x,u.y,u.id);
-  var en=1-u.side,rad=(G.set.y||0)>=1950&&G.units.some(function(g){return g.side===en&&onMap(g)&&(aaOf(g,ST(g))>=8||ST(g).spot>=40000)&&dist(g.x,g.y,ax,ay)<80000;});if(rad){S.det=1;logE(en,'arty','⚠ 偵測到來襲的'+(q.kind==='ballistic'?'彈道飛彈':'巡弋飛彈')+'（約 '+n+' 枚），目標'+placeTxt(ax,ay),ax,ay);}
+  var en=enemyOf(u.side),ES=nSides()<3?[en]:SIDES().filter(function(s){return hostile(u.side,s);});ES.forEach(function(es){var rad=(G.set.y||0)>=1950&&G.units.some(function(g){return g.side===es&&onMap(g)&&(aaOf(g,ST(g))>=8||ST(g).spot>=40000)&&dist(g.x,g.y,ax,ay)<80000;});if(rad){S.det=1;logE(es,'arty','⚠ 偵測到來襲的'+(q.kind==='ballistic'?'彈道飛彈':'巡弋飛彈')+'（約 '+n+' 枚），目標'+placeTxt(ax,ay),ax,ay);}});
   if(G.onPause&&apOn('strike'))G.onPause('飛彈發射');return true;}
 function mslStep(){if(!G.msl||!G.msl.length)return;var keep=[];G.msl.forEach(function(S){if(G.t<S.eta){keep.push(S);return;}mslImpact(S);});G.msl=keep;}
-function mslImpact(S){var en=1-S.side,src=uById(S.src),t=S.tid?uById(S.tid):null;if(t&&(!alive(t)||!onMap(t)))t=null;
+function mslImpact(S){var en=enemyOf(S.side),src=uById(S.src),t=S.tid?uById(S.tid):null;if(t&&(!alive(t)||!onMap(t)))t=null;
   var need=S.kind==='ballistic'?12:S.kind==='asm'?5:6,ch=0,pkS=0,R0;
-  G.units.forEach(function(g){if(g.side!==en||!onMap(g)||g.ms==='rout'||g.ammo<=0)return;var AA=aaOf(g,ST(g));if(AA<need)return;R0=S.kind==='ballistic'?Math.min(aaRange(AA),40000):aaRange(AA)*0.6;if(dist(g.x,g.y,S.x,S.y)>R0)return;var c=Math.max(1,Math.floor(AA/(S.kind==='ballistic'?6:3)))*(S.kind==='ballistic'?1:2);ch+=c;pkS+=c*clamp((AA-need+3)*0.06,0.08,S.kind==='ballistic'?0.5:0.65);});
-  var tries=Math.min(S.n,ch),pk=(ch?pkS/ch:0)*(typeof mslReact==='function'?mslReact(S):1),shot=0;for(var i=0;i<tries;i++)if(rnd()<pk)shot++;if(typeof navAD==='function')shot+=navAD(S,en,S.n-shot);var leak=S.n-shot,jam=G.units.some(function(g){return g.side===en&&onMap(g)&&ST(g).fl.indexOf('E')>=0&&dist(g.x,g.y,S.x,S.y)<30000;})?0.75:1,hits=0,dm=0,dv=0,txt='';
+  G.units.forEach(function(g){if(!hostile(S.side,g.side)||!onMap(g)||g.ms==='rout'||g.ammo<=0)return;var AA=aaOf(g,ST(g));if(AA<need)return;R0=S.kind==='ballistic'?Math.min(aaRange(AA),40000):aaRange(AA)*0.6;if(dist(g.x,g.y,S.x,S.y)>R0)return;var c=Math.max(1,Math.floor(AA/(S.kind==='ballistic'?6:3)))*(S.kind==='ballistic'?1:2);ch+=c;pkS+=c*clamp((AA-need+3)*0.06,0.08,S.kind==='ballistic'?0.5:0.65);});
+  var tries=Math.min(S.n,ch),pk=(ch?pkS/ch:0)*(typeof mslReact==='function'?mslReact(S):1),shot=0;for(var i=0;i<tries;i++)if(rnd()<pk)shot++;if(typeof navAD==='function')shot+=navAD(S,en,S.n-shot);var leak=S.n-shot,jam=G.units.some(function(g){return hostile(S.side,g.side)&&onMap(g)&&ST(g).fl.indexOf('E')>=0&&dist(g.x,g.y,S.x,S.y)<30000;})?0.75:1,hits=0,dm=0,dv=0,txt='';
   if(t){var ts=ST(t),sea=ts.dom==='sea'||ts.dom==='sub',ok=dist(t.x,t.y,S.x,S.y)<=S.sk&&(!sea||S.ship||S.kind==='ballistic')&&ts.dom!=='sub',mv=G.t-(t.movedAt||-1e9)<180&&S.kind==='cruise'&&S.sk<=250?0.5:1;
     if(ok)for(var j=0;j<leak;j++)if(rnd()<S.pk*jam*mv)hits++;
     if(hits){if(sea){var mps=t.men0/Math.max(1,t.veh0),f=clamp((S.w/220)*250/(mps+150),0.03,1);dv=Math.min(t.veh,hits*f);dm=dv*mps*0.35;hit(t,src,dm,dv,60,'msl');}
@@ -3542,14 +3580,14 @@ function snkMil(t,d,Z,clear){var ts=ST(t),hard=ts.hard||0,ent=ts.dom==='land'?(t
   else if(d<Z.r5){mf=0.5*(1-0.6*ent)*(1-0.5*hard);vf=hard>=0.5?0.12:0.55;}else if(d<Z.r2){mf=0.06*(1-0.6*ent)*(1-0.6*hard);vf=hard>=0.5?0.01:0.15;}else if(d<Z.r1){mf=0.01*(1-ent);vf=0.02*(1-hard);}
   if(d<Z.th&&d>=Z.r5)mf+=0.25*(1-ent)*(1-hard)*clear*(1-mf);if(d<Z.rad&&d>=Z.r12)mf=Math.max(mf,0.6*(1-0.4*hard));return [clamp(mf,0,1),clamp(vf,0,1)];}
 /* 預估（目標選定時顯示）：立即死亡與受傷人數 */
-function snkEst(x,y,Y,burst,side){var Z=snkZones(Y,burst),cl=snkClear(),o={ck:0,cw:0,mk:[0,0],Z:Z,own:0};
+function snkEst(x,y,Y,burst,side){var Z=snkZones(Y,burst),cl=snkClear(),o={ck:0,cw:0,mk:sA0(),Z:Z,own:0};
   if(G.civ){G.civ.S.forEach(function(g){var d=dist(g.x,g.y,x,y);if(d>Z.r1+g.r)return;var p=civPresent(g);if(p<1)return;var f=snkCivPts(g,x,y,Z,cl);o.ck+=p*f[0];o.cw+=p*f[1];});G.civ.R.forEach(function(Q){if(Q.st==='out'||Q.st==='camp'||Q.n<1)return;var f=snkCivF(dist(Q.x,Q.y,x,y),Z,cl);o.ck+=Q.n*f[0];o.cw+=Q.n*f[1];});}
-  G.units.forEach(function(t){if(!alive(t)||t.st==='off'||!isLeaf(t))return;var d=dist(t.x,t.y,x,y);if(d>Z.r1)return;var f=snkMil(t,d,Z,cl),c=t.men*f[0];o.mk[t.side]+=c;if(t.side===side&&d<Z.r2)o.own++;});return o;}
+  G.units.forEach(function(t){if(!alive(t)||t.st==='off'||!isLeaf(t))return;var d=dist(t.x,t.y,x,y);if(d>Z.r1)return;var f=snkMil(t,d,Z,cl),c=t.men*f[0];if(t.side>=0)o.mk[t.side]+=c;if(t.side===side&&d<Z.r2)o.own++;});return o;}
 function snkCivPts(g,x,y,Z,cl){if(!(g.r>200))return snkCivF(dist(g.x,g.y,x,y),Z,cl);var k=0,w=0,P=[[0,0],[0.6,0],[-0.6,0],[0,0.6],[0,-0.6]];P.forEach(function(q){var f=snkCivF(dist(g.x+q[0]*g.r,g.y+q[1]*g.r,x,y),Z,cl);k+=f[0];w+=f[1];});return [k/5,w/5];}
 function snkWind(){var E=G.env;if(E.wd===undefined){var lat=Math.abs(G.map.lat0||35);E.wd=(lat<28?PI:0)+(rnd()-0.5)*1.4;E.ws=(15+rnd()*25)/3.6;}return [E.wd,E.ws];}
-function snukeAt(side,x,y,Y,burst,src,del){var MP=G.map,Z=snkZones(Y,burst),cl=snkClear(),en=1-side,k0=G.civ?(G.civ.kill||0):0,w0=G.civ?(G.civ.wound||0):0,mil=[0,0],hitN=0;
+function snukeAt(side,x,y,Y,burst,src,del){var MP=G.map,Z=snkZones(Y,burst),cl=snkClear(),en=enemyOf(side),k0=G.civ?(G.civ.kill||0):0,w0=G.civ?(G.civ.wound||0):0,mil=sA0(),hitN=0;
   G.nukes=G.nukes||[];G.nukes.push({t:G.t,x:x,y:y,Y:Y,side:side,R:[Z.r12,Z.r5,Z.r2,Z.r1],str:1,th:Z.th});
-  G.units.forEach(function(t){if(!alive(t)||t.st==='off'||t.st==='ship'||t.st==='lift')return;var d=dist(t.x,t.y,x,y);if(d>Z.r1*2.5)return;if(d>Z.r1){t.mor=clamp(t.mor-10,0,100);return;}var f=snkMil(t,d,Z,cl);if(f[0]+f[1]>0)hitN++;mil[t.side]+=t.men*f[0];
+  G.units.forEach(function(t){if(!alive(t)||t.st==='off'||t.st==='ship'||t.st==='lift')return;var d=dist(t.x,t.y,x,y);if(d>Z.r1*2.5)return;if(d>Z.r1){t.mor=clamp(t.mor-10,0,100);return;}var f=snkMil(t,d,Z,cl);if(f[0]+f[1]>0)hitN++;if(t.side>=0)mil[t.side]+=t.men*f[0];
     hit(t,src||null,t.men*f[0],t.veh*f[1],d<Z.r2?100:50,'snuke');t.mor=clamp(t.mor-(d<Z.r5?70:d<Z.r2?45:25),0,100);t.org=clamp(t.org-(d<Z.r2?60:20),0,100);mfAdd(t,'fear',d<Z.r2?-25:-10);});
   /* 地表：城鎮夷平、植被燒毀、橋梁與道路損毀 */
   var ks=[],cs=MP.cs,D=dmgArr(),RR=Math.max(Z.r2,Z.th);brushCells(MP,x/cs,y/cs,RR/cs,function(k,f){var d=f*RR,c=MP.lc[k];if(isWater(c))return;
@@ -3562,8 +3600,8 @@ function snukeAt(side,x,y,Y,burst,src,del){var MP=G.map,Z=snkZones(Y,burst),cl=s
     G.civ.R.forEach(function(Q){if(Q.st==='out'||Q.st==='camp'||Q.n<1)return;var f=snkCivF(dist(Q.x,Q.y,x,y),Z,cl);if(f[0]+f[1]>0)refCas(Q,Q.n*(f[0]+f[1]),f[0]/Math.max(1e-6,f[0]+f[1]),'snuke',side);});}
   var ck=G.civ?(G.civ.kill||0)-k0:0,cw=G.civ?(G.civ.wound||0)-w0:0,fo=burst==='surface'||Y<30?snkFallout(side,x,y,Y,burst):null;
   var rec={t:G.t,side:side,x:x,y:y,Y:Y,burst:burst,del:del||'',ck:ck,cw:cw,mk:mil,fo:fo?fo.est:0,wd:fo?fo.a:null};(G.snS=G.snS||[]).push(rec);
-  (G.snHit=G.snHit||{})[en]=G.t;var st=G.stats[side];st.snuke=(st.snuke||0)+1;
-  logE(-1,'nuke','☢ '+G.sides[side].name+(del&&SNKD[del]?'以'+SNKD[del].n:'')+'在'+placeTxt(x,y)+'實施戰略核打擊（'+yTxt(Y)+'，'+(burst==='surface'?'地面爆炸':'空中爆炸')+'）：重度破壞半徑 '+kmTxt(Z.r5)+'、三度灼傷半徑 '+kmTxt(Z.th)+'；估計平民立即死亡約 '+fmt(ck)+' 人、受傷約 '+fmt(cw)+' 人，軍人傷亡約 '+fmt(mil[0]+mil[1])+' 人'+(fo?'；放射性落塵正向'+dirTxt(fo.a)+'方飄散，估計將再造成約 '+fmt(fo.est)+' 名平民在數日至數週內死亡':''),x,y,src?src.id:undefined);
+  if(nSides()<3)(G.snHit=G.snHit||{})[en]=G.t;else SIDES().forEach(function(s){if(s!==side&&mil[s]>0)(G.snHit=G.snHit||{})[s]=G.t;});var st=G.stats[side];st.snuke=(st.snuke||0)+1;
+  logE(-1,'nuke','☢ '+G.sides[side].name+(del&&SNKD[del]?'以'+SNKD[del].n:'')+'在'+placeTxt(x,y)+'實施戰略核打擊（'+yTxt(Y)+'，'+(burst==='surface'?'地面爆炸':'空中爆炸')+'）：重度破壞半徑 '+kmTxt(Z.r5)+'、三度灼傷半徑 '+kmTxt(Z.th)+'；估計平民立即死亡約 '+fmt(ck)+' 人、受傷約 '+fmt(cw)+' 人，軍人傷亡約 '+fmt(mil.reduce(function(a,b){return a+b;},0))+' 人'+(fo?'；放射性落塵正向'+dirTxt(fo.a)+'方飄散，估計將再造成約 '+fmt(fo.est)+' 名平民在數日至數週內死亡':''),x,y,src?src.id:undefined);
   if(G.civ){var top=sideCmd(side);if(top&&ck>50)warCrime(top,'nuke',ck,G.sides[side].name+'在'+placeTxt(x,y)+'使用'+yTxt(Y)+'核武，造成約 '+fmt(ck)+' 名平民立即死亡',true);G.civ.rep[side]=clamp(G.civ.rep[side]-30,0,100);}
   G.units.forEach(function(u){if(u.side===side&&onMap(u))u.mor=clamp(u.mor-3,0,100);});
   if(G.onPause&&apOn('snuke'))G.onPause('戰略核爆');return rec;}
@@ -3576,32 +3614,32 @@ function snkFallout(side,x,y,Y,burst){var W=snkWind(),a=W[0],v=W[1],c=Math.cbrt(
 function foStep(){var keep=[];G.fo.forEach(function(z){if(G.t>z.t1)return;keep.push(z);if(G.t<z.ta)return;var dec=Math.pow((G.t-z.t0)/3600+1,-1.2),rate=z.I*0.25*dec*(DT*4/3600);
     gridNear(z.x,z.y,z.r,function(u){if(!onMap(u)||ST(u).dom==='air'||dist(u.x,u.y,z.x,z.y)>z.r)return;var s=ST(u),ent=s.dom==='land'?(u.ent||0):0;hit(u,null,u.men*rate*(1-0.5*ent)*(1-0.4*s.hard),0,3,'fallout');u.mor=clamp(u.mor-rate*20,0,100);
       if(!u.foLog){u.foLog=1;logE(u.side,'nuke',uName(u)+'進入放射性落塵區，官兵出現急性輻射病症狀（'+placeTxt(u.x,u.y)+'）',u.x,u.y,u.id);}});});G.fo=keep;}
-function snkLaunch(side,del,Y,burst,x,y,auto){if(!snkOn()||snkLeft(side)<=0||snkDel().indexOf(del)<0)return null;G.sides[side].snk--;var en=1-side,yr=G.set.y||0,Q={id:(G.snSeq=(G.snSeq||0)+1),side:side,del:del,Y:Y,burst:burst||'air',x:x,y:y,t0:G.t,auto:!!auto};
+function snkLaunch(side,del,Y,burst,x,y,auto){if(!snkOn()||snkLeft(side)<=0||snkDel().indexOf(del)<0)return null;G.sides[side].snk--;var en=enemyOf(side),yr=G.set.y||0,Q={id:(G.snSeq=(G.snSeq||0)+1),side:side,del:del,Y:Y,burst:burst||'air',x:x,y:y,t0:G.t,auto:!!auto};
   if(del==='bomber'||del==='cruise'){var e=edgePoint(side,0.5),v=del==='cruise'?240:(yr<1955?160:250);Q.ex=e[0];Q.ey=e[1];Q.px=e[0];Q.py=e[1];Q.v=v;Q.ta=G.t+600;Q.eta=Q.ta+dist(e[0],e[1],x,y)/v;}else Q.eta=G.t+(del==='icbm'?(25+10*rnd()):(10+6*rnd()))*60;
   (G.snq=G.snq||[]).push(Q);logE(side,'nuke','☢ 已下令以'+SNKD[del].n+'對'+placeTxt(x,y)+'實施戰略核打擊（'+yTxt(Y)+'，'+(Q.burst==='surface'?'地面爆炸':'空中爆炸')+'），預計 '+durTxt(Q.eta-G.t)+' 後抵達；剩餘戰略核彈頭 '+G.sides[side].snk+' 枚',x,y);
-  if((del==='icbm'||del==='slbm')&&yr>=1960){Q.det=1;logE(en,'nuke','⚠ 預警系統偵測到'+SNKD[del].n+'發射，預計 '+durTxt(Q.eta-G.t)+' 內落地',undefined,undefined);if(G.onPause&&apOn('snuke'))G.onPause('偵測到彈道飛彈發射');}return Q;}
-function snkStep(){if(!G.snq||!G.snq.length)return;var keep=[];G.snq.forEach(function(Q){var en=1-Q.side;
-    if(Q.ex!==undefined){if(G.t<Q.ta){keep.push(Q);return;}if(!Q.seen){Q.seen=1;if((typeof featOn==='function'?featOn('radar'):(G.set.y||0)>=1940)&&rnd()<(Q.del==='cruise'?0.45:0.85)){Q.det=1;logE(en,'nuke','⚠ 雷達發現'+(Q.del==='cruise'?'低空飛行的巡弋飛彈':'高空單機或小編隊')+'進入戰區（'+placeTxt(Q.px,Q.py)+'）',Q.px,Q.py);if(G.onPause&&apOn('snuke'))G.onPause('雷達發現可疑目標');}}
+  if((del==='icbm'||del==='slbm')&&yr>=1960){Q.det=1;(nSides()<3?[en]:SIDES().filter(function(s){return s!==side;})).forEach(function(es){logE(es,'nuke','⚠ 預警系統偵測到'+SNKD[del].n+'發射，預計 '+durTxt(Q.eta-G.t)+' 內落地',undefined,undefined);});if(G.onPause&&apOn('snuke'))G.onPause('偵測到彈道飛彈發射');}return Q;}
+function snkStep(){if(!G.snq||!G.snq.length)return;var keep=[];G.snq.forEach(function(Q){var en=enemyOf(Q.side);
+    if(Q.ex!==undefined){if(G.t<Q.ta){keep.push(Q);return;}if(!Q.seen){Q.seen=1;if((typeof featOn==='function'?featOn('radar'):(G.set.y||0)>=1940)&&rnd()<(Q.del==='cruise'?0.45:0.85)){Q.det=1;(nSides()<3?[en]:SIDES().filter(function(s){return s!==Q.side;})).forEach(function(es){logE(es,'nuke','⚠ 雷達發現'+(Q.del==='cruise'?'低空飛行的巡弋飛彈':'高空單機或小編隊')+'進入戰區（'+placeTxt(Q.px,Q.py)+'）',Q.px,Q.py);});if(G.onPause&&apOn('snuke'))G.onPause('雷達發現可疑目標');}}
       var d=dist(Q.px,Q.py,Q.x,Q.y),st=Q.v*DT;if(d>st){var a=Math.atan2(Q.y-Q.py,Q.x-Q.px);Q.px+=Math.cos(a)*st;Q.py+=Math.sin(a)*st;if(snkIntercept(Q)){logE(-1,'nuke','☢ '+G.sides[Q.side].name+'的'+SNKD[Q.del].n+'在'+placeTxt(Q.px,Q.py)+'上空被擊落，核彈沒有引爆',Q.px,Q.py);return;}keep.push(Q);return;}}
     else if(G.t<Q.eta){keep.push(Q);return;}
     if((Q.del==='icbm'||Q.del==='slbm')&&snkABM(Q)){logE(-1,'nuke','☢ '+G.sides[Q.side].name+'的核彈頭在重返大氣層時被反彈道飛彈攔截',Q.x,Q.y);return;}
     snukeAt(Q.side,Q.x,Q.y,Q.Y,Q.burst,null,Q.del,Q.wk);});G.snq=keep;}
-function snkIntercept(Q){var en=1-Q.side,p=0;G.units.forEach(function(g){if(g.side!==en||!alive(g)||g.st==='off'||g.st==='ship')return;var s=ST(g),d=dist(g.x,g.y,Q.px,Q.py);if(g.st==='air'){if((s.aa||0)>=3&&d<8000)p+=0.04*(s.aa/6)*strFrac(g)*(Q.del==='cruise'&&s.aa<9?0.4:1);return;}
+function snkIntercept(Q){var en=enemyOf(Q.side),p=0;G.units.forEach(function(g){if(!hostile(Q.side,g.side)||!alive(g)||g.st==='off'||g.st==='ship')return;var s=ST(g),d=dist(g.x,g.y,Q.px,Q.py);if(g.st==='air'){if((s.aa||0)>=3&&d<8000)p+=0.04*(s.aa/6)*strFrac(g)*(Q.del==='cruise'&&s.aa<9?0.4:1);return;}
     if(!onMap(g))return;var AA=aaOf(g,s);if(Q.del==='bomber'?AA<6:AA<5)return;if(d>aaRange(AA)*(Q.del==='cruise'?0.6:1))return;p+=Q.del==='cruise'?0.05*(AA-4)/6:0.03*Math.min(1,(AA-5)/5);});return rnd()<Math.min(0.6,p);}
-function snkABM(Q){if((G.set.y||0)<1972)return false;var en=1-Q.side,n=0;G.units.forEach(function(g){if(g.side===en&&onMap(g)&&aaOf(g,ST(g))>=12&&dist(g.x,g.y,Q.x,Q.y)<60000)n++;});n=Math.min(2,n);for(var i=0;i<n;i++)if(rnd()<0.25)return true;return false;}
+function snkABM(Q){if((G.set.y||0)<1972)return false;var en=enemyOf(Q.side),n=0;G.units.forEach(function(g){if(hostile(Q.side,g.side)&&onMap(g)&&aaOf(g,ST(g))>=12&&dist(g.x,g.y,Q.x,Q.y)<60000)n++;});n=Math.min(2,n);for(var i=0;i<n;i++)if(rnd()<0.25)return true;return false;}
 /* 電腦：只在設定允許時使用（1 僅報復、2 戰況危急時可先用） */
 function snkTarget(side,Y){var C=G.ct[side],cell={},best=null,bv=0;for(var id in C){var c=C[id];if(c.dead||G.t-c.t>3600||c.dom==='air')continue;var k=Math.floor(c.x/4000)+'|'+Math.floor(c.y/4000),q=cell[k]||(cell[k]={n:0,x:0,y:0,w:0});var w=(c.men||100);q.n++;q.x+=c.x*w;q.y+=c.y*w;q.w+=w;}
   for(var k2 in cell){var q2=cell[k2];if(q2.w>bv){bv=q2.w;best={x:q2.x/q2.w,y:q2.y/q2.w,w:q2.w};}}return best;}
 function snkAI(side){var N=G.set.snuke;if(!snkOn()||!N.ai||snkLeft(side)<=0)return;var S=G.sides[side],hitT=(G.snHit||{})[side],why='';
-  if(hitT&&!(S.snRet>=hitT))why='報復';else if(N.ai>=2&&G.t-(S.snkT||-1e9)>6*3600){var me=sideStr(side),en=sideStr(1-side);if(me.f<0.3&&en.m>me.m*2)why='戰況危急下的';}if(!why)return;
+  if(hitT&&!(S.snRet>=hitT))why='報復';else if(N.ai>=2&&G.t-(S.snkT||-1e9)>6*3600){var me=sideStr(side),en=sideStr(enemyOf(side));if(me.f<0.3&&en.m>me.m*2)why='戰況危急下的';}if(!why)return;
   var tg=snkTarget(side);if(!tg)return;var D=snkDel(),del=D.indexOf('icbm')>=0?'icbm':D.indexOf('slbm')>=0?'slbm':D[0];if(!del)return;var Ys=snkYields(del).slice().sort(function(a,b){return b-a;}),own=G.units.filter(function(u){return u.side===side&&onMap(u);}),Y=0;
   for(var i=0;i<Ys.length;i++){var Z=snkZones(Ys[i],'air');if(!own.some(function(u){return dist(u.x,u.y,tg.x,tg.y)<Z.r2*1.2;})){Y=Ys[i];break;}}if(!Y)return;S.snRet=G.t;S.snkT=G.t;
   if(snkLaunch(side,del,Y,'air',tg.x,tg.y,1))logE(side,'ai','☢ '+uName(sideCmd(side))+'下令實施'+why+'戰略核打擊');}
-(function(){var b=nukeAt;nukeAt=function(side,x,y,Y,src){var r=b(side,x,y,Y,src);(G.snHit=G.snHit||{})[1-side]=G.t;return r;};})();
+(function(){var b=nukeAt;nukeAt=function(side,x,y,Y,src){var r=b(side,x,y,Y,src);if(nSides()<3)(G.snHit=G.snHit||{})[1-side]=G.t;else{var R0=nukeR(Y)[0]*1.5;SIDES().forEach(function(s){if(s!==side&&G.units.some(function(u){return u.side===s&&onMap(u)&&dist(u.x,u.y,x,y)<R0;}))(G.snHit=G.snHit||{})[s]=G.t;});}return r;};})();
 
 /* ---------- 不投降教條：極少投降；陷入絕境時發動自殺式衝鋒，並以宣傳與脅迫使平民寧死不降 ---------- */
 (function(){var b=surrCheck;surrCheck=function(u,s,off,PF,rt,routing){if(SD(u.side).nosur&&rnd()>0.1)return false;return b(u,s,off,PF,rt,routing);};})();
-function nosurStep(){[0,1].forEach(function(side){var S=SD(side);if(!S||!S.nosur)return;G.units.forEach(function(u){if(u.side!==side||!isLeaf(u)||!onMap(u)||u.banzai||ST(u).dom!=='land'||roleOf(u)!=='man')return;
+function nosurStep(){SIDES().forEach(function(side){var S=SD(side);if(!S||!S.nosur)return;G.units.forEach(function(u){if(u.side!==side||!isLeaf(u)||!onMap(u)||u.banzai||ST(u).dom!=='land'||roleOf(u)!=='man')return;
     if(!(u.ms==='rout'||(u.ms==='shaken'&&G.t-(u.encT||-1e9)<900)))return;if(strFrac(u)>0.6||!(u._ed<2500)||rnd()>0.12)return;var e=u._eid?uById(u._eid):null;if(!e||!alive(e))return;
     u.banzai=G.t;u.ms='ok';u.mor=Math.max(u.mor,55);u.sup=0;activate(u,newOrder('attack',{x:e.x,y:e.y,opt:{tac:'frontal',pace:'rush',tol:100}}));logE(side,'tac',uName(u)+'拒絕投降，在絕望中發動自殺式衝鋒',u.x,u.y,u.id);G.stats[side].banzai=(G.stats[side].banzai||0)+1;});
   if(!G.civ||((G.sides[side].pol||{}).civ||0)<2||G.t-(S.coT||-1e9)<6*3600||sideStr(side).f>0.4)return;var tot=0;
@@ -3609,7 +3647,7 @@ function nosurStep(){[0,1].forEach(function(side){var S=SD(side);if(!S||!S.nosur
   if(tot>5){S.coT=G.t;var top=sideCmd(side);logE(side,'civ','在軍方「寧死不降」的宣傳與脅迫下，約 '+fmt(tot)+' 名平民在敵軍逼近時集體自殺',undefined,undefined);if(top)warCrime(top,'coerce',tot,G.sides[side].name+'以宣傳與脅迫導致約 '+fmt(tot)+' 名平民集體自殺',true);}});}
 
 /* ---------- 電腦使用新打擊方式 ---------- */
-function v5AI(){[0,1].forEach(function(side){var S=SD(side);if(!S||!S.ai)return;
+function v5AI(){SIDES().forEach(function(side){var S=SD(side);if(!S||!S.ai)return;
   if(G.t-(S.mslT||-1e9)>=3*3600){var L=G.units.filter(function(u){return u.side===side&&isLeaf(u)&&alive(u)&&u.st!=='off'&&u.st!=='ship'&&aiControls(u)&&mslLeft(u)>0&&!(u.ord&&u.ord.k==='msl'&&u.ord.st!=='done');});
     if(L.length){var C=G.ct[side],best=null,bv=0;for(var id in C){var c=C[id];if(c.dead||G.t-c.t>600)continue;var t=uById(+id);if(!t||!alive(t))continue;var ts=ST(t),v=!isLeaf(t)?3:ts.fl.indexOf('h')>=0?2.5:/art|rkt/.test(ts.br)?2:ts.br==='ad'?1.8:ts.dom==='sea'?1.5:0;if(v>bv){bv=v;best=c;}}
       if(best&&bv>=1.5){var u=L.filter(function(x){return dist(x.x,x.y,best.x,best.y)<=mslSpec(x).r;})[0];if(u){S.mslT=G.t;issue(u,'msl',{x:best.x,y:best.y,n:Math.min(4,mslLeft(u))});logE(side,'ai',uName(sideCmd(side))+'下令'+uName(u)+'以飛彈打擊敵軍要害');}}}}
@@ -3694,9 +3732,9 @@ function embarkStuck(only){var MP=G.map,grp={};G.units.forEach(function(u){if(!a
 function regNeed(u,s){var E=uEra(u);return E.i<=6&&!E.fan&&s.dom!=='air';}
 function regTime(u,obs){var i=uEra(u).i,t=i<=3?240:i===4?900:i===5?1200:420;if(!obs)t*=2.5;if(hasQ(offOf(u),'arty'))t*=0.7;return t*clamp(1.25-0.005*(u.trn===undefined?60:u.trn),0.75,1.25);}
 function regKnown(side,x,y){var R=G.reg&&G.reg[side];if(!R)return false;for(var i=R.length-1;i>=0;i--){var q=R[i];if(G.t-q.t<24*3600&&dist(q.x,q.y,x,y)<450)return true;}return false;}
-function regAdd(side,x,y){G.reg=G.reg||[[],[]];var R=G.reg[side];R.push({x:Math.round(x),y:Math.round(y),t:G.t});if(R.length>400)R.splice(0,R.length-400);}
+function regAdd(side,x,y){G.reg=G.reg||sAL();var R=G.reg[side]||(G.reg[side]=[]);R.push({x:Math.round(x),y:Math.round(y),t:G.t});if(R.length>400)R.splice(0,R.length-400);}
 /* 開戰前已標定的防禦射擊點：各部隊陣地前方 */
-function regSeed(){G.reg=[[],[]];G.units.forEach(function(u){if(!isLeaf(u)||!onMap(u)||ST(u).dom!=='land'||roleOf(u)!=='man')return;var h=u.hd||0;regAdd(u.side,u.x+Math.cos(h)*900,u.y+Math.sin(h)*900);});}
+function regSeed(){G.reg=sAL();G.units.forEach(function(u){if(!isLeaf(u)||!onMap(u)||ST(u).dom!=='land'||roleOf(u)!=='man')return;var h=u.hd||0;regAdd(u.side,u.x+Math.cos(h)*900,u.y+Math.sin(h)*900);});}
 /* 觀測者看的是彈著的煙柱（離地約 10 公尺）；火藥時代砲兵要直接瞄準，必須看得到目標本身 */
 function regObs(u,M){var i=uEra(u).i,R=i<=3?1200:2200,best=null;if(dist(u.x,u.y,M.x,M.y)<(i<=3?2500:5000)&&los(u.x,u.y,hgtOf(u)+2,M.x,M.y,i<=3?3:10))return u;
   if(!G._grid)gridBuild();gridNear(M.x,M.y,6000,function(o){if(best||o.side!==u.side||!onMap(o)||o===u)return;var s=ST(o),d=dist(o.x,o.y,M.x,M.y);if(s.dom==='air'){if(o.st==='air'&&s.fl.indexOf('r')>=0&&d<6000)best=o;return;}if(s.dom!=='land'||d>=R)return;if(los(o.x,o.y,hgtOf(o)+2,M.x,M.y,10))best=o;});return best;}
@@ -3714,8 +3752,8 @@ function isRcn(u){var s=ST(u);return s.fl.indexOf('r')>=0||s.br==='rec';}
   var b2=sigOf;sigOf=function(t,ts,air){var f=b2(t,ts,air);if((ts.fl.indexOf('r')>=0||ts.br==='rec')&&G.t-(t.fired||-1e9)>=70)f*=0.55;return f;};
   var b3=reportDelay;reportDelay=function(o){var d=b3(o);return isRcn(o)?d*0.5:d;};})();
 /* 電子偵測：電子戰與無線電偵聽單位以測向找出敵方司令部的通信，以及開機中的防空雷達（雷達可精確識別） */
-function sigintStep(){var y=G.set.y||0;if(y<1915)return;[0,1].forEach(function(side){var E=G.units.filter(function(u){return u.side===side&&onMap(u)&&isLeaf(u)&&(ST(u).fl.indexOf('E')>=0||uxOf(u).sigint);});if(!E.length)return;var R=y>=1970?60000:30000,Q=G.rq[side];
-  G.units.forEach(function(t){if(t.side===side||!onMap(t))return;var rad=!!samOf(t)&&radarOK(t)&&t.emcon===0,hq=isLeaf(t)?ST(t).fl.indexOf('h')>=0:true;if(!rad&&!hq)return;var e=null;for(var i=0;i<E.length;i++)if(dist(E[i].x,E[i].y,t.x,t.y)<R){e=E[i];break;}if(!e||rnd()>(rad?0.8:0.35))return;
+function sigintStep(){var y=G.set.y||0;if(y<1915)return;SIDES().forEach(function(side){var E=G.units.filter(function(u){return u.side===side&&onMap(u)&&isLeaf(u)&&(ST(u).fl.indexOf('E')>=0||uxOf(u).sigint);});if(!E.length)return;var R=y>=1970?60000:30000,Q=G.rq[side];
+  G.units.forEach(function(t){if(t.side===side||!onMap(t)||!hostile(side,t.side))return;var rad=!!samOf(t)&&radarOK(t)&&t.emcon===0,hq=isLeaf(t)?ST(t).fl.indexOf('h')>=0:true;if(!rad&&!hq)return;var e=null;for(var i=0;i<E.length;i++)if(dist(E[i].x,E[i].y,t.x,t.y)<R){e=E[i];break;}if(!e||rnd()>(rad?0.8:0.35))return;
     var err=rad?400:1500;Q.push({at:G.t+(rad?60:600),id:t.id,x:t.x+(rnd()-0.5)*err,y:t.y+(rnd()-0.5)*err,t:G.t,q:rad?1:0.5,by:e.id});});});}
 /* 民眾通報：對本方友善的聚落回報附近的敵軍（半小時到一個半小時後才傳到） */
 function humintStep(){if(!G.civ)return;G.civ.S.forEach(function(g){if(g.loy!==0&&g.loy!==1)return;if(civPresent(g)<50)return;var side=g.loy,Q=G.rq[side],R=g.r+2500;gridNear(g.x,g.y,R,function(t){if(t.side===side||!onMap(t)||!isLeaf(t))return;var ts=ST(t);if(ts.dom!=='land'||ts.fl.indexOf('G')>=0||dist(t.x,t.y,g.x,g.y)>R||rnd()>0.25)return;Q.push({at:G.t+1800+rnd()*3600,id:t.id,x:t.x+(rnd()-0.5)*1200,y:t.y+(rnd()-0.5)*1200,t:G.t,q:0.5,by:0});});});}
@@ -3728,12 +3766,12 @@ function featU(k,u){if(typeof featOn!=='function')return true;return featOn(k,Ma
 function samOf(u){var x=uxOf(u);return x.sam&&featU('sam',u)?x:null;}
 function radarOK(g){return !(g.radDmg&&G.t<g.radDmg);}
 function aaRangeU(g,AA){var x=uxOf(g);return x.rng||aaRange(AA);}
-function jamF(side,x,y){var J=G._jam&&G._jam[1-side];if(!J||!J.length)return 1;for(var i=0;i<J.length;i++)if(dist(J[i].x,J[i].y,x,y)<40000)return 0.6;return 1;}
+function jamF(side,x,y){if(!G._jam)return 1;var L=hostSides(side);for(var k=0;k<L.length;k++){var J=G._jam[L[k]];if(!J||!J.length)continue;for(var i=0;i<J.length;i++)if(dist(J[i].x,J[i].y,x,y)<40000)return 0.6;}return 1;}
 function sensorR(g){var s=ST(g),x=uxOf(g),y=G.set.y||1943;if(x.sam)return onMap(g)&&radarOK(g)&&g.emcon===0?x.rad:0;if(s.fl.indexOf('a')>=0)return g.st==='air'?(x.rad||300000):0;if(s.dom==='sea'&&s.aa>=9&&y>=1940&&onMap(g))return s.spot;if(s.dom==='air'&&g.st==='air'&&s.aa>=8&&y>=1960)return s.spot;return 0;}
-function trkStep(){var A=G.units.filter(function(u){return u.st==='air'&&alive(u);});G._trk=[{},{}];G._jam=[[],[]];G._air=A;if(!A.length)return;A.forEach(function(a){if(ST(a).fl.indexOf('E')>=0)G._jam[a.side].push(a);});
+function trkStep(){var A=G.units.filter(function(u){return u.st==='air'&&alive(u);});G._trk=sAO();G._jam=sAL();G._air=A;if(!A.length)return;A.forEach(function(a){if(ST(a).fl.indexOf('E')>=0&&G._jam[a.side])G._jam[a.side].push(a);});
   G.units.forEach(function(g){if(!alive(g)||g.st==='off'||g.st==='ship')return;var R=sensorR(g);if(!R)return;var tr=G._trk[g.side],jf=jamF(g.side,g.x,g.y);A.forEach(function(a){if(a.side===g.side||tr[a.id])return;if(dist(g.x,g.y,a.x,a.y)<=R*rcsOf(a)*jf)tr[a.id]=g.id;});});
   /* 雷達航跡回報到本方情報圖：1975 年後有資料鏈，幾乎即時 */
-  if(G.step%4===0){var yr=G.set.y||0;[0,1].forEach(function(side){var tr=G._trk[side],Q=G.rq[side];for(var id in tr){var a=uById(+id);if(a)Q.push({at:G.t+(featOn('awacs',yr)?30:featOn('radar',yr)?120:300),id:a.id,x:a.x,y:a.y,t:G.t,q:yr>=1975?1:0.5,by:tr[id]});}});}}
+  if(G.step%4===0){var yr=G.set.y||0;SIDES().forEach(function(side){var tr=G._trk[side],Q=G.rq[side];for(var id in tr){var a=uById(+id);if(a)Q.push({at:G.t+(featOn('awacs',yr)?30:featOn('radar',yr)?120:300),id:a.id,x:a.x,y:a.y,t:G.t,q:yr>=1975?1:0.5,by:tr[id]});}});}}
 /* 地面防空能否攻擊這架飛機：雷達導引飛彈要自己的雷達開機、放列完成並鎖定；艦艇有搜索雷達；火砲與光學、紅外線瞄準只看得到近處的匿蹤機 */
 function aaSees(g,a,d){var x=samOf(g),rc=rcsOf(a);if(x){if(!radarOK(g)||g.emcon!==0||g.form==='march'||g.formTo)return false;return d<=Math.min(x.rng,x.rad*rc*jamF(g.side,g.x,g.y));}if(rc>=0.9)return true;var s=ST(g);if(s.dom==='sea'&&s.aa>=9&&(G.set.y||0)>=1960)return d<=Math.max(3000,s.spot*rc*jamF(g.side,g.x,g.y));return d<=3000;}
 /* 空戰：目視距離內，或自己的雷達、預警機與資料鏈看得到，才能接戰 */
@@ -3743,7 +3781,7 @@ function firstLook(f,e,d){return airSees(e,f,d)?1:1.6;}
 /* 防空飛彈雷達（自動、常開、靜默）：自動模式在本方情報圖或雷達網發現敵機接近時才開機；偵測到反輻射飛彈時關機規避 */
 function samStep(){var A=G._air||[];G.units.forEach(function(g){var x=samOf(g);if(!x||!alive(g)||g.st==='off')return;if(!radarOK(g)){g.emcon=1;return;}var mode=g.radMode||'auto',was=g.emcon;
     if(mode==='off'||g.form==='march'&&!g.formTo)g.emcon=1;else if(mode==='on')g.emcon=0;else if(g.emT&&G.t<g.emT)g.emcon=1;else{var R=x.rng*1.6,C=G.ct[g.side],thr=false,tr=G._trk&&G._trk[g.side];for(var id in C){var c=C[id];if(c.dom!=='air'||c.dead||G.t-c.t>150)continue;if(dist(c.x,c.y,g.x,g.y)<R){thr=true;break;}}
-      if(!thr&&tr)for(var i=0;i<A.length;i++){var a=A[i];if(a.side!==g.side&&tr[a.id]&&dist(a.x,a.y,g.x,g.y)<R){thr=true;break;}}g.emcon=thr?0:1;}
+      if(!thr&&tr)for(var i=0;i<A.length;i++){var a=A[i];if(hostile(g.side,a.side)&&tr[a.id]&&dist(a.x,a.y,g.x,g.y)<R){thr=true;break;}}g.emcon=thr?0:1;}
     if(was!==0&&g.emcon===0&&(!g.emLog||G.t-g.emLog>1800)){g.emLog=G.t;logE(g.side,'aa',uName(g)+'雷達開機，追蹤來襲的敵機',g.x,g.y,g.id);}});}
 /* 反輻射飛彈：防空壓制機以雷達告警與定位系統鎖定開機中的雷達；雷達關機會讓飛彈失去導引（新型有座標記憶） */
 function armStep(){if(G.step%2===0)(G._air||[]).forEach(function(a){var x=uxOf(a);if(!x.arm||!featU('arm',a)||!alive(a)||a.ms==='rout'||a.task==='rtb')return;if(a.armN===undefined)a.armN=x.arm.n*Math.max(1,Math.round(a.veh0||1));if(a.armN<=0||G.t-(a.armT||-1e9)<300)return;
@@ -3776,7 +3814,7 @@ function facGen(MP,y){var cs=MP.cs,GW=MP.GW,GH=MP.GH,lc=MP.lc,out=[],id=0,DX=[1,
   function near(x,yy,R,pred){var cx=Math.floor(x/cs),cy=Math.floor(yy/cs),Rc=Math.max(1,Math.ceil(R/cs)),best=-1,bd=1e18;for(var b=-Rc;b<=Rc;b++)for(var a=-Rc;a<=Rc;a++){var X=cx+a,Y=cy+b;if(X<0||Y<0||X>=GW||Y>=GH)continue;var d=a*a+b*b;if(d>Rc*Rc||d>=bd)continue;var k=Y*GW+X;if(pred(k)){bd=d;best=k;}}return best;}
   /* 臨水：海面；大型（big）另含大河與湖泊 */function adjW(k,big){var x=k%GW,yy=(k/GW)|0;for(var d=0;d<8;d++){var X=x+DX[d],Y=yy+DY[d];if(X<0||Y<0||X>=GW||Y>=GH)continue;var q=Y*GW+X,c=lc[q];if(c===LCI.sea||c===LCI.shal)return true;if(big&&(c===LCI.lake||c===LCI.riv&&MP.rv[q]>=3))return true;}return false;}
   function xy(k){return [(k%GW+0.5)*cs,(((k/GW)|0)+0.5)*cs];}
-  function add(k,p,name,s,ex){out.push(Object.assign({id:++id,k:k,x:p[0],y:p[1],name:name,set:s?s.name:'',own:-1,cand:-1,ct:0,kn:[-1,-1],st0:facStock(k,s,y)},ex||{}));}
+  function add(k,p,name,s,ex){out.push(Object.assign({id:++id,k:k,x:p[0],y:p[1],name:name,set:s?s.name:'',own:-1,cand:-1,ct:0,kn:sAV(-1),st0:facStock(k,s,y)},ex||{}));}
   var SS=(MP.set||[]).slice().sort(function(a,b){return b.pop-a.pop;});
   SS.forEach(function(s){var sx=s.x*cs,sy=s.y*cs,R=Math.max(400,s.r||300),big=s.kind!=='village';
     /* 倉庫：城鎮的糧倉、市場倉儲與油庫 */if(big||s.pop>=1500){var wk=near(sx,sy,R,function(k){return isUrban(lc[k]);});if(wk<0)wk=near(sx,sy,R,function(k){return !isWater(lc[k]);});if(wk>=0)add('depot',xy(wk),s.name+(y<1850?'糧倉':'倉庫'),s);}
@@ -3801,17 +3839,17 @@ function airSite(MP,x,y,L){var cs=MP.cs,GW=MP.GW,GH=MP.GH,OPEN={},best=null,bs=1
     for(var o=0;o<4;o++){var t=o/4*PI,dx=Math.cos(t),dy=Math.sin(t),good=true;for(var s=-L/2;s<=L/2&&good;s+=stp)for(var w=-60;w<=60&&good;w+=60)if(!ok(cx+dx*s-dy*w,cy+dy*s+dx*w,e0))good=false;if(good){var sc=Math.abs(r-3000);if(sc<bs){bs=sc;best=[cx,cy,t];}}}}return best;}
 function facNode(F){if(!F||F.own<0)return null;return (SD(F.own).nodes||[]).filter(function(n){return n.fac===F.id;})[0]||null;}
 function facTake(F,side,quiet){var prev=F.own,N=facNode(F),st=N?N.st:F.st0,keep=prev>=0?0.5:1;if(N)SD(prev).nodes=SD(prev).nodes.filter(function(q){return q!==N;});
-  addNode(side,F.k,F.x,F.y,{name:F.name,fac:F.id,st:{food:(st.food||0)*keep,ammo:(st.ammo||0)*keep,fuel:(st.fuel||0)*keep,fod:(st.fod||0)*keep}});F.own=side;F.cand=-1;F.tOwn=G.t;F.kn=F.kn||[-1,-1];F.kn[side]=side;F.knT=F.knT||[0,0];F.knT[side]=G.t;
+  addNode(side,F.k,F.x,F.y,{name:F.name,fac:F.id,st:{food:(st.food||0)*keep,ammo:(st.ammo||0)*keep,fuel:(st.fuel||0)*keep,fod:(st.fod||0)*keep}});F.own=side;F.cand=-1;F.tOwn=G.t;F.kn=F.kn||sAV(-1);F.kn[side]=side;F.knT=F.knT||sA0();F.knT[side]=G.t;
   /* 第一次被軍隊佔領：徵用城鎮的民間存糧與燃料，居民的存糧減少、不滿升高 */
   if(prev<0&&G.civ&&F.set){var g=null,bd=1e18;G.civ.S.forEach(function(q){if(q.n!==F.set)return;var d=dist(q.x,q.y,F.x,F.y);if(d<bd){bd=d;g=q;}});if(g&&(F.k==='depot'||F.k==='port')){g.food=Math.max(0,(g.food||0)-(F.k==='depot'?6:2));g.unrest=clamp((g.unrest||0)+5,0,100);var v=(g.val0||0)*(F.k==='depot'?0.01:0.004);if(v>0){g.loss=(g.loss||0)+v;G.civ.prop.other+=v;G.civ.cs[side].prop+=v;}}}
   if(!quiet){logE(side,'log',(prev<0?'佔領':'奪取')+FACN[F.k]+'「'+F.name+'」'+(prev<0?(F.k==='depot'||F.k==='port'?'，徵用其中的民間物資':'')+'，啟用為補給節點':'（敵軍撤離前約一半物資損毀），改為本方補給節點'),F.x,F.y);if(prev>=0){logE(prev,'log',FACN[F.k]+'「'+F.name+'」落入敵手',F.x,F.y);if(G.onPause&&apOn('fac'))G.onPause('補給設施易手');}}}
 /* 佔領判定：設施附近只有一方的地面部隊，持續 10 分鐘；4 公里內有部隊的一方會得知設施目前由誰控制 */
-function facStep(){(G.fac||[]).forEach(function(F){var R=F.k==='air'?1800:F.k==='port'?1300:1000,n=[0,0],sn=[0,0];gridNear(F.x,F.y,4000,function(u){if(!onMap(u)||!isLeaf(u))return;var s=ST(u);if(s.dom!=='land')return;var d=dist(u.x,u.y,F.x,F.y);if(d>4000)return;sn[u.side]=1;if(d>R||u.ms==='rout'||s.fl.indexOf('u')>=0)return;n[u.side]+=u.men+u.veh*4;});
-  F.kn=F.kn||[-1,-1];F.knT=F.knT||[0,0];for(var i=0;i<2;i++)if(sn[i]){F.kn[i]=F.own;F.knT[i]=G.t;}
-  var hold=n[0]>15&&n[1]<1?0:n[1]>15&&n[0]<1?1:-1;F.cont=n[0]>0&&n[1]>0;if(hold>=0&&hold!==F.own){if(F.cand!==hold){F.cand=hold;F.ct=G.t;}else if(G.t-F.ct>=600)facTake(F,hold);}else F.cand=-1;});}
+function facStep(){(G.fac||[]).forEach(function(F){var R=F.k==='air'?1800:F.k==='port'?1300:1000,n=sA0(),sn=sA0();gridNear(F.x,F.y,4000,function(u){if(!onMap(u)||!isLeaf(u))return;var s=ST(u);if(s.dom!=='land')return;var d=dist(u.x,u.y,F.x,F.y);if(d>4000||!(u.side>=0))return;sn[u.side]=1;if(d>R||u.ms==='rout'||s.fl.indexOf('u')>=0)return;n[u.side]+=u.men+u.veh*4;});
+  F.kn=F.kn||sAV(-1);F.knT=F.knT||sA0();for(var i=0;i<sn.length;i++)if(sn[i]){F.kn[i]=F.own;F.knT[i]=G.t;}
+  var hold=-1,np=0,nb=0;for(var hi=0;hi<n.length;hi++){if(n[hi]>0)np++;if(n[hi]>15)hold=hold<0?hi:-2;else if(n[hi]>=1)nb++;}if(hold<0||nb>0)hold=-1;F.cont=np>=2;if(hold>=0&&hold!==F.own){if(F.cand!==hold){F.cand=hold;F.ct=G.t;}else if(G.t-F.ct>=600)facTake(F,hold);}else F.cand=-1;});}
 /* 想定指定某方一開始就控制的設施（附近沒有同類設施就在該處建立） */
 function facClaim(side,k,x,y,name,st){G.fac=G.fac||facGen(G.map,G.set.y);var F=null,bd=3500;G.fac.forEach(function(f){if(f.k!==k)return;var d=dist(f.x,f.y,x,y);if(d<bd){bd=d;F=f;}});
-  if(!F){F={id:G.fac.reduce(function(m,f){return Math.max(m,f.id);},0)+1,k:k,x:x,y:y,name:name||FACN[k],set:'',own:-1,cand:-1,ct:0,kn:[-1,-1],st0:facStock(k,null,G.set.y)};G.fac.push(F);}
+  if(!F){F={id:G.fac.reduce(function(m,f){return Math.max(m,f.id);},0)+1,k:k,x:x,y:y,name:name||FACN[k],set:'',own:-1,cand:-1,ct:0,kn:sAV(-1),st0:facStock(k,null,G.set.y)};G.fac.push(F);}
   if(name)F.name=name;if(st)F.st0=st;if(F.own!==side)facTake(F,side,true);F.kn=[side,side];return F;}
 (function(){var b=prepareBattle;prepareBattle=function(){b.apply(null,arguments);if(!G||!G.map)return;if(!G.fac)G.fac=facGen(G.map,G.set.y);if(G.set.sustain===undefined)G.set.sustain=true;embarkStuck();regSeed();};})();
 
@@ -3850,7 +3888,7 @@ function facGen8(MP,y,out){var cs=MP.cs,GW=MP.GW,GH=MP.GH,lc=MP.lc,id=out.reduce
   function near(x,yy,R,pred,r0){var cx=Math.floor(x/cs),cy=Math.floor(yy/cs),Rc=Math.max(1,Math.ceil(R/cs)),R0=Math.floor((r0||0)/cs),best=-1,bd=1e18;for(var b=-Rc;b<=Rc;b++)for(var a=-Rc;a<=Rc;a++){var X=cx+a,Y=cy+b;if(X<1||Y<1||X>=GW-1||Y>=GH-1)continue;var d=a*a+b*b;if(d>Rc*Rc||d<R0*R0)continue;var dd=d+r()*Rc;if(dd>=bd)continue;var k=Y*GW+X;if(pred(k)){bd=dd;best=k;}}return best;}
   function xy(k){return [(k%GW+0.5)*cs,(((k/GW)|0)+0.5)*cs];}
   function far(p,k,D){return !out.some(function(f){return f.k===k&&dist(f.x,f.y,p[0],p[1])<D;});}
-  function add(k,p,name,s,ex){out.push(Object.assign({id:++id,k:k,x:p[0],y:p[1],name:name,set:s?s.name:'',own:-1,cand:-1,ct:0,kn:[-1,-1],st0:facStock8(k,s,y),hp:100},ex||{}));}
+  function add(k,p,name,s,ex){out.push(Object.assign({id:++id,k:k,x:p[0],y:p[1],name:name,set:s?s.name:'',own:-1,cand:-1,ct:0,kn:sAV(-1),st0:facStock8(k,s,y),hp:100},ex||{}));}
   var nCh=0,SS=(MP.set||[]).slice().sort(function(a,b){return b.pop-a.pop;}),land=function(k){return !isWater(lc[k]);},open=function(k){var c=lc[k];return !isWater(c)&&!isUrban(c)&&!MP.rv[k]&&MP.ft[k]!==6&&c!==LCI.marsh;};
   SS.forEach(function(s,si){var sx=s.x*cs,sy=s.y*cs,R=Math.max(400,s.r||300),city=s.kind==='city',town=s.kind==='town';
     /* 教堂：西方地區 400 人以上的聚落多有教區教堂，大城市另有大教堂；中文地區只有 1840 年以後城鎮裡的教會；全圖最多 24 座 */var wst=MP.nst==='west'||MP.nst==='westzh'||(MP.nst==='mix'||MP.nst==='mixzh')&&s.x<GW/2;if((wst?s.pop>=400||city||town:(city||town)&&y>=1840)&&nCh<24){nCh++;var nC=city?clamp(Math.round(s.pop/20000),1,3):1;for(var i=0;i<nC;i++){var ck=near(sx,sy,R*(i?0.9:0.5),function(k){return isUrban(lc[k])&&lc[k]!==LCI.ind&&lc[k]!==LCI.rly&&lc[k]!==LCI.port;});if(ck<0)ck=near(sx,sy,R,land);if(ck<0)continue;var cp=xy(ck);if(!far(cp,'church',350))continue;
@@ -3863,11 +3901,11 @@ function facGen8(MP,y,out){var cs=MP.cs,GW=MP.GW,GH=MP.GH,lc=MP.lc,id=out.reduce
   return out;}
 /* 舊存檔、舊地圖：補上新設施 */
 function fac8Ensure(){if(!G.fac||G._fac8)return;G._fac8=1;if(!G.fac.some(function(F){return FAC8[F.k];}))facGen8(G.map,G.set.y||1943,G.fac);G.fac.forEach(function(F){if(F.hp===undefined)F.hp=100;});
-  /* 沒有對應設施的補給站（工兵構築或想定設置）也可以被砲擊、爆破 */[0,1].forEach(function(side){(SD(side).nodes||[]).forEach(function(N){if(N.k!=='depot'||N.fac)return;var F={id:G.fac.reduce(function(m,f){return Math.max(m,f.id);},0)+1,k:'depot',x:N.x,y:N.y,name:N.name,set:'',own:side,cand:-1,ct:0,kn:[side,-1],st0:{food:0,ammo:0,fuel:0,fod:0},hp:100,built:1};G.fac.push(F);N.fac=F.id;});});}
+  /* 沒有對應設施的補給站（工兵構築或想定設置）也可以被砲擊、爆破 */SIDES().forEach(function(side){(SD(side).nodes||[]).forEach(function(N){if(N.k!=='depot'||N.fac)return;var F={id:G.fac.reduce(function(m,f){return Math.max(m,f.id);},0)+1,k:'depot',x:N.x,y:N.y,name:N.name,set:'',own:side,cand:-1,ct:0,kn:facKn0(side),st0:{food:0,ammo:0,fuel:0,fod:0},hp:100,built:1};G.fac.push(F);N.fac=F.id;});});}
 /* 佔領：油料、彈藥設施成為只存放該類物資的補給節點；醫院、教堂、難民營只改變控制方 */
 (function(){var b=facTake;facTake=function(F,side,quiet){var D=FAC8[F.k];if(F.dead){F.own=side;F.cand=-1;F.tOwn=G.t;return;}if(!D)return b(F,side,quiet);var prev=F.own,N=facNode(F),st=N?N.st:F.st0||{},keep=prev>=0?0.5:1;if(N)SD(prev).nodes=SD(prev).nodes.filter(function(q){return q!==N;});
   if(D.node){var c=D.only,s0={food:0,ammo:0,fuel:0,fod:0};s0[c]=(st[c]||0)*keep;addNode(side,'depot',F.x,F.y,{name:F.name,fac:F.id,only:c,noUp:D.noUp?1:0,sub:F.k,cap:Math.max(40,(F.st0&&F.st0[c]||0)*1.2,F.k==='gas'?60:F.k==='tank'?2000:1500),st:s0});}
-  F.own=side;F.cand=-1;F.tOwn=G.t;F.kn=F.kn||[-1,-1];F.kn[side]=side;F.knT=F.knT||[0,0];F.knT[side]=G.t;
+  F.own=side;F.cand=-1;F.tOwn=G.t;F.kn=F.kn||sAV(-1);F.kn[side]=side;F.knT=F.knT||sA0();F.knT[side]=G.t;
   if(!quiet){logE(side,'log',(prev<0?'控制':'奪取')+FACN[F.k]+'「'+F.name+'」'+(D.node?'，啟用為'+LCN[D.only]+'補給點':F.k==='hosp'?'，收治本方與平民傷患':F.k==='church'?'（受保護的宗教建築）':''),F.x,F.y);if(prev>=0){logE(prev,'log',FACN[F.k]+'「'+F.name+'」落入敵手',F.x,F.y);if(G.onPause&&apOn('fac'))G.onPause('設施易手');}}};})();
 /* 補給節點只收、只發特定物資 */
 (function(){var bs=split;split=function(N,amt,dem){if(N&&N.only){N.st[N.only]=(N.st[N.only]||0)+amt;return;}return bs(N,amt,dem);};
@@ -4039,7 +4077,7 @@ function lgGive(u,V,eff){var L=u.lg||logInit(u),got=0;if(ST(u).fl.indexOf('l')>=
 function lgOn(){return !!(G&&G.started&&G.set.lgv!==false);}
 function lgEnRoute(side,N){var veh=0,cg=0;(G.lgv||[]).forEach(function(V){if(V.side!==side)return;if(V.home&&V.home.k==='node'&&V.home.id===N.id)veh+=V.n;if(V.dst&&V.dst.k==='node'&&V.dst.id===N.id&&(V.ph==='in'||V.ph==='load'||V.ph==='out'))cg+=V.ph==='in'?lgCargo(V):lgCap(V);});return {veh:veh,cg:cg};}
 /* cont：上一步的工作量用完、接著派車（吞吐量只在每 10 分鐘的例行派車時累積） */
-function lgDispatch(cont){if(!lgOn())return;G._lgMore=0;(((G._lgN=(G._lgN||0)+(cont?0:1))&1)?[0,1]:[1,0]).forEach(function(side){var L=nodesOf(side);if(!L.length)return;var dem=sideDemand(side);
+function lgDispatch(cont){if(!lgOn())return;G._lgMore=0;G._lgN=(G._lgN||0)+(cont?0:1);(nSides()<3?((G._lgN&1)?[0,1]:[1,0]):SIDES().map(function(s,i,A){return A[(i+G._lgN)%A.length];})).forEach(function(side){var L=nodesOf(side);if(!L.length)return;var dem=sideDemand(side);
     L.forEach(function(N){if(N.status==='captured'||N.k==='off')return;var F=N.fac?facById(N.fac):null,hpf=F&&F.hp!==undefined?clamp(F.hp/100,0,1):1;
       if(N.k==='depot'){if(N.noUp)return;var U=upOf(N);if(!U){N._lgWhy='沒有上游節點';return;}var R=lgEnRoute(side,N),free=Math.max(0,Math.round((N.cv&&N.cv.n||0)-R.veh)),m=lgRoadMode(),pay=lgPay(m);if(free<2)return;
         var space=(N.cap||3000)-lgSum(N.st)-R.cg;if(space<pay*Math.min(free,4))return;if(U.k!=='off'&&lgSum(U.st,N.only)<pay)return void(N._lgWhy='上游「'+U.name+'」沒有存貨');var n=Math.min(free,lgSerial(m),Math.ceil(space/pay));if(lgBusy()){G._lgMore=1;return;}
@@ -4101,7 +4139,7 @@ function edgeD(u){var MP=G.map,e=SD(u.side).edge||'W';return e==='W'?u.x:e==='E'
 function refitLeave(u,why){var s=ST(u);u.st='off';u.path=null;u.pq=0;u.goal=null;u.task='hold';u.ord=null;u.pend=[];u.refit={t0:G.t,from:[u.x,u.y],why:why||'',ms0:u.ms};if(u.ms==='rout')u.ms='shaken';u.arr=null;
   logE(u.side,'refit',uName(u)+'撤出地圖外休整'+(why?'（'+why+'）':''),u.x,u.y,u.id);(function up(p){if(p<0)return;var F=uById(p);if(!F||isLeaf(F))return;if(leavesOf(F).every(function(x){return !onMap(x);})&&F.st!=='off'){F.st='off';F.refit={t0:G.t,from:[F.x,F.y]};}up(F.p);})(u.p);}
 /* 地圖外：每 10 分鐘恢復士氣、體力、組織，補齊物資，從補充兵員池補人 */
-function refitStep(){var h=600/3600;[0,1].forEach(function(side){var S=SD(side);G.units.forEach(function(u){if(u.side!==side||!u.refit||u.st!=='off'||!isLeaf(u))return;var s=ST(u);u.mor=clamp(u.mor+4*h*(u.mor<s.mor?1:0.2),0,100);u.fat=Math.max(0,u.fat-12*h);u.org=Math.min(100,(u.org||0)+6*h);u.ammo=Math.min(100,u.ammo+20*h);u.sup=0;
+function refitStep(){var h=600/3600;SIDES().forEach(function(side){var S=SD(side);G.units.forEach(function(u){if(u.side!==side||!u.refit||u.st!=='off'||!isLeaf(u))return;var s=ST(u);u.mor=clamp(u.mor+4*h*(u.mor<s.mor?1:0.2),0,100);u.fat=Math.max(0,u.fat-12*h);u.org=Math.min(100,(u.org||0)+6*h);u.ammo=Math.min(100,u.ammo+20*h);u.sup=0;
     if(u.ms==='shaken'&&u.mor>60)u.ms='ok';var L=u.lg;if(L){L.food=Math.min(L.foodCap,L.food+L.foodCap*0.3*h);L.fuel=Math.min(L.fuelCap,L.fuel+L.fuelCap*0.4*h);L.fod=Math.min(L.fodCap,L.fod+L.fodCap*0.3*h);L.hun=Math.max(0,(L.hun||0)-10*h);}
     if(S.repl>0&&u.men<u.men0){var dm=Math.min(u.men0-u.men,u.men0*0.04*h*(typeof replMul==='function'?replMul():1),S.repl);var t0=u.trn===undefined?s.trn:u.trn;u.trn=(t0*u.men+Math.min(t0,45)*dm)/(u.men+dm);u.men+=dm;S.repl-=dm;u.repl=(u.repl||0)+dm;}
     if(u.veh<u.veh0)u.veh=Math.min(u.veh0,u.veh+(u.veh0||0)*0.02*h);if(u.wia>0)u.wia=Math.max(0,u.wia-u.wia*0.05*h);
@@ -4127,12 +4165,16 @@ function autoRefit(){G.units.forEach(function(u){if(!isLeaf(u)||!alive(u)||!onMa
 CIVK.detain='拘禁中死亡';
 var CIVA={detain:['拘留審查',3600,0,'把可疑的成年男性帶走審查，可降低游擊與破壞，但居民會不滿'],guide:['引導疏散',0,0,'護送居民或難民隊伍到收容所或本方後方'],aid:['救護支援',7200,0,'救治傷患、協助避難與防疫'],give:['贈與物資',1800,0,'把部隊的糧食分給居民或難民（部隊自己的存糧會減少）'],
   intern:['強制拘禁',7200,1,'把居民集體關押：違反戰爭法（日內瓦公約以後明文禁止任意拘禁）'],fire:['無差別開火',600,2,'向平民開火：屠殺，嚴重的戰爭罪行'],release:['釋放被拘留者',1200,0,'釋放本方拘留的平民']};
-function civAtt0(){if(!G.civ)return;G.civ.S.forEach(function(g){if(!g.att)g.att=g.loy===0?[35,-25]:g.loy===1?[-25,35]:[0,0];});G.civ.D=G.civ.D||[];}
-function attAdd(g,side,v){if(!g||side!==0&&side!==1)return;if(!g.att)g.att=[0,0];g.att[side]=clamp(g.att[side]+v,-100,100);}
+/* 本方設施的情報（各方知道的控制方）：兩方時沿用原本的寫法 */
+function facKn0(side){if(nSides()<3)return [side,-1];var a=sAV(-1);a[side]=side;return a;}
+/* 居民對各方的初始態度：傾向的一方友善、與它交戰的一方敵視、其他中立 */
+function civAttInit(loy){if(nSides()<3)return loy===0?[35,-25]:loy===1?[-25,35]:[0,0];var a=sA0();if(loy>=0)SIDES().forEach(function(s){a[s]=s===loy?35:hostile(loy,s)?-25:0;});return a;}
+function civAtt0(){if(!G.civ)return;G.civ.S.forEach(function(g){if(!g.att)g.att=civAttInit(g.loy);});G.civ.D=G.civ.D||[];}
+function attAdd(g,side,v){if(!g||!(side>=0&&side<nSides()))return;if(!g.att)g.att=sA0();g.att[side]=clamp((g.att[side]||0)+v,-100,100);}
 function attNear(x,y,R,side,v){if(!G.civ)return;G.civ.S.forEach(function(g){var d=dist(g.x,g.y,x,y);if(d<R)attAdd(g,side,v*(1-d/R));});}
 (function(){var b=civCas;civCas=function(g,c,kf,cause,bySide){b(g,c,kf,cause,bySide);if(bySide>=0&&c>0.5)attAdd(g,bySide,-Math.min(25,1+c*0.3));};})();
 /* 民心決定誰會得到居民的通報 */
-humintStep=function(){if(!G.civ)return;G.civ.S.forEach(function(g){if(civPresent(g)<50)return;var a=g.att||(g.loy===0?[35,-25]:g.loy===1?[-25,35]:[0,0]),side=a[0]>=25&&a[0]>a[1]?0:a[1]>=25&&a[1]>a[0]?1:-1;if(side<0)return;var Q=G.rq[side],R=g.r+2500,pr=clamp(0.12+(a[side]-25)*0.013,0.1,0.45);
+humintStep=function(){if(!G.civ)return;G.civ.S.forEach(function(g){if(civPresent(g)<50)return;var a=g.att||civAttInit(g.loy),side=-1;if(a.length<3)side=a[0]>=25&&a[0]>a[1]?0:a[1]>=25&&a[1]>a[0]?1:-1;else{for(var ai=0;ai<a.length;ai++){if(!(a[ai]>=25))continue;var top=true;for(var aj=0;aj<a.length;aj++)if(aj!==ai&&!(a[ai]>(a[aj]||0)))top=false;if(top)side=ai;}}if(side<0)return;var Q=G.rq[side],R=g.r+2500,pr=clamp(0.12+(a[side]-25)*0.013,0.1,0.45);
   gridNear(g.x,g.y,R,function(t){if(t.side===side||!onMap(t)||!isLeaf(t))return;var ts=ST(t);if(ts.dom!=='land'||ts.fl.indexOf('G')>=0||dist(t.x,t.y,g.x,g.y)>R||rnd8()>pr)return;Q.push({at:G.t+1800+rnd8()*3600,id:t.id,x:t.x+(rnd8()-0.5)*1200,y:t.y+(rnd8()-0.5)*1200,t:G.t,q:0.5,by:0});});});};
 /* ---------- 目標 ---------- */
 function civTgt(o){var C=G.civ,p=o&&o.opt;if(!C||!p)return null;if(p.tg==='S')return C.S[p.id]||null;if(p.tg==='R')return C.R.filter(function(Q){return Q.id===p.id;})[0]||null;if(p.tg==='D')return (C.D||[]).filter(function(D){return D.id===p.id;})[0]||null;return null;}
@@ -4176,14 +4218,14 @@ function civDet(side,T,t,q,kind,u){var C=G.civ;C.D=C.D||[];var D={id:(C.seq=(C.s
 function civFree(D,why){var C=G.civ,g=C.S[D.from];D.st='free';if(g){g.men+=D.m;g.wom+=D.w;g.kid+=D.k;g.eld+=D.e;}logE(D.side,'civ',(why||'')+'被拘留的 '+fmt(D.n)+' 名平民獲釋（'+(D.fn||'')+'）',D.x,D.y);if(g&&D.side>=0)attAdd(g,D.side,D.kind==='detain'?3:5);}
 function civDetStep(){var C=G.civ;if(!C||!C.D||!C.D.length)return;var h=600/3600;C.D.forEach(function(D){if(D.st!=='held'&&D.st!=='move')return;if(D.n<1){D.st='dead';return;}
     if(D.st==='move'&&D.path){if(walk(D,0.9*600)){D.st='held';var cp=uById(D.camp);if(cp&&alive(cp)){cp.ref=(cp.ref||0)+D.n;}}}
-    /* 看守撤走、敵方部隊到達：獲得解放 */var gu=0,en=0;gridNear(D.x,D.y,3000,function(u){if(!onMap(u)||ST(u).dom!=='land')return;if(u.side===D.side)gu++;else if(dist(u.x,u.y,D.x,D.y)<2000)en++;});if(!gu&&en){civFree(D,G.sides[enemyOf(D.side)].name+'部隊抵達，');return;}if(!gu&&!en&&G.t-D.t0>6*3600&&rnd8()<0.02){civFree(D,'看守撤離，');return;}
+    /* 看守撤走、敵方部隊到達：獲得解放 */var gu=0,en=0,es=-1;gridNear(D.x,D.y,3000,function(u){if(!onMap(u)||ST(u).dom!=='land')return;if(u.side===D.side)gu++;else if(dist(u.x,u.y,D.x,D.y)<2000){en++;es=u.side;}});if(!gu&&en){civFree(D,G.sides[nSides()<3||!(es>=0)?enemyOf(D.side):es].name+'部隊抵達，');return;}if(!gu&&!en&&G.t-D.t0>6*3600&&rnd8()<0.02){civFree(D,'看守撤離，');return;}
     if(D.kind==='detain'&&D.rel&&G.t>=D.rel){civFree(D,'審查結束，');return;}
     var L=clamp(D.pol||0,0,5),aid=D.aidT&&G.t-D.aidT<48*3600,rate=[0.0003,0.0008,0.002,0.006,0.015,0.04][L]*(D.food>0?1:2.5)*(aid?0.5:1)*h/24*24/24,die=D.n*rate*h*24/24;D.food=Math.max(0,D.food-h/24);
     if(die>0){var f=die/D.n;D.m-=D.m*f;D.w-=D.w*f;D.k-=D.k*f;D.e-=D.e*f;D.n-=die;D.dead+=die;civStatAdd(D.side,die,0,0,0,'detain');if(D.dead>=10&&!D.dlog){D.dlog=1;logE(D.side,'civ','被拘禁的平民開始因虐待、疾病與飢餓死亡（'+(D.fn||'')+'）',D.x,D.y);}}});
   C.D=C.D.filter(function(D){return D.st==='held'||D.st==='move'||G.t-D.t0<24*3600;});}
 /* 暴行之後：游擊活動、敵軍的憤怒、國際社會與援助團體的反應 */
-function civAftermath(u,T,kind,v){var side=u.side,en=enemyOf(side);gridNear(T.x,T.y,10000,function(e){if(e.side!==en||!onMap(e))return;e.mor=clamp(e.mor+4,0,100);if(typeof mfAdd==='function')mfAdd(e,'rage',4);});
-  var S=SD(side);S.atroc=(S.atroc||0)+1;S.atrocT=G.t;(G.tp||[]).forEach(function(A){if((A.k==='aid'||A.k==='church')&&A.st!=='out'&&A.st!=='dead'){A.protest=(A.protest||0)+1;}});if(featOn('redcross')){var org=aidOrg();logE(-1,'civ',org+'譴責'+G.sides[side].name+'部隊對平民的暴行，要求停止並允許人道救援進入',T.x,T.y);G.tpSusp=G.tpSusp||[0,0];G.tpSusp[side]=G.t+48*3600;}}
+function civAftermath(u,T,kind,v){var side=u.side,en=enemyOf(side);gridNear(T.x,T.y,10000,function(e){if((nSides()<3?e.side!==en:!hostile(side,e.side))||!onMap(e))return;e.mor=clamp(e.mor+4,0,100);if(typeof mfAdd==='function')mfAdd(e,'rage',4);});
+  var S=SD(side);S.atroc=(S.atroc||0)+1;S.atrocT=G.t;(G.tp||[]).forEach(function(A){if((A.k==='aid'||A.k==='church')&&A.st!=='out'&&A.st!=='dead'){A.protest=(A.protest||0)+1;}});if(featOn('redcross')){var org=aidOrg();logE(-1,'civ',org+'譴責'+G.sides[side].name+'部隊對平民的暴行，要求停止並允許人道救援進入',T.x,T.y);G.tpSusp=G.tpSusp||sA0();G.tpSusp[side]=G.t+48*3600;}}
 /* ---------- 引導疏散：部隊護送隊伍前往收容所或本方後方 ---------- */
 function civGuideStart(u,o,T,t){var C=G.civ,Q=null;if(t==='S'){var n=Math.min(civPresent(T)*0.4,3000);if(n<20){o.ph='done';return;}var k0=C.R.length;refSpawn(T,n);Q=C.R[C.R.length-1];if(C.R.length===k0)Q=null;}else if(t==='R')Q=T;
   if(!Q){logE(u.side,'civ',uName(u)+'：沒有可以引導的民眾',u.x,u.y,u.id);u.ord=null;u.task='hold';return;}Q.esc=u.id;Q.side=u.side;Q.spd=Math.max(Q.spd,1.25*(2.6/3.6));refDest(Q);o.ph='esc';o.qid=Q.id;o.t1=G.t;var g=C.S[Q.from];attAdd(g,u.side,10);logE(u.side,'civ',uName(u)+'護送約 '+fmt(Q.n)+' 名民眾'+(Q.campF||Q.camp?'前往收容所':'往後方疏散'),u.x,u.y,u.id);civEv('civ',u.side,uName(u)+'護送約 '+fmt(Q.n)+' 名民眾離開'+placeTxt(Q.x,Q.y),Q.x,Q.y,u.id,{dk:'guide'});}
@@ -4208,7 +4250,7 @@ function tpNew(k,o){G.tp=G.tp||[];var A=Object.assign({id:(G.tpSeq=(G.tpSeq||0)+
 function tpHot(x,y,R){var hot=false;gridNear(x,y,R,function(u){if(hot||!onMap(u))return;if((G.t-(u.fired||-1e9)<1200||G.t-(u.uf||-1e9)<1200)&&dist(u.x,u.y,x,y)<R)hot=true;});return hot;}
 function tpPath(A,x,y){var P=findPath({dom:'land',mobi:lgY()>=1914?3:2,vr:lgY()>=1914?30:5,vx:lgY()>=1914?10:3,fl:''},A.x,A.y,x,y,{max:60000});if(!P)return false;A.path=P.pts;A.pi=2;A.tx=x;A.ty=y;return true;}
 /* 最需要援助的地方：飢餓、受傷、受困的難民、超收的收容所、被拘留的平民 */
-function aidNeeds(){var C=G.civ,out=[],su=G.tpSusp||[0,0];if(!C)return out;function ok(x,y,occ){return !(occ>=0&&su[occ]>G.t);}
+function aidNeeds(){var C=G.civ,out=[],su=G.tpSusp||sA0();if(!C)return out;function ok(x,y,occ){return !(occ>=0&&su[occ]>G.t);}
   C.S.forEach(function(g){var p=civPresent(g);if(p<80)return;var sc=p*(g.hung/100+(G.t-g.hitT<6*3600?0.4:0))+Math.min(g.wnd||0,p)*2;if(sc>200&&ok(g.x,g.y,g.occ))out.push({k:'S',id:g.i,x:g.x,y:g.y,sc:sc,nm:g.n});});
   C.R.forEach(function(Q){if(!(Q.st==='trap'||Q.st==='stop')||Q.n<100)return;out.push({k:'R',id:Q.id,x:Q.x,y:Q.y,sc:Q.n*(Q.food<=0?1.5:0.6),nm:'受困的難民'});});
   (G.fac||[]).forEach(function(F){if(F.k!=='camp'||F.dead||!(F.pop>50))return;out.push({k:'F',id:F.id,x:F.x,y:F.y,sc:F.pop*((F.food||0)<2?1:0.3),nm:F.name});});
@@ -4235,7 +4277,7 @@ function aidGive(A,T){var k=A.tg.k,f=Math.min(A.food,k==='D'?4:k==='F'?12:8),m=M
   if(k==='S'){var p=Math.max(1,civPresent(T));T.food=Math.min(40,(T.food||0)+f*1000/(p*0.6));T.hung=Math.max(0,T.hung-20);T.aidT=G.t;T.unrest=Math.max(0,T.unrest-5);txt='送糧 '+fmt(f,1)+' 噸、醫療物資 '+fmt(m,1)+' 噸到'+T.n;}
   else if(k==='R'){T.food=(T.food||0)+f*1000/(Math.max(1,T.n)*0.6);T.aidT=G.t;txt='救助受困的難民（約 '+fmt(T.n)+' 人）';}else if(k==='F'){T.food=(T.food||0)+f*1000/(Math.max(1,T.pop)*0.6);T.aidT=G.t;txt='補給'+T.name;}else if(k==='D'){T.food=(T.food||0)+f*1000/(Math.max(1,T.n)*0.6);T.aidT=G.t;txt='探視被拘留的平民（約 '+fmt(T.n)+' 人），記錄拘禁狀況';}
   logE(-1,'aid',A.org+'：'+txt,A.x,A.y);civEv('aid',-1,A.org+txt,A.x,A.y,0,{dk:'aid'});G.civ.aidT=(G.civ.aidT||0)+f+m;}
-function campNew(A){var p=validPos({dom:'land'},A.x+(rnd8()-0.5)*2000,A.y+(rnd8()-0.5)*2000),id=(G.fac||[]).reduce(function(m,f){return Math.max(m,f.id);},0)+1,F={id:id,k:'camp',x:p[0],y:p[1],name:A.org+'難民營',set:'',own:-1,cand:-1,ct:0,kn:[-1,-1],st0:{food:0,ammo:0,fuel:0,fod:0},hp:100,cap:6000,pop:0,food:6,org:A.org,built:1,t0:G.t};G.fac.push(F);logE(-1,'aid',A.org+'在'+placeTxt(p[0],p[1])+'設立難民營（可收容約 6000 人）',p[0],p[1]);
+function campNew(A){var p=validPos({dom:'land'},A.x+(rnd8()-0.5)*2000,A.y+(rnd8()-0.5)*2000),id=(G.fac||[]).reduce(function(m,f){return Math.max(m,f.id);},0)+1,F={id:id,k:'camp',x:p[0],y:p[1],name:A.org+'難民營',set:'',own:-1,cand:-1,ct:0,kn:sAV(-1),st0:{food:0,ammo:0,fuel:0,fod:0},hp:100,cap:6000,pop:0,food:6,org:A.org,built:1,t0:G.t};G.fac.push(F);logE(-1,'aid',A.org+'在'+placeTxt(p[0],p[1])+'設立難民營（可收容約 6000 人）',p[0],p[1]);
   G.civ.R.forEach(function(Q){if((Q.st==='go'||Q.st==='stop'||Q.st==='trap')&&dist(Q.x,Q.y,p[0],p[1])<30000){if(Q.st==='trap'||Q.st==='stop')Q.st='go';refDest(Q);}});}
 function churchOne(A){var F=facById(A.fac),C=G.civ,g=C.S[A.g];if(!F||F.dead||!g){if(A.st!=='dead'){A.st='gone';}return;}
   if((G.step+A.id)%20!==0)return;var h=600/3600;g.shel=clamp((g.shel||0)+0.03,0,1);if(g.hung>20)g.hung=Math.max(0,g.hung-0.6);g.food=Math.min(40,(g.food||0)+0.03);
@@ -4269,7 +4311,7 @@ var BLD8={sport:1,sair:1,fhosp:1,fuel:1,ammoD:1,camp:1};
   if(kind==='sair'&&o.ang!==undefined){var MP=G.map,ks=[],dx=Math.cos(o.ang),dy=Math.sin(o.ang);for(var s=-F.len/2;s<=F.len/2;s+=MP.cs*0.6){var k=cellAt(x+dx*s,y+dy*s);if(MP.lc[k]!==LCI.burnt&&!isUrban(MP.lc[k])){MP.ft[k]=0;ks.push(k);}}if(ks.length)mapChanged(ks);}
   G.lgSeq=seq;u.ent=Math.max(u.ent,0.5);logE(side,'eng',uName(u)+'完成構築'+nm+'「'+name+'」（'+placeTxt(x,y)+'）',x,y,u.id);};})();
 /* 醫院與野戰醫院：收治本方傷兵（降低傷重不治、加快歸隊）；醫院被砲擊時病患一起受害 */
-function hospStep(){var y=lgY(),base=(y<1850?0.006:y<1914?0.004:y<1940?0.0025:y<1970?0.0012:0.0006)/6;(G.fac||[]).forEach(function(F){if(F.k!=='hosp'||F.dead)return;var side=F.own;if(side!==0&&side!==1)return;var S=medStat(side),beds=F.beds||200,cap=beds/144*(F.hp/100),used=0;F.pat=F.pat||[];
+function hospStep(){var y=lgY(),base=(y<1850?0.006:y<1914?0.004:y<1940?0.0025:y<1970?0.0012:0.0006)/6;(G.fac||[]).forEach(function(F){if(F.k!=='hosp'||F.dead)return;var side=F.own;if(!(side>=0&&side<nSides()))return;var S=medStat(side),beds=F.beds||200,cap=beds/144*(F.hp/100),used=0;F.pat=F.pat||[];
     G.units.forEach(function(u){if(u.side!==side||!(u.wia>0.05)||used>=cap)return;if(dist(u.x,u.y,F.x,F.y)>(F.field?15000:25000))return;var take=Math.min(u.wia,cap-used);used+=take;u.wia-=take;F.pat.push({u:u.id,n:take,t:G.t});if(typeof medHosp==='function')medHosp(side,take);});
     var keep=[],occ=0;F.pat.forEach(function(p){var d=p.n*base*(F.hp<50?2:1);p.n-=d;S.dow+=d;if(G.t-p.t>(y<1914?96:60)*3600){var u=uById(p.u),rt=p.n*0.45;if(u&&alive(u)&&u.st!=='off'){u.men=Math.min(u.men0,u.men+rt);S.rtd+=rt;}p.n=0;}if(p.n>0.05){keep.push(p);occ+=p.n;}});F.pat=keep.slice(-400);F.occ=occ;});}
 /* 醫院中彈：病患與醫護人員傷亡 */
@@ -4294,7 +4336,7 @@ function thrPic(side){var S=SD(side);if(S.thr&&G.t-S.thr.t<3600)return S.thr;var
 function facVal(F,side){if(F.dead||F.own===side)return 0;var k=F.k,i=eraI(),v=0;if(k==='port'){v=(THR.port[i]||800)/500;var pw=portWater({x:F.x,y:F.y});if(!pw)v*=0.2;}
   else if(k==='rail'){v=(THR.rail[i]||0)/500;if(!railToEdge(cellAt(F.x,F.y),SD(side).edge||'W'))v*=0.15;}else if(k==='air'){v=featOn('airlift')?(THR.air[i]||0)/400:0.3;}
   else if(k==='depot'||k==='tank'||k==='gas'||k==='ammo'){v=lgSum(facSt(F))/150;}else return 0;var T=thrPic(side);if(k==='tank'||k==='gas')v*=T.fuel<0.4?2.2:T.need.fuel>0.5?1.3:0.5;if(k==='ammo')v*=1.3;if(T.r<1)v*=1.5;
-  var obs=(G.obj||[]).filter(function(o){return o.own!==side;}),dmin=obs.length?Math.min.apply(null,obs.map(function(o){return dist(o.x,o.y,F.x,F.y);})):30000;v*=1+1.5*clamp(1-dmin/25000,0,1);if(F.own===enemyOf(side))v*=1.2;return v;}
+  var obs=(G.obj||[]).filter(function(o){return objTgt(side,o);}),dmin=obs.length?Math.min.apply(null,obs.map(function(o){return dist(o.x,o.y,F.x,F.y);})):30000;v*=1+1.5*clamp(1-dmin/25000,0,1);if(nSides()<3?F.own===enemyOf(side):hostile(side,F.own))v*=1.2;return v;}
 function actThr(X){var side=X.side,F0=X.F;if(G.t-(F0.thrT||-1e9)<2*3600||!G.fac)return false;var C=cOf(F0)||[F0.x,F0.y],T=thrPic(side),thr=Math.max(0.5,1.6-(X.P.logi||0.5)-(T.r<1?0.4:0)-(T.fuel<0.4?0.4:0)),best=null,bs=0;
   G.fac.forEach(function(F){var v=facVal(F,side);if(v<=0.3)return;var d=dist(F.x,F.y,C[0],C[1]);if(d>30000)return;if(G.units.some(function(u){return u.side===side&&alive(u)&&u.ord&&u.ord.fac8===F.id;}))return;var en=enemyNear(side,F.x,F.y,3000,'land'),sc=v/(1+d/8000)/(1+en/500);if(sc>bs){bs=sc;best=F;}});
   if(!best||bs<thr)return false;var g=X.man.filter(function(q){return !busyF(q)&&q!==X.res&&aiControls(q);}).sort(function(a,b){var ca=cOf(a)||[a.x,a.y],cb=cOf(b)||[b.x,b.y];return dist(ca[0],ca[1],best.x,best.y)-dist(cb[0],cb[1],best.x,best.y);})[0];if(!g)return false;
@@ -4325,7 +4367,7 @@ function v8Leaf(u,s){var o=u.ord;if(!o)return false;if(o.k==='civ'&&o.opt)return
   if(k==='civ'||k==='facdemo'||k==='repair'){var L=leavesOf(F).filter(onMap),pick=k!=='civ'?L.filter(isEng)[0]:null,bd=1e18;if(!pick)L.forEach(function(u){if(ST(u).dom!=='land')return;var r=roleOf(u),fl=ST(u).fl;if(k==='civ'&&r!=='man'&&r!=='rec'&&fl.indexOf('D')<0&&fl.indexOf('M')<0&&fl.indexOf('I')<0)return;var d=dist(u.x,u.y,o.x!==undefined?o.x:u.x,o.y!==undefined?o.y:u.y);if(d<bd){bd=d;pick=u;}});
     if(!pick)return [];return [[pick,newOrder(k,{x:o.x,y:o.y,opt:o.opt,fac:o.fac,sub:1})]];}return b(F,o);};})();
 function v8Init(){if(!G||!G.map)return;if(!G.fac)G.fac=facGen(G.map,G.set.y);if(!G.fac8v){G.fac8v=1;if(!G.fac.some(function(F){return FAC8[F.k];}))facGen8(G.map,G.set.y||1943,G.fac);}G.fac.forEach(function(F){if(F.hp===undefined)F.hp=100;});
-  [0,1].forEach(function(side){(SD(side).nodes||[]).forEach(function(N){if(N.k!=='depot'||N.fac)return;var F={id:G.fac.reduce(function(m,f){return Math.max(m,f.id);},0)+1,k:'depot',x:N.x,y:N.y,name:N.name,set:'',own:side,cand:-1,ct:0,kn:[side,-1],st0:{food:0,ammo:0,fuel:0,fod:0},hp:100,built:1};G.fac.push(F);N.fac=F.id;});});
+  SIDES().forEach(function(side){(SD(side).nodes||[]).forEach(function(N){if(N.k!=='depot'||N.fac)return;var F={id:G.fac.reduce(function(m,f){return Math.max(m,f.id);},0)+1,k:'depot',x:N.x,y:N.y,name:N.name,set:'',own:side,cand:-1,ct:0,kn:facKn0(side),st0:{food:0,ammo:0,fuel:0,fod:0},hp:100,built:1};G.fac.push(F);N.fac=F.id;});});
   G.lgv=G.lgv||[];G.tp=G.tp||[];if(G.set.lgv===undefined)G.set.lgv=true;if(G.set.autoRefit===undefined)G.set.autoRefit=true;civAtt0();}
 (function(){var b=prepareBattle;prepareBattle=function(){b.apply(null,arguments);v8Init();};})();
 function v8Step(){if(!G.fac8v)v8Init();lgvStep();if(G.step%20===1)lgDispatch();else if(G._lgMore)lgDispatch(1);if(G.step%2===0)airFacStep();if(G.step%4===3)boomStep();if(G.step%10===4)navStep8();if(G.step%20===11){refitStep();civDetStep();campFacStep();hospStep();}if(G.step%2===1)cornerStep();if(G.step%10===2)autoRefit();tpStep();}
@@ -4337,7 +4379,7 @@ function v8Step(){if(!G.fac8v)v8Init();lgvStep();if(G.step%20===1)lgDispatch();e
    工兵修復設施與橋梁、整修道路、在補給站旁設彈藥庫與油庫、闢建機場與補給道路。前線推進或補給站受威脅時，後勤設施會遷移，來不及運走的物資就地焚毀。
    以 2.5 公里為一個防區記錄相持時間：同一地區守得越久，工事與後勤體系越完整（倉促陣地 → 塹壕 → 鐵絲網與碉堡 → 雷區與交通壕 → 縱深防禦）。 */
 var AWS=2500,AWH=[0,1,6,24,72,168],AWN=['未設防','倉促陣地','塹壕陣地','鐵絲網與碉堡','雷區與交通壕','縱深防禦體系'];
-function awInit(){return G.aw||(G.aw={s:[{},{}],cnt:[{},{}],blown:[],seq:0,zn:[[],[]],lg:[{},{}]});}
+function awInit(){return G.aw||(G.aw={s:sAO(),cnt:sAO(),blown:[],seq:0,zn:sAL(),lg:sAO()});}
 /* 設定：all＝雙方都自動，ai＝只有電腦指揮的部隊，off＝關閉 */
 /* 後勤經營風格對自動構工的倍率（第十一版依指揮官的風格覆寫） */
 function awStyle(u,k){return 1;}
@@ -4392,7 +4434,7 @@ function awSupport(u,S,eh,front,ks){var s=ST(u),fl=s.fl,side=u.side,A=awInit(),s
 function awFrontSec(side,x,y){var A=awInit(),b=null,bd=1e18;for(var k in A.s[side]){var S=A.s[side][k];if(G.t-S.seen>2*3600||G.t-S.fT>2*3600)continue;var d=dist(S.x,S.y,x,y);if(d<bd){bd=d;b=S;}}return bd<30000?b:null;}
 /* 每 10 分鐘：記錄每個防區的相持時間，靜止的部隊依時間構工；後勤、衛生與工兵做支援工作 */
 function awStep(){if(awMode()==='off'&&!G.aw)return;var A=awInit(),h=600/3600,ks=[];
-  [0,1].forEach(function(side){var S0=A.s[side];for(var k in S0){S0[k].eng1=S0[k].eng;S0[k].eng=0;S0[k].n=0;}
+  SIDES().forEach(function(side){var S0=A.s[side]||(A.s[side]={});for(var k in S0){S0[k].eng1=S0[k].eng;S0[k].eng=0;S0[k].n=0;}
     G.units.forEach(function(u){if(u.side!==side||!isLeaf(u)||!alive(u)||!onMap(u)||u.st==='ship'||u.st==='lift'||u.amph||u.ms==='rout'||u.irr)return;var s=ST(u);if(s.dom!=='land'||s.fl.indexOf('G')>=0)return;if(!awStill(u)){u.aw=null;return;}
       var S=awSec(side,u.x,u.y);if(G.t-S.seen>3600)S.t0=G.t;S.seen=G.t;S.n++;var eng=isEng(u)||s.fl.indexOf('f')>=0;if(eng)S.eng++;S.work+=(u.men||0)*h*(eng?3:1);
       var near=enemyNear(side,u.x,u.y,6000,'land')>0;if(near)S.fT=G.t;var front=G.t-S.fT<2*3600;
@@ -4412,7 +4454,7 @@ function awMoveDepot(N,p,why){var side=N.side,S=SD(side),cg=lgSum(N.st),car=0,bu
   S.nodes=S.nodes.filter(function(q){return q!==N;});awInit().lg[side].mv=(awInit().lg[side].mv||0)+1;
   logE(side,'log','「'+N.name+'」'+(why==='threat'?'受敵軍威脅，':'隨前線推進，')+(p?'遷移到'+placeTxt(p[0],p[1]):'撤離')+(car>0.5?'（車隊運走約 '+fmt(car,1)+' 噸物資）':'')+(burn>0.5?'；來不及運走的約 '+fmt(burn,1)+' 噸物資就地焚毀，以免資敵':''),N.x,N.y);return M;}
 /* thr＝只檢查受威脅（每 10 分鐘，敵軍進入 6 公里、附近友軍不足就撤，免得被佔領而存量全失）；否則也檢查被拋在後方的設施（每 30 分鐘） */
-function awRelocate(thr){if(awMode()==='off')return;[0,1].forEach(function(side){if(!awSideOn(side))return;var me=G.units.filter(function(u){return u.side===side&&isLeaf(u)&&alive(u)&&onMap(u)&&ST(u).dom==='land'&&roleOf(u)!=='sup'&&u.ms!=='rout';});if(!me.length)return;var C=centroid(me),home=homeDir(side);
+function awRelocate(thr){if(awMode()==='off')return;SIDES().forEach(function(side){if(!awSideOn(side))return;var me=G.units.filter(function(u){return u.side===side&&isLeaf(u)&&alive(u)&&onMap(u)&&ST(u).dom==='land'&&roleOf(u)!=='sup'&&u.ms!=='rout';});if(!me.length)return;var C=centroid(me),home=homeDir(side);
   function nearest(x,y){var d=1e18;me.forEach(function(u){d=Math.min(d,dist(u.x,u.y,x,y));});return d;}
   function rearPt(x,y,d){return validPos({dom:'land'},x+Math.cos(home)*d,y+Math.sin(home)*d);}
   function fwdPt(){return validPos({dom:'land'},C[0]+Math.cos(home)*7000,C[1]+Math.sin(home)*7000);}
@@ -4447,7 +4489,7 @@ function awZoneOf(side,x,y){var T=SD(side).thz;if(!T||!T.zones)return null;var k
 (function(){var b=civGuideStart;civGuideStart=function(u,o,T,t){if(t==='A'||t==='P')return;return b(u,o,T,t);};})();
 (function(){var b=civApply;civApply=function(u,o,T,t){if(t==='A'||t==='P')return tpApply(u,o,T,t);return b(u,o,T,t);};})();
 function tpName(T,t){return t==='A'?(T.k==='aid'?T.org+'的救援隊':T.org):'記者'+T.nm+'（'+T.org+'）';}
-function tpApply(u,o,T,t){var a=o.opt.act,side=u.side,place=placeTxt(T.x,T.y),L=polOf(u,'civ'),nm=tpName(T,t),txt,e;G.tpSusp=G.tpSusp||[0,0];
+function tpApply(u,o,T,t){var a=o.opt.act,side=u.side,place=placeTxt(T.x,T.y),L=polOf(u,'civ'),nm=tpName(T,t),txt,e;G.tpSusp=G.tpSusp||sA0();
   if(a==='guide'){T.esc=G.t+6*3600;T.escBy=u.id;txt=uName(u)+'護送'+nm+'（'+place+'），沿途不必因附近交戰停下';logE(side,'civ',txt,u.x,u.y,u.id);civEv('civ',side,txt,T.x,T.y,u.id,{dk:'tpguide'});attNear(T.x,T.y,8000,side,2);return;}
   if(a==='aid'){if(t==='A'){var hh=Math.min(T.hurt||0,3);T.hurt=(T.hurt||0)-hh;T.n+=Math.round(hh*0.5);}else if(T.st==='wia')T.back=Math.min(T.back||G.t+24*3600,G.t+6*3600);txt=uName(u)+'為'+nm+'提供醫療與掩護';logE(side,'civ',txt,u.x,u.y,u.id);civEv('civ',side,txt,T.x,T.y,u.id,{dk:'tpaid'});return;}
   if(a==='give'){if(t==='A'){var Lg=u.lg||logInit(u),kg=Math.min((Lg.food||0)*0.4,3000);if(kg<1){logE(side,'civ',uName(u)+'自己的存糧不足，無法分給'+nm,u.x,u.y,u.id);return;}Lg.food-=kg;T.food=(T.food||0)+kg/1000;txt=uName(u)+'把約 '+fmt(kg/1000,1)+' 噸糧食交給'+nm+'，由他們分送平民';}else{T.fav=(T.fav||0)+1;txt=uName(u)+'招待'+nm+'，提供交通與補給';}logE(side,'civ',txt,u.x,u.y,u.id);civEv('civ',side,txt,T.x,T.y,u.id,{dk:'tpgive'});return;}
@@ -4656,8 +4698,8 @@ function actWeakSpot(X){var q=X.weak,side=X.side,P=X.P,S=v10S(side),rec={x:q.x,y
   if(d){issue(d,'defend',{x:dp[0],y:dp[1],face:q.dir,opt:{post:'prepared'}});d.v10wk=G.t;if(q.w&&!q.w.v10wk){issue(q.w,'delay',{x:q.w.x,y:q.w.y,face:q.dir});q.w.v10wk=G.t;}rec.k='depth';S.wk.push(rec);aiSay(X,'防線在'+placeTxt(q.x,q.y)+'薄弱：派'+uName(d)+'在後方 '+kmTxt(2500)+' 構築第二道防線（縱深防禦）'+(q.w?'，'+uName(q.w)+'改為遲滯、退向第二線':''),{why:'depth'});return true;}
   rec.k='watch';S.wk.push(rec);return false;}
 /* 6.6 警戒前哨：未交戰的前線也要有警戒或少量防衛兵力，不讓任何方向完全空虛 */
-function condScreens(X){if(X.lvl<1||(X.P.t==='reck'&&rnd()<0.7)||!G.firstContact&&G.t<3600)return false;var F=G.front;if(!F||!F.own||!F.init)return false;var side=X.side,en=enemyOf(side),W=F.W,H=F.H,cs=F.cs,B=Math.max(1,Math.round(4000/cs)),bins={},S=v10S(side);
-  for(var j=1;j<H-1;j++)for(var i=1;i<W-1;i++){var k=j*W+i;if(F.own[k]!==side)continue;if(F.own[k+1]!==en&&F.own[k-1]!==en&&F.own[k+W]!==en&&F.own[k-W]!==en)continue;var bk=Math.floor(i/B)+'|'+Math.floor(j/B),b=bins[bk]||(bins[bk]={x:0,y:0,n:0});b.x+=(i+0.5)*cs;b.y+=(j+0.5)*cs;b.n++;}
+function condScreens(X){if(X.lvl<1||(X.P.t==='reck'&&rnd()<0.7)||!G.firstContact&&G.t<3600)return false;var F=G.front;if(!F||!F.own||!F.init)return false;var side=X.side,en=enemyOf(side),HS=hostSides(side),W=F.W,H=F.H,cs=F.cs,B=Math.max(1,Math.round(4000/cs)),bins={},S=v10S(side);void en;
+  for(var j=1;j<H-1;j++)for(var i=1;i<W-1;i++){var k=j*W+i;if(F.own[k]!==side)continue;if(HS.indexOf(F.own[k+1])<0&&HS.indexOf(F.own[k-1])<0&&HS.indexOf(F.own[k+W])<0&&HS.indexOf(F.own[k-W])<0)continue;var bk=Math.floor(i/B)+'|'+Math.floor(j/B),b=bins[bk]||(bins[bk]={x:0,y:0,n:0});b.x+=(i+0.5)*cs;b.y+=(j+0.5)*cs;b.n++;}
   var need=[];Object.keys(bins).forEach(function(bk){var b=bins[bk],x=b.x/b.n,y=b.y/b.n;if(friendNear(side,x,y,3500)>0)return;var sc=S.scr[bk];if(sc){var su=uById(sc.u);if(su&&onMap(su)&&su.v10scr&&G.t-sc.t<12*3600)return;}need.push({k:bk,x:x,y:y});});
   X.scrNeed=need;return need.length>0;}
 function actScreens(X){var side=X.side,S=v10S(side),n=0,L=aiLand(side),cap=Math.max(2,Math.ceil(L.length*0.12)),cur=L.filter(function(u){return u.v10scr&&G.t-u.v10scr.t<12*3600;}).length,pri={rec:0,cav:1,inf:2,gue:2,sec:2,mech:3};
@@ -4699,7 +4741,7 @@ function rootOf(u){var c=u,n=0;while(c&&c.p>=0&&n<24){var p=uById(c.p);if(!p)bre
 var CMM={k:'',m:{}};
 /* 單位屬於哪一位指揮官（依所在的頂層編制） */
 /* 名冊裡可以有頂層編制，也可以有被移交（作戰管制）的下級編制；由單位往上找，最近的一筆決定歸屬 */
-function cmOf(u){if(!u||!tmOn(u.side))return 0;var k=G.step+'|'+G.units.length+'|'+(G._cmv||0);if(CMM.k!==k){CMM.k=k;CMM.m={};CMM.o=[{},{}];[0,1].forEach(function(sd){var Q=G.sides[sd]&&G.sides[sd].cm;if(Q)Q.forEach(function(R,j){R.roots.forEach(function(id){if(CMM.o[sd][id]===undefined)CMM.o[sd][id]=j;});});});}
+function cmOf(u){if(!u||!tmOn(u.side))return 0;var k=G.step+'|'+G.units.length+'|'+(G._cmv||0);if(CMM.k!==k){CMM.k=k;CMM.m={};CMM.o=sAO();SIDES().forEach(function(sd){var Q=G.sides[sd]&&G.sides[sd].cm;if(Q)Q.forEach(function(R,j){R.roots.forEach(function(id){if(CMM.o[sd][id]===undefined)CMM.o[sd][id]=j;});});});}
   var v=CMM.m[u.id];if(v!==undefined)return v;var O=CMM.o[u.side]||{},c=u,n=0,i=0;while(c&&n<24){if(O[c.id]!==undefined){i=O[c.id];break;}if(c.p<0)break;c=uById(c.p);n++;}CMM.m[u.id]=i;return i;}
 function cmRec(u){return u&&tmOn(u.side)?G.sides[u.side].cm[cmOf(u)]:null;}
 function cmBump(){G._cmv=(G._cmv||0)+1;}
@@ -4860,7 +4902,7 @@ function wpCands(side,i,Fr,mem){var ens=enemyOf(side),F=G.front,B=2500,out=[],ob
   /* 還沒有發現這個方向的敵軍：無從研判（交給偵察、試探或奪取目標的分支） */if(!en.length)return out;var TT=en.map(function(c){return frT(Fr,c.x,c.y);}).sort(function(a,b){return a-b;}),tEn=TT[Math.floor(TT.length/2)];
   var n=clamp(Math.round((Fr.W+5000)/B),3,9),mid=(Fr.s0+Fr.s1)/2;
   for(var j=0;j<n;j++){var s=mid+(j-(n-1)/2)*B,te=null;en.forEach(function(c){var cs=frS(Fr,c.x,c.y),ct=frT(Fr,c.x,c.y);if(Math.abs(cs-s)<B*0.75&&(te===null||ct<te))te=ct;});
-    /* 這條通道沒有看到敵軍：以控制線推估敵軍前沿，否則用其他通道敵軍前沿的中位數 */if(te===null&&F&&F.own&&F.init){for(var t=Math.max(tf+500,tEn-3000);t<tEn+3000;t+=500){var p0=frPt(Fr,s,t);if(p0[0]<0||p0[1]<0||p0[0]>=MP.Wm||p0[1]>=MP.Hm)break;var k0=Math.floor(p0[1]/F.cs)*F.W+Math.floor(p0[0]/F.cs);if(F.own[k0]===ens){te=t;break;}}}
+    /* 這條通道沒有看到敵軍：以控制線推估敵軍前沿，否則用其他通道敵軍前沿的中位數 */if(te===null&&F&&F.own&&F.init){for(var t=Math.max(tf+500,tEn-3000);t<tEn+3000;t+=500){var p0=frPt(Fr,s,t);if(p0[0]<0||p0[1]<0||p0[0]>=MP.Wm||p0[1]>=MP.Hm)break;var k0=Math.floor(p0[1]/F.cs)*F.W+Math.floor(p0[0]/F.cs);if(F.own[k0]===ens||nSides()>=3&&hostile(side,F.own[k0])){te=t;break;}}}
     var unk=te===null;if(unk)te=tEn;
     var p=frPt(Fr,s,te+300);if(p[0]<300||p[1]<300||p[0]>MP.Wm-300||p[1]>MP.Hm-300)continue;var vp=validPos({dom:'land'},p[0],p[1]);if(dist(vp[0],vp[1],p[0],p[1])>1200)continue;p=vp;
     var E=0,E2=0,shk=0,soft=0;en.forEach(function(c){var d=dist(c.x,c.y,p[0],p[1]);if(d>4500)return;var age=G.t-c.t,w=age<1200?1:age<3600?0.6:0.3,m=((c.men||0)+(c.veh||0)*8)*w;if(d<2000){E+=m;if(c.ms&&c.ms!=='ok')shk++;}else E2+=m;if(/sup|hq|art|rkt/.test(c.br||'')&&d<3500)soft++;});
@@ -4869,7 +4911,7 @@ function wpCands(side,i,Fr,mem){var ens=enemyOf(side),F=G.front,B=2500,out=[],ob
   out.forEach(function(c,j){var a=out[j-1],b=out[j+1];c.jn=!!(a&&b&&c.U<0.5&&c.E<0.35*Math.min(a.E,b.E)&&Math.min(a.E,b.E)>300);});return out;}
 /* 研判：看到的兵力＋沒看到的地方依個性假設的兵力（魯莽者假設很少、謹慎者假設很多），再乘上地形、距離、目標與河川 */
 function wpEval(X){var side=X.side,i=X.cmi||0,Fr=cmFrame(side,i);if(!Fr)return null;var mem=cmMem(X),L=wpCands(side,i,Fr,mem);if(!L.length)return null;var P=X.P,kn=L.filter(function(c){return c.U<0.5&&c.E>0;}).map(function(c){return c.E;}).sort(function(a,b){return a-b;}),prior=kn.length?kn[Math.floor(kn.length/2)]:Math.max(600,(X.enM||1200)/Math.max(1,L.length));
-  L.forEach(function(c){var assume=c.U*prior*(0.25+1.5*(P.intel||0)),d=dist(Fr.C[0],Fr.C[1],c.x,c.y),obj=(G.obj||[]).some(function(o){return o.own!==side&&dist(o.x,o.y,c.x,c.y)<4500;})?(P.logi>0.7?0.9:0.45):0,k=c.ter*(1+d/20000)/(1+obj)/(1+c.shk*0.3);
+  L.forEach(function(c){var assume=c.U*prior*(0.25+1.5*(P.intel||0)),d=dist(Fr.C[0],Fr.C[1],c.x,c.y),obj=(G.obj||[]).some(function(o){return objTgt(side,o)&&dist(o.x,o.y,c.x,c.y)<4500;})?(P.logi>0.7?0.9:0.45):0,k=c.ter*(1+d/20000)/(1+obj)/(1+c.shk*0.3);
     if(c.soft&&(P.deep||0)>0.6)k*=0.85;if(c.jn&&(P.flank||0)>0.7)k*=0.7;var rv=riverOnAxis(Fr.C,[c.x,c.y]);if(rv&&!bridgeNearPt(rv[0],rv[1],3000))k*=1.8;c.assume=assume;c.v=(c.E+assume+250)*k;c.opt=(c.E+250)*k;c.est=c.E+assume;});
   var S=L.slice().sort(function(a,b){return a.v-b.v;});return {Fr:Fr,L:L,S:S,best:S[0],prior:prior};}
 var WPMINR={caut:2,fire:2,cons:3,def:2};
@@ -4941,7 +4983,7 @@ function wpScout(X,ap,ev){var side=X.side,P=X.P,n=WPSCN[P.t]||2,T=ev.L.filter(fu
   T.forEach(function(c,j){if(used>=n)return;var u=cand.filter(function(q){return who.indexOf(q)<0;}).sort(function(a,b){return dist(a.x,a.y,c.x,c.y)-dist(b.x,b.y,c.x,c.y);})[0];if(!u)return;issue(u,'recon',{x:c.x+(rnd()-0.5)*800,y:c.y+(rnd()-0.5)*800});u.v11sc=G.t;who.push(u);used++;});
   if(!used)return false;ap.rr++;ap.tR=G.t;v11Say(X,'scout',600,'多派偵察（第 '+ap.rr+' 輪）：派'+who.map(uName).join('、')+'查明'+T.slice(0,used).map(function(c){return placeTxt(c.x,c.y);}).join('、')+'一帶的敵情（目前最可疑方向的情報可信度 '+pct((1-ev.best.U)*100)+'）',{why:'scout',n:used});return true;}
 /* 火力偵察的結果：真的開過火才算；試射範圍內的敵軍有機會暴露（還擊、移動、被命中） */
-function rbfStep(){[0,1].forEach(function(side){var S=G.sides[side];(S.cm||[]).forEach(function(R){var M=R.mem;if(!M||!M.rbfQ||!M.rbfQ.length)return;M.rbfQ=M.rbfQ.filter(function(q){if(G.t<q.at)return true;q.L.forEach(function(e){var u=uById(e.u);if(!u||u.fired===undefined||G.t-u.fired>1800)return;var n=0;gridNear(e.x,e.y,700,function(t){if(t.side===side||!onMap(t)||ST(t).dom!=='land'||dist(t.x,t.y,e.x,e.y)>650)return;var p=0.65*(t.ent>0.5?0.85:1)*(optOf(t).post==='hide'||optOf(t).post==='ambush'?0.75:1)*(G.t-(t.fired||-1e9)<1200?1.4:1);if(rnd()<p){G.rq[side].push({at:G.t+60,id:t.id,x:t.x,y:t.y,t:G.t,q:0.5,by:u.id});n++;}});
+function rbfStep(){SIDES().forEach(function(side){var S=G.sides[side];(S.cm||[]).forEach(function(R){var M=R.mem;if(!M||!M.rbfQ||!M.rbfQ.length)return;M.rbfQ=M.rbfQ.filter(function(q){if(G.t<q.at)return true;q.L.forEach(function(e){var u=uById(e.u);if(!u||u.fired===undefined||G.t-u.fired>1800)return;var n=0;gridNear(e.x,e.y,700,function(t){if(t.side===side||!hostile(side,t.side)||!onMap(t)||ST(t).dom!=='land'||dist(t.x,t.y,e.x,e.y)>650)return;var p=0.65*(t.ent>0.5?0.85:1)*(optOf(t).post==='hide'||optOf(t).post==='ambush'?0.75:1)*(G.t-(t.fired||-1e9)<1200?1.4:1);if(rnd()<p){G.rq[side].push({at:G.t+60,id:t.id,x:t.x,y:t.y,t:G.t,q:0.5,by:u.id});n++;}});
         (M.obs||(M.obs={}))[e.key]=G.t;if(n)logE(side,'ai','火力偵察：'+placeTxt(e.x,e.y)+'有 '+n+' 個敵軍單位暴露位置',e.x,e.y,u.id);});return false;});});});}
 function v11Say(X,key,cool,txt,d){var M=cmMem(X),K=M.say||(M.say={});if(key&&K[key]&&G.t-K[key]<cool)return false;if(key)K[key]=G.t;aiSay(X,txt,d);var L=M.lg||(M.lg=[]);L.push({t:G.t,txt:txt});if(L.length>30)L.splice(0,L.length-30);return true;}
 function pcPos(g){return isLeaf(g)?[g.x,g.y]:(cOf(g)||[g.x,g.y]);}
@@ -4993,7 +5035,7 @@ function wpRes(X,tg){var dp=cmMem(X).dp;if(!dp||!dp.roles||X.P.agg<0.35)return;v
   v11Say(X,'wpr',3600,'突破口已經打開：在後方待命的預備隊'+nmL(R)+'投入，向'+placeTxt(deep[0],deep[1])+'擴大戰果（主力總攻）',{why:'exploit'});}
 /* 穿插的縱深目標：突破口後方的敵軍砲兵、指揮所、補給設施，或尚未奪取的目標 */
 function wpDeep(X,tg){var side=X.side,Fr=cmFrame(side,X.cmi||0),fd=Fr?Fr.fd:homeDir(side)+PI,soft=enemyPic(side,3600).filter(function(c){return c.dom==='land'&&/art|rkt|hq|sup/.test(c.br||'')&&dist(c.x,c.y,tg[0],tg[1])<10000&&dist(c.x,c.y,tg[0],tg[1])>1500;}).sort(function(a,b){return dist(a.x,a.y,tg[0],tg[1])-dist(b.x,b.y,tg[0],tg[1]);})[0];if(soft)return [soft.x,soft.y];
-  var ob=(G.obj||[]).filter(function(o){return o.own!==side&&dist(o.x,o.y,tg[0],tg[1])<12000;}).sort(function(a,b){return dist(a.x,a.y,tg[0],tg[1])-dist(b.x,b.y,tg[0],tg[1]);})[0];if(ob)return [ob.x,ob.y];return validPos({dom:'land'},tg[0]+Math.cos(fd)*5000,tg[1]+Math.sin(fd)*5000);}
+  var ob=(G.obj||[]).filter(function(o){return objTgt(side,o)&&dist(o.x,o.y,tg[0],tg[1])<12000;}).sort(function(a,b){return dist(a.x,a.y,tg[0],tg[1])-dist(b.x,b.y,tg[0],tg[1]);})[0];if(ob)return [ob.x,ob.y];return validPos({dom:'land'},tg[0]+Math.cos(fd)*5000,tg[1]+Math.sin(fd)*5000);}
 
 /* ---------- 六、防禦：依準則部署（彈性、機動、縱深、前沿、刺蝟、遲滯、反斜面），敵軍突入時依準則反應 ---------- */
 function docFree(u){if(!aiControls(u)||!alive(u)||u.irr)return false;if(isLeaf(u)&&ancBusy(u))return false;var L=isLeaf(u)?[u]:leavesOf(u).filter(onMap);if(!L.length)return false;if(isLeaf(u)?v11Busy(u):L.filter(v11Busy).length>L.length/2)return false;if(u.pend&&u.pend.length)return false;var o=u.ord;
@@ -5161,7 +5203,7 @@ function tmLog(side,txt){var B=tmB(side);B.log.push({t:G.t,txt:txt});if(B.log.le
 /* 傳遞：依兩位指揮官司令部之間的通信方式與距離計算延遲；走傳令時是地圖上的傳令兵，經過敵軍附近可能被截 */
 function tmSend(side,from,to,k,d,txt,quiet){var B=tmB(side),L=cmList(side),A=cmTop(side,from),T=cmTop(side,to);if(!A||!T)return null;var h=hopDelay(A,T),m={id:++B.seq,k:k,from:from,to:to,t0:G.t,ta:G.t+h.sec+60,via:h.via,d:d||{},txt:txt||''};
   crLeg1(m,A,T,h);B.q.push(m);if(!quiet)logE(side,'req','（指揮官通信・'+VIA[h.via]+'）'+L[from].n+' → '+L[to].n+'：'+txt+'（約 '+durTxt(m.ta-G.t)+' 後送達）',A.x,A.y,A.id);tmLog(side,L[from].n+' → '+L[to].n+'（'+VIA[h.via]+'）：'+txt);return m;}
-function tmMsgStep(){[0,1].forEach(function(side){if(!tmOn(side))return;var B=tmB(side);if(!B.q.length)return;var due=B.q.filter(function(m){return G.t>=m.ta;});if(!due.length)return;B.q=B.q.filter(function(m){return G.t<m.ta;});
+function tmMsgStep(){SIDES().forEach(function(side){if(!tmOn(side))return;var B=tmB(side);if(!B.q.length)return;var due=B.q.filter(function(m){return G.t>=m.ta;});if(!due.length)return;B.q=B.q.filter(function(m){return G.t<m.ta;});
   due.forEach(function(m){var L=cmList(side);if(m.lost){logE(side,'req','傳令在途中失蹤：'+L[m.from].n+'給'+L[m.to].n+'的訊息沒有送達');tmLog(side,'⚠ 傳令失蹤：'+m.txt);B.cq=Math.max(0,B.cq-0.03);return;}try{tmRecv(side,m);}catch(e){console.error(e);}});});}
 function tmRecv(side,m){var L=cmList(side),R=L[m.to],F=L[m.from],d=m.d,B=tmB(side);if(!R||!F)return;var T=cmTop(side,m.to),A=cmTop(side,m.from);if(!T||!A)return;
   if(m.k==='intent'){var M=R.mem||(R.mem={});(M.peers=M.peers||{})[m.from]=Object.assign({t:G.t},d);return;}
@@ -5274,7 +5316,7 @@ function v11Step(){if(G.step%4===1)tmMsgStep();if(G.step%20===11)rbfStep();}
 (function(){var b=v8Step;v8Step=function(){b();v11Step();};})();
 /* 快速想定：依開始頁的設定組成 1v1、2v2、3v3 */
 if(typeof runScn==='function')(function(){var b=runScn;runScn=async function(sc,pg){var n=clamp(+(ST0.team||1),1,4),md=ST0.tmode==='dup'?'dup':'split';if(n>1&&md==='dup')sc=Object.assign({},sc,{A:dupList(sc.A,n),B:dupList(sc.B,n)});await b(sc,pg);if(n<2||!G)return;
-  [0,1].forEach(function(s){teamSetup(s,n,md);});reix();dupNames();show('deploy');toast('「'+sc.n+'」：'+n+' 對 '+n+'，每方 '+n+' 位指揮官（'+(md==='dup'?'每位指揮官一份完整兵力':'平分原有兵力')+'）。在「兵力編成」可調整各指揮官的個性、準則與部隊。',7000);};})();
+  SIDES().forEach(function(s){teamSetup(s,n,md);});reix();dupNames();show('deploy');toast('「'+sc.n+'」：'+n+' 對 '+n+'，每方 '+n+' 位指揮官（'+(md==='dup'?'每位指揮官一份完整兵力':'平分原有兵力')+'）。在「兵力編成」可調整各指揮官的個性、準則與部隊。',7000);};})();
 
 /* ==== h21_road.js ==== */
 /* ===================== 後勤道路：輪型後勤車輛以道路為最優先（離開道路大幅減速；嚴格模式下只能走道路），越野車、履帶車例外；
@@ -5384,7 +5426,7 @@ function rdSnap(x,y,R){if(rdNear(x,y,400))return [x,y];var f=rdNear(x,y,R||3000)
 /* ---------- 五、補給站與補給節點可被砲擊、轟炸、飛彈、爆炸摧毀（沒有對應設施的節點；有設施的由設施處理） ---------- */
 function nodeR(N){return FACR[N.k]||200;}
 function nodeTNT(N){var st=N.st||{},y=G.set.y||1943;return (st.ammo||0)*1000*(y<1880?0.4:0.12)+(st.fuel||0)*1000*0.02;}
-function nodeHitAll(x,y,R,pow,side,cause,src){if(pow<=0||!G.started)return;[0,1].forEach(function(s){var L=SD(s).nodes;if(!L||!L.length)return;L.slice().forEach(function(N){if(N.k==='off'||N.fac||N.dead)return;var fr=nodeR(N),d=dist(N.x,N.y,x,y);if(d>R+fr)return;
+function nodeHitAll(x,y,R,pow,side,cause,src){if(pow<=0||!G.started)return;SIDES().forEach(function(s){var L=SD(s).nodes;if(!L||!L.length)return;L.slice().forEach(function(N){if(N.k==='off'||N.fac||N.dead)return;var fr=nodeR(N),d=dist(N.x,N.y,x,y);if(d>R+fr)return;
     var f=d<R+fr*0.3?1:clamp(1-(d-R-fr*0.3)/(fr*0.7),0,1),v=FACV[N.k]||1,dmg=pow*f*v*(0.6+0.8*rnd8());if(dmg<0.05)return;var hp0=N.hp===undefined?100:N.hp;N.hp=Math.max(0,hp0-dmg);N.hitT=G.t;N.hitBy=side;
     var tnt=nodeTNT(N);if(N.hp>0&&tnt>200&&!N.burn&&rnd8()<dmg/120*1.4){N.burn=G.t+3600*(1+rnd8()*3);logE(N.side,'boom','「'+N.name+'」中彈起火，存放的物資開始燃燒',N.x,N.y);}
     if(N.hp<=0)nodeDestroy(N,side,cause,src);});});}
@@ -5397,10 +5439,10 @@ function nodeDestroy(N,side,cause,src){if(N.dead)return;N.dead=Math.max(1,G.t);N
 /* 爆炸波及附近的補給站 */
 (function(){var b=boomAt;boomAt=function(x,y,W,kind,side,F,src,sec){var R=b(x,y,W,kind,side,F,src,sec);if(!sec&&R)nodeHitAll(x,y,R[1],80,side,'expl',src);return R;};})();
 /* 空中打擊：攻擊機在目標上空盤旋時，目標附近的敵方補給站受損 */
-(function(){var b=airFacStep;airFacStep=function(){b();(G._air||G.units).forEach(function(a){if(a.st!=='air'||a.task!=='loiter'||!alive(a)||!a.ord||!/strike|bomb/.test(a.ord.k)||a.ammo<5||a.side<0||a.side>1)return;var R=Math.max(600,(a.ord.r||1500)*0.6),N=null,bd=R;
-    (SD(1-a.side).nodes||[]).forEach(function(q){if(q.k==='off'||q.fac||q.dead)return;var d=dist(q.x,q.y,a.ord.x,a.ord.y);if(d<bd){bd=d;N=q;}});if(!N)return;var s=ST(a),pow=(saOf(a,s)*0.3+haOf(a,s)*0.7+(s.fl.indexOf('B')>=0?8:0))*Math.max(1,a.veh||1)*0.25*strFrac(a);nodeHitAll(N.x,N.y,150,clamp(pow,2,80),a.side,'air',a);a.ammo=Math.max(0,a.ammo-2);});};})();
+(function(){var b=airFacStep;airFacStep=function(){b();(G._air||G.units).forEach(function(a){if(a.st!=='air'||a.task!=='loiter'||!alive(a)||!a.ord||!/strike|bomb/.test(a.ord.k)||a.ammo<5||a.side<0||a.side>=nSides())return;var R=Math.max(600,(a.ord.r||1500)*0.6),N=null,bd=R;
+    hostSides(a.side).forEach(function(es){(SD(es).nodes||[]).forEach(function(q){if(q.k==='off'||q.fac||q.dead)return;var d=dist(q.x,q.y,a.ord.x,a.ord.y);if(d<bd){bd=d;N=q;}});});if(!N)return;var s=ST(a),pow=(saOf(a,s)*0.3+haOf(a,s)*0.7+(s.fl.indexOf('B')>=0?8:0))*Math.max(1,a.veh||1)*0.25*strFrac(a);nodeHitAll(N.x,N.y,150,clamp(pow,2,80),a.side,'air',a);a.ammo=Math.max(0,a.ammo-2);});};})();
 /* 起火的補給站：物資逐漸燒毀；無人威脅時由補給站人員（附近有工兵更快）慢慢修復 */
-function nodeStep(){[0,1].forEach(function(s){(SD(s).nodes||[]).slice().forEach(function(N){if(N.k==='off'||N.fac||N.dead)return;
+function nodeStep(){SIDES().forEach(function(s){(SD(s).nodes||[]).slice().forEach(function(N){if(N.k==='off'||N.fac||N.dead)return;
     if(N.burn){if(G.t>N.burn){N.burn=0;}else{var st=N.st;['fuel','ammo','food','fod'].forEach(function(c){if(st[c]>0)st[c]=Math.max(0,st[c]-st[c]*0.04-0.5);});N.hp=Math.max(0,(N.hp===undefined?100:N.hp)-1.2);if(N.hp<=0||rnd8()<0.01)nodeDestroy(N,N.hitBy===undefined?-1:N.hitBy,'fire');return;}}
     if(N.hp!==undefined&&N.hp<100&&G.step%20===6&&G.t-(N.hitT||0)>1800&&enemyNear(s,N.x,N.y,4000,'land')===0){var eng=G.units.some(function(u){return u.side===s&&isLeaf(u)&&onMap(u)&&isEng(u)&&dist(u.x,u.y,N.x,N.y)<2000;});N.hp=Math.min(100,N.hp+(eng?8:2));}});});}
 
@@ -5468,8 +5510,8 @@ function rfWork(u,o){var MP=G.map,cs=MP.cs;if(o.ph==='go'){if(u.task==='go'&&(u.
 (function(){var b=planOrder;planOrder=function(F,o){var k=o.k;if(k!=='roadfix'&&k!=='roadbuild')return b(F,o);var L=leavesOf(F).filter(function(u){return alive(u)&&onMap(u)&&canRoad(u);}),tx=o.x!==undefined?o.x:(cOf(F)||[F.x,F.y])[0],ty=o.y!==undefined?o.y:(cOf(F)||[F.x,F.y])[1];
   L.sort(function(a,c){return (isEng(c)-isEng(a))||dist(a.x,a.y,tx,ty)-dist(c.x,c.y,tx,ty);});if(!L.length)return [];return [[L[0],newOrder(k,{x:o.x,y:o.y,from:o.from,rc:o.rc,rr:o.rr,why:o.why,sub:1})]];};})();
 /* 爆破補給站（沒有對應設施的節點）：撤退時拒止敵軍使用，或突擊隊破壞敵方補給站 */
-function ndById(id){var r=null;[0,1].forEach(function(s){(SD(s).nodes||[]).forEach(function(N){if(N.id===id)r=N;});});return r;}
-function ndNearAt(x,y,R){var b=null,bd=R;[0,1].forEach(function(s){(SD(s).nodes||[]).forEach(function(N){if(N.k==='off'||N.fac||N.dead)return;var d=dist(N.x,N.y,x,y);if(d<bd){bd=d;b=N;}});});return b;}
+function ndById(id){var r=null;SIDES().forEach(function(s){(SD(s).nodes||[]).forEach(function(N){if(N.id===id)r=N;});});return r;}
+function ndNearAt(x,y,R){var b=null,bd=R;SIDES().forEach(function(s){(SD(s).nodes||[]).forEach(function(N){if(N.k==='off'||N.fac||N.dead)return;var d=dist(N.x,N.y,x,y);if(d<bd){bd=d;b=N;}});});return b;}
 (function(){var b=v4Act;v4Act=function(u,o){if(o.k==='facdemo'&&!o.fac){var x=o.x!==undefined?o.x:u.x,y=o.y!==undefined?o.y:u.y,N=o.node?ndById(o.node):null;if(!N&&!facNear(x,y,1500,function(Q){return !Q.dead;}))N=ndNearAt(x,y,1500);
     if(N){o.node=N.id;o.ph='go';var p=validPos(ST(u),N.x,N.y);if(dist(u.x,u.y,p[0],p[1])<nodeR(N)+200){u.task='at';u.path=null;}else{u.task='go';wantPath(u,p[0],p[1]);}return true;}}return b(u,o);};})();
 (function(){var b=v8Leaf;v8Leaf=function(u,s){var o=u.ord;if(o&&o.k==='facdemo'&&o.node)return false;return b(u,s);};})();
@@ -5481,14 +5523,14 @@ function ndDemoWork(u,o){var N=ndById(o.node);if(!N||N.dead){logE(u.side,'eng',u
 
 /* ---------- 八、AI：沒有道路連接的補給站派工兵開路；補給站附近道路上的瓦礫與路障派工兵清除 ---------- */
 function rdEngFor(side,x,y,R){var b=null,bd=R;G.units.forEach(function(u){if(u.side!==side||!isLeaf(u)||!onMap(u)||u.ms==='rout'||!isEng(u)||!aiControls(u)||!awIdle(u)||v11Busy(u))return;if(enemyNear(side,u.x,u.y,3000,'land')>0)return;var d=dist(u.x,u.y,x,y);if(d<bd){bd=d;b=u;}});return b;}
-function rdAIStep(){if(!lgRoadOn()||awMode()==='off')return;[0,1].forEach(function(side){if(!SD(side).ai||!awSideOn(side))return;
+function rdAIStep(){if(!lgRoadOn()||awMode()==='off')return;SIDES().forEach(function(side){if(!SD(side).ai||!awSideOn(side))return;
   nodesOf(side).forEach(function(N){if(N.k!=='depot'||N.dead||N.only||N.rdJob>G.t)return;if(enemyNear(side,N.x,N.y,5000,'land')>0)return;
     if(rdDist(N)>1500){var far=rdNear(N.x,N.y,8000);if(!far)return;var e=rdEngFor(side,N.x,N.y,25000);if(!e)return;N.rdJob=G.t+12*3600;var p=cellXY(far.k);issue(e,'roadbuild',{x:N.x,y:N.y,from:p,rc:1});logE(side,'eng','補給站「'+N.name+'」離道路約 '+kmTxt(far.d)+'，派'+uName(e)+'開一條聯絡道路',N.x,N.y,e.id);return;}
     if(N.rfJob>G.t)return;var MP=G.map,D=G.rdd,best=-1,bw=0;brushCells(MP,N.x/MP.cs,N.y/MP.cs,Math.max(1,3000/MP.cs),function(k){if(!MP.rd[k])return;var w=(D&&D[k]>120?D[k]:0)+(MP.lc[k]===LCI.rubble?150:0)+(MP.ft[k]===2||MP.ft[k]===3?200:0);if(w>bw){bw=w;best=k;}});
     if(best<0||bw<150)return;var c=cellXY(best),e2=rdEngFor(side,c[0],c[1],20000);if(!e2)return;N.rfJob=G.t+6*3600;e2.v11job=G.t+4*3600;issue(e2,'roadfix',{x:c[0],y:c[1],rr:800});logE(side,'eng','「'+N.name+'」附近的道路被瓦礫、彈坑或路障阻斷，派'+uName(e2)+'修路',c[0],c[1],e2.id);});});}
 
 /* ---------- 九、接線：初始化、每步流程 ---------- */
-function rdStep(){if(G.step===1||!G._lgVx){G._lgVx=1;lgVxSet();}facPurge();if(G.step%4===2)nodeStep();if(G.step%60===37)rdAIStep();if(G.step%60===23)[0,1].forEach(lgAirDepot);}
+function rdStep(){if(G.step===1||!G._lgVx){G._lgVx=1;lgVxSet();}facPurge();if(G.step%4===2)nodeStep();if(G.step%60===37)rdAIStep();if(G.step%60===23)SIDES().forEach(lgAirDepot);}
 (function(){var b=v8Step;v8Step=function(){b();rdStep();};})();
 
 /* ==== h22_air.js ==== */
@@ -5560,7 +5602,7 @@ function airEgress(u,s){var v=s.vr/3.6,st=Math.min(u.egD,v*DT),MP=G.map;u.x=clam
 function airTons(u){var ac=Math.max(0,u.veh),X=typeof cpSpec==='function'?cpSpec(u):null,fr=Math.max(0.2,clamp((u.ammo||0)/100,0,1));if(X&&X.bt)return X.bt*ac*fr;var y=uEra(u).y||1943;return (y<1930?0.15:y<1950?0.45:y<1980?1.5:2.5)*ac*fr;}
 /* 目標附近的設施與補給站 */
 function airFacTg(a,o){var R=Math.max(600,(o.r||1500)*0.6),F=typeof facNear==='function'?facNear(o.x,o.y,R,function(Q){return Q.own!==a.side&&(Q.own>=0||o.fac===Q.id||dist(Q.x,Q.y,o.x,o.y)<400);}):null,N=null,bd=R;
-  if(a.side>=0&&a.side<=1&&typeof SD==='function')(SD(1-a.side).nodes||[]).forEach(function(q){if(q.k==='off'||q.fac||q.dead)return;var d=dist(q.x,q.y,o.x,o.y);if(d<bd){bd=d;N=q;}});return {F:F,N:N};}
+  if(a.side>=0&&a.side<nSides()&&typeof SD==='function')hostSides(a.side).forEach(function(es){(SD(es).nodes||[]).forEach(function(q){if(q.k==='off'||q.fac||q.dead)return;var d=dist(q.x,q.y,o.x,o.y);if(d<bd){bd=d;N=q;}});});return {F:F,N:N};}
 /* 點目標攻擊：一次用完整個架次的彈藥。原本盤旋時每步攻擊一次、每次耗彈 14；這裡把同樣的總量分給最多三個已知目標（5：3：2），
    附近有敵方設施或補給站時約三成五的炸彈投向設施。回傳 1＝已投彈、0＝沒有目標（攜彈返航）、-1＝沒有對地武器 */
 function airStrikeRun(a,s,o){var SA=saOf(a,s),HA=haOf(a,s);if(SA<=0&&HA<=0)return -1;var M=clamp((a.ammo||0)/14,0.5,7),R=Math.max(1500,o.r||3000),L=[];
@@ -5695,7 +5737,7 @@ function fuelStep(){if(!G.started)return;var auto=G.set.autoFuel!==false;
     if(o&&o.dk==='refuel'){if(q>0.9)fuelBack(u,'加油完畢（'+pct(q*100)+'），'+(u.ordPrev?'返回任務':'回到原位置'));else if(G.t-(u.fuelTry||0)>5*3600)fuelBack(u,'加油失敗（找不到補給或路線受阻），放棄');return;}
     if(q>=0.25||q<=0||u.insup||u.ms==='rout'||u._ed<2500||G.t-(u.fired||-1e9)<900||G.t-(u.fuelTry||-1e9)<1800)return;
     if(!(aiControls(u)||auto&&fuelIdle(u)))return;var src=fuelSrc(u,u.lg.fuelCap*(1-q)/1000);if(src)fuelGo(u,src);else u.fuelTry=G.t;});
-  [0,1].forEach(function(side){if(!SD(side))return;
+  SIDES().forEach(function(side){if(!SD(side))return;
     G.units.forEach(function(u){if(u.side!==side||!isLeaf(u)||!onMap(u)||!u.lg||u.foot||!fuelDep(u)||ST(u).dom!=='land'||fuelQ(u)>=0.05||u.insup)return;var by=u.frBy?uById(u.frBy):null;if(by&&by.frun&&by.frun.tgt===u.id)return;
       var need=u.lg.fuelCap/1000*0.8,best=null,bd=30000;flUnits(side,'l').forEach(function(q){if(!isLeaf(q)||q.ms==='rout'||q.frun||!q.lg||!q.lg.stk||(q.lg.stk.fuel||0)<need*0.4||q._ed<3000||q.st==='ship')return;if(!(aiControls(q)||auto&&fuelIdle(q)))return;var d=dist(q.x,q.y,u.x,u.y);if(d<bd){bd=d;best=q;}});
       if(!best)return;var R=uEra(best).sup*1000,d=dist(best.x,best.y,u.x,u.y),k=d>R*0.4?(d-R*0.4)/d:0,p=validPos(ST(best),best.x+(u.x-best.x)*k,best.y+(u.y-best.y)*k),o=best.ord;
@@ -5761,13 +5803,13 @@ function rlBlocked(q){return rlCut(q)&&(RLSIDE<0||rlKnown(q,RLSIDE));}
 /* 運量：車站的列車盡量滿載，吞吐量大時一次發兩列 */
 function railLot(N,pay2){return Math.min(pay2*2,Math.max(pay2*0.6,N.thr/2));}
 /* ---------- 鐵路搶修隊：本方後方、附近沒有敵軍的斷軌慢慢修復（約半天）；工兵「修鐵道」快得多 ---------- */
-function railStep(){var D=G.rld;if(!D)return;var L=G.rlc||[],keep=[];L.forEach(function(q){var k=q.k,x=q.x,y=q.y,MP=G.map;var en=[false,false],own=[false,false];gridNear(x,y,10000,function(u){if(!onMap(u)||!isLeaf(u)||u.side<0||u.side>1||ST(u).dom!=='land')return;var d=dist(u.x,u.y,x,y);if(d<4000)en[u.side]=true;if(d<10000)own[u.side]=true;});
-    var safe=(own[0]&&!en[1])||(own[1]&&!en[0]);if(safe&&G.t-q.t>3600){var any=false;brushCells(MP,x/MP.cs,y/MP.cs,Math.max(1,300/MP.cs),function(c){if(D[c]>0){D[c]=Math.max(0,D[c]-6);if(D[c]>0)any=true;}});if(!any){q.fixed=G.t;G._rlv=(G._rlv||0)+1;return;}}
+function railStep(){var D=G.rld;if(!D)return;var L=G.rlc||[],keep=[];L.forEach(function(q){var k=q.k,x=q.x,y=q.y,MP=G.map;var en=sAV(false),own=sAV(false);gridNear(x,y,10000,function(u){if(!onMap(u)||!isLeaf(u)||u.side<0||u.side>=nSides()||ST(u).dom!=='land')return;var d=dist(u.x,u.y,x,y);if(d<4000)en[u.side]=true;if(d<10000)own[u.side]=true;});
+    var safe=nSides()<3?(own[0]&&!en[1])||(own[1]&&!en[0]):SIDES().some(function(s){return own[s]&&hostSides(s).every(function(h){return !en[h];});});if(safe&&G.t-q.t>3600){var any=false;brushCells(MP,x/MP.cs,y/MP.cs,Math.max(1,300/MP.cs),function(c){if(D[c]>0){D[c]=Math.max(0,D[c]-6);if(D[c]>0)any=true;}});if(!any){q.fixed=G.t;G._rlv=(G._rlv||0)+1;return;}}
     var still=false;brushCells(MP,x/MP.cs,y/MP.cs,Math.max(1,300/MP.cs),function(c){if(D[c]>0)still=true;});if(still)keep.push(q);else G._rlv=(G._rlv||0)+1;});G.rlc=keep;}
 (function(){var b=v8Step;v8Step=function(){b();if(G.step%20===17)railStep();if(G.step%20===9)railGue();};})();
 /* 游擊隊破壞鐵路：敵方控制區內、附近沒有敵軍警衛時 */
 function railGue(){var MP=G.map;G.units.forEach(function(u){if(!isLeaf(u)||!onMap(u)||u.ms==='rout')return;var s=ST(u);if(s.fl.indexOf('G')<0||u._ed<1500)return;if(rnd()>0.08)return;var best=-1,bd=4000;brushCells(MP,u.x/MP.cs,u.y/MP.cs,Math.ceil(4000/MP.cs),function(k){if(!(MP.rl[k]&1)||rlCut(k))return;var c=cellXY(k),d=dist(c[0],c[1],u.x,u.y);if(d<bd){bd=d;best=k;}});if(best<0)return;
-  var c=cellXY(best),guard=false;gridNear(c[0],c[1],2000,function(q){if(!guard&&q.side!==u.side&&q.side>=0&&onMap(q)&&ST(q).dom==='land'&&dist(q.x,q.y,c[0],c[1])<2000)guard=true;});if(guard)return;
+  var c=cellXY(best),guard=false;gridNear(c[0],c[1],2000,function(q){if(!guard&&hostile(u.side,q.side)&&onMap(q)&&ST(q).dom==='land'&&dist(q.x,q.y,c[0],c[1])<2000)guard=true;});if(guard)return;
   if(railDmg(c[0],c[1],80,255,u.side,'gue'))logE(u.side,'gue',uName(u)+'炸毀了'+placeTxt(c[0],c[1])+'的鐵路',c[0],c[1],u.id);});}
 /* ---------- 命令：破壞鐵道、修鐵道 ---------- */
 function canRailCut(u){var s=ST(u);return s.dom==='land'&&(isEng(u)||s.fl.indexOf('G')>=0||s.fl.indexOf('J')>=0||s.fl.indexOf('r')>=0||clsOf(u)==='rec');}
@@ -5866,7 +5908,7 @@ function ffCrew(u){var t=u.trn||60,f=u.fat||0;return (t<45?1.5:t<60?1.2:t>80?0.8
 function ffVis(x0,y0,x1,y1){var E=G.env||{},W=WX[E.wx]||WX[0],m=1;if(E.light<0.3)m*=2.5;else if(E.light<0.6)m*=1.4;if(W[5]<0.6)m*=1.5;if(typeof smokeBlock==='function'&&G.smk&&G.smk.length&&x1!==undefined&&smokeBlock(x0,y0,x1,y1)>0.3)m*=1.8;return m;}
 function ffStat(side,m,kind){var S=G.stats[side];if(!S)return;S.ffm=(S.ffm||0)+m;var K=S.ffk||(S.ffk={});K[kind]=(K[kind]||0)+m;}
 /* 記錄：同一對單位一小時內只寫一次 */
-function ffLog(by,t,kind,txt){var key=(by?by.id:0)+'>'+t.id+'|'+kind,L=G._ffL||(G._ffL={});if(L[key]&&G.t-L[key]<3600)return;L[key]=G.t;logE(t.side,'ff',txt,t.x,t.y,t.id);if(t.side>=0&&t.side<=1&&G.onPause&&typeof apOn==='function'&&apOn('ff'))G.onPause('友軍誤擊');}
+function ffLog(by,t,kind,txt){var key=(by?by.id:0)+'>'+t.id+'|'+kind,L=G._ffL||(G._ffL={});if(L[key]&&G.t-L[key]<3600)return;L[key]=G.t;logE(t.side,'ff',txt,t.x,t.y,t.id);if(t.side>=0&&t.side<nSides()&&G.onPause&&typeof apOn==='function'&&apOn('ff'))G.onPause('友軍誤擊');}
 /* 誤擊傷害：hit 不計敵方戰果，另記入友軍誤擊統計 */
 function ffHit(t,by,dm,dv,kind){if(!(dm>0||dv>0))return;hit(t,null,dm,dv,Math.min(30,dm*0.5+4),'ff');ffStat(t.side,dm+dv*8,kind);t.ffT=G.t;t.mor=clamp(t.mor-Math.min(4,1+dm*0.2),0,100);if(typeof mfAdd==='function')mfAdd(t,'panic',-Math.min(4,1+dm*0.2));}
 /* ---------- 曲射：落點偏短的齊射 ---------- */
@@ -6162,7 +6204,7 @@ function campPows(c){return G.civ?G.civ.P.filter(function(Pg){return Pg.st==='ca
 function campCount(c){return campPows(c).reduce(function(a,Pg){return a+Pg.n;},0);}
 function powLawTxt(){var y=G.set.y||1943;return y>=1949?'違反 1949 年日內瓦第三公約（強迫戰俘在敵國軍隊服役屬嚴重違反）':y>=1929?'違反 1929 年日內瓦公約與 1907 年海牙公約':y>=1907?'違反 1907 年海牙公約（不得強迫敵國國民參加對其本國的作戰）':'';}
 /* 從營裡取出 n 人（依各批比例），回傳原屬方 */
-function campTake(c,n){var L=campPows(c),tot=campCount(c),from=1-c.side;if(tot<0.5)return from;var f=Math.min(1,n/tot);L.forEach(function(Pg){var k=Pg.n*f;Pg.n-=k;Pg.wnd=Math.max(0,Math.min(Pg.wnd,Pg.n));from=Pg.from;if(Pg.n<0.5)Pg.st='gone';});c.pw=Math.max(0,(c.pw||0)-n);return from;}
+function campTake(c,n){var L=campPows(c),tot=campCount(c),from=enemyOf(c.side);if(tot<0.5)return from;var f=Math.min(1,n/tot);L.forEach(function(Pg){var k=Pg.n*f;Pg.n-=k;Pg.wnd=Math.max(0,Math.min(Pg.wnd,Pg.n));from=Pg.from;if(Pg.n<0.5)Pg.st='gone';});c.pw=Math.max(0,(c.pw||0)-n);return from;}
 /* ---------- 後送：押往本方地圖邊緣，送出戰區 ---------- */
 function powEvac(c){var L=campPows(c),n=0;L.forEach(function(Pg){Pg.st='col';Pg.camp=0;Pg.evac=1;var d=edgeNear(c.side,c.x,c.y),P=findPath({dom:'land',mobi:0,vr:4,vx:2.5,fl:''},Pg.x,Pg.y,d[0],d[1],{max:80000});Pg.dest=d;Pg.path=P?P.pts:[Pg.x,Pg.y,d[0],d[1]];Pg.pi=2;n+=Pg.n;});
   c.pw=Math.max(0,(c.pw||0)-n);if(n>=0.5)logE(c.side,'pow',uName(c)+'把 '+fmt(n)+' 名戰俘押往後方，準備送出戰區',c.x,c.y,c.id);return n;}
@@ -6185,7 +6227,7 @@ function powUStep(){G.units.forEach(function(u){if(!u.powU||!alive(u)||!onMap(u)
 /* 戰俘部隊不投降（直接倒戈）；士氣不會因政策回升 */
 (function(){var b=surrCheck;surrCheck=function(u,s,off,PF,rt,routing){if(u.powU){if((u._ed||1e9)<800&&rnd()<0.3){powDefect(u,'被原屬國部隊包圍');return true;}return false;}return b(u,s,off,PF,rt,routing);};})();
 /* AI：戰俘營附近 5 公里內有敵軍時後送戰俘；兵力崩潰在即、又採嚴酷戰俘政策的一方會強迫戰俘作戰 */
-function powAI(){[0,1].forEach(function(side){if(!SD(side).ai)return;var st=sideStr(side);G.units.forEach(function(c){if(c.side!==side||!alive(c)||!onMap(c)||!isPowCamp(c)||!aiControls(c))return;var n=campCount(c);if(n<30)return;
+function powAI(){SIDES().forEach(function(side){if(!SD(side).ai)return;var st=sideStr(side);G.units.forEach(function(c){if(c.side!==side||!alive(c)||!onMap(c)||!isPowCamp(c)||!aiControls(c))return;var n=campCount(c);if(n<30)return;
   if(polOf(c,'pow')>=3&&st.f<0.45&&!c._powR){c._powR=1;powRaise(c,'force');return;}if(enemyNear(side,c.x,c.y,5000,'land')>0&&G.t-(c._powE||-1e9)>3600){c._powE=G.t;powEvac(c);}});});}
 (function(){var b=v8Step;v8Step=function(){b();if(G.step%20===13){powUStep();if(G.step%120===13)powAI();}};})();
 
@@ -6193,21 +6235,21 @@ function powAI(){[0,1].forEach(function(side){if(!SD(side).ai)return;var st=side
 /* ===================== 居民情報：村鎮居民依對各方的態度（受聲望、軍紀與佔領經歷影響）向附近的本方部隊報告看到的敵軍。
    友善的居民大多據實以告（位置誤差數百公尺）；態度中立的誤差較大；敵視本方的居民可能隱瞞，或故意把兵力說多說少、把敵軍說在錯的地方。
    報告要靠居民走到部隊、或經由電話與信差送達，有 20～80 分鐘的延遲；本方部隊已經看到的更新情報優先 ===================== */
-function civAttTo(g,s){return g.att?g.att[s]:(g.loy===s?35:g.loy===1-s?-25:0);}
+function civAttTo(g,s){return g.att?(g.att[s]||0):(g.loy===s?35:(nSides()<3?g.loy===1-s:g.loy>=0&&hostile(g.loy,s))?-25:0);}
 function intelCred(a){return a>20?'高':a<-20?'低':'中';}
-function intelStep(){if(!G.civ||G.set.civIntel===false)return;var I=G.civ.intel||(G.civ.intel={n:[0,0],lie:[0,0]});
-  [0,1].forEach(function(s){var rep=G.civ.rep[s]===undefined?50:G.civ.rep[s];G.civ.S.forEach(function(g){var pres=civPresent(g);if(pres<30)return;if(friendNear(s,g.x,g.y,3000)<=0)return;
+function intelStep(){if(!G.civ||G.set.civIntel===false)return;var I=G.civ.intel||(G.civ.intel={n:sA0(),lie:sA0()});
+  SIDES().forEach(function(s){var rep=G.civ.rep[s]===undefined?50:G.civ.rep[s];G.civ.S.forEach(function(g){var pres=civPresent(g);if(pres<30)return;if(friendNear(s,g.x,g.y,3000)<=0)return;
     var a=civAttTo(g,s),p=0.12*clamp(1+a/60,0.15,2)*clamp(rep/60,0.3,1.4)*clamp(pres/400,0.3,1.5);if(rnd()>p)return;
-    var cand=[];gridNear(g.x,g.y,5000,function(t){if(t.side!==1-s||!onMap(t)||!isLeaf(t)||t.st==='lift'||ST(t).dom==='air'||ST(t).dom==='sub')return;if(dist(t.x,t.y,g.x,g.y)<=5000)cand.push(t);});
+    var cand=[];gridNear(g.x,g.y,5000,function(t){if(!hostile(s,t.side)||!onMap(t)||!isLeaf(t)||t.st==='lift'||ST(t).dom==='air'||ST(t).dom==='sub')return;if(dist(t.x,t.y,g.x,g.y)<=5000)cand.push(t);});
     var lie=a<-20&&rnd()<clamp(-a/120,0,0.7)*(rep<40?1.3:1),t=null,x,y;
-    if(cand.length)t=cand[Math.floor(rnd()*cand.length)];else if(lie){/* 附近沒有敵軍，敵視的居民捏造：把遠處的敵軍說成就在附近 */var far=G.units.filter(function(q){return q.side===1-s&&onMap(q)&&isLeaf(q)&&ST(q).dom==='land';});if(!far.length)return;t=far[Math.floor(rnd()*far.length)];}
+    if(cand.length)t=cand[Math.floor(rnd()*cand.length)];else if(lie){/* 附近沒有敵軍，敵視的居民捏造：把遠處的敵軍說成就在附近 */var far=G.units.filter(function(q){return hostile(s,q.side)&&onMap(q)&&isLeaf(q)&&ST(q).dom==='land';});if(!far.length)return;t=far[Math.floor(rnd()*far.length)];}
     if(!t)return;var err=lie?(cand.length?1500+rnd()*2500:0):(a>20?150+rnd()*350:400+rnd()*900),ang=rnd()*2*PI;
     if(lie&&!cand.length){var r=1500+rnd()*2500;x=g.x+Math.cos(ang)*r;y=g.y+Math.sin(ang)*r;}else{x=t.x+Math.cos(ang)*err;y=t.y+Math.sin(ang)*err;}var v=validPos({dom:'land'},x,y);x=v[0];y=v[1];
     var men=t.men*(lie?(rnd()<0.5?0.25+0.3*rnd():1.8+1.5*rnd()):(0.7+0.6*rnd()));
     G.rq[s].push({at:G.t+1200+rnd()*3600,id:t.id,x:x,y:y,t:G.t,q:0.5,by:0,civ:{g:g.i,n:g.n,men:men,lie:lie?1:0,a:a}});I.n[s]++;if(lie)I.lie[s]++;});});}
 /* 報告送達：標記來源、可信度與居民說的兵力；記錄 */
-(function(){var b=reportStep;reportStep=function(){var due=[[],[]];for(var s=0;s<2;s++){var Q=G.rq[s];for(var i=0;i<Q.length;i++){var r=Q[i];if(r.civ&&r.at<=G.t)due[s].push(r);}}b();
-  for(var s2=0;s2<2;s2++)due[s2].forEach(function(r){var c=G.ct[s2][r.id];if(!c||c.t!==r.t||Math.abs(c.x-r.x)>1||Math.abs(c.y-r.y)>1)return;var K=r.civ,cr=intelCred(K.a);c.civ={n:K.n,cred:cr,lie:K.lie};c.men=Math.max(10,Math.round(K.men/50)*50);c.name='';c.q=0.5;
+(function(){var b=reportStep;reportStep=function(){var due=sAL();for(var s=0;s<nSides();s++){var Q=G.rq[s];for(var i=0;i<Q.length;i++){var r=Q[i];if(r.civ&&r.at<=G.t)due[s].push(r);}}b();
+  for(var s2=0;s2<nSides();s2++)due[s2].forEach(function(r){var c=G.ct[s2][r.id];if(!c||c.t!==r.t||Math.abs(c.x-r.x)>1||Math.abs(c.y-r.y)>1)return;var K=r.civ,cr=intelCred(K.a);c.civ={n:K.n,cred:cr,lie:K.lie};c.men=Math.max(10,Math.round(K.men/50)*50);c.name='';c.q=0.5;
     logE(s2,'contact','居民情報（'+K.n+'，可信度'+cr+'）：在'+placeTxt(r.x,r.y)+'看到約 '+fmt(c.men)+' 名敵軍'+(c.veh?'與車輛':''),r.x,r.y);});};})();
 (function(){var b=v8Step;v8Step=function(){b();if(G.step%60===41)intelStep();};})();
 
@@ -6385,7 +6427,7 @@ function supRouteStep(){var G2=G.sup;if(!G2||!G2.routes||!G2.routes.length)retur
     if(res.C){R.sent+=res.C.tons;R.n++;}else if(R.skip!==calDay()){R.skip=calDay();logE(R.side,'lgcut','補給線「'+supRouteName(R)+'」本批暫停：'+res.err,D.x,D.y);}});}
 /* ---------- AI：缺彈、缺油或武器缺額的團、旅呼叫物資；被切斷時改用空運，被圍超過半天時開設空中補給線 ---------- */
 function supCut(g){var L=supLeaves(g.id);if(!L.length)return false;return L.filter(function(u){return (u.oos||0)>3*3600||u.besieged&&G.t-u.besieged<1800;}).length>L.length/2;}
-function supAI(){[0,1].forEach(function(side){if(!SD(side).ai)return;var Q=supQ(side);
+function supAI(){SIDES().forEach(function(side){if(!SD(side).ai)return;var Q=supQ(side);
   G.units.forEach(function(g){if(g.side!==side||isLeaf(g)||!alive(g)||g.ech<2||g.ech>4||!aiControls(g))return;var Pa=g.p>=0?uById(g.p):null;if(g.ech===2&&Pa&&Pa.ech>=3&&Pa.ech<=4)return;if(G.t-(g._supT||-1e9)<4*3600)return;
     var L=supLeaves(g.id);if(L.length<2)return;var am=L.reduce(function(a,u){return a+u.ammo;},0)/L.length,fu=L.reduce(function(a,u){return a+(u.lg&&u.lg.fuelCap>0?u.lg.fuel/u.lg.fuelCap:1);},0)/L.length,
       ws=L.reduce(function(a,u){var Lg=u.lg;return a+(Lg?Math.max(0,wCnt(Lg.w0,'g步槍')-wCnt(Lg.w,'g步槍')):0);},0),wa=L.reduce(function(a,u){return a+(u.lg?wCnt(u.lg.w0,'g步槍'):0);},0),cut=supCut(g);
@@ -6425,7 +6467,7 @@ var RPWHY={start:'初始',day:'每日配給',fight:'交戰戰果',cap:'佔領目
 function rpS(side){var S=SD(side);if(!S.rpx){var v0=G.set.rp0!==undefined&&G.set.rp0!==''&&isFinite(+G.set.rp0)?+G.set.rp0:800;S.rpx={v:v0,earn:0,spend:0,log:[{t:G.t||0,v:v0,why:'start',txt:''}],day:-1,by:{},ecas:-1,evl:-1,pow:-1,own:{}};}return S.rpx;}
 function rpHave(side){return rpOn()?rpS(side).v:Infinity;}
 function rpNote(R,amt,why,txt){var L=R.log,last=L[L.length-1];if(last&&last.why===why&&!txt&&!last.txt&&G.t-last.t<3600){last.v+=amt;return;}L.push({t:G.t,v:amt,why:why,txt:txt||''});if(L.length>80)L.splice(0,L.length-80);}
-function rpAdd(side,amt,why,txt){if(!rpOn()||side<0||side>1||!(amt>0))return;var R=rpS(side);R.v+=amt;R.earn+=amt;R.by[why]=(R.by[why]||0)+amt;rpNote(R,amt,why,txt);}
+function rpAdd(side,amt,why,txt){if(!rpOn()||side<0||side>=nSides()||!(amt>0))return;var R=rpS(side);R.v+=amt;R.earn+=amt;R.by[why]=(R.by[why]||0)+amt;rpNote(R,amt,why,txt);}
 /* 扣點：不足時回傳 false、不扣 */
 function rpSpend(side,amt,why,txt){if(!rpOn()||!(amt>0))return true;var R=rpS(side);if(R.v+1e-6<amt)return false;R.v-=amt;R.spend+=amt;R.by[why]=(R.by[why]||0)-amt;rpNote(R,-amt,why,txt);return true;}
 function rpDayAmt(side){var v=G.set.rpDay;if(v!==undefined&&v!==''&&v!=='auto'&&isFinite(+v))return Math.max(0,+v);var sm=logSummary(side),need=0;['food','ammo','fuel','fod'].forEach(function(c){need+=sm.need[c]||0;});return Math.round((need*0.6+250)/10)*10;}
@@ -6434,7 +6476,7 @@ function calDayL(){return Math.floor((G.t+(G.set.h||0)*3600+(G.set.mi||0)*60)/86
 /* 每 10 分鐘：每日配給、交戰戰果、目標、後送戰俘 */
 var RPM={fightMan:0.12,fightVeh:2,cap:5,hold:0.25,evac:0.3,pow:0.5};
 function rpStep(){if(!G.started||(!rpOn()&&!techOn()))return;var d=calDayL();
-  [0,1].forEach(function(side){var R=rpS(side),T=tpS(side),e=1-side,ES=G.stats[e]||{},MS=G.stats[side]||{};
+  SIDES().forEach(function(side){var R=rpS(side),T=tpS(side),e=enemyOf(side),ES=G.stats[e]||{},MS=G.stats[side]||{};
     if(R.day!==d){if(R.init){if(rpOn()){var a=rpDayAmt(side);rpAdd(side,a,'day');}if(techOn()){var ta=tpDayAmt();T.v+=ta;T.earn+=ta;}}R.day=d;R.init=1;}
     var cas=ES.cas||0,vl=ES.vl||0;if(R.ecas<0){R.ecas=cas;R.evl=vl;}var dc=cas-R.ecas,dv=vl-R.evl;R.ecas=cas;R.evl=vl;if(dc>0||dv>0){rpAdd(side,dc*RPM.fightMan+dv*RPM.fightVeh,'fight');if(techOn()){var tt=dc*0.01+dv*0.1;T.v+=tt;T.earn+=tt;}}
     var pe=MS.powEvac||0;if(R.pow<0)R.pow=pe;if(pe>R.pow){rpAdd(side,(pe-R.pow)*RPM.pow,'pow');R.pow=pe;}
@@ -6511,14 +6553,14 @@ function rflWhy(side,src,o){o=o||{};if(src==='preset'){if(rflHid(o.pk))return '�
   if(src==='rft'){var bad=rflBad(side,o.T);return bad.length?'增援名單不允許範本中的：'+bad.map(function(k){return typeOf(k).n;}).join('、'):'';}
   return rflType(side,o.tk)?'':'增援名單不允許「'+((typeOf(o.tk)||{}).n||o.tk)+'」。';}
 function rflClean(L){L=L||{};var f=function(A,n){return Array.isArray(A)?A.filter(function(x,i){return typeof x==='string'&&x.length<=60&&A.indexOf(x)===i;}).slice(0,n):[];};return {m:L.m==='white'||L.m==='black'?L.m:'off',b:f(L.b,80),t:f(L.t,800),p:f(L.p,800)};}
-function rflExport(lists){return {format:RFLFMT,v:1,saved:new Date().toISOString(),lists:[0,1].map(function(s){return rflClean(lists&&lists[s]);})};}
-function rflImport(D){if(!D||D.format!==RFLFMT||!Array.isArray(D.lists))return {err:'這不是增援名單檔（'+RFLFMT+'）'};return {lists:[0,1].map(function(s){return rflClean(D.lists[s]);})};}
+function rflExport(lists){return {format:RFLFMT,v:1,saved:new Date().toISOString(),lists:SIDES().map(function(s){return rflClean(lists&&lists[s]);})};}
+function rflImport(D){if(!D||D.format!==RFLFMT||!Array.isArray(D.lists))return {err:'這不是增援名單檔（'+RFLFMT+'）'};var n=Math.max(2,Math.min(3,D.lists.length)),o=[];for(var i=0;i<n;i++)o.push(rflClean(D.lists[i]));return {lists:o};}
 function rflTxt(side){var L=rflOf(side);if(!L)return '不限制';var n=(L.b||[]).length+(L.t||[]).length+(L.p||[]).length;return (L.m==='white'?'白名單：只允許 ':'黑名單：禁止 ')+n+' 項';}
 /* 派遣增援（介面與 AI 共用）：扣點後建立部隊，指定時間從地圖邊緣或指定地點進場 */
 function rpReinfCost(src,o){return src==='preset'?rpPresetCost(o.pk):src==='rft'?rftCost(o.T):rpTypeCost(o.tk,o.n);}
 /* AI：兵力居於劣勢、點數足夠時購買一個營（或連）的增援 */
-function rpAI(){if(!rpOn())return;[0,1].forEach(function(side){var S=SD(side);if(!S.ai)return;var R=rpS(side);if(R.v<300||G.t-(S._rpBuyT||-1e9)<3*3600)return;var hq=sideCmd(side),era=hq?uEra(hq).k:null;if(!era)return;
-  var me=sideStr(side),en=sideStr(1-side);if(me.m>en.m*1.15&&R.v<1500)return;
+function rpAI(){if(!rpOn())return;SIDES().forEach(function(side){var S=SD(side);if(!S.ai)return;var R=rpS(side);if(R.v<300||G.t-(S._rpBuyT||-1e9)<3*3600)return;var hq=sideCmd(side),era=hq?uEra(hq).k:null;if(!era)return;
+  var me=sideStr(side),en=sideStr(enemyOf(side));if(me.m>en.m*1.15&&R.v<1500)return;
   var L=FP.filter(function(p){return p.era===era&&p.ech>=1&&p.ech<=2;}).map(function(p){return [p,rpPresetCost(p.k,side)];}).filter(function(q){return q[1]>0&&q[1]<=R.v*0.7&&!techPresetLock(side,q[0].k).length&&rflPreset(side,q[0].k);}).sort(function(a,b){return b[1]-a[1];});if(!L.length)return;
   var pick=L[Math.floor(rnd8()*Math.min(3,L.length))],P=pick[0];if(!rpSpend(side,pick[1],'reinf',P.n))return;S._rpBuyT=G.t;var par=hq&&!isLeaf(hq)?hq.id:-1,u=buildPreset(side,P.k,null,par,mb32(hstr('rpai|'+side+'|'+G.t)),'co',null);reix();
   (function w(z){logInit(z);z.ms='ok';z.form='deployed';z.task='hold';z.sup=0;z.fat=0;z.st='off';z.ammo=100;kidsOf(z).forEach(w);})(u);var e=edgePoint(side,0.3+0.4*rnd8()),ob=(G.obj||[])[0],tx=ob?ob.x:G.map.Wm/2,ty=ob?ob.y:G.map.Hm/2;
@@ -6647,7 +6689,7 @@ function cbProt(u,ag){var g=cbGear(u),A=CBA[ag],s=ST(u),M=cbMopp(u),y=uEra(u).y,
 function cbList(){return G.cbx||(G.cbx=[]);}
 function cbRelease(side,ag,x,y,mass,r,src,why){var L=cbList(),A=CBA[ag];if(!A)return null;var C=null;L.forEach(function(q){if(!C&&q.ag===ag&&dist(q.x,q.y,x,y)<q.r*0.5){C=q;}});
   if(C){C.m+=mass;C.x=(C.x*2+x)/3;C.y=(C.y*2+y)/3;C.r=Math.max(C.r,r);return C;}C={id:(G.cbSeq=(G.cbSeq||0)+1),ag:ag,x:x,y:y,r:r,m:mass,t0:G.t,side:side,src:src?src.id:0,seen:[side===0?1:0,side===1?1:0]};L.push(C);
-  if(!G.cbUse)G.cbUse=[0,0];if(side>=0&&!G.cbUse[side]){G.cbUse[side]=G.t;}var law=cbLaw(ag);if(src&&law&&!src._cbLaw){src._cbLaw=1;if(typeof warCrime==='function')warCrime(src,'cbrn',0,'使用'+A[0]+'（'+placeTxt(x,y)+'）——'+law);}
+  if(!G.cbUse)G.cbUse=sA0();if(side>=0&&!G.cbUse[side]){G.cbUse[side]=G.t;}var law=cbLaw(ag);if(src&&law&&!src._cbLaw){src._cbLaw=1;if(typeof warCrime==='function')warCrime(src,'cbrn',0,'使用'+A[0]+'（'+placeTxt(x,y)+'）——'+law);}
   logE(side,'cbrn',(src?uName(src):G.sides[side]?G.sides[side].name:'')+(why||'施放')+A[0]+'（'+placeTxt(x,y)+'）',x,y,src?src.id:undefined);return C;}
 function cbGK(x,y){var B=G.map.cs*8;return Math.floor(x/B)+'|'+Math.floor(y/B);}
 function cbGround(){return G.cbgr||(G.cbgr={});}
@@ -6705,10 +6747,10 @@ function cbOrdStep(){G.units.forEach(function(u){var D=u.cbDec;if(!D||!onMap(u))
   if(D.n>=12||r.ground===0&&r.units===0&&D.n>2){u.cbDec=null;logE(u.side,'cbrn',uName(u)+'完成除污',D.x,D.y,u.id);}});}
 /* ---------- AI：依政策使用化學武器；受威脅時提高防護等級並除污 ---------- */
 function cbPolicy(side){return polSide(side).cbrn||'no';}
-function cbAI(){[0,1].forEach(function(side){var S=SD(side);if(!S.ai)return;var used=G.cbUse&&G.cbUse[1-side],pol=cbPolicy(side);
+function cbAI(){SIDES().forEach(function(side){var S=SD(side);if(!S.ai)return;var used=G.cbUse&&(nSides()<3?G.cbUse[1-side]:Math.max.apply(null,[0].concat(hostSides(side).map(function(h){return G.cbUse[h]||0;})))),pol=cbPolicy(side);
   if(used&&G.t-used<86400&&!S.moppSet&&(S.mopp||0)<2){S.mopp=2;logE(side,'cbrn','敵軍使用了化生放武器：全軍提高防護等級（MOPP 2）');}
   if(!(pol==='yes'||pol==='retal'&&used))return;if(G.t-(S._cbT||-1e9)<3*3600)return;var av=cbAvail(side).filter(function(k){return CBA[k][1]==='c';});if(!av.length)return;var ag=av[av.length-1];
-  var C=G.ct[side],best=null,bv=0;for(var id in C){var c=C[id];if(c.dead||G.t-c.t>1800||c.dom!=='land')continue;var v=(c.men||0)*((uById(c.id)||{}).ent>0.5?1.6:1);if(v>bv&&enemyNear(1-side,c.x,c.y,2500,'land')===0){bv=v;best=c;}}if(!best||bv<150)return;
+  var C=G.ct[side],best=null,bv=0;for(var id in C){var c=C[id];if(c.dead||G.t-c.t>1800||c.dom!=='land')continue;var v=(c.men||0)*((uById(c.id)||{}).ent>0.5?1.6:1);if(v>bv&&(nSides()<3?enemyNear(1-side,c.x,c.y,2500,'land'):friendNear(side,c.x,c.y,2500))===0){bv=v;best=c;}}if(!best||bv<150)return;
   var A=G.units.filter(function(u){return u.side===side&&isLeaf(u)&&onMap(u)&&aiControls(u)&&(ST(u).ind||0)>0&&dist(u.x,u.y,best.x,best.y)<=(ST(u).ind||0)*0.95&&u.ammo>30;}).slice(0,2);if(!A.length)return;S._cbT=G.t;
   A.forEach(function(u){issue(u,'bombard',{x:best.x,y:best.y,agent:ag,dur:900});});logE(side,'cbrn','指揮部下令以'+CBA[ag][0]+'砲擊'+placeTxt(best.x,best.y)+'的敵軍');});}
 (function(){var b=v8Step;v8Step=function(){b();if(!cbOn())return;if(G.step%60===5)windStep();if(G.step%4===2){cbrnStep();cbAirStep();}if(G.step%20===13)cbOrdStep();if(G.step%120===37)cbAI();};})();
@@ -6726,8 +6768,8 @@ function aiTarget(side,C,en,objs){if(objs.length){var o=objs.slice().sort(functi
   var land=en.filter(function(c){return c.dom==='land';});if(!land.length)return null;var best=null,bv=1e18;land.forEach(function(c){var near=sum(land,function(q){return dist(q.x,q.y,c.x,c.y)<2500?(q.men||0)+(q.veh||0)*8:0;}),v=dist(C[0],C[1],c.x,c.y)*(1+near/3000);if(v<bv){bv=v;best=c;}});return best?[best.x,best.y]:null;}
 function aiDefPos(side,C,objs,en){var ec=en.length?centroid(en):null,o=objs.filter(function(q){return dist(C[0],C[1],q.x,q.y)<9000;}).sort(function(a,b){return dist(C[0],C[1],a.x,a.y)-dist(C[0],C[1],b.x,b.y);})[0],P=o?[o.x,o.y]:C,face=ec?Math.atan2(ec[1]-P[1],ec[0]-P[0]):homeDir(side)+PI;return [P[0],P[1],face];}
 function aiStep(side){var S=G.sides[side],lvl=G.set.aiLvl===undefined?1:G.set.aiLvl,groups=aiGroups(side);if(!groups.length)return;
-  var en=enemyPic(side,3600).filter(function(c){return c.dom!=='air';}),enM=sum(en,function(c){return (c.men||0)+(c.veh||0)*8;}),me=sideStr(side),myM=me.m,ens=sideStr(enemyOf(side)),objs=G.obj||[],notMine=objs.filter(function(o){return o.own!==side;}),mine=objs.filter(function(o){return o.own===side||o.own<0;});
-  var post=S.post||'auto';if(post==='auto'){post=lvl===0?'defend':(myM>enM*(lvl>=2?0.9:1.25)||(notMine.length&&(!en.length||myM>enM*0.8)&&G.t>1800))?'attack':'defend';if(post==='defend'&&lvl>=1&&me.f<0.35&&enM>myM*1.5)post='withdraw';}
+  var en=enemyPic(side,3600).filter(function(c){return c.dom!=='air';}),enM=sum(en,function(c){return (c.men||0)+(c.veh||0)*8;}),me=sideStr(side),myM=me.m,ens=sideStr(enemyOf(side)),objs=G.obj||[],notMine=objs.filter(function(o){return objTgt(side,o);}),mine=objs.filter(function(o){return o.own===side||o.own<0;});
+  var post=S.post||'auto';if(post==='auto'&&atPeace(side))post='defend';if(post==='auto'){post=lvl===0?'defend':(myM>enM*(lvl>=2?0.9:1.25)||(notMine.length&&(!en.length||myM>enM*0.8)&&G.t>1800))?'attack':'defend';if(post==='defend'&&lvl>=1&&me.f<0.35&&enM>myM*1.5)post='withdraw';}
   if(S._post!==post){if(S._post)logE(side,'ai',uName(sideCmd(side))+'調整作戰方針：'+({attack:'轉入攻勢',defend:'轉入守勢',withdraw:'全線後撤、遲滯敵軍'})[post]);S._post=post;}
   var engG=groups.filter(function(g){var L=leavesOf(g).filter(alive);return L.length&&L.filter(isEng).length>=L.length*0.6;}),man=groups.filter(function(g){var r=roleOf(g);return (r==='man'||r==='rec')&&engG.indexOf(g)<0;}),fire=groups.filter(function(g){return roleOf(g)==='fire';}),air=groups.filter(function(g){return roleOf(g)==='air';}),nav=groups.filter(function(g){return roleOf(g)==='nav';});
   var res=man.length>=3?man.slice().sort(function(a,b){var ca=cOf(a),cb=cOf(b),h=homeDir(side);return (ca?-(ca[0]*Math.cos(h)+ca[1]*Math.sin(h)):0)-(cb?-(cb[0]*Math.cos(h)+cb[1]*Math.sin(h)):0);})[0]:null;
@@ -6850,9 +6892,9 @@ function aiAssess(side,F,groups,aoi){var P=aiOf(F),S=SD(side),en=enemyPic(side,3
   var threat=groups.filter(function(g){var GL=leavesOf(g).filter(onMap);if(!GL.length)return false;var mor=sum(GL,function(x){return x.mor;})/GL.length,eng=GL.filter(function(x){return G.t-(x.uf||-1e9)<600;}).length;return eng>=Math.max(1,GL.length/3)&&mor<55;});
   var encEn=en.filter(function(c){var e=uById(c.id);return e&&onMap(e)&&isLeaf(e)&&(e.besieged&&G.t-e.besieged<1800||G.t-(e.encT||-1e9)<1800);}),soft=en.filter(function(c){return /sup|hq|art|rkt/.test(c.br||'')&&G.t-c.t<1800;});
   var X={side:side,F:F,P:P,groups:groups,en:en,fresh:fresh,intelQ:intelQ,enM:enM,myM:myM,ratio:enM>0?myM/enM:9,me:me,ens:ens,oos:oos,ammo:ammo,threat:threat,encEn:encEn,soft:soft,objs:G.obj||[],dir:F.aidir&&G.t-F.aidir.t<6*3600?F.aidir:null,trace:[],acts:[],night:G.env.light<0.3,lvl:G.set.aiLvl===undefined?1:G.set.aiLvl};
-  X.notMine=X.objs.filter(function(o){return o.own!==side;});X.mine=X.objs.filter(function(o){return o.own===side||o.own<0;});
+  X.notMine=X.objs.filter(function(o){return objTgt(side,o);});X.mine=X.objs.filter(function(o){return o.own===side||o.own<0;});
   var thr=1.8-P.agg*1.4;X.post=S.post&&S.post!=='auto'?S.post:X.lvl===0?'defend':(X.ratio>=thr||(X.notMine.length&&P.agg>=0.6&&X.ratio>=thr*0.7&&G.t>1800))?'attack':'defend';
-  if(X.post==='defend'&&X.night&&P.night>0.5&&X.ratio>=thr*0.6)X.post='attack';
+  if(X.post==='defend'&&X.night&&P.night>0.5&&X.ratio>=thr*0.6)X.post='attack';if(atPeace(side)&&(!S.post||S.post==='auto'))X.post='defend';
   var man=groups.filter(function(g){var ro=roleOf(g);return (ro==='man'||ro==='rec')&&!busyF(g);});X.man=man;X.res=null;var rc=man.filter(function(g){return !(isLeaf(g)&&(isBridger(g)||isEng(g)));});/* 工兵、架橋部隊不當作戰鬥預備隊 */if(man.length>=3&&rc.length>=1&&P.res>0.15){X.res=rc.slice().sort(function(a,b){var ca=cOf(a),cb=cOf(b),h=homeDir(side);return (ca?-(ca[0]*Math.cos(h)+ca[1]*Math.sin(h)):0)-(cb?-(cb[0]*Math.cos(h)+cb[1]*Math.sin(h)):0);})[0];}
   return X;}
 /* ---------- 尋找突破口：敵軍接合部、側翼、薄弱與潰散的部隊、後方高價值目標 ---------- */
@@ -7102,13 +7144,13 @@ function nodeOK(N){var MP=G.map,k=cellAt(N.x,N.y);if(N.k==='port'){var R=Math.ce
 /* edge：指定時鐵路必須通往該側的地圖邊緣（奪取的車站要連回本方後方才有運量） */
 function railToEdge(k0,edge){var MP=G.map,GW=MP.GW,GH=MP.GH,R=Math.ceil(400/MP.cs),gx=k0%GW,gy=(k0/GW)|0,st=[],seen=new Uint8Array(GW*GH);for(var b=-R;b<=R;b++)for(var a=-R;a<=R;a++){var X=gx+a,Y=gy+b;if(X<0||Y<0||X>=GW||Y>=GH)continue;var q=Y*GW+X;if(MP.rl[q]&1){seen[q]=1;st.push(q);}}
   while(st.length){var c=st.pop(),x=c%GW,y=(c/GW)|0;if(edge?(edge==='W'&&x===0||edge==='E'&&x===GW-1||edge==='N'&&y===0||edge==='S'&&y===GH-1):(x===0||y===0||x===GW-1||y===GH-1))return true;for(var d=0;d<8;d++){var X2=x+[1,1,0,-1,-1,-1,0,1][d],Y2=y+[0,1,1,1,0,-1,-1,-1][d];if(X2<0||Y2<0||X2>=GW||Y2>=GH)continue;var q2=Y2*GW+X2;if(!seen[q2]&&(MP.rl[q2]&1)){seen[q2]=1;st.push(q2);}}}return false;}
-function enemyNear(side,x,y,R,dom){var n=0;gridNear(x,y,R,function(u){if(u.side!==side&&onMap(u)&&u.ms!=='rout'&&(!dom||ST(u).dom===dom)&&dist(u.x,u.y,x,y)<=R)n+=u.men+u.veh*8;});return n;}
+function enemyNear(side,x,y,R,dom){var n=0;gridNear(x,y,R,function(u){if(hostile(side,u.side)&&onMap(u)&&u.ms!=='rout'&&(!dom||ST(u).dom===dom)&&dist(u.x,u.y,x,y)<=R)n+=u.men+u.veh*8;});return n;}
 function friendNear(side,x,y,R){var n=0;gridNear(x,y,R,function(u){if(u.side===side&&onMap(u)&&ST(u).dom!=='air'&&dist(u.x,u.y,x,y)<=R)n+=u.men+u.veh*8;});return n;}
 /* 上游節點：指定者或最近的非補給站節點 */
 function upOf(N){var L=nodesOf(N.side);if(N.up){var u=L.filter(function(q){return q.id===N.up;})[0];if(u)return u;}if(N.k!=='depot')return null;var best=null,bd=1e18;L.forEach(function(q){if(q===N||q.k==='depot')return;var d=dist(q.x,q.y,N.x,N.y);if(d<bd){bd=d;best=q;}});return best;}
 var LCLS=['food','ammo','fuel','fod'],LCN={food:'糧秣飲水',ammo:'彈藥',fuel:'燃料',fod:'草料'};
 /* ---------- 補給循環（每 10 分鐘）：節點進貨 → 補給部隊裝載 → 單位領取 → 消耗與匱乏效應 ---------- */
-function logStep(){var dt=600;[0,1].forEach(function(side){var S=SD(side),L=nodesOf(side),hq=sideCmd(side),E=hq?uEra(hq):ERA[6];if(!L.length)return;
+function logStep(){var dt=600;SIDES().forEach(function(side){var S=SD(side),L=nodesOf(side),hq=sideCmd(side),E=hq?uEra(hq):ERA[6];if(!L.length)return;
     var dem=sideDemand(side);/* 本方每日需求，用來分配各類物資比例 */
     L.forEach(function(N){var en=enemyNear(side,N.x,N.y,2000,'land'),fr=friendNear(side,N.x,N.y,2000);/* 民用設施的易手由佔領判定處理（facStep） */N.status=N.k==='off'?'ok':en>0&&fr===0?(N.fac?'contested':'captured'):en>0?'contested':'ok';
       if(N.status==='captured'&&N.k!=='off'){logE(side,'log','補給節點「'+N.name+'」被敵軍佔領，存量損失',N.x,N.y);N.st={food:0,ammo:0,fuel:0,fod:0};return;}
@@ -7458,15 +7500,16 @@ function mpSeenBox(O,x0,y0,x1,y1){if(!O)return true;var i0=Math.max(0,Math.floor
 
 /* ---------- 二、各方的知覺戰線：本方部隊的影響力對上本方掌握的敵情接觸（不用敵軍真實位置） ---------- */
 function mpFrontStep(side,X){var F=X.F;if(!F||!F.own){var g=G.front;G.front=null;F=frontInit();G.front=g;X.F=F;}
-  var W=F.W,H=F.H,cs=F.cs,N=W*H,I=[new Float32Array(N),new Float32Array(N)],first=!F.init,any=[0,0];
-  var add=function(sd,x,y,w,sg){any[sd]=1;var R=sg*2.5,k2=1/(2*sg*sg),A=I[sd],i0=Math.max(0,Math.floor((x-R)/cs)),i1=Math.min(W-1,Math.floor((x+R)/cs)),j0=Math.max(0,Math.floor((y-R)/cs)),j1=Math.min(H-1,Math.floor((y+R)/cs)),RR=R*R,kq=k2*FEXS;
+  var W=F.W,H=F.H,cs=F.cs,N=W*H,I=SIDES().map(function(){return new Float32Array(N);}),first=!F.init,any=sA0();
+  var add=function(sd,x,y,w,sg){if(!I[sd])return;any[sd]=1;var R=sg*2.5,k2=1/(2*sg*sg),A=I[sd],i0=Math.max(0,Math.floor((x-R)/cs)),i1=Math.min(W-1,Math.floor((x+R)/cs)),j0=Math.max(0,Math.floor((y-R)/cs)),j1=Math.min(H-1,Math.floor((y+R)/cs)),RR=R*R,kq=k2*FEXS;
     for(var j=j0;j<=j1;j++){var dy=(j+0.5)*cs-y,dy2=dy*dy,row=j*W;for(var i=i0;i<=i1;i++){var dx=(i+0.5)*cs-x,d2=dx*dx+dy2;if(d2<=RR)A[row+i]+=w*FEXP[(d2*kq)|0];}}};
   G.units.forEach(function(u){if(u.side!==side||!onMap(u)||!isLeaf(u)||u.ms==='rout'||u.amph)return;var s=ST(u);if(s.dom!=='land')return;add(side,u.x,u.y,Math.sqrt(u.men+u.veh*8+1),clamp(rangeOf(s)*0.5+frontW(u)*0.5,500,3500));});
-  var C=G.ct[side]||{};for(var id in C){var c=C[id];if(c.dead||c.dom!=='land'||G.t-c.t>3*3600)continue;add(1-side,c.x,c.y,Math.sqrt((c.men||100)+(c.veh||0)*8+1)*(G.t-c.t>3600?0.7:1),1400);}
-  if(first&&!any[0]&&!any[1])return;var ch=0;
-  for(var k=0;k<N;k++){if(F.wet[k])continue;var a=I[0][k],b=I[1][k],o=F.own[k],n=o;if(first){if(a>0.2||b>0.2)n=a>=b?0:1;}else if(a>0.4&&a>b*2.2)n=0;else if(b>0.4&&b>a*2.2)n=1;if(n!==o){F.own[k]=n;ch++;}}
+  var C=G.ct[side]||{};for(var id in C){var c=C[id];if(c.dead||c.dom!=='land'||G.t-c.t>3*3600)continue;add(nSides()<3?1-side:(c.side>=0&&c.side!==side?c.side:enemyOf(side)),c.x,c.y,Math.sqrt((c.men||100)+(c.veh||0)*8+1)*(G.t-c.t>3600?0.7:1),1400);}
+  if(first&&!any.some(function(v){return v;}))return;var ch=0,NI=I.length;
+  if(NI<3){for(var k=0;k<N;k++){if(F.wet[k])continue;var a=I[0][k],b=I[1][k],o=F.own[k],n=o;if(first){if(a>0.2||b>0.2)n=a>=b?0:1;}else if(a>0.4&&a>b*2.2)n=0;else if(b>0.4&&b>a*2.2)n=1;if(n!==o){F.own[k]=n;ch++;}}}
+  else for(k=0;k<N;k++){if(F.wet[k])continue;var t1=-1,v1=0,v2=0;for(var si=0;si<NI;si++){var v=I[si][k];if(v>v1){v2=v1;v1=v;t1=si;}else if(v>v2)v2=v;}var o3=F.own[k],n3=o3;if(first){if(v1>0.2)n3=t1;}else if(v1>0.4&&v1>v2*2.2)n3=t1;if(n3!==o3){F.own[k]=n3;ch++;}}
   if(first){F.init=1;frontFill(F);}if(ch||first)F.ver++;
-  if(G.t>=(F.nextH||0)){F.nextH=G.t+1800;var cn=[0,0];for(k=0;k<N;k++){if(F.own[k]>=0)cn[F.own[k]]++;}F.hist.push({t:G.t,o:rleEnc(F.own),a:cn});if(F.hist.length>2000)F.hist.splice(1,1);}}
+  if(G.t>=(F.nextH||0)){F.nextH=G.t+1800;var cn=sA0();for(k=0;k<N;k++){if(F.own[k]>=0)cn[F.own[k]]++;}F.hist.push({t:G.t,o:rleEnc(F.own),a:cn});if(F.hist.length>2000)F.hist.splice(1,1);}}
 
 /* ---------- 三、各方看得到的集合與數值 ---------- */
 function mpKnownIds(side){var C=G.ct[side]||{},o={};for(var id in C)o[id]=1;return o;}
@@ -7477,6 +7520,7 @@ function mpMeet(M,side,K){if(side<0)return M;var c=mpClean(M);if(Array.isArray(M
 var MPCOL=[
   ['u','id',function(s){return s<0?G.units:G.units.filter(function(u){return u.side===s;});}],
   ['ct','id',function(s){return s<0?[]:mpVals0(G.ct[s]||{});}],
+  ['ctN','id',function(s){return s<0||!G.ctN?[]:mpVals0(G.ctN[s]||{});}],
   ['msg','id',function(s){return (G.msgs||[]).filter(function(m){return s<0||m.side===s;});}],
   ['lgv','id',function(s,O){return (G.lgv||[]).filter(function(V){return s<0||V.side===s||mpSeen(O,V.x,V.y);});}],
   ['fac','id',function(s){return (G.fac||[]).filter(function(f){return s<0||f.own===s||f.kn&&f.kn[s];});}],
@@ -7491,7 +7535,7 @@ var MPCOL=[
   ['dr','id',function(s){return (G.draw||[]).filter(function(D){return s<0||D.side===s;});}]];
 var MPSEQ=['t','step','started','over','overR','tEnd','firstContact','tseq','wseq','dseq'];
 function mpOwn(arr,s,f){f=f||'side';return (arr||[]).filter(function(q){return s<0||q[f]===s;});}
-function mpPair(a,s,empty){if(!a)return a;if(s<0)return a;return [s===0?a[0]:empty(),s===1?a[1]:empty()];}
+function mpPair(a,s,empty){if(!a)return a;if(s<0)return a;var n=Math.max(2,a.length||0,nSides()),o=[];for(var i=0;i<n;i++)o.push(i===s?a[i]:empty());return o;}
 /* 數值：路徑、伺服器端取得（整個比較，物件只送改變的子鍵） */
 function mpValList(s,O,K,X){var V=[],add=function(p,v){V.push([p,v]);},e=1-s;
   add('set',s<0?G.set:mpOmit(G.set,['seed']));MPSEQ.forEach(function(k){add(k,G[k]);});add('mapv',G._mapv||0);
@@ -7511,9 +7555,9 @@ function mpValList(s,O,K,X){var V=[],add=function(p,v){V.push([p,v]);},e=1-s;
     add('civ.'+ck,cv);}}
   if(G.press){add('press.A',G.press.A);add('press.home',G.press.home);add('press.digT',G.press.digT);add('press.seq',G.press.seq);}
   if(G.bt){add('bt.seq',G.bt.seq);var bu=G.bt.byUnit||{};if(s>=0){var o2={};for(var bk in bu){var bx=uById(+bk);if(bx&&bx.side===s||K[bk])o2[bk]=bu[bk];}bu=o2;}add('bt.byUnit',bu);}
-  [0,1].forEach(function(i){var S=G.sides[i];add('sides.'+i,s<0||i===s?mpClean(S):mpPubSide(S,i));});
+  SIDES().forEach(function(i){var S=G.sides[i];add('sides.'+i,s<0||i===s?mpClean(S):mpPubSide(S,i));});
   if(s>=0&&X&&X.F&&X.F.init)add('front',{cs:X.F.cs,W:X.F.W,H:X.F.H,own:rleEnc(X.F.own),nextH:X.F.nextH||0,init:1});else if(s<0&&G.front&&G.front.init)add('front',{cs:G.front.cs,W:G.front.W,H:G.front.H,own:rleEnc(G.front.own),nextH:G.front.nextH||0,init:1});
-  if(s>=0){var tl=0;try{var a=sideStr(s).f,b=sideStr(1-s).f,Ob=G.obj||[],tot=0,mine=0;Ob.forEach(function(o){var pp=o.pts||10;tot+=pp;if(o.own===s)mine+=pp;else if(o.own<0)mine+=pp/2;});tl=(a-b)+(tot?(mine/tot-0.5)*0.6:0);}catch(e){}add('tilt',Math.round(tl*10)/10);}
+  if(s>=0){var tl=0;try{var a=sideStr(s).f,b=sideStr(enemyOf(s)).f,Ob=G.obj||[],tot=0,mine=0;Ob.forEach(function(o){var pp=o.pts||10;tot+=pp;if(o.own===s)mine+=pp;else if(o.own<0)mine+=pp/2;});tl=(a-b)+(tot?(mine/tot-0.5)*0.6:0);}catch(e){}add('tilt',Math.round(tl*10)/10);}
   add('ri',(function(){var L=G.rdiL,I=G.rdi;if(!L||!I||!L.length)return null;var o=[],MP=G.map;for(var i=0;i<L.length&&o.length<6000;i++){var k=L[i],x=(k%MP.GW+0.5)*MP.cs,y=((k/MP.GW|0)+0.5)*MP.cs;if(s<0||mpSeen(O,x,y))o.push(k,I[k]);}return o;})());
   void e;return V;}
 
@@ -7572,10 +7616,10 @@ function mpFull(s,cm,info){var X=mpX(s);if(!X.KM)mpKnownInit(X);var MP=G.map,m={
 var MPCC={u:function(){return G.units;},msg:function(){return G.msgs||(G.msgs=[]);},lgv:function(){return G.lgv||(G.lgv=[]);},fac:function(){return G.fac||(G.fac=[]);},tp:function(){return G.tp||(G.tp=[]);},meet:function(){return G.meets||(G.meets=[]);},
   cS:function(){G.civ=G.civ||{};return G.civ.S||(G.civ.S=[]);},cR:function(){G.civ=G.civ||{};return G.civ.R||(G.civ.R=[]);},cP:function(){G.civ=G.civ||{};return G.civ.P||(G.civ.P=[]);},pR:function(){G.press=G.press||{};return G.press.R||(G.press.R=[]);},
   bt:function(){G.bt=G.bt||{list:[],byUnit:{},seq:0};return G.bt.list||(G.bt.list=[]);},ib:function(){return G.inbox||(G.inbox=[]);},dr:function(){return G.draw||(G.draw=[]);}};
-var MPKEY={u:'id',ct:'id',msg:'id',lgv:'id',fac:'id',tp:'id',meet:'id',cS:'i',cR:'id',cP:'id',pR:'id',bt:'id',ib:'id',dr:'id'};
+var MPKEY={u:'id',ct:'id',ctN:'id',msg:'id',lgv:'id',fac:'id',tp:'id',meet:'id',cS:'i',cR:'id',cP:'id',pR:'id',bt:'id',ib:'id',dr:'id'};
 function mpPathSet(p,v){var ks=p.split('.'),o=G;for(var i=0;i<ks.length-1;i++){var k=ks[i];if(o[k]===undefined||o[k]===null||typeof o[k]!=='object')o[k]={};o=o[k];}var last=ks[ks.length-1];o[last]=mpPA(o[last],v);return o[last];}
 function mpPathDel(p){var ks=p.split('.'),o=G;for(var i=0;i<ks.length-1;i++){o=o&&o[ks[i]];}if(o)delete o[ks[ks.length-1]];}
-function mpCollApply(name,D,side,touched){var key=MPKEY[name],isMap=name==='ct',cont=isMap?(G.ct[side]||(G.ct[side]={})):MPCC[name](),ix={};
+function mpCollApply(name,D,side,touched){var key=MPKEY[name],isMap=name==='ct'||name==='ctN',cont=isMap?((G[name]||(G[name]=[]))[side]||(G[name][side]={})):MPCC[name](),ix={};
   if(!isMap)for(var i=0;i<cont.length;i++){var o=cont[i];if(o)ix[o[key]]=o;}
   var get=function(id){return isMap?cont[id]:ix[id];};
   (D.a||[]).forEach(function(o){var id=o[key],old=get(id);if(old){for(var f in old)if(f.charCodeAt(0)!==95&&!(f in o))delete old[f];Object.assign(old,o);touched.push([name,old]);return;}if(isMap)cont[id]=o;else{cont.push(o);ix[id]=o;}touched.push([name,o,1]);});
@@ -7599,7 +7643,7 @@ function mpCliDerive(){var f=MPCLI.front;if(f&&f.own){var F=G.front;if(!F||F.W!=
   var ri=MPCLI.ri,MP=G.map;if(ri&&ri.length&&MP){var N=MP.GW*MP.GH;if(!G.rdi||G.rdi.length!==N)G.rdi=new Uint8Array(N);else G.rdi.fill(0);var L=[];for(var i=0;i+1<ri.length;i+=2){G.rdi[ri[i]]=ri[i+1];L.push(ri[i]);}G.rdiL=L;}else{G.rdiL=null;}
   var on=MPCLI.lyOn;if(on){if(!on.fl&&G.evt)G.evt.fl=null;if(!on.fire&&G.evt)G.evt.fire=null;}}
 /* 介面預期存在的容器（伺服器上是空的就不會送來） */
-function mpEnsure(){['msgs','lgv','fac','tp','meets','inbox','draw'].forEach(function(k){if(!Array.isArray(G[k]))G[k]=[];});if(G.civ){['S','R','P'].forEach(function(k){if(!Array.isArray(G.civ[k]))G.civ[k]=[];});}if(G.press&&!Array.isArray(G.press.R))G.press.R=[];if(G.press&&!Array.isArray(G.press.A))G.press.A=[];if(!G.bt)G.bt={list:[],byUnit:{},seq:0};if(!G.bt.list)G.bt.list=[];if(!G.bt.byUnit)G.bt.byUnit={};if(!G.ct)G.ct=[{},{}];}
+function mpEnsure(){['msgs','lgv','fac','tp','meets','inbox','draw'].forEach(function(k){if(!Array.isArray(G[k]))G[k]=[];});if(G.civ){['S','R','P'].forEach(function(k){if(!Array.isArray(G.civ[k]))G.civ[k]=[];});}if(G.press&&!Array.isArray(G.press.R))G.press.R=[];if(G.press&&!Array.isArray(G.press.A))G.press.A=[];if(!G.bt)G.bt={list:[],byUnit:{},seq:0};if(!G.bt.list)G.bt.list=[];if(!G.bt.byUnit)G.bt.byUnit={};if(!G.ct)G.ct=sAO();}
 /* 完整內容：建立客戶端的作戰狀態 */
 async function mpLoadFull(F){var m=Object.assign({},F.map);MPLY.forEach(function(k){if(F.lyF&&F.lyF[k]&&MAPTA.indexOf(k)>=0)m[k]=F.lyF[k];});var MP=await unpackMap(m);var set=F.v&&F.v.set||{};G=newGame(MP,set);
   G.ct=[{},{}];G.units=[];G.msgs=[];G.log=[];G._fx=[];G.dirty=[];G.pq=[];G._inc={};MPCLI={front:null,ri:null,lyOn:null,fh:null};
@@ -7615,14 +7659,14 @@ async function mpQuick(key,seed){var sc=SCN.filter(function(q){return q.k===key;
   var MP=await genRegion({GW:GW,GH:GH,cs:cs,seed:seed,year:sc.y,name:sc.n.replace(/^[0-9]+ 年：/,''),lat0:sc.lat||48,lon0:0,src:'proc',dens:sc.dens||1,rail:true,dev:sc.dev||'auto',hsr:true,bf:sc.bf&&sc.bf!=='beach'?sc.bf:'auto',cstyle:sc.cstyle||'auto',nst:'zh'},smp,function(){return Promise.resolve();});
   G=newGame(MP,Object.assign({y:sc.y,m:sc.m,d:sc.d,h:sc.h,dur:sc.dur||24,seed:seed},sc.set||{}));simCaches();reix();G.onPause=function(){};G.onLog=function(){};if(sc.pol)sc.pol.forEach(function(p,i){G.sides[i].pol=Object.assign({},p);});var r=mb32(hstr(seed+'|orbat'));
   [0,1].forEach(function(side){var L=side?sc.B:sc.A,S=G.sides[side];if(sc.names)S.name=sc.names[side];if(sc.edges)S.edge=sc.edges[side];S.ai=side===1;var F=[];L.forEach(function(p){for(var i=1;i<=(p[1]||1);i++){var era=p[3]||null,nm=p[2]?fmtName(p[2],i):null,top=FPI[p[0]]?buildPreset(side,p[0],nm,-1,r,p[4]||sc.gran||'co',era):UT[p[0]]?addLeaf(side,p[0],1,nm,-1,r):null;if(top){top.tpl=p[2]&&p[2].indexOf('{i}')>=0?p[2]:top.tpl;top.ix=i;F.push(top);}}});reix();autoDeploy2(side,F);});
-  autoObjectives(sc.nobj||2);if(sc.post)sc.post();[0,1].forEach(function(s){if(nmOf(s).num!=='seq'||nmOf(s).fmt!=='arabic'||nmOf(s).ttl!=='none')renameSide(s);});dupNames();mpReset();return G;}
+  autoObjectives(sc.nobj||2);if(sc.post)sc.post();SIDES().forEach(function(s){if(nmOf(s).num!=='seq'||nmOf(s).fmt!=='arabic'||nmOf(s).ttl!=='none')renameSide(s);});dupNames();mpReset();return G;}
 
 /* ---------- 七、伺服器：指揮官席位、部署區、部署操作、匯入編制 ---------- */
 /* 每一方的指揮官人數與 AI／玩家；human[i] 為真表示第 i 位指揮官由玩家擔任 */
 function mpTeams(side,n,human){var S=G.sides[side];n=clamp(n|0,1,8);var cur=cmList(side);if(cur.length!==n){if(!G.started)teamSetup(side,n,'split');else n=cur.length;}var L=cmList(side);
   L.forEach(function(R,i){R.ai=!human[i];});if(L.length===1){S.ai=!human[0];L[0].ai=S.ai;}else{S.ai=L.some(function(R){return R.ai;});cmSync(side);}S.pu=0;cmBump();return L.map(function(R){return {n:R.n,ai:R.ai,roots:R.roots.length};});}
 function mpCanCmd(u,s,cm){if(!u||u.side!==s)return false;var S=G.sides[s],L=S.cm||[];if(L.length>1){var i=cmOf(u);if(cm>=0&&i!==cm)return cmMay(u,cm);return !(L[i]&&L[i].ai);}if(!S.ai)return true;return S.pu>0&&inTree(u,S.pu);}
-function mpZone(side,dep){var MP=G.map,e=G.sides[side].edge||(side?'E':'W'),f=clamp(dep||0.4,0.15,0.6);return {e:e,f:f,x0:e==='E'?MP.Wm*(1-f):0,x1:e==='W'?MP.Wm*f:MP.Wm,y0:e==='S'?MP.Hm*(1-f):0,y1:e==='N'?MP.Hm*f:MP.Hm};}
+function mpZone(side,dep){var MP=G.map,e=G.sides[side].edge||(side===2?'N':side?'E':'W'),f=clamp(dep||0.4,0.15,0.6);return {e:e,f:f,x0:e==='E'?MP.Wm*(1-f):0,x1:e==='W'?MP.Wm*f:MP.Wm,y0:e==='S'?MP.Hm*(1-f):0,y1:e==='N'?MP.Hm*f:MP.Hm};}
 function mpInZone(Z,x,y){return x>=Z.x0&&x<=Z.x1&&y>=Z.y0&&y<=Z.y1;}
 function mpClampZ(Z,x,y){return [clamp(x,Z.x0+G.map.cs,Z.x1-G.map.cs),clamp(y,Z.y0+G.map.cs,Z.y1-G.map.cs)];}
 function mpDepFix(u,Z){var all=isLeaf(u)?[u]:leavesOf(u).concat([u]);all.forEach(function(z){var q=mpClampZ(Z,z.x,z.y),p=validPos(ST(z),q[0],q[1]);z.x=p[0];z.y=p[1];z.home=[z.x,z.y];z.placed=1;if(ST(z).dom==='air'&&isLeaf(z)){z.base=[z.x,z.y];z.st=z.st==='off'?'off':'base';}});}
@@ -7641,7 +7685,7 @@ function mpOrbIn(side,cm,D,replace,dep){if(G.started)return {err:'作戰開始�
   else if(L.length===1){L[0].roots=G.units.filter(function(u){return u.side===side&&u.p<0;}).map(function(u){return u.id;});}
   autoDeploy2(side,R.roots);var Z=mpZone(side,dep);R.roots.forEach(function(t){mpDepFix(t,Z);});dupNames();return {ok:1,n:R.made.length,warn:R.warn,msg:'已匯入 '+R.made.length+' 個單位（'+R.roots.length+' 個頂層編制）並自動部署。'};}
 /* 開戰：未部署的部隊自動部署，初始化戰鬥狀態 */
-function mpBegin(dep){[0,1].forEach(function(s){var Z=mpZone(s,dep),tps=G.units.filter(function(u){return u.side===s&&u.p<0&&u.st!=='off'&&(isLeaf(u)?[u]:leavesOf(u)).some(function(x){return !x.placed&&x.st!=='off';});});if(tps.length){autoDeploy(s,tps);tps.forEach(function(t){mpDepFix(t,Z);});}});
+function mpBegin(dep){SIDES().forEach(function(s){var Z=mpZone(s,dep),tps=G.units.filter(function(u){return u.side===s&&u.p<0&&u.st!=='off'&&(isLeaf(u)?[u]:leavesOf(u)).some(function(x){return !x.placed&&x.st!=='off';});});if(tps.length){autoDeploy(s,tps);tps.forEach(function(t){mpDepFix(t,Z);});}});
   if(!G.units.some(function(u){return u.side===0&&isLeaf(u);})||!G.units.some(function(u){return u.side===1&&isLeaf(u);}))return {err:'雙方都必須至少有一個單位。'};
   prepareBattle();G.started=true;G.set.fog=true;G.onPause=function(){};return {ok:1};}
 /* 兵力點數（衡量雙方戰力用，不限制） */
@@ -7777,7 +7821,7 @@ function costPrice(y){y=y||1940;return {fuel:y<1930?0.35:y<1960?0.45:y<1990?0.6:
   kia:y<1900?2000:y<1950?10000:y<2000?100000:500000,wia:y<1950?2000:y<2000?20000:50000,kiaR:y<1900?0.35:y<1950?0.25:y<2000?0.18:0.12};}
 var COSTPN={fuel:['燃料','公升'],haul:['前線運補加成','倍'],food:['糧秣飲水','公斤'],fod:['草料','公斤'],med:['醫療物資','公斤'],cbr:['CBRN 物資','公斤'],kia:['陣亡撫卹','人'],wia:['傷患治療','人']};
 function costP(){var y=G&&G.set?G.set.y:1940,d=costPrice(y),o=G&&G.set&&G.set.cprice||{};Object.keys(o).forEach(function(k){if(d[k]!==undefined&&o[k]>=0&&isFinite(+o[k]))d[k]=+o[k];});return d;}
-function costS(s){if(!G.cost)G.cost=[{},{}];return G.cost[s]||(G.cost[s]={});}
+function costS(s){if(!G.cost)G.cost=sAO();return G.cost[s]||(G.cost[s]={});}
 function costAdd(s,k,v){if(!(v>0)||!isFinite(v)||(s!==0&&s!==1))return;var C=costS(s);C[k]=(C[k]||0)+v;}
 /* 每架飛機每小時耗油（公升） */
 function costLph(s){var y=(ERAI[s.era]||{}).y||1940,jet=y>=1950,fl=s.fl||'';if(s.br==='uav')return 50;if(s.br==='heli')return y>=1960?700:300;if(fl.indexOf('v')>=0)return fl.indexOf('y')>=0?(jet?12000:3000):(jet?5000:1200);return jet?3000:300;}
@@ -7785,12 +7829,12 @@ var CSM={},CSMG=null;
 function costM(u){if(CSMG!==G){CSM={};CSMG=G;}return CSM[u.id];}
 function costUnitVal(u,M){if(M.vt!==undefined&&G.t-M.vt<1800)return;var c=unitUsd(u);M.au=c.a||0;M.vu=u.veh>0?(c.v||0)/u.veh:0;M.pu=u.men>0?((c.w||0)+(c.p||0)+(c.e||0))/u.men:0;M.vt=G.t;}
 /* 糧秣、草料與燃料：直接量測消耗函式前後的差（同一步補給到貨不會抵銷） */
-(function(){var b=consume;consume=function(u,L){var f0=L.food,d0=L.fod,u0=L.fuel,r=b.apply(this,arguments);if(G&&G.started&&u.side>=0&&u.side<=1){costAdd(u.side,'foodKg',f0-L.food);costAdd(u.side,'fodKg',d0-L.fod);costAdd(u.side,'fuelL',u0-L.fuel);}return r;};})();
-if(typeof fuelBurn==='function'){(function(){var b=fuelBurn;fuelBurn=function(u,L){var u0=L?L.fuel:0,r=b.apply(this,arguments);if(L&&G&&G.started&&u.side>=0&&u.side<=1)costAdd(u.side,'fuelL',u0-L.fuel);return r;};})();}
+(function(){var b=consume;consume=function(u,L){var f0=L.food,d0=L.fod,u0=L.fuel,r=b.apply(this,arguments);if(G&&G.started&&u.side>=0&&u.side<nSides()){costAdd(u.side,'foodKg',f0-L.food);costAdd(u.side,'fodKg',d0-L.fod);costAdd(u.side,'fuelL',u0-L.fuel);}return r;};})();
+if(typeof fuelBurn==='function'){(function(){var b=fuelBurn;fuelBurn=function(u,L){var u0=L?L.fuel:0,r=b.apply(this,arguments);if(L&&G&&G.started&&u.side>=0&&u.side<nSides())costAdd(u.side,'fuelL',u0-L.fuel);return r;};})();}
 /* 彈藥：每一步抽樣減少量；補給到貨時把基準一起加上，避免與同一步的射擊抵銷 */
 (function(){var b=resupply;resupply=function(u){var a0=u.ammo,r=b.apply(this,arguments),M=costM(u);if(M&&u.ammo>a0)M.a+=u.ammo-a0;return r;};})();
 function costTick(){if(!G||!G.started||!G.units)return;if(CSMG!==G){CSM={};CSMG=G;}var h=DT/3600;
-  for(var i=0;i<G.units.length;i++){var u=G.units[i];if(!isLeaf(u)||u.side<0||u.side>1||u.irr)continue;var M=CSM[u.id],L=u.lg;if(!M){CSM[u.id]={a:u.ammo,m:u.men,v:u.veh};continue;}
+  for(var i=0;i<G.units.length;i++){var u=G.units[i];if(!isLeaf(u)||u.side<0||u.side>=nSides()||u.irr)continue;var M=CSM[u.id],L=u.lg;if(!M){CSM[u.id]={a:u.ammo,m:u.men,v:u.veh};continue;}
     if(!alive(u)){M.m=u.men;M.v=u.veh;M.a=u.ammo;continue;}
     if(u.ammo<M.a-1e-9&&L){costUnitVal(u,M);var d=M.a-u.ammo;costAdd(u.side,'ammoUsd',d/100*M.au);costAdd(u.side,'ammoKg',d/100*(L.uof||0)*(L.basic||1));}M.a=u.ammo;
     var s=ST(u);if(s.dom==='air'&&onMap(u)&&u.st!=='base'&&u.veh>0)costAdd(u.side,'fuelL',u.veh*costLph(s)*h);
@@ -7861,7 +7905,7 @@ medFx=function(u,k,v){var F=eqF2(u);
 (function(){var b=consume;consume=function(u,L,dt){var F=eqF2(u);if(!F||!F.hr)return b.apply(this,arguments);var h0=L.hot;L.hot=F.hr>0;try{return b.apply(this,arguments);}finally{L.hot=h0;}};})();
 
 /* ---------- 每 10 分鐘：日常醫務與病患用藥、濾毒罐更換、防護服磨損 ---------- */
-function eqSupTick(dt){var day=dt/86400;G.units.forEach(function(u){if(!isLeaf(u)||!alive(u)||u.st==='off'||u.irr||u.side<0||u.side>1)return;var L=supL(u);if(!L)return;var y=supY(u);
+function eqSupTick(dt){var day=dt/86400;G.units.forEach(function(u){if(!isLeaf(u)||!alive(u)||u.st==='off'||u.irr||u.side<0||u.side>=nSides())return;var L=supL(u);if(!L)return;var y=supY(u);
     if(L.medCap>0)medUse(u,(u.men*(y<1900?0.003:0.01)+(u.sick||0)*medKgSick(y))*day);
     var g=u.cbg;if(!g||!(L.cbrCap>0)||u.men<1)return;
     if(g.filt<60){var need=u.men*0.3*(1-g.filt/100),got=cbrUse(u,need);if(got>0)g.filt=Math.min(100,g.filt+(100-g.filt)*got/need);}
@@ -7916,13 +7960,13 @@ function wMud(u,types){var L=u&&u.lg;if(!L||!L.w)return null;var best=null;L.w.f
 (function(){var b=aaRangeU;aaRangeU=function(g,AA){var r=b(g,AA),m=wMud(g,['sam','aam']);if(!m)return r;var d=m.d,x=uxOf(g),cap=(x.rad||Math.max(r,8000))*(d.act?1.5:1);return Math.round(Math.min(d.rng*1000,cap));};})();
 /* 艦隊防空：來襲飛彈落點 30 公里內（彈道飛彈 150 公里）的設計艦艇，依「能擋下幾枚」合計攔截能力；超過就飽和突破 */
 function navAD(S,en,n){if(!(n>0))return 0;var thr=S.kind==='ballistic'?'bal':S.v>=600?'sup':'sub',R=thr==='bal'?150000:30000,cap=0,sh=[];
-  G.units.forEach(function(g){if(g.side!==en||!onMap(g)||!alive(g))return;var a=uxOf(g).adN;if(!a||!(a[thr]>0)||dist(g.x,g.y,S.x,S.y)>R)return;var c=a[thr]*strFrac(g)*clamp((g.ammo||0)/60,0,1)*(radarOK(g)?1:0.3)*(typeof mslReact==='function'?mslReact(S):1);if(c>0){cap+=c;sh.push([g,c,a]);}});
+  G.units.forEach(function(g){if((nSides()<3?g.side!==en:!hostile(S.side,g.side))||!onMap(g)||!alive(g))return;var a=uxOf(g).adN;if(!a||!(a[thr]>0)||dist(g.x,g.y,S.x,S.y)>R)return;var c=a[thr]*strFrac(g)*clamp((g.ammo||0)/60,0,1)*(radarOK(g)?1:0.3)*(typeof mslReact==='function'?mslReact(S):1);if(c>0){cap+=c;sh.push([g,c,a]);}});
   if(cap<=0)return 0;var p=Math.min(0.97,cap/n),k=0;for(var i=0;i<n;i++)if(rnd()<p)k++;
   if(k>0){sh.forEach(function(q){q[0].ammo=Math.max(0,q[0].ammo-k*q[1]/cap*60/Math.max(4,q[2].sub||4));});logE(en,'aa','艦隊防空攔截來襲的 '+k+' 枚'+S.nm+(n-k>0?'（'+(n-k)+' 枚突破）':'（全數攔截）'),S.x,S.y);}return k;}
 /* 艦艇的對空搜索雷達加入雷達監視網 */
 (function(){var b=sensorR;sensorR=function(g){var r=b(g),x=uxOf(g);if(x.rad&&!x.sam&&ST(g).dom==='sea'&&onMap(g)&&radarOK(g))return Math.max(r,x.rad);return r;};})();
 /* 聲納：每 4 分鐘；聲納距離依目標的安靜程度調整，航行中的潛艦較易被聽到；空中的反潛機與直升機要在空中 */
-function sonarStep(){[0,1].forEach(function(side){var O=G.units.filter(function(u){if(u.side!==side||!alive(u)||!(uxOf(u).son>0))return false;return ST(u).dom==='air'?u.st==='air':onMap(u);});if(!O.length||!G.rq)return;var Q=G.rq[side];
+function sonarStep(){SIDES().forEach(function(side){var O=G.units.filter(function(u){if(u.side!==side||!alive(u)||!(uxOf(u).son>0))return false;return ST(u).dom==='air'?u.st==='air':onMap(u);});if(!O.length||!G.rq)return;var Q=G.rq[side];
   G.units.forEach(function(t){if(t.side===side||!onMap(t)||!alive(t))return;var ts=ST(t);if(ts.dom!=='sub')return;var mv=G.t-(t.movedAt||-1e9)<180?1.3:1;
     for(var i=0;i<O.length;i++){var o=O[i],R=uxOf(o).son*clamp(ts.sig/0.15,0.3,3)*mv;if(dist(o.x,o.y,t.x,t.y)<=R){Q.push({at:G.t+60,id:t.id,x:t.x+(rnd()-0.5)*600,y:t.y+(rnd()-0.5)*600,t:G.t,q:0.6,by:o.id});break;}}});});}
 (function(){var b=simStep;simStep=function(){var r=b.apply(this,arguments);if(G.started&&G.step%8===6){try{sonarStep();}catch(e){}}return r;};})();
@@ -7941,11 +7985,11 @@ function mvShot(t,src,kind){if(src._mvT&&G.t-src._mvT<45)return;var s=ST(src),k=
   else if(kind==='aa'){if(!samOf(src)&&!(typeof wMud==='function'&&wMud(src,['sam','aam']))&&!(s.dom==='sea'&&s.aa>=9))return;k='sam';}
   else{if(s.fl.indexOf('p')<0&&!(typeof wMud==='function'&&wMud(src,['agm','arm'])))return;k='agm';}
   src._mvT=G.t;var d=dist(src.x,src.y,t.x,t.y),v=MVK[k][1];mvAdd(k,src.side,src.id,src.x,src.y,t.x,t.y,t.id,clamp(d/v,4,120),clamp(Math.round((src.veh||1)/(k==='agm'?4:3)),1,4),mvSeeY(d));}
-(function(){var b=hit;hit=function(t,src,dm,dv,sup,kind){b.apply(this,arguments);if(src&&t&&(kind==='air'||kind==='aa'||kind==='airstrike')&&(G.set.y||0)>=1955&&src.side!==t.side){try{mvShot(t,src,kind);}catch(e){}}};})();
+(function(){var b=hit;hit=function(t,src,dm,dv,sup,kind){b.apply(this,arguments);if(src&&t&&(kind==='air'||kind==='aa'||kind==='airstrike')&&(G.set.y||0)>=1955&&hostile(src.side,t.side)){try{mvShot(t,src,kind);}catch(e){}}};})();
 /* 攔截飛彈：被偵測的齊射在落地前 75 秒內，由範圍內的防空單位（最多 4 個）射向預計的攔截點 */
-function mvIntStep(){(G.msl||[]).forEach(function(S){if(S.iv||!S.det||S.eta-G.t>75)return;S.iv=1;var en=1-S.side,bal=S.kind==='ballistic',need=bal?12:S.kind==='asm'?5:6,R=bal?60000:40000,ts=Math.max(G.t+4,S.eta-4),f=clamp((ts-S.t0)/Math.max(1,S.eta-S.t0),0,1),px=lerp(S.x0,S.x,f),py=lerp(S.y0,S.y,f),n=0;
-    G.units.forEach(function(g){if(n>=4||g.side!==en||!onMap(g)||!alive(g)||g.ammo<=0)return;var AA=aaOf(g,ST(g)),nav=uxOf(g).adN;if(AA<need&&!nav)return;if(dist(g.x,g.y,S.x,S.y)>R)return;n++;mvAdd(bal?'abm':'int',en,g.id,g.x,g.y,px,py,0,Math.max(3,ts-G.t),clamp(Math.ceil(S.n/2),1,4),true);});});
-  (G.snq||[]).forEach(function(Q){if(Q.iv||!Q.det||(Q.del!=='icbm'&&Q.del!=='slbm')||Q.eta-G.t>60||(G.set.y||0)<1972)return;Q.iv=1;var en=1-Q.side,n=0;G.units.forEach(function(g){if(n>=2||g.side!==en||!onMap(g)||aaOf(g,ST(g))<12||dist(g.x,g.y,Q.x,Q.y)>=60000)return;n++;mvAdd('abm',en,g.id,g.x,g.y,Q.x,Q.y,0,Math.max(3,Q.eta-G.t-3),2,true);});});}
+function mvIntStep(){(G.msl||[]).forEach(function(S){if(S.iv||!S.det||S.eta-G.t>75)return;S.iv=1;var en=enemyOf(S.side),bal=S.kind==='ballistic',need=bal?12:S.kind==='asm'?5:6,R=bal?60000:40000,ts=Math.max(G.t+4,S.eta-4),f=clamp((ts-S.t0)/Math.max(1,S.eta-S.t0),0,1),px=lerp(S.x0,S.x,f),py=lerp(S.y0,S.y,f),n=0;
+    G.units.forEach(function(g){if(n>=4||(nSides()<3?g.side!==en:!hostile(S.side,g.side))||!onMap(g)||!alive(g)||g.ammo<=0)return;var AA=aaOf(g,ST(g)),nav=uxOf(g).adN;if(AA<need&&!nav)return;if(dist(g.x,g.y,S.x,S.y)>R)return;n++;mvAdd(bal?'abm':'int',g.side,g.id,g.x,g.y,px,py,0,Math.max(3,ts-G.t),clamp(Math.ceil(S.n/2),1,4),true);});});
+  (G.snq||[]).forEach(function(Q){if(Q.iv||!Q.det||(Q.del!=='icbm'&&Q.del!=='slbm')||Q.eta-G.t>60||(G.set.y||0)<1972)return;Q.iv=1;var en=enemyOf(Q.side),n=0;G.units.forEach(function(g){if(n>=2||(nSides()<3?g.side!==en:!hostile(Q.side,g.side))||!onMap(g)||aaOf(g,ST(g))<12||dist(g.x,g.y,Q.x,Q.y)>=60000)return;n++;mvAdd('abm',g.side,g.id,g.x,g.y,Q.x,Q.y,0,Math.max(3,Q.eta-G.t-3),2,true);});});}
 (function(){var b=simStep;simStep=function(){var r=b.apply(this,arguments);try{mvIntStep();if(G.mv&&G.step%4===1)G.mv=G.mv.filter(function(q){return G.t<=q.t1+5;});}catch(e){}return r;};})();
 /* 聯機：每一方只收到自己看得到的 */
 if(typeof mpValList==='function'){(function(){var b=mpValList;mpValList=function(s){var V=b.apply(this,arguments);V.push(['mv',(G.mv||[]).filter(function(q){return s<0||q.v[s];})]);return V;};})();}
@@ -7968,7 +8012,7 @@ function mslRadars(side){var o=[];G.units.forEach(function(g){if(g.side!==side||
 /* 雷達到飛彈之間有沒有山擋住（低空時才檢查） */
 function mslMasked(g,ha,x,y,ht){var MP=G.map,e0=MP.el[cellAt(g.x,g.y)]+ha,e1=MP.el[cellAt(x,y)]+ht,n=clamp(Math.ceil(dist(g.x,g.y,x,y)/Math.max(MP.cs,400)),2,120);for(var i=1;i<n;i++){var f=i/n,px=lerp(g.x,x,f),py=lerp(g.y,y,f);if(MP.el[cellAt(px,py)]>lerp(e0,e1,f)+5)return true;}return false;}
 /* 沿航路找第一次被雷達看到的位置：回傳距起點的飛行距離與雷達單位；沒被看到回傳 null */
-function mslDetect(side,P,alt,rcs,radars){var A=MSLALT[alt]||MSLALT.mid,ht=A[1],R=radars||mslRadars(1-side),rf=Math.pow(clamp(rcs||0.1,0.001,10),0.25),s0=0;if(!R.length)return null;
+function mslDetect(side,P,alt,rcs,radars){var A=MSLALT[alt]||MSLALT.mid,ht=A[1],R=radars||(nSides()<3?mslRadars(1-side):[].concat.apply([],hostSides(side).map(function(h){return mslRadars(h);}))),rf=Math.pow(clamp(rcs||0.1,0.001,10),0.25),s0=0;if(!R.length)return null;
   for(var i=1;i<P.length;i++){var a=P[i-1],b=P[i],d=dist(a[0],a[1],b[0],b[1]),n=Math.max(1,Math.ceil(d/3000));for(var j=0;j<=n;j++){var f=j/n,x=lerp(a[0],b[0],f),y=lerp(a[1],b[1],f);
       for(var k=0;k<R.length;k++){var g=R[k][0],lim=Math.min(R[k][1]*rf,radHor(R[k][2],ht));if(dist(g.x,g.y,x,y)<=lim&&!(ht<=200&&R[k][2]<1000&&mslMasked(g,R[k][2],x,y,ht)))return {s:s0+d*f,by:g.id,x:x,y:y};}}s0+=d;}return null;}
 /* 依被發現時剩下的飛行時間決定攔截效果 */
@@ -7985,11 +8029,11 @@ function mslWpClean(wp){if(!Array.isArray(wp))return [];var MP=G.map;return wp.s
   logE(u.side,'arty','🚀 '+uName(u)+'發射 '+n+' 枚'+q.nm+'（'+A[0]+'飛行'+(wp.length?'、經 '+wp.length+' 個航路點':'')+'），目標'+placeTxt(ax,ay)+'，約 '+durTxt(S.eta-G.t)+' 後抵達',u.x,u.y,u.id);
   if(G.onPause&&apOn('strike'))G.onPause('飛彈發射');return true;};})();
 /* 飛行中：到了被看到的時間點才警報 */
-function mslDetStep(){(G.msl||[]).forEach(function(S){if(!S.plan||S.det||!S.detAt||G.t<S.detAt)return;S.det=1;var en=1-S.side,g=uById(S.detBy);logE(en,'arty','⚠ '+(g?uName(g):'雷達')+'發現低空來襲的'+(S.kind==='asm'?'反艦飛彈':'巡弋飛彈')+'（約 '+S.n+' 枚，'+placeTxt(S.detX,S.detY)+'），預計 '+durTxt(Math.max(0,S.eta-G.t))+' 後抵達',S.detX,S.detY);});}
+function mslDetStep(){(G.msl||[]).forEach(function(S){if(!S.plan||S.det||!S.detAt||G.t<S.detAt)return;S.det=1;var g=uById(S.detBy),en=nSides()<3?1-S.side:(g&&g.side>=0?g.side:enemyOf(S.side));logE(en,'arty','⚠ '+(g?uName(g):'雷達')+'發現低空來襲的'+(S.kind==='asm'?'反艦飛彈':'巡弋飛彈')+'（約 '+S.n+' 枚，'+placeTxt(S.detX,S.detY)+'），預計 '+durTxt(Math.max(0,S.eta-G.t))+' 後抵達',S.detX,S.detY);});}
 (function(){var b=mslStep;mslStep=function(){mslDetStep();return b.apply(this,arguments);};})();
 /* 估計（給命令面板）：以本方情報圖上已知的敵方雷達計算 */
 function mslPlanEst(u,wp,x,y,alt){var q=mslSpec(u);if(!q)return null;alt=MSLALT[alt]?alt:mslAltDef(q);var A=MSLALT[alt],P=mslPath(u.x,u.y,mslWpClean(wp),x,y),L=mslPathLen(P),v=q.v*A[3],C=G.ct[u.side],R=[];
-  var RA=mslRadars(1-u.side),byId={};RA.forEach(function(r){byId[r[0].id]=r;});for(var id in C){var c=C[id];if(c.dead||G.t-c.t>3600||!byId[id])continue;R.push([{x:c.x,y:c.y,id:+id},byId[id][1],byId[id][2]]);}
+  var RA=nSides()<3?mslRadars(1-u.side):[].concat.apply([],hostSides(u.side).map(function(h){return mslRadars(h);})),byId={};RA.forEach(function(r){byId[r[0].id]=r;});for(var id in C){var c=C[id];if(c.dead||G.t-c.t>3600||!byId[id])continue;R.push([{x:c.x,y:c.y,id:+id},byId[id][1],byId[id][2]]);}
   var D=mslDetect(u.side,P,alt,0.1,R);return {alt:alt,L:L,R:q.r*A[2],t:L/v,det:D?{t:D.s/v,left:(L-D.s)/v}:null,radars:R.length};}
 
 /* ==== h48_wmd.js ==== */
@@ -8116,7 +8160,7 @@ function facGen9(MP,y,out){var cs=MP.cs,GW=MP.GW,GH=MP.GH,lc=MP.lc,id=out.reduce
   function near(x,yy,R,pred,r0,rho){var cx=Math.floor(x/cs),cy=Math.floor(yy/cs),Rc=Math.max(1,Math.ceil(R/cs)),R0=Math.floor((r0||0)/cs),T=(rho||0)*Rc,J=Math.max(2,Rc*0.3),best=-1,bd=1e18;for(var b=-Rc;b<=Rc;b++)for(var a=-Rc;a<=Rc;a++){var X=cx+a,Y=cy+b;if(X<1||Y<1||X>=GW-1||Y>=GH-1)continue;var d=a*a+b*b;if(d>Rc*Rc||d<R0*R0)continue;var dd=Math.abs(Math.sqrt(d)-T)+r()*J;if(dd>=bd)continue;var k=Y*GW+X;if(pred(k)){bd=dd;best=k;}}return best;}
   function xy(k){return [(k%GW+0.5)*cs,(((k/GW)|0)+0.5)*cs];}
   function far(p,k,D,L){return !(L||out).some(function(f){return (!k||f.k===k)&&dist(f.x,f.y,p[0],p[1])<D;});}
-  function add(k,p,name,s,ex){if((cnt[k]||0)>=(LMKMAX[k]||1))return null;cnt[k]=(cnt[k]||0)+1;var F=Object.assign({id:++id,k:k,x:p[0],y:p[1],name:name,set:s?s.name:'',own:-1,cand:-1,ct:0,kn:[-1,-1],st0:{food:0,ammo:0,fuel:0,fod:0},hp:100},ex||{});out.push(F);LM.push(F);return F;}
+  function add(k,p,name,s,ex){if((cnt[k]||0)>=(LMKMAX[k]||1))return null;cnt[k]=(cnt[k]||0)+1;var F=Object.assign({id:++id,k:k,x:p[0],y:p[1],name:name,set:s?s.name:'',own:-1,cand:-1,ct:0,kn:sAV(-1),st0:{food:0,ammo:0,fuel:0,fod:0},hp:100},ex||{});out.push(F);LM.push(F);return F;}
   var urb=function(k){var c=lc[k];return isUrban(c)&&c!==LCI.ind&&c!==LCI.rly&&c!==LCI.port&&c!==LCI.rubble;},core=function(k){var c=lc[k];return c===LCI.city||c===LCI.old||c===LCI.town;},land=function(k){return !isWater(lc[k]);};
   var place=function(k,s,R,pred,D,name,ex,r0){if((cnt[k]||0)>=(LMKMAX[k]||1))return null;var sx=s.x*cs,sy=s.y*cs,L=out.filter(function(f){return f.k===k;}),
       q=near(sx,sy,R,function(c){if(!pred(c))return false;var p=xy(c);return far(p,k,D,L)&&far(p,null,150,LM);},r0,LMKRHO[k]);if(q<0)return null;return add(k,xy(q),name,s,ex);};
@@ -8292,20 +8336,20 @@ FP.forEach(function(p){var k=COMT[p.era];if(!k||(p.ech||0)<5||!p.kids||COMNB[p.b
 /* 排：通信單位分成通信排 */
 if(typeof PLTK!=='undefined'){PLTK.com=['通信排','通'];(function(){var b=pltInfo;pltInfo=function(k){var o=b(k),t=typeOf(k);if(o.n&&t&&t.br==='com'&&o.c!=='com')o.c='com';return o;};})();}
 /* ---------- 本方的通信單位（每一步整理一次） ---------- */
-var COMC={g:null,s:-1,n:-1,t:-1,L:[[],[]]};
-function comUnits(side){var C=COMC;if(C.g!==G||C.s!==G.step||C.n!==G.units.length||C.t!==G.t){C.g=G;C.s=G.step;C.n=G.units.length;C.t=G.t;C.L=[[],[]];G.units.forEach(function(u){if(!isLeaf(u)||u.st==='dead'||u.st==='off'||!onMap(u)||u.ms==='rout'||u.side<0||u.side>1)return;var s=ST(u);if(s.br!=='com'||s.dom!=='land'||u.st==='lift'||u.st==='ship')return;C.L[u.side].push(u);});}return C.L[side]||[];}
+var COMC={g:null,s:-1,n:-1,t:-1,L:[]};
+function comUnits(side){var C=COMC;if(C.g!==G||C.s!==G.step||C.n!==G.units.length||C.t!==G.t){C.g=G;C.s=G.step;C.n=G.units.length;C.t=G.t;C.L=sAL();G.units.forEach(function(u){if(!isLeaf(u)||u.st==='dead'||u.st==='off'||!onMap(u)||u.ms==='rout'||u.side<0||u.side>=nSides())return;var s=ST(u);if(s.br!=='com'||s.dom!=='land'||u.st==='lift'||u.st==='ship')return;C.L[u.side].push(u);});}return C.L[side]||[];}
 function comNear(side,x,y,R){var b=null,bd=R;comUnits(side).forEach(function(c){var d=dist(c.x,c.y,x,y);if(d<=bd){bd=d;b=c;}});return b;}
 /* 兩點都在某個通信單位的範圍內 */
 function comBridge(side,a,b,R,still){var best=null,bs=1e18;comUnits(side).forEach(function(c){if(still&&stillFor(c)<still)return;var d1=dist(c.x,c.y,a.x,a.y),d2=dist(c.x,c.y,b.x,b.y);if(d1<=R&&d2<=R&&d1+d2<bs){bs=d1+d2;best=c;}});return best;}
 /* ---------- 上下級之間的一段：通信單位中繼 ---------- */
-(function(){var bh=hopDelay;hopDelay=function(a,b,dryRun){var o=bh(a,b,dryRun);if(!a||!b||!(o.sec>0)||a.side!==b.side||a.side<0||a.side>1)return o;var E=commEra(a,b),M=G.set.delayMul===undefined?1:G.set.delayMul,km=dist(a.x,a.y,b.x,b.y)/1000;
+(function(){var bh=hopDelay;hopDelay=function(a,b,dryRun){var o=bh(a,b,dryRun);if(!a||!b||!(o.sec>0)||a.side!==b.side||a.side<0||a.side>=nSides())return o;var E=commEra(a,b),M=G.set.delayMul===undefined?1:G.set.delayMul,km=dist(a.x,a.y,b.x,b.y)/1000;
   if(o.via==='courier'){/* 經通信單位中繼或架線：比傳令快才改用 */
     if(E.radio){var R=Math.max(15,(E.rr||6)*2)*1000,c=comBridge(a.side,a,b,R),rs=(E.radio*2+(E.relay||4))*60*M;if(c&&rs<o.sec){o.via='relay';o.sec=rs;o.risk=0;o.relay=c.id;return o;}}
     if(E.wire){var c2=comBridge(a.side,a,b,25000,1800);if(c2&&5*60*M<o.sec){o.via='wire';o.sec=5*60*M;o.risk=0;o.relay=c2.id;return o;}}
     var c3=comNear(a.side,a.x,a.y,12000)||comNear(a.side,b.x,b.y,12000);if(c3){o.sec*=0.62;o.rider=c3.id;}return o;}
   if(o.via==='radio'||o.via==='digital'){if(comNear(a.side,a.x,a.y,5000)||comNear(a.side,b.x,b.y,5000)){o.sec*=0.8;o.comBoost=1;}}return o;};})();
 /* 通信單位 5 公里內：無線電距離 ×1.5、干擾影響減半 */
-(function(){var b=commQ;commQ=function(a,b2,E){var o=b(a,b2,E);if(a&&a.side>=0&&a.side<=1&&(comNear(a.side,a.x,a.y,5000)||b2&&comNear(a.side,b2.x,b2.y,5000))){o=Object.assign({},o);o.r=(o.r||1)*1.5;o.j=(o.j===undefined?1:o.j)*0.5;}return o;};})();
+(function(){var b=commQ;commQ=function(a,b2,E){var o=b(a,b2,E);if(a&&a.side>=0&&a.side<nSides()&&(comNear(a.side,a.x,a.y,5000)||b2&&comNear(a.side,b2.x,b2.y,5000))){o=Object.assign({},o);o.r=(o.r||1)*1.5;o.j=(o.j===undefined?1:o.j)*0.5;}return o;};})();
 /* 傳令騎兵帶路：傳令被截的機會減半（見「通信」的截獲判定） */
 /* ---------- 情報回報：經指揮鏈送到最高司令部 ---------- */
 /* 一段路附近有敵軍（傳令兵可能被截） */
@@ -8315,7 +8359,7 @@ function repRoute(o){var top=sideCmd(o.side)||o;if(top.id===o.id)return {sec:0,h
   for(var i=1;i<ch.length;i++){var lo=ch[i-1],hi=ch[i],h=hopDelay(hi,lo,true),sec=h.sec;if(h.via==='courier'&&comThreat(lo,hi))sec=sec*2+600;s+=sec+(i<ch.length-1?uEra(hi).relay*60*M:0);hops.push(h.via);
     if(hi.hqLost&&hi.hqRe>G.t&&hi.id!==o.id){var w=hi.hqRe-G.t;if(w>wait){wait=w;hold=hi;}}}
   return {sec:s,hops:hops,wait:wait,hold:hold,top:top};}
-(function(){var b=reportDelay;reportDelay=function(o){if(!o||o.side<0||o.side>1)return b(o);if(o._rcT&&G.t-o._rcT<300)return o._rc;var R=repRoute(o),d=R.sec*0.8+R.wait;o._rc=d;o._rcT=G.t;return d;};})();
+(function(){var b=reportDelay;reportDelay=function(o){if(!o||o.side<0||o.side>=nSides())return b(o);if(o._rcT&&G.t-o._rcT<300)return o._rc;var R=repRoute(o),d=R.sec*0.8+R.wait;o._rc=d;o._rcT=G.t;return d;};})();
 /* 聯機：回報時間的快取不必同步 */
 if(typeof MPUX!=='undefined'){MPUX._rc=1;MPUX._rcT=1;}
 
@@ -8329,11 +8373,11 @@ function ffOn(){return !!(G&&G.set&&G.set.ffog);}
 /* 傳令路線附近的敵軍單位數 */
 function ffThreatN(a,b){var n=0;gridNear((a.x+b.x)/2,(a.y+b.y)/2,dist(a.x,a.y,b.x,b.y)/2+1500,function(e){if(e.side===a.side||e.side<0||e.st==='dead'||!onMap(e)||uDom(e)==='air')return;var q=segDist(e.x,e.y,a.x,a.y,b.x,b.y);if(q.d<1200&&q.t>0.05&&q.t<0.95)n++;});return n;}
 /* 失聯的原因：{k:'hq'|'cut',u:卡住的那一層} 或 null */
-function ffCut(u){if(!u||u.side<0||u.side>1||u.st==='off'||u.st==='dead'||!onMap(u)||u.irr)return null;var top=sideCmd(u.side);if(!top||top.id===u.id)return null;var ch=chainTo(top,u);
+function ffCut(u){if(!u||u.side<0||u.side>=nSides()||u.st==='off'||u.st==='dead'||!onMap(u)||u.irr)return null;var top=sideCmd(u.side);if(!top||top.id===u.id)return null;var ch=chainTo(top,u);
   for(var i=1;i<ch.length;i++){var hi=ch[i-1],lo=ch[i];if(hi.id!==u.id&&hi.hqLost&&hi.hqRe>G.t)return {k:'hq',u:hi};if(!onMap(hi)||!onMap(lo))continue;var h=hopDelay(hi,lo,true);if(h.via==='courier'&&ffThreatN(lo,hi)>=2)return {k:'cut',u:lo};}return null;}
 /* 最近仍有聯絡的友軍 */
 function ffNearOk(u){var b=null,bd=1e18;G.units.forEach(function(q){if(q===u||q.side!==u.side||!isLeaf(q)||q.ffo||!alive(q)||!onMap(q)||ST(q).dom!=='land')return;var d=dist(q.x,q.y,u.x,u.y);if(d<bd){bd=d;b=q;}});return b;}
-function ffStep(){if(!ffOn()||!G.started)return;if(!G._grid||!G._gf)gridBuild();G.units.forEach(function(u){if(u.side<0||u.side>1||!alive(u)||u.st==='off'||!onMap(u))return;var C=ffCut(u);
+function ffStep(){if(!ffOn()||!G.started)return;if(!G._grid||!G._gf)gridBuild();G.units.forEach(function(u){if(u.side<0||u.side>=nSides()||!alive(u)||u.st==='off'||!onMap(u))return;var C=ffCut(u);
     if(C&&!u.ffo){u.ffo=Math.max(1e-3,G.t);u.ffx=u.x;u.ffy=u.y;u.ffw=C.k;logE(u.side,'cmd','與'+uName(u)+'失去聯絡（'+(C.k==='hq'?uName(C.u)+'的司令部重建中':'傳令路線被敵軍阻斷')+'），該部依最後的命令自行行動',u.x,u.y,u.id);}
     else if(!C&&u.ffo){logE(u.side,'cmd','與'+uName(u)+'恢復聯絡（失聯 '+durTxt(G.t-u.ffo)+'）',u.x,u.y,u.id);delete u.ffo;delete u.ffx;delete u.ffy;delete u.ffw;delete u.ffA;}
     else if(C&&u.ffo)u.ffw=C.k;
@@ -8407,7 +8451,7 @@ function zedPick(C){var L=zedMix(C),t=0,i;for(i=0;i<L.length;i++)t+=L[i][1];var 
 function zedSize(k,n){return k==='w'?Math.max(1,Math.round(n*0.006)):k==='q'?Math.max(2,Math.round(n*0.04)):k==='v'?n*0.4:k==='b'?Math.max(2,Math.round(n*0.012)):k==='s'?n*2:k==='p'?Math.max(3,n*0.12):k==='r'?n*0.6:n;}
 function zedKN(C){return C.k==='parasite'?'寄生體':C.k==='mixed'?'屍群與寄生體':C.k==='eldritch'?'不可名狀之物':C.k==='all'?'屍群與不可名狀之物':'屍群';}
 /* ---------- 屍群：新增、就近併入 ---------- */
-function zedAdd(k,n,x,y){var Z=G.zed;if(!(n>=1)||!ZK[k])return null;var h={id:++Z.seq,k:k,n:n,x:x,y:y,tx:x,ty:y,st:'wan',tid:0,sn:[-1e9,-1e9],t0:G.t,wt:0};Z.H.push(h);Z.st.born+=n;return h;}
+function zedAdd(k,n,x,y){var Z=G.zed;if(!(n>=1)||!ZK[k])return null;var h={id:++Z.seq,k:k,n:n,x:x,y:y,tx:x,ty:y,st:'wan',tid:0,sn:sAV(-1e9),t0:G.t,wt:0};Z.H.push(h);Z.st.born+=n;return h;}
 function zedJoin(k,n,x,y){var Z=G.zed,b=null,bd=350;if(!(n>=1))return null;for(var i=0;i<Z.H.length;i++){var h=Z.H[i];if(h.k!==k||h.n<1)continue;var d=dist(h.x,h.y,x,y);if(d<bd){bd=d;b=h;}}
   if(b){var w=n/(b.n+n);b.x+=(x-b.x)*w;b.y+=(y-b.y)*w;b.n+=n;Z.st.born+=n;return b;}return zedAdd(k,n,x,y);}
 /* 在 (x,y) 半徑 R 內放出約 n 隻（依模式分成幾群不同種類）；par：巢穴決定是寄生蟲（1）、喪屍（0）還是不可名狀之物（2） */
@@ -8419,8 +8463,8 @@ function zedDead(x,y,n,k,dl,mil){var Z=G.zed;if(!Z||!(n>0))return;var t=G.t+dl,m
 /* ---------- 巢穴與感染源 ---------- */
 function zedNestN(N){return N.dem?'裂隙':N.par?'寄生蟲巢穴':'感染源';}
 function zedNestP(N){return N.dem?2:N.par;}
-function zedNest(x,y,C){var Z=G.zed,dem=C.k==='eldritch'||(C.k==='all'&&zr()<0.34),par=!dem&&(C.k==='parasite'||((C.k==='mixed'||C.k==='all')&&zr()<0.5)),hp=300+150*C.lv,N={id:++Z.seq,par:par?1:0,dem:dem?1:0,x:x,y:y,hp:hp,hp0:hp,nx:G.t+3600*ZLV[C.lv].iv*(0.3+0.4*zr()),sn:[0,0],nm:placeTxt(x,y)};Z.N.push(N);return N;}
-function zedNestHit(N,d,side,by){if(N.hp<=0||!(d>0))return;N.hp-=d;if(N.hp>0)return;N.hp=0;N.dt=G.t;var Z=G.zed;if(side===0||side===1)Z.st.nk[side]++;logE(-1,'zed',(by?by+'摧毀了':'')+zedNestN(N)+'（'+N.nm+'）',N.x,N.y);}
+function zedNest(x,y,C){var Z=G.zed,dem=C.k==='eldritch'||(C.k==='all'&&zr()<0.34),par=!dem&&(C.k==='parasite'||((C.k==='mixed'||C.k==='all')&&zr()<0.5)),hp=300+150*C.lv,N={id:++Z.seq,par:par?1:0,dem:dem?1:0,x:x,y:y,hp:hp,hp0:hp,nx:G.t+3600*ZLV[C.lv].iv*(0.3+0.4*zr()),sn:sA0(),nm:placeTxt(x,y)};Z.N.push(N);return N;}
+function zedNestHit(N,d,side,by){if(N.hp<=0||!(d>0))return;N.hp-=d;if(N.hp>0)return;N.hp=0;N.dt=G.t;var Z=G.zed;if(side>=0&&side<nSides())Z.st.nk[side]=(Z.st.nk[side]||0)+1;logE(-1,'zed',(by?by+'摧毀了':'')+zedNestN(N)+'（'+N.nm+'）',N.x,N.y);}
 /* 離部隊最遠的陸地（林地、廢墟、工業區、沼澤優先） */
 function zedFar(minD){var MP=G.map,best=null,bs=-1,U=G.units.filter(function(u){return onMap(u)&&isLeaf(u);});
   for(var i=0;i<80;i++){var x=MP.Wm*(0.08+0.84*zr()),y=MP.Hm*(0.08+0.84*zr()),k=cellAt(x,y),c=MP.lc[k];if(isWater(c))continue;var d=1e9;for(var j=0;j<U.length;j++){var q=dist(U[j].x,U[j].y,x,y);if(q<d)d=q;}
@@ -8432,7 +8476,7 @@ function zedLog(x,y,txt,R){var a=zedNear(0,x,y,R||5000),b=zedNear(1,x,y,R||5000)
 function zedVR(u){if(u._zvT===undefined||G.t-u._zvT>=600||G.t<u._zvT){u._zvT=G.t;var R=1500;try{R=visInfo(u).R;}catch(e){}u._zvR=R>0?R:0;}return u._zvR;}
 /* ---------- 爆發 ---------- */
 /* ---------- 手動指定的爆發地點：G.set.zed.pts=[{x,y,n,k,nest}]（開戰後爆發時一起出現；爆發後點選的立即出現） ---------- */
-function zedInit0(){if(!G.zed)G.zed={H:[],N:[],D:[],seq:0,rs:(hstr((G.set.seed||'')+'|zed')|0)||1,st:{k:[0,0],lost:[0,0],turn:[0,0],civ:0,kz:0,born:0,nk:[0,0],rise:0,cure:0},ts:G.t,go:0,nx:0};var Z=G.zed;if(!Z.H)Z.H=[];if(!Z.N)Z.N=[];if(!Z.D)Z.D=[];return Z;}
+function zedInit0(){if(!G.zed)G.zed={H:[],N:[],D:[],seq:0,rs:(hstr((G.set.seed||'')+'|zed')|0)||1,st:{k:sA0(),lost:sA0(),turn:sA0(),civ:0,kz:0,born:0,nk:sA0(),rise:0,cure:0},ts:G.t,go:0,nx:0};var Z=G.zed;if(!Z.H)Z.H=[];if(!Z.N)Z.N=[];if(!Z.D)Z.D=[];return Z;}
 function zedPtOk(p){var MP=G.map;return !!p&&typeof p==='object'&&isFinite(p.x)&&isFinite(p.y)&&p.x>=0&&p.y>=0&&p.x<MP.Wm&&p.y<MP.Hm;}
 function zedPtsOf(){var z=G.set&&G.set.zed;return z&&Array.isArray(z.pts)?z.pts.filter(zedPtOk).slice(0,80):[];}
 function zedAt(p,C){var x=+p.x,y=+p.y,n=clamp(Math.round(+p.n||300),1,20000),Z=G.zed;
@@ -8461,8 +8505,8 @@ function zedTimers(C){var Z=G.zed,L=ZLV[C.lv];
   /* 巢穴與感染源不斷放出新的屍群，直到被摧毀 */Z.N.forEach(function(N){if(N.hp<=0||G.t<N.nx)return;var n=zedSpawn(L.wave*(0.25+0.35*zr()),N.x,N.y,250,zedNestP(N));N.nx=G.t+3600*L.iv*(0.7+0.6*zr());if(n>0)zedLog(N.x,N.y,zedNestN(N)+'（'+N.nm+'）又湧出約 '+fmt(n)+(N.dem?' 個不可名狀之物':' 隻'),6000);});
   /* 死者復生 */if(Z.D.length){var keep=[],up=0;Z.D.forEach(function(d){if(G.t<d.t){keep.push(d);return;}if(d.n>=1){var p=zedLand(d.x,d.y,150);if(p&&zedJoin(d.k,d.n,p[0],p[1])){Z.st.rise+=d.n;up+=d.n;if(d.m&&d.n>=5)zedLog(d.x,d.y,placeTxt(d.x,d.y)+'約 '+fmt(d.n)+' 名陣亡官兵的屍體復生',4000);if(typeof fearArea==='function'&&d.n>=3)fearArea(p[0],p[1],1500,Math.min(18,4+Math.sqrt(d.n)),'rise');}}});Z.D=keep;}}
 /* 觀測：各方部隊依觀測距離（大群看得更遠）發現屍群；巢穴一經發現就一直標示 */
-function zedSee(){var Z=G.zed,MR=[0,0];G.units.forEach(function(u){if((u.side===0||u.side===1)&&onMap(u)&&isLeaf(u)){var R=zedVR(u);if(R>MR[u.side])MR[u.side]=R;}});
-  [0,1].forEach(function(s){if(!(MR[s]>0))return;Z.H.forEach(function(h){if(h.n<1)return;var sz=clamp(0.7+0.3*Math.log10(h.n+1),0.7,1.4),hr=zedR(h),f=false;
+function zedSee(){var Z=G.zed,MR=sA0();G.units.forEach(function(u){if(u.side>=0&&u.side<nSides()&&onMap(u)&&isLeaf(u)){var R=zedVR(u);if(R>MR[u.side])MR[u.side]=R;}});
+  SIDES().forEach(function(s){if(!(MR[s]>0))return;Z.H.forEach(function(h){if(h.n<1)return;if(h.sn[s]===undefined)h.sn[s]=-1e9;var sz=clamp(0.7+0.3*Math.log10(h.n+1),0.7,1.4),hr=zedR(h),f=false;
       var hide=ZK[h.k].hide;gridNearS(h.x,h.y,Math.min(12000,hide?hide+hr+50:MR[s]*sz+hr+50),s,function(u){if(f||!onMap(u)||!isLeaf(u))return;var R=zedVR(u)*sz;if(hide)R=Math.min(R,hide);if(R>0&&dist(u.x,u.y,h.x,h.y)<=R+hr)f=true;});
       if(f){if((h.n>=200||ZK[h.k].dem)&&G.t-h.sn[s]>3*3600){logE(s,'zed',ZK[h.k].dem?'官兵看見了無法形容的東西（'+ZK[h.k].n+'，約 '+fmt(h.n)+' 個），在'+placeTxt(h.x,h.y):'發現'+zedNm(h)+'：約 '+fmt(h.n)+' 隻，在'+placeTxt(h.x,h.y),h.x,h.y);if(G.onPause&&apOn('zed')&&zedNear(s,h.x,h.y,3000)&&G.t-(Z.apT||-1e9)>1800){Z.apT=G.t;G.onPause('屍群逼近');}}h.sn[s]=G.t;}});
     Z.N.forEach(function(N){if(N.sn[s]||N.hp<=0)return;var f=false;gridNearS(N.x,N.y,6000,s,function(u){if(!f&&onMap(u)&&isLeaf(u)&&dist(u.x,u.y,N.x,N.y)<=Math.min(zedVR(u),4000))f=true;});if(f){N.sn[s]=G.t;logE(s,'zed','發現'+zedNestN(N)+'：'+N.nm+'（摧毀它才能阻止新的屍群出現）',N.x,N.y);}});});}
@@ -8509,7 +8553,7 @@ function zedShoot(u,s,h,d,SA,HA,rE,rM){var K=ZK[h.k],rf=rangeF(d,rE,rM);if(!(rf>
   var k=strFrac(u)*rf*firerMod(u,s)*(DT/60*2)*FIRE_K*ZFK*half*mel*lgFire(u)*(0.75+0.5*zr())*(u.lg&&u.lg.eqF?(u.lg.eqF.acc||1):1),kill=(SA*K.sa+HA*(K.arm?penF(penE(u,s),K.arm)*3:0.15))*k*dens/K.hp;
   if(s.dom==='sea')kill*=0.5;kill=Math.min(kill,h.n);if(!(kill>0))return;zedKill(h,kill,u.side,u);u.ammo=Math.max(0,u.ammo-(s.fl.indexOf('x')>=0?12:s.dom==='sea'?0.1:0.5));u.fired=G.t;u.zfT=G.t;
   if(typeof FX!=='undefined'&&FX.cap&&FX.ev.length<5000){var a=zr()*2*PI,r=zedR(h)*0.6*Math.sqrt(zr());FX.ev.push({k:'fire',a:u,b:null,x0:u.x,y0:u.y,x1:h.x+Math.cos(a)*r,y1:h.y+Math.sin(a)*r,m:kill,zk:h.k});}}
-function zedKill(h,n,side,src){var Z=G.zed;n=Math.min(n,h.n);if(!(n>0))return;h.n-=n;Z.st.kz+=n;if(side===0||side===1)Z.st.k[side]+=n;if(src)src.zk=(src.zk||0)+n;if(ZK[h.k].burst)zedBurst(h,n);}
+function zedKill(h,n,side,src){var Z=G.zed;n=Math.min(n,h.n);if(!(n>0))return;h.n-=n;Z.st.kz+=n;if(side>=0&&side<nSides())Z.st.k[side]=(Z.st.k[side]||0)+n;if(src)src.zk=(src.zk||0)+n;if(ZK[h.k].burst)zedBurst(h,n);}
 /* 孢子體被打死時爆開：附近的官兵（防護等級高的較少）被感染，附近的居民也會被感染、之後屍變 */
 function zedBurst(h,n){var R=zedR(h)+250,f=ZK[h.k].burst;gridNear(h.x,h.y,R,function(u){if(!onMap(u)||!isLeaf(u)||ST(u).dom!=='land'||dist(u.x,u.y,h.x,h.y)>R)return;var mopp=typeof cbMopp==='function'?cbMopp(u):0,bit=Math.min(u.men*0.1,n*f*(mopp>=4?0.15:mopp>=2?0.5:1));if(bit>0.05){u.zi=Math.min(u.men*0.6,(u.zi||0)+bit);if(!u.ziT)u.ziT=G.t;u.zik='p';}});
   if(G.civ&&zedCfg().civ!==false)G.civ.S.forEach(function(g){if(dist(g.x,g.y,h.x,h.y)>g.r+R)return;var p=civPresent(g),c=Math.min(p*0.05,n*f*0.5);if(c>0.2){civCas(g,c,1,'zed',-1);G.zed.st.civ+=c;zedDead(g.x,g.y,c,'h',1200+1200*zr());}});
@@ -8664,19 +8708,19 @@ function gmRpGain(){var v=G&&G.set?+G.set.rpGain:0;return v>0?v:1;}
 /* ---------- 執行狀態：開戰時的最高司令部、傷亡基準、兵力票數、民心 ---------- */
 function gmM0(side){var m=0,v=0;G.units.forEach(function(u){if(u.side===side&&isLeaf(u)&&!u.irr){m+=u.men0||0;v+=u.veh0||0;}});return [Math.max(1,m),Math.max(1,v)];}
 function gmCk(side){return G.civ&&G.civ.cs&&G.civ.cs[side]?G.civ.cs[side].civK||0:0;}
-function gmInit(){var X=G.gm;if(X)return X;X=G.gm={hq:[0,1].map(function(s){var T=sideCmd(s);return T&&!isLeaf(T)?T.id:-1;}),pc:[0,1].map(function(s){var S=G.stats[s]||{};return {cas:S.cas||0,vl:S.vl||0,ck:gmCk(s)};}),
-  m0:[gmM0(0),gmM0(1)],own:{},tix:null,home:null,lw:[0,0],t0:G.t};(G.obj||[]).forEach(function(o){X.own[o.id]=o.own;});return X;}
+function gmInit(){var X=G.gm;if(X)return X;X=G.gm={hq:SIDES().map(function(s){var T=sideCmd(s);return T&&!isLeaf(T)?T.id:-1;}),pc:SIDES().map(function(s){var S=G.stats[s]||{};return {cas:S.cas||0,vl:S.vl||0,ck:gmCk(s)};}),
+  m0:SIDES().map(function(s){return gmM0(s);}),own:{},tix:null,home:null,lw:sA0(),t0:G.t};(G.obj||[]).forEach(function(o){X.own[o.id]=o.own;});return X;}
 function gmStep(){if(!G.started||G.over)return;var S=G.set,X=gmInit();
   /* 兵力票數：每兩分鐘結算（敵方控制的目標扣票、傷亡扣票） */
-  if(+S.tix>0){if(!X.tix)X.tix=[+S.tix,+S.tix];if(G.step%4===0)[0,1].forEach(function(s){var e=1-s,dr=0;(G.obj||[]).forEach(function(o){if(o.own===e)dr+=(o.pts||10)/10;});
+  if(+S.tix>0){if(!X.tix)X.tix=sAV(+S.tix);if(G.step%4===0)SIDES().forEach(function(s){var e=enemyOf(s),dr=0;if(X.tix[s]===undefined)X.tix[s]=+S.tix;(G.obj||[]).forEach(function(o){if(nSides()<3?o.own===e:hostile(s,o.own))dr+=(o.pts||10)/10;});
       var St=G.stats[s]||{},P=X.pc[s],dc=(St.cas||0)-(P.tc===undefined?P.cas:P.tc),dv=(St.vl||0)-(P.tv===undefined?P.vl:P.tv);P.tc=St.cas||0;P.tv=St.vl||0;X.tix[s]=Math.max(0,Math.round((X.tix[s]-dr*2-Math.max(0,dc)/20-Math.max(0,dv))*10)/10);});}
   /* 後方民心：每十分鐘依戰況調整 */
-  if(S.opin&&G.press&&G.press.home&&G.step%20===0){var H=G.press.home;[0,1].forEach(function(s){var e=1-s,me=G.stats[s]||{},en=G.stats[e]||{},P=X.pc[s],Q=X.pc[e],M=X.m0[s],ME=X.m0[e];
+  if(S.opin&&G.press&&G.press.home&&G.step%20===0){var H=G.press.home;SIDES().forEach(function(s){var e=enemyOf(s),me=G.stats[s]||{},en=G.stats[e]||{},P=X.pc[s],Q=X.pc[e],M=X.m0[s],ME=X.m0[e];
       var dc=(me.cas||0)-(P.hc===undefined?P.cas:P.hc),dv=(me.vl||0)-(P.hv===undefined?P.vl:P.hv),de=(en.cas||0)-(Q.he===undefined?Q.cas:Q.he),ck=gmCk(s)-(P.hk===undefined?P.ck:P.hk);
       var d=-Math.max(0,dc)/M[0]*80-Math.max(0,dv)/M[1]*20+Math.max(0,de)/ME[0]*25-Math.max(0,ck)/150-0.04;
       (G.obj||[]).forEach(function(o){var was=X.own[o.id];if(was===undefined)return;if(o.own===s&&was!==s)d+=2+(o.pts||10)/10;else if(was===s&&o.own!==s)d-=2+(o.pts||10)/10;});
       var h0=H[s];H[s]=clamp(Math.round((H[s]+d)*10)/10,0,100);[60,40,30].forEach(function(th){if(h0>=th&&H[s]<th){logE(s,'press','後方民心降到 '+fmt(H[s])+'：'+(th>=60?'國內出現反戰聲音':th>=40?'國會要求檢討作戰':'政府考慮停火')+(+S.supLose>0?'（低於 '+S.supLose+' 即戰敗）':''));}});});
-    [0,1].forEach(function(s){var me=G.stats[s]||{},P=X.pc[s];P.hc=me.cas||0;P.hv=me.vl||0;P.hk=gmCk(s);});[0,1].forEach(function(s){X.pc[s].he=(G.stats[s]||{}).cas||0;});
+    SIDES().forEach(function(s){var me=G.stats[s]||{},P=X.pc[s];P.hc=me.cas||0;P.hv=me.vl||0;P.hk=gmCk(s);});SIDES().forEach(function(s){X.pc[s].he=(G.stats[s]||{}).cas||0;});
     (G.obj||[]).forEach(function(o){X.own[o.id]=o.own;});}
   if(G.press&&G.press.home&&(G.step%20===0||!X.home))X.home=G.press.home.slice();}
 /* 新的勝負規則：斬首、票數歸零、民心崩潰（由 checkEnd 呼叫） */
@@ -8810,34 +8854,34 @@ function tfNm(F){if(!F)return '第三方';var K=TFK[F.k]||TFK.pk;return F.n===K.
 function tfTypes(k){var e=eraOfYear(G.set.y).k,L=Object.keys(UT).filter(function(q){var T=UT[q];return T.era===e&&(!T.dom||T.dom==='land')&&T.men>0;});if(!L.length)L=Object.keys(UT).filter(function(q){return UT[q].br==='inf';});
   var pick=function(brs){for(var i=0;i<brs.length;i++){var c=L.filter(function(q){return UT[q].br===brs[i];});if(c.length)return c[0];}return L[0];},inf=pick(['inf','mot','mech','sec','pike','cav']);
   if(k==='pk')return [pick(['mech','mot','inf']),inf,inf];if(k==='neu')return [inf,pick(['arm','mech','cav','inf']),inf];if(k==='mil')return [pick(['gue','inf','sec','mot'])];return [pick(['mech','mot','inf']),pick(['arm','mech','inf']),inf];}
-function tfInit(){if(G.tf&&G.tf.F)return G.tf;G.tf={F:[],U:[],seq:0,rs:(hstr((G.set.seed||'')+'|tf')|0)||1,st:{k:[0,0],lost:[0,0]}};return G.tf;}
+function tfInit(){if(G.tf&&G.tf.F)return G.tf;G.tf={F:[],U:[],seq:0,rs:(hstr((G.set.seed||'')+'|tf')|0)||1,st:{k:sA0(),lost:sA0()}};return G.tf;}
 /* 設定與實際的第三方對齊：新增的部署上場、修改的關係與名稱生效、刪除的撤出戰場 */
 function tfSync(){var X=tfInit(),S=(G.set.tf||[]).filter(tfOk);
-  S.forEach(function(c){var F=tfF(+c.id),rel=[0,1].map(function(s){var r=c.rel&&c.rel[s];return TFREL[r]?r:TFK[c.k].rel[s];});
-    if(!F){F={id:+c.id,k:c.k,n:String(c.n||TFK[c.k].n).slice(0,30),rel:rel.slice(),rv:+c.rv||0,gr:[0,0],wc:[0,0],vio:[0,0],warn:[0,0],x:+c.x,y:+c.y,cx:+c.x,cy:+c.y,r:clamp(+c.r||TFK[c.k].r,1000,30000),t0:G.t,req:null};X.F.push(F);tfSpawn(F,c);
+  S.forEach(function(c){var F=tfF(+c.id),rel=SIDES().map(function(s){var r=c.rel&&c.rel[s];return TFREL[r]?r:(TFK[c.k].rel[s]||'neu');});
+    if(!F){F={id:+c.id,k:c.k,n:String(c.n||TFK[c.k].n).slice(0,30),rel:rel.slice(),rv:+c.rv||0,gr:sA0(),wc:sA0(),vio:sA0(),warn:sA0(),x:+c.x,y:+c.y,cx:+c.x,cy:+c.y,r:clamp(+c.r||TFK[c.k].r,1000,30000),t0:G.t,req:null};X.F.push(F);tfSpawn(F,c);
       logE(-1,'tf','第三方「'+tfNm(F)+'」在'+placeTxt(F.x,F.y)+'：與'+G.sides[0].name+TFREL[F.rel[0]]+'、與'+G.sides[1].name+TFREL[F.rel[1]],F.x,F.y);return;}
-    /* 玩家（或房主）改了關係：版本號不同就整組套用 */if((+c.rv||0)!==(F.rv||0)){F.rv=+c.rv||0;[0,1].forEach(function(s){tfSetRel(F,s,rel[s],'協議變更');});}
+    /* 玩家（或房主）改了關係：版本號不同就整組套用 */if((+c.rv||0)!==(F.rv||0)){F.rv=+c.rv||0;SIDES().forEach(function(s){tfSetRel(F,s,rel[s],'協議變更');});}
     if(+c.x!==F.cx||+c.y!==F.cy){var dx=+c.x-F.cx,dy=+c.y-F.cy;F.cx=+c.x;F.cy=+c.y;F.x+=dx;F.y+=dy;X.U.forEach(function(g){if(g.f!==F.id)return;var p=validPos({dom:'land'},g.hx+dx,g.hy+dy);g.hx=p[0];g.hy=p[1];});}
     F.n=String(c.n||F.n).slice(0,30);F.r=clamp(+c.r||F.r,1000,30000);});
   var gone=X.F.filter(function(F){return !S.some(function(c){return +c.id===F.id;});});gone.forEach(function(F){logE(-1,'tf','第三方「'+F.n+'」撤出戰場',F.x,F.y);});
   if(gone.length){X.F=X.F.filter(function(F){return gone.indexOf(F)<0;});X.U=X.U.filter(function(g){return !!tfF(g.f);});}}
 function tfSpawn(F,c){var T=tfTypes(F.k),n=(TFSZ[c.sz]||TFSZ.bn)[0],X=G.tf;for(var i=0;i<n;i++){var ty=T[i%T.length],U=UT[ty],a=i/n*2*PI+0.4,d=n>1?Math.min(F.r*0.45,700+350*n):0,p=validPos({dom:'land'},F.x+Math.cos(a)*d,F.y+Math.sin(a)*d);
     var men=Math.round((U.men||100)*(F.k==='mil'?1.3:1)),veh=F.k==='mil'?0:Math.round(U.veh||0);
-    X.U.push({id:++X.seq,f:F.id,ty:ty,n:F.n+'第'+(i+1)+'連',x:p[0],y:p[1],hx:p[0],hy:p[1],hd:0,men:men,veh:veh,men0:men,veh0:veh,mor:TFK[F.k].mor,st:'ok',sn:[-1e9,-1e9],ub:[-1e9,-1e9],task:null,fired:-1e9,f0:0,uf:-1e9,mv:G.t,ent:0.2,cas:0,vl:0});}}
+    X.U.push({id:++X.seq,f:F.id,ty:ty,n:F.n+'第'+(i+1)+'連',x:p[0],y:p[1],hx:p[0],hy:p[1],hd:0,men:men,veh:veh,men0:men,veh0:veh,mor:TFK[F.k].mor,st:'ok',sn:sAV(-1e9),ub:sAV(-1e9),task:null,fired:-1e9,f0:0,uf:-1e9,mv:G.t,ent:0.2,cas:0,vl:0});}}
 /* ---------- 關係：設定、受害累積、抗議、轉為敵對 ---------- */
-function tfSetRel(F,s,r,why){if(!TFREL[r]||F.rel[s]===r)return;var o=F.rel[s];F.rel[s]=r;F.gr[s]=r==='host'?Math.max(F.gr[s],100):0;F.vio[s]=0;F.warn[s]=0;
+function tfSetRel(F,s,r,why){if(!TFREL[r]||F.rel[s]===r)return;var o=F.rel[s]||'neu';F.rel[s]=r;F.gr[s]=r==='host'?Math.max(F.gr[s]||0,100):0;F.vio[s]=0;F.warn[s]=0;
   logE(-1,'tf','第三方「'+F.n+'」與'+G.sides[s].name+'的關係：'+TFREL[o]+' → '+TFREL[r]+(why?'（'+why+'）':''),F.x,F.y);if(r==='host'&&G.onPause&&apOn('tf'))G.onPause(F.n+'轉為敵對');}
-function tfHarm(F,s,v,kind,src){if(!(v>0)||F.rel[s]==='host')return;var g0=F.gr[s];F.gr[s]+=v;var why=kind==='zone'?'部隊侵入領土':kind==='civ'?'平民遭到殺害':kind==='ff'?'誤擊':'遭到攻擊';
+function tfHarm(F,s,v,kind,src){if(!(v>0)||F.rel[s]==='host')return;var g0=F.gr[s]||0;F.gr[s]=g0+v;var why=kind==='zone'?'部隊侵入領土':kind==='civ'?'平民遭到殺害':kind==='ff'?'誤擊':'遭到攻擊';
   if(g0<40&&F.gr[s]>=40)logE(s,'tf','第三方「'+F.n+'」就'+why+'向'+G.sides[s].name+'提出嚴正抗議',F.x,F.y);
   if(F.rel[s]==='neu'&&F.gr[s]>=100)tfSetRel(F,s,'host',why);else if(F.rel[s]==='ally'&&F.gr[s]>=160)tfSetRel(F,s,'neu',why);
   if((F.k==='pk'||F.k==='neu')&&kind!=='zone'&&kind!=='civ'&&!F.wc[s]&&G.civ&&typeof warCrime==='function'){var top=src&&src.side===s?src:sideCmd(s);if(top){F.wc[s]=1;warCrime(top,'tf',0,G.sides[s].name+'的部隊攻擊'+TFK[F.k].n+'「'+F.n+'」',false);if(G.civ.rep)G.civ.rep[s]=clamp((G.civ.rep[s]===undefined?60:G.civ.rep[s])-(F.k==='pk'?12:6),0,100);}}}
 /* ---------- 每兩步：觀測、決策、移動、射擊、士氣 ---------- */
 function tfStep(){if(!tfOn()){if(G.tf&&G.tf.F.length){G.tf.F=[];G.tf.U=[];}return;}var X=tfInit();if(!X.syn||G.step%10===0){X.syn=1;tfSync();}if(!X.U.length)return;
   tfSee();if(G.step%4===0)tfThink();tfMove();tfFire();tfUFire();if(G.step%4===2)tfViol();tfMor();var n0=X.U.length;X.U=X.U.filter(function(g){return g.st!=='dead';});if(X.U.length!==n0)X.U.forEach(function(){});}
-function tfSee(){var X=G.tf;[0,1].forEach(function(s){X.U.forEach(function(g){var F=tfF(g.f);if(!F)return;if(tfRel(F,s)==='ally'){g.sn[s]=G.t;return;}var f=false,sig=g.veh>3?1:F.k==='mil'?0.7:0.85;
+function tfSee(){var X=G.tf;SIDES().forEach(function(s){X.U.forEach(function(g){if(g.sn[s]===undefined){g.sn[s]=-1e9;g.ub[s]=-1e9;}var F=tfF(g.f);if(!F)return;if(tfRel(F,s)==='ally'){g.sn[s]=G.t;return;}var f=false,sig=g.veh>3?1:F.k==='mil'?0.7:0.85;
     gridNearS(g.x,g.y,7000,s,function(u){if(f||!onMap(u)||!isLeaf(u))return;if(dist(u.x,u.y,g.x,g.y)<=zedVR(u)*sig)f=true;});
     if(f){if(G.t-g.sn[s]>6*3600)logE(s,'tf','發現第三方部隊：'+g.n+'（'+TFK[F.k].n+'，與本方'+TFREL[tfRel(F,s)]+'）',g.x,g.y);g.sn[s]=G.t;}});});}
-function tfEnemyNear(g,F,R){var best=null,bd=1e9;[0,1].forEach(function(s){if(tfRel(F,s)!=='host')return;gridNearS(g.x,g.y,R,s,function(u){if(!onMap(u)||!isLeaf(u)||ST(u).dom==='air')return;if(F.k==='neu'&&dist(u.x,u.y,F.x,F.y)>F.r+1500)return;var d=dist(u.x,u.y,g.x,g.y);if(d<bd){bd=d;best=u;}});});return best;}
+function tfEnemyNear(g,F,R){var best=null,bd=1e9;SIDES().forEach(function(s){if(tfRel(F,s)!=='host')return;gridNearS(g.x,g.y,R,s,function(u){if(!onMap(u)||!isLeaf(u)||ST(u).dom==='air')return;if(F.k==='neu'&&dist(u.x,u.y,F.x,F.y)>F.r+1500)return;var d=dist(u.x,u.y,g.x,g.y);if(d<bd){bd=d;best=u;}});});return best;}
 function tfThink(){G.tf.U.forEach(function(g){var F=tfF(g.f);if(!F||g.st==='dead')return;
   if(g.st==='rout'){var a=Math.atan2(g.y-F.y,g.x-F.x),far=dist(g.x,g.y,F.x,F.y)>F.r*0.8;g.task={k:'move',x:far?F.x:g.x+Math.cos(a)*1500,y:far?F.y:g.y+Math.sin(a)*1500};if(g.mor>=45&&G.t-g.uf>1200){g.st='ok';logE(-1,'tf',g.n+'重新整頓',g.x,g.y);}return;}
   var R=F.k==='exp'?15000:F.k==='neu'?F.r+1500:F.k==='mil'?2500:0,en=R?tfEnemyNear(g,F,R):null;
@@ -8850,7 +8894,7 @@ function tfMove(){var MP=G.map,night=G.env&&G.env.phase==='night';G.tf.U.forEach
   for(var k=0;k<7;k++){var aa=a+(k%2?1:-1)*Math.ceil(k/2)*0.45,nx=g.x+Math.cos(aa)*st,ny=g.y+Math.sin(aa)*st;if(nx<0||ny<0||nx>=MP.Wm||ny>=MP.Hm||!zedPass(nx,ny))continue;g.x=nx;g.y=ny;g.hd=aa;g.mv=G.t;break;}});}
 /* 第三方向敵對的部隊射擊（維和部隊只還擊；武裝團體的第一輪伏擊特別猛烈） */
 function tfFire(){G.tf.U.forEach(function(g){if(g.st==='dead'||g.men<1)return;var F=tfF(g.f),U=UT[g.ty];if(!F||!U)return;var rM=(U.rM||1500)*(g.st==='rout'?0.5:1),vr=Math.min(rM,(U.spot||2500)*1.1),best=null,bd=1e9;
-    [0,1].forEach(function(s){if(tfRel(F,s)!=='host')return;if(F.k==='pk'&&G.t-g.ub[s]>900)return;gridNearS(g.x,g.y,vr,s,function(u){if(!onMap(u)||!isLeaf(u)||ST(u).dom==='air')return;var d=dist(u.x,u.y,g.x,g.y);if(d<bd&&d<=vr){bd=d;best=u;}});});
+    SIDES().forEach(function(s){if(tfRel(F,s)!=='host')return;if(F.k==='pk'&&G.t-g.ub[s]>900)return;gridNearS(g.x,g.y,vr,s,function(u){if(!onMap(u)||!isLeaf(u)||ST(u).dom==='air')return;var d=dist(u.x,u.y,g.x,g.y);if(d<bd&&d<=vr){bd=d;best=u;}});});
     if(best)tfShootU(g,U,F,best,bd);});}
 function tfPen(U){return U.pen!==undefined?U.pen:(U.ha||1)*1.6+((U.hard||0)>=0.5?2:0);}
 function tfShootU(g,U,F,t,d){var ts=ST(t),rf=rangeF(d,U.rE||600,U.rM||1500);if(!(rf>0))return;var fr=clamp((g.men+g.veh*8)/Math.max(1,g.men0+g.veh0*8),0,1),mor=clamp(g.mor/70,0.3,1.2),amb=F.k==='mil'&&!g.f0?2.5:1;
@@ -8861,7 +8905,7 @@ function tfShootU(g,U,F,t,d){var ts=ST(t),rf=rangeF(d,U.rE||600,U.rM||1500);if(!
   if(typeof FX!=='undefined'&&FX.cap&&FX.ev.length<5000)FX.ev.push({k:'tfire',x0:g.x,y0:g.y,x1:t.x,y1:t.y,m:dmn,b:t,c:TFK[F.k].col});}
 /* 部隊向敵對的第三方射擊（依交戰規則；正在打敵軍的部隊分一半火力） */
 function tfUFire(){var X=G.tf;if(!X.U.some(function(g){return g.st!=='dead'&&(tfHost(g,0)||tfHost(g,1));}))return;
-  G.units.forEach(function(u){if((u.side!==0&&u.side!==1)||!onMap(u)||!isLeaf(u)||u.ms==='rout'||u.ammo<=0)return;var s=ST(u),heli=s.dom==='air'&&s.br==='heli'&&u.st==='air';if(s.dom!=='land'&&!heli)return;var SA=saOf(u,s),HA=haOf(u,s);if(SA<=0&&HA<=0)return;
+  G.units.forEach(function(u){if(!(u.side>=0&&u.side<nSides())||!onMap(u)||!isLeaf(u)||u.ms==='rout'||u.ammo<=0)return;var s=ST(u),heli=s.dom==='air'&&s.br==='heli'&&u.st==='air';if(s.dom!=='land'&&!heli)return;var SA=saOf(u,s),HA=haOf(u,s);if(SA<=0&&HA<=0)return;
     var op=optOf(u),roe=roeOf(u,op);if(roe==='hold')return;var rE=s.rE*rngF(u),rM=s.rM*rngF(u);if(heli){rE=Math.max(rE,800);rM=Math.max(rM,2500);}if(!(rM>0))return;if(u.mis&&G.t>=u.mis.start&&indOf(u,s)>0)return;
     var vr=Math.min(zedVR(u)*1.2,rM+600),best=null,bd=1e9;X.U.forEach(function(g){if(g.st==='dead'||g.men<1||!tfHost(g,u.side))return;var d=dist(u.x,u.y,g.x,g.y);if(d>rM||d>vr)return;if(roe==='return'&&!(G.t-(u.tfT||-1e9)<=120))return;if(roe==='close'&&d>Math.max(150,rE*0.5))return;if(d<bd){bd=d;best=g;}});
     if(best)tfShootG(u,s,best,bd,SA,HA,rE,rM);});}
@@ -8871,10 +8915,10 @@ function tfShootG(u,s,g,d,SA,HA,rE,rM){var U=UT[g.ty]||{},rf=rangeF(d,rE,rM);if(
   if(typeof FX!=='undefined'&&FX.cap&&FX.ev.length<5000)FX.ev.push({k:'fire',a:u,b:null,x0:u.x,y0:u.y,x1:g.x,y1:g.y,m:dmn});}
 /* 第三方部隊受損：傷亡、士氣、殲滅或潰散；非敵對的一方造成的損害累積成不滿 */
 function tfHitG(g,dm,dv,side,kind,src){if(g.st==='dead'||!(dm>0)&&!(dv>0))return;dm=Math.min(dm||0,g.men);dv=Math.min(dv||0,g.veh);g.men-=dm;g.veh-=dv;g.cas+=dm;g.vl+=dv;var F=tfF(g.f),X=G.tf;
-  g.mor=clamp(g.mor-(dm+dv*6)/Math.max(10,g.men0+g.veh0*6)*140,0,100);g.uf=G.t;if(side===0||side===1){g.ub[side]=G.t;X.st.k[side]+=dm;if(F)tfHarm(F,side,(dm+dv*8)*(kind==='fire'?4:2),kind,src);}
+  g.mor=clamp(g.mor-(dm+dv*6)/Math.max(10,g.men0+g.veh0*6)*140,0,100);g.uf=G.t;if(side>=0&&side<nSides()){g.ub[side]=G.t;X.st.k[side]=(X.st.k[side]||0)+dm;if(F)tfHarm(F,side,(dm+dv*8)*(kind==='fire'?4:2),kind,src);}
   if(g.men+g.veh*4<g.men0*0.08){g.st='dead';logE(-1,'tf','第三方「'+(F?F.n:'')+'」的'+g.n+'被殲滅',g.x,g.y);}else if(g.mor<25&&g.st==='ok'){g.st='rout';logE(-1,'tf','第三方「'+(F?F.n:'')+'」的'+g.n+'士氣崩潰、撤退',g.x,g.y);}}
 /* 中立國的領土：外國部隊停留二十分鐘提出警告，一小時後不滿逐漸累積 */
-function tfViol(){G.tf.F.forEach(function(F){if(F.k!=='neu')return;[0,1].forEach(function(s){if(F.rel[s]!=='neu')return;var n=0;gridNearS(F.x,F.y,F.r,s,function(u){if(onMap(u)&&isLeaf(u)&&ST(u).dom==='land'&&dist(u.x,u.y,F.x,F.y)<=F.r)n++;});
+function tfViol(){G.tf.F.forEach(function(F){if(F.k!=='neu')return;SIDES().forEach(function(s){if(tfRel(F,s)!=='neu')return;var n=0;gridNearS(F.x,F.y,F.r,s,function(u){if(onMap(u)&&isLeaf(u)&&ST(u).dom==='land'&&dist(u.x,u.y,F.x,F.y)<=F.r)n++;});
   if(!n){F.vio[s]=0;F.warn[s]=0;return;}if(!F.vio[s])F.vio[s]=G.t;var dt=G.t-F.vio[s];if(dt>=1200&&!F.warn[s]){F.warn[s]=1;logE(s,'tf','第三方「'+F.n+'」警告：'+G.sides[s].name+'的 '+n+' 個單位進入其領土，要求立即撤出',F.x,F.y);if(G.onPause&&apOn('tf'))G.onPause('中立國警告');}if(dt>=3600)tfHarm(F,s,4*n,'zone');});});}
 function tfMor(){G.tf.U.forEach(function(g){if(g.st==='dead')return;if(G.t-g.uf>1800&&g.mor<TFK[(tfF(g.f)||{}).k||'pk'].mor)g.mor=Math.min(100,g.mor+0.15);});}
 (function(){var b=v8Step;v8Step=function(){b.apply(this,arguments);if(G&&G.started&&!G.over&&G.step%2===0&&(tfOn()||G.tf&&G.tf.F.length))tfStep();};})();
@@ -8890,7 +8934,7 @@ function tfRequest(side,fid,k,x,y){var F=tfF(+fid);if(!F)return {err:'找不到�
   F.req={k:k==='attack'?'attack':'defend',x:+x,y:+y,t:G.t,side:side};logE(side,'tf','請求盟友「'+F.n+'」'+(F.req.k==='attack'?'攻擊':'防守')+placeTxt(+x,+y),+x,+y);if(G.tf.U.length)tfThink();return {ok:1};}
 /* ---------- 聯機：看得到的第三方部隊、所有第三方的關係 ---------- */
 if(typeof MPCOL!=='undefined'){MPCOL.push(['tfU','id',function(s){var X=G.tf;if(!X||!X.U)return [];return X.U.filter(function(g){return g.st!=='dead'&&(s<0||G.t-g.sn[s]<=150);}).map(function(g){return {id:g.id,f:g.f,ty:g.ty,n:g.n,x:Math.round(g.x),y:Math.round(g.y),hd:Math.round((g.hd||0)*10)/10,men:Math.round(g.men),veh:Math.round(g.veh),men0:g.men0,veh0:g.veh0,mor:Math.round(g.mor),st:g.st};});}]);
-  MPKEY.tfU='id';MPCC.tfU=function(){if(!G.tf)G.tf={F:[],U:[],seq:0,st:{k:[0,0],lost:[0,0]}};return G.tf.U||(G.tf.U=[]);};}
+  MPKEY.tfU='id';MPCC.tfU=function(){if(!G.tf)G.tf={F:[],U:[],seq:0,st:{k:sA0(),lost:sA0()}};return G.tf.U||(G.tf.U=[]);};}
 if(typeof mpValList==='function'){(function(){var b=mpValList;mpValList=function(s){var V=b.apply(this,arguments);if(G.tf&&G.tf.F)V.push(['tf.F',G.tf.F.map(function(F){return {id:F.id,k:F.k,n:F.n,rel:F.rel,x:F.x,y:F.y,r:F.r,gr:F.gr,req:F.req&&(s<0||F.req.side===s)?F.req:null};})]);return V;};})();}
 if(typeof MPFN!=='undefined')MPFN.tfRequest=[MPSIDE(0),function(a){return tfRequest(a[0],a[1],String(a[2]||''),+a[3],+a[4]);}];
 
@@ -8917,9 +8961,9 @@ var FGK={auto:['自動','缺水先取水；其次依季節與地形採集作物�
   scav:['搜刮廢墟與戰場','在廢墟、被毀的補給站與陣亡部隊的位置搜尋口糧、燃料與彈藥；可能誤觸未爆彈與詭雷，屍體附近有疾病風險']};
 var FGKL=['auto','crop','water','hunt','buy','req','loot','scav'];
 /* ---------- 狀態：已採收的作物與草料（每格）、獵物與漁獲（每平方公里）、搜過的廢墟、被毀補給站的殘骸、統計、亂數 ---------- */
-function fgS(){var X=G.fg;if(!X)X=G.fg={};if(!X.H){X.H={};X.F={};X.Gm={};X.P={};X.V={};X.R=X.R||[];X.st=X.st||[{},{}];X.rs=X.rs||(hstr((G.set.seed||'')+'|fg')|0)||1;}return X;}
+function fgS(){var X=G.fg;if(!X)X=G.fg={};if(!X.H){X.H={};X.F={};X.Gm={};X.P={};X.V={};X.R=X.R||[];X.st=X.st||sAO();X.rs=X.rs||(hstr((G.set.seed||'')+'|fg')|0)||1;}return X;}
 function fgr(){var X=fgS(),s=X.rs|0||1;s^=s<<13;s^=s>>>17;s^=s<<5;X.rs=s|0;return ((s>>>0)%1000003)/1000003;}
-function fgStat(side,k,v){if((side!==0&&side!==1)||!(v>0))return;var s=fgS().st[side];s[k]=(s[k]||0)+v;}
+function fgStat(side,k,v){if(!(side>=0&&side<nSides())||!(v>0))return;var S0=fgS().st,s=S0[side]||(S0[side]={});s[k]=(s[k]||0)+v;}
 function fgThirstOn(){return !G||!G.set||G.set.thirst!==false;}
 function fgAutoOn(){return !G||!G.set||G.set.autoForage!==false;}
 function fgSeason(){return seasonOf(now().m,G.map.lat0||35);}
@@ -9332,7 +9376,7 @@ function gasStep(){if(G.set.gasRet===false)return;var any=G.cbx&&G.cbx.length;G.
 /* ---------- 防護等級：依威脅自動調整（本方設定的等級是下限；威脅解除 30 分鐘後逐級降低） ---------- */
 function moppThreat(u){var x=u.x,y=u.y,lv=0;if(cbConc(x,y))return 4;var GR=G.cbgr;if(GR&&GR[cbGK(x,y)]>0.05)return 4;var wd=G.env.wd||0,dx=Math.cos(wd),dy=Math.sin(wd);
   (G.cbx||[]).forEach(function(C){var d=dist(x,y,C.x,C.y),R=C.r*1.6;if(d>R+4000)return;/* 單位在雲的下風處：較遠就要準備 */var down=(x-C.x)*dx+(y-C.y)*dy>0;if(d<R+1500||down)lv=3;});
-  var used=G.cbUse&&G.cbUse[1-u.side];if(used&&G.t-used<86400)lv=Math.max(lv,2);return lv;}
+  var used=G.cbUse&&(nSides()<3?G.cbUse[1-u.side]:Math.max.apply(null,[0].concat(hostSides(u.side).map(function(h){return G.cbUse[h]||0;}))));if(used&&G.t-used<86400)lv=Math.max(lv,2);return lv;}
 function moppStep(){var hot=G.cbx&&G.cbx.length||G.cbgr&&Object.keys(G.cbgr).length||G.cbUse;G.units.forEach(function(u){if(!isLeaf(u)||!onMap(u)||ST(u).dom!=='land')return;var S=SD(u.side);
   if(G.set.moppAuto===false){if(u.mopp!==undefined)delete u.mopp;return;}if(!hot&&u.mopp===undefined)return;var g=cbGear(u);if(!(g.mask>0)&&!(g.suit>0))return;
   var base=S.mopp||0,t=Math.max(base,hot?moppThreat(u):0),cur=u.mopp!==undefined?u.mopp:base;
@@ -9365,7 +9409,7 @@ function replHub(side){return nodesOf(side).some(function(N){return N.k!=='depot
 /* 增援點數：付不起的部分不補（回傳實際補得到的比例） */
 function replPay(u,dm,dv){if(typeof rpOn!=='function'||!rpOn())return 1;var w=(u.men0+u.veh0*8)||1,cost=fpMix(u.mix)*(dm+dv*8)/w*0.9;if(!(cost>0)||rpSpend(u.side,cost,'refit'))return 1;var have=Math.max(0,rpHave(u.side)),f=clamp(have/cost,0,1);if(have>0)rpSpend(u.side,have,'refit');return f;}
 function sustainStep(){var y=G.set.y||1943,day=y<1800?0.006:y<1900?0.01:y<1945?0.015:0.02,h=600/3600,M=replMul();
-  [0,1].forEach(function(side){var S=SD(side);if(S.repl===undefined){var m0=0;G.units.forEach(function(u){if(u.side===side&&isLeaf(u)&&!u.irr)m0+=u.men0||0;});S.repl=m0*0.15;S.replIn=m0*day/24;}
+  SIDES().forEach(function(side){var S=SD(side);if(S.repl===undefined){var m0=0;G.units.forEach(function(u){if(u.side===side&&isLeaf(u)&&!u.irr)m0+=u.men0||0;});S.repl=m0*0.15;S.replIn=m0*day/24;}
     var hub=replHub(side);if(hub)S.repl+=(S.replIn||0)*h*M;
     G.units.forEach(function(u){if(u.side!==side||!isLeaf(u)||!alive(u)||u.irr||u.st==='off'||!u.insup)return;var s=ST(u);if(s.dom==='sea'||s.dom==='sub'||s.fl.indexOf('G')>=0)return;if(s.dom==='air'?u.st!=='base':!onMap(u))return;
       if(G.t-(u.uf||-1e9)<3600||G.t-(u.fired||-1e9)<3600)return;var f=replNear(u)*M,dm=0,dv=0;
@@ -9394,19 +9438,19 @@ function crLeg1(m,a,b,h){if(h&&h.via==='courier'&&h.sec>0&&a&&b)m.lg=[crLeg(a,b,
 function crPos(L,t){var T=L.t1-L.f-L.t0,q=T>0?clamp((t-L.t0)/T,0,1):1;return [L.x0+(L.x1-L.x0)*q,L.y0+(L.y1-L.y0)*q,q];}
 function crAct(m,t){if(!m.lg||m.lost||m.st==='lost'||m.st==='ok')return null;for(var i=0;i<m.lg.length;i++){var L=m.lg[i];if(t>=L.t0&&t<L.t1)return L;}return null;}
 /* 所有帶傳令路程的訊息：命令、請求、回覆與上級指令（G.msgs）、指揮官之間（各方 tb.q）、回報與訊息（G.tx） */
-function crEach(fn){(G.msgs||[]).forEach(function(m){if(m.lg)fn(m,'m',m.side);});[0,1].forEach(function(s){var S=G.sides&&G.sides[s];if(S&&S.tb&&S.tb.q)S.tb.q.forEach(function(m){if(m.lg)fn(m,'t',s);});});(G.tx||[]).forEach(function(m){if(m.lg)fn(m,'x',m.side);});}
+function crEach(fn){(G.msgs||[]).forEach(function(m){if(m.lg)fn(m,'m',m.side);});SIDES().forEach(function(s){var S=G.sides&&G.sides[s];if(S&&S.tb&&S.tb.q)S.tb.q.forEach(function(m){if(m.lg)fn(m,'t',s);});});(G.tx||[]).forEach(function(m){if(m.lg)fn(m,'x',m.side);});}
 function crKey(m,src,s){return src==='t'?'t'+s+'_'+m.id:src+m.id;}
 function viaN(v,lg){if(v==='courier'){var k=lg&&lg.length?lg[0].k:null;return k&&CRK[k]?CRK[k][0]:'傳令';}if(v==='wire')return G&&G.set&&G.set.y<1905?'電報':'電話';if(v==='self')return '當面';return VIA[v]||v;}
 /* 通信專用的亂數（不影響戰鬥的亂數序列） */
 function rndT(){if(!G._rT)G._rT=mb32(hstr((G.set.seed||'')+'|tx|'+Math.floor(G.t)));return G._rT();}
 /* 收件匣：截獲、測向、敵軍來訊等不需處置的項目也放這裡 */
-function ibAdd(side,o){if(side!==0&&side!==1)return null;o.id=(G.mid=(G.mid||0)+1);o.t=G.t;o.side=side;var L=G.inbox=G.inbox||[];L.push(o);
+function ibAdd(side,o){if(!(side>=0&&side<nSides()))return null;o.id=(G.mid=(G.mid||0)+1);o.t=G.t;o.side=side;var L=G.inbox=G.inbox||[];L.push(o);
   if(L.length>400){var n=L.length-300;G.inbox=L.filter(function(q){if(n>0&&(q.done||/^(icpt|det|enmsg)$/.test(q.k))){n--;return false;}return true;});}return o;}
 
 /* ---------- 截獲：傳令經過敵軍附近（800 公尺，抵達後找人時 300 公尺），每分鐘依距離、敵軍兵種、晝夜與交通工具判定 ---------- */
 function crStep(){if(G.set.crCap===false)return;var t=G.t,night=G.env&&G.env.light<0.3;
-  crEach(function(m,src,side){var L=crAct(m,t);if(!L||L.k==='flag'||side!==0&&side!==1)return;var p=crPos(L,t),R=p[2]>=1?300:800,e=null,bd=R,own=R;
-    gridNearS(p[0],p[1],R,1-side,function(q){if(q.side===side||!onMap(q)||q.ms==='rout'||uDom(q)!=='land'||ST(q).fl.indexOf('u')>=0)return;var d=dist(q.x,q.y,p[0],p[1]);if(d<bd){bd=d;e=q;}});if(!e)return;
+  crEach(function(m,src,side){var L=crAct(m,t);if(!L||L.k==='flag'||!(side>=0&&side<nSides()))return;var p=crPos(L,t),R=p[2]>=1?300:800,e=null,bd=R,own=R;
+    hostSides(side).forEach(function(es){gridNearS(p[0],p[1],R,es,function(q){if(q.side===side||!onMap(q)||q.ms==='rout'||uDom(q)!=='land'||ST(q).fl.indexOf('u')>=0)return;var d=dist(q.x,q.y,p[0],p[1]);if(d<bd){bd=d;e=q;}});});if(!e)return;
     /* 在本方部隊之間穿行：比敵軍更近就不容易被截 */gridNearS(p[0],p[1],bd,side,function(q){if(q.side!==side||!onMap(q)||uDom(q)!=='land')return;var d=dist(q.x,q.y,p[0],p[1]);if(d<own)own=d;});
     var s=ST(e),fl=s.fl,x=1-bd/R,pc=0.25*x*x*(fl.indexOf('c')>=0||fl.indexOf('r')>=0||fl.indexOf('G')>=0||s.br==='rec'?1.6:1)*(night?0.7:1)*(L.k==='moto'||L.k==='car'?0.6:L.k==='runner'?1.2:1)*(L.r?0.5:1)*(own<bd?0.3:1);
     if(rndT()<pc)crCapture(m,src,side,L,p,e);});}
@@ -9433,7 +9477,7 @@ function txId(){return (G.txid=(G.txid||0)+1);}
 function repSend(u,txt,pri,cat){var top=repTop(u);if(!top)return null;var ch=top.id===u.id?[u]:chainTo(top,u).reverse(),R=txRoute(ch,G.t);
   var m={id:txId(),k:'rep',side:u.side,rs:u.side,tc:tmOn(u.side)?cmOf(u):-1,fu:u.id,tu:top.id,txt:txt,pri:pri,cat:cat,t0:G.t,ta:R.t,via:R.via.length?R.via:['self'],st:'go',x:Math.round(u.x),y:Math.round(u.y)};if(R.lg.length)m.lg=R.lg;
   (G.tx=G.tx||[]).push(m);if(u._rs)u._rs.lt=G.t;return m;}
-function repStep(){if(G.set.txRep===false)return;var t=G.t,cb=!!((G.cbx&&G.cbx.length)||G.cbgr);G.units.forEach(function(u){if(!isLeaf(u)||!onMap(u)||u.side<0||u.side>1||u.irr||aiControls(u))return;var s=ST(u);if(s.dom==='air')return;
+function repStep(){if(G.set.txRep===false)return;var t=G.t,cb=!!((G.cbx&&G.cbx.length)||G.cbgr);G.units.forEach(function(u){if(!isLeaf(u)||!onMap(u)||u.side<0||u.side>=nSides()||u.irr||aiControls(u))return;var s=ST(u);if(s.dom==='air')return;
     var sf=strFrac(u),sb=sf>=0.75?3:sf>=0.5?2:sf>=0.25?1:0,uf=t-(u.uf||-1e9)<90,fd=t-(u.fired||-1e9)<90,o=u.ord,fq=fuelDep(u)?fuelQ(u):1,
       N={c:uf||fd?2:u._eid&&u._ed<2500?1:0,ms:u.ms,sb:sb,ab:u.ammo<10?0:u.ammo<30?1:2,fb:fq<0.05?0:fq<0.25?1:2,gs:cb&&gasAt(u.x,u.y)>0.02?1:0,en:u.encT&&t-u.encT<600?1:0,oid:o?o.oid:0,dn:o&&o.st==='done'?1:0},P=u._rs;
     N.lt=P?P.lt:-1e9;N.lc=P?P.lc:-1e9;u._rs=N;if(!P)return;/* 第一次只記下狀態 */var R=[];
@@ -9454,7 +9498,7 @@ function txHQ(side,fc){var S=SD(side);if(tmOn(side))return cmTop(side,fc>=0?fc:0
 /* 加密要花時間：人工密碼本約 3 分鐘，自動加密機約 30 秒，數位網路不另計 */
 function encT(E,v){return v==='digital'?0:E.y<1970?180:30;}
 /* 兩個司令部之間可用的方式與時間（不動用亂數；供下令前預估） */
-function txWays(A,T){var E=commEra(A,T),M=G.set.delayMul===undefined?1:G.set.delayMul,km=dist(A.x,A.y,T.x,T.y)/1000,Q=commQ(A,T,E),W=[],side=A.side,own=side>=0&&side<=1&&T.side===side;if(Q.E)E=Q.E;
+function txWays(A,T){var E=commEra(A,T),M=G.set.delayMul===undefined?1:G.set.delayMul,km=dist(A.x,A.y,T.x,T.y)/1000,Q=commQ(A,T,E),W=[],side=A.side,own=side>=0&&side<nSides()&&T.side===side;if(Q.E)E=Q.E;
   if(E.dig&&Q.ok)W.push({v:'digital',sec:(E.radio||1.5)*60*Q.s*M});
   if(E.radio&&Q.ok){var rr=(E.rr||0)*Math.pow(2,clamp(Math.max(A.ech||1,T.ech||1)-1,0,4))*Q.r;if(km<=rr)W.push({v:'radio',sec:E.radio*60*Q.s*M});else if(own&&comBridge(side,A,T,Math.max(15,(E.rr||6)*2)*1000))W.push({v:'relay',sec:(E.radio*2+(E.relay||4))*60*M});}
   if(E.wire&&(km<=25&&stillFor(A)>3600&&stillFor(T)>3600||own&&comBridge(side,A,T,25000,1800)))W.push({v:'wire',sec:5*60*M});
@@ -9464,20 +9508,21 @@ function txPick(A,T,via,enc){var E=commEra(A,T),best=null;txWays(A,T).forEach(fu
 function txMake(k,side,rs,fc,tc,A,T,w,enc,txt,x,y,rp,lg){var m={id:txId(),k:k,side:side,rs:rs,fc:fc,tc:tc,fu:A.id,tu:T?T.id:0,via:[w.v],enc:enc?1:0,txt:txt,t0:G.t,ta:G.t+w.sec,st:'go'};if(x!==undefined&&y!==undefined){m.x=Math.round(x);m.y=Math.round(y);}if(rp)m.rp=rp;
   if(lg)m.lg=lg;else if(w.v==='courier'&&w.sec>0&&T)m.lg=[crLeg(A,T,G.t,w.sec,commEra(A,T),w,w.kind)];(G.tx=G.tx||[]).push(m);if(k!=='en'&&w.v!=='courier'&&w.v!=='wire')txListen(m,A,T);return m;}
 /* 無線電截收：明碼被 15 公里內有無線電的敵軍或 40 公里內的電子偵測單位聽到；密碼只被電子偵測單位測出大約的發訊位置 */
-function txListen(m,A,T){var es=1-m.side;if(es!==0&&es!==1)return;var hit=null,ew=null;[A,T].forEach(function(P){if(!P||P.side!==m.side)return;gridNearS(P.x,P.y,40000,es,function(e){if(e.side!==es||!onMap(e))return;var d=dist(e.x,e.y,P.x,P.y);if(d>=40000)return;if(!ew&&(utHasU(e,'E')||ST(e).br==='ew'))ew=e;if(!hit&&!m.enc&&d<15000&&uEra(e).radio>0)hit=e;});});
+function txListen(m,A,T){(nSides()<3?[1-m.side]:hostSides(m.side)).forEach(function(es){txListen1(m,A,T,es);});}
+function txListen1(m,A,T,es){if(!(es>=0&&es<nSides()))return;var hit=null,ew=null;[A,T].forEach(function(P){if(!P||P.side!==m.side)return;gridNearS(P.x,P.y,40000,es,function(e){if(e.side!==es||!onMap(e))return;var d=dist(e.x,e.y,P.x,P.y);if(d>=40000)return;if(!ew&&(utHasU(e,'E')||ST(e).br==='ew'))ew=e;if(!hit&&!m.enc&&d<15000&&uEra(e).radio>0)hit=e;});});
   if(!m.enc&&(hit||ew)){var by=hit||ew;ibAdd(es,{k:'icpt',txt:uName(by)+'截收'+G.sides[m.side].name+'的明碼'+viaN(m.via[0])+'通訊：「'+m.txt+'」',x:m.x,y:m.y,by:by.id});m.heard=1;if(G.onPause&&apOn('intel'))G.onPause('截收敵軍明碼通訊');}
   else if(m.enc&&ew&&A.side===m.side){var r=mb32(hstr('df|'+m.id)),px=A.x+(r()-0.5)*3000,py=A.y+(r()-0.5)*3000;ibAdd(es,{k:'det',txt:uName(ew)+'測得'+G.sides[m.side].name+'一個司令部的加密無線電通訊，約在'+placeTxt(px,py),x:Math.round(px),y:Math.round(py),by:ew.id});
     if(G.rq&&G.rq[es])G.rq[es].push({at:G.t+reportDelay(ew),id:A.id,x:px,y:py,t:G.t,q:0.5,by:ew.id});}}
 /* 發訊：to＝指揮官編號、'all'（本方其他指揮官）或 'en'（敵軍）；via＝auto（最快）、radio、wire、courier */
-function txSend(side,fc,to,via,enc,txt,x,y,rp){if(side!==0&&side!==1)return {err:'只能以本方的名義發訊。'};txt=String(txt||'').replace(/\s+/g,' ').trim().slice(0,300);if(!txt)return {err:'訊息是空的。'};
+function txSend(side,fc,to,via,enc,txt,x,y,rp){if(!(side>=0&&side<nSides()))return {err:'只能以本方的名義發訊。'};txt=String(txt||'').replace(/\s+/g,' ').trim().slice(0,300);if(!txt)return {err:'訊息是空的。'};
   var A=txHQ(side,fc);if(!A||!alive(A))return {err:'找不到發訊的司令部。'};if(!(isFinite(x)&&isFinite(y)&&x!==null&&y!==null)){x=undefined;y=undefined;}else{x=+x;y=+y;}via=via||'auto';
-  if(to==='en')return txEnemy(side,fc,A,via,txt,x,y,rp);var L=tmOn(side)?cmList(side):null,tg=[];
+  if(to==='en'||/^en[0-9]$/.test(String(to)))return txEnemy(side,fc,A,via,txt,x,y,rp,to==='en'?-1:+String(to).slice(2));var L=tmOn(side)?cmList(side):null,tg=[];
   if(to==='all'){if(L)L.forEach(function(R,j){if(j!==fc&&cmAlive(side,j))tg.push(j);});}else if(L&&L[+to]&&+to!==fc)tg.push(+to);if(!tg.length)return {err:L?'找不到收件的指揮官。':'本方只有一位指揮官，可以改向敵軍發訊。'};
   var out=[],err='';tg.forEach(function(j){var T=cmTop(side,j);if(!T)return;var w=txPick(A,T,via,enc);if(w.err){err=w.err;return;}out.push(txMake('msg',side,side,fc,j,A,T,w,enc,txt,x,y,rp));});
   if(!out.length)return {err:err||'無法送出。'};logE(side,'tx','（'+viaN(out[0].via[0],out[0].lg)+(enc?'・密':'・明')+'）'+txFromN(out[0])+' → '+(to==='all'?'全體友軍':txToN(out[0]))+'：'+txt+'（約 '+durTxt(out[0].ta-G.t)+' 後送達）',A.x,A.y,A.id);
   return {ok:1,id:out[0].id,sec:out[0].ta-G.t,via:out[0].via[0],msg:'訊息已送出：經'+viaN(out[0].via[0],out[0].lg)+'，約 '+durTxt(out[0].ta-G.t)+' 後送達'};}
 /* 對敵：明碼無線電（雙方都有無線電的年代），或派打白旗的軍使走到最近的敵軍部隊，再由對方轉呈司令部 */
-function txEnemy(side,fc,A,via,txt,x,y,rp){var es=1-side,T=sideCmd(es);if(!T)return {err:'找不到敵軍。'};var E=commEra(A,T),M=G.set.delayMul===undefined?1:G.set.delayMul,radio=uEra(A).radio>0&&uEra(T).radio>0,m;
+function txEnemy(side,fc,A,via,txt,x,y,rp,es){es=es>=0&&es!==side&&es<nSides()?es:enemyOf(side);var T=sideCmd(es);if(!T)return {err:'找不到敵軍。'};var E=commEra(A,T),M=G.set.delayMul===undefined?1:G.set.delayMul,radio=uEra(A).radio>0&&uEra(T).radio>0,m;
   if(via==='wire')return {err:'沒有通往敵軍的電報或電話線。'};if(via==='radio'&&!radio)return {err:'這個年代還沒有無線電，只能派軍使。'};
   if(radio&&via!=='courier')m=txMake('en',side,es,fc,-1,A,T,{v:'radio',sec:(E.radio+1)*60*M},0,txt,x,y,rp);
   else{var F=null,bd=1e18;G.units.forEach(function(u){if(u.side!==es||!isLeaf(u)||!onMap(u)||uDom(u)!=='land')return;var d=dist(u.x,u.y,A.x,A.y);if(d<bd){bd=d;F=u;}});if(!F)return {err:'找不到可以接收軍使的敵軍部隊。'};
@@ -9556,7 +9601,7 @@ function fearArea(x,y,R,v,k,side,ex){if(!fearOn()||!(v>0))return;var f=function(
   if(R<=GFR&&G._gf)gridNear(x,y,R,f);else G.units.forEach(f);}
 function fearTxt(u){var F=u.fk;if(!F)return u.frS||'';return Object.keys(F).filter(function(k){return F[k]>=1&&FRN[k];}).sort(function(a,b){return F[b]-F[a];}).slice(0,3).map(function(k){return FRN[k];}).join('、');}
 function fearLv(f){return f>=88?'恐慌':f>=65?'極度驚恐':f>=40?'驚恐':f>=15?'緊張':'鎮定';}
-function fearRep(u,txt,pri){if(G.set.txRep===false||!G.started||u.irr||u.side<0||u.side>1||(typeof aiControls==='function'&&aiControls(u))||typeof repSend!=='function')return;repSend(u,txt,pri,'fear');}
+function fearRep(u,txt,pri){if(G.set.txRep===false||!G.started||u.irr||u.side<0||u.side>=nSides()||(typeof aiControls==='function'&&aiControls(u))||typeof repSend!=='function')return;repSend(u,txt,pri,'fear');}
 /* ---------- 每一步（在士氣之前） ---------- */
 function fearStep(){if(!fearOn())return;var night=G.env&&G.env.light<0.3,Z=G.zed&&G.zed.go&&typeof zedOn==='function'&&zedOn()&&G.zed.H&&G.zed.H.length?G.zed:null,B=Z?zedBk():null,FS=null,DM=null;
   G.units.forEach(function(f){if(!onMap(f)||!alive(f))return;if(ST(f).fl.indexOf('F')>=0)(FS||(FS=[])).push(f);if(f.dmc){if(G.t<f.dmc.t1)(DM||(DM=[])).push(f);else dmcEnd(f);}if(f.lst&&G.t>=f.lst.t1)lstEnd(f);});
@@ -9602,7 +9647,7 @@ function lstCheck(u,why){if(!fearOn()||u.lst||(u.lstN||0)>=2||u.men<15||!fearOk(
 function lstStart(u,e,why){u.lst={t0:G.t,t1:G.t+1800,e:e.id};u.lstN=(u.lstN||0)+1;u.fear=0;delete u.fk;delete u.frS;u.mor=Math.max(u.mor,65);u.ms='ok';u.routT=0;
   var d=dist(u.x,u.y,e.x,e.y);activate(u,d<500?newOrder('attack',{x:e.x,y:e.y,x0:u.x,y0:u.y,dk:'lst',opt:{tac:'frontal',pace:'rush',tol:90}}):newOrder('defend',{x:u.x,y:u.y,face:Math.atan2(e.y-u.y,e.x-u.x),opt:{post:'holdfast'},dk:'lst'}));
   logE(u.side,'morale','〔背水一戰〕'+uName(u)+(why==='atro'?'知道投降只有死路一條，':'退無可退，')+'官兵決心死戰',u.x,u.y,u.id);fearRep(u,why==='atro'?'投降只有死路一條，全員死戰！':'退無可退，全員死戰！',1);
-  if(e.side===0||e.side===1)logE(e.side,'morale','已經潰散的敵軍突然回頭死戰（'+placeTxt(u.x,u.y)+'）',u.x,u.y);}
+  if(e.side>=0&&e.side<nSides())logE(e.side,'morale','已經潰散的敵軍突然回頭死戰（'+placeTxt(u.x,u.y)+'）',u.x,u.y);}
 function lstEnd(u){u.lst=null;if(!alive(u))return;u.org=Math.max(0,(u.org||0)-25);u.fat=Math.min(100,(u.fat||0)+20);u.fear=Math.max(u.fear||0,35);logE(u.side,'morale',uName(u)+'的死戰告一段落，倖存的官兵筋疲力竭',u.x,u.y,u.id);}
 /* 退不了也不投降：向敵軍反方向撤退 */
 function lstFall(u){var e=u._eid?uById(u._eid):null;if(!e||!onMap(e))return;var ax=u.x-e.x,ay=u.y-e.y,d=Math.hypot(ax,ay)||1,q=validPos({dom:'land'},u.x+ax/d*1500,u.y+ay/d*1500);if(!q)return;
@@ -9610,10 +9655,10 @@ function lstFall(u){var e=u._eid?uById(u._eid):null;if(!e||!onMap(e))return;var 
 /* ---------- 投降者遭處決的消息 ---------- */
 function nsrOf(u){var A=G.sides&&G.sides[u.side]&&G.sides[u.side].atro;if(!A||!A.n)return 0;var r=u.atH?0.8:0;if(A.all)r=Math.max(r,Math.min(0.8,0.3*A.n));return r;}
 function atroHear(u){if(u.atH)return false;u.atH=Math.max(1,G.t);fearAdd(u,12,'atro');return true;}
-function atroNews(side,x,y){if(!fearOn()||(side!==0&&side!==1))return;var S=G.sides[side],A=S.atro||(S.atro={n:0});A.n++;A.t=G.t;if(!A.t0)A.t0=Math.max(1,G.t);var n=0;
+function atroNews(side,x,y){if(!fearOn()||!(side>=0&&side<nSides()))return;var S=G.sides[side],A=S.atro||(S.atro={n:0});A.n++;A.t=G.t;if(!A.t0)A.t0=Math.max(1,G.t);var n=0;
   gridNear(x,y,3000,function(u){if(u.side===side&&fearOk(u)&&dist(u.x,u.y,x,y)<=3000&&atroHear(u))n++;});
   logE(side,'morale','投降的官兵遭敵軍處決的消息在附近部隊間傳開'+(n?'（'+n+' 個部隊得知）':'')+'：官兵更加恐懼，但不再願意投降',x,y);}
-function atroSpread(){[0,1].forEach(function(s){var A=G.sides[s]&&G.sides[s].atro;if(!A||!A.n)return;
+function atroSpread(){SIDES().forEach(function(s){var A=G.sides[s]&&G.sides[s].atro;if(!A||!A.n)return;
   G.units.forEach(function(u){if(u.side!==s||!u.atH||G.t-u.atH>6*3600||!fearOk(u))return;gridNear(u.x,u.y,2000,function(q){if(q.side!==s||q.atH||!fearOk(q)||dist(q.x,q.y,u.x,u.y)>2000)return;if(frr()<0.15)atroHear(q);});});
   if(!A.all&&G.t-A.t0>=7200){A.all=1;logE(s,'morale','投降者遭處決的消息已傳遍全軍：官兵寧可死戰或撤退，也不願投降');}});}
 /* ---------- 掛勾：士氣、射擊、傷亡、潰散、投降、戰爭罪行、核爆、轟炸 ---------- */
@@ -9628,7 +9673,7 @@ function atroSpread(){[0,1].forEach(function(s){var A=G.sides[s]&&G.sides[s].atr
 (function(){var b=goRout;goRout=function(u,s){if((u.dmc&&G.t<u.dmc.t1)||(u.lst&&G.t<u.lst.t1))return;b.apply(this,arguments);if(fearOn()&&onMap(u)&&ST(u).dom==='land')fearArea(u.x,u.y,1500,5,'rout',u.side,u);};})();
 (function(){var b=surrCheck;surrCheck=function(u,s,off,PF,rt,routing){if(u.lst&&G.t<u.lst.t1)return false;var r=fearOn()?nsrOf(u):0;
   if(r>0&&(u._ed||1e9)<1500&&frr()<r){/* 寧死不降：背水一戰，否則撤退 */if(!lstCheck(u,'atro')&&!routing&&!(u.ord&&u.ord.dk==='twd'))lstFall(u);return false;}return b.apply(this,arguments);};})();
-(function(){var b=warCrime;warCrime=function(u,kind,v){var e=b.apply(this,arguments);try{if(fearOn()&&u&&(kind==='exec'||kind==='powex')&&v>=1&&(u.side===0||u.side===1))atroNews(1-u.side,u.x,u.y);}catch(x){}return e;};})();
+(function(){var b=warCrime;warCrime=function(u,kind,v){var e=b.apply(this,arguments);try{if(fearOn()&&u&&(kind==='exec'||kind==='powex')&&v>=1&&u.side>=0&&u.side<nSides())(nSides()<3?[1-u.side]:hostSides(u.side)).forEach(function(es){atroNews(es,u.x,u.y);});}catch(x){}return e;};})();
 (function(){var b=nukeAt;nukeAt=function(side,x,y,Y){var r=b.apply(this,arguments);if(fearOn())fearArea(x,y,Math.min(20000,nukeR(Y)[3]*4),45,'nuke');return r;};})();
 (function(){var b=carpetHit;carpetHit=function(side,src,cx,cy,ang,L,W){var r=b.apply(this,arguments);if(fearOn())fearArea(cx,cy,Math.min(6000,Math.max(L,W)/2+1500),14,'bomb');return r;};})();
 
@@ -10300,7 +10345,7 @@ function rxStep(){var ev=[];G.units.forEach(function(u){if(!isLeaf(u))return;var
   ev.forEach(function(q){var v=q[0],k=q[1],big=(v.men0||100)>=300?1.4:1;gridNear(v.x,v.y,1800,function(u){if(u===v||!isLeaf(u)||!onMap(u)||ST(u).dom!=='land'||dist(u.x,u.y,v.x,v.y)>1800)return;
       if(u.side===v.side){if(k==='fall'){u.mor=clamp(u.mor-2*big,0,100);mfAdd(u,'near',-2*big);if(typeof fearAdd==='function')fearAdd(u,4*big,'cas');u.rxT=G.t;u.rxC=(u.rxC||0)+1;u.rxK='fall';}
         else if(k==='rout'||k==='surr'){u.mor=clamp(u.mor-1.5*big,0,100);mfAdd(u,'near',-1.5*big);if(typeof fearAdd==='function')fearAdd(u,3*big,'cas');u.rxT=G.t;u.rxC=(u.rxC||0)+1;u.rxK=k==='rout'?'rout':'fsurr';}}
-      else if(v.side>=0&&u.side>=0&&v.side<=1&&u.side<=1){u.mor=clamp(u.mor+(k==='fall'?1.5:1)*big,0,100);mfAdd(u,'near',(k==='fall'?1.5:1)*big);u.rxT=G.t;u.rxC=(u.rxC||0)+1;u.rxK=k==='surr'?'esurr':'ewin';}});});}
+      else if(v.side>=0&&u.side>=0&&v.side<nSides()&&u.side<nSides()){u.mor=clamp(u.mor+(k==='fall'?1.5:1)*big,0,100);mfAdd(u,'near',(k==='fall'?1.5:1)*big);u.rxT=G.t;u.rxC=(u.rxC||0)+1;u.rxK=k==='surr'?'esurr':'ewin';}});});}
 (function(){var b=v8Step;v8Step=function(){b();if(!G.started)return;if(G.step%4===2)rxStep();if(G.step%20===13){evdStep();evdPoisonStep();}if(G.step%120===17)evdDecay();};})();
 /* 線上：證據清單整份同步；部隊的記號不送 */
 if(typeof MPCOL!=='undefined'){MPCOL.push(['evd','id',function(s){return (G.evd||[]).filter(function(e){return s<0||e.found&&e.found[s];}).map(function(e){if(s<0)return e;var c=Object.assign({},e),f={},d={};f[s]=e.found[s];if(e.doc&&e.doc[s])d[s]=e.doc[s];c.found=f;c.doc=d;return c;});}]);MPCC.evd=function(){return G.evd||(G.evd=[]);};MPKEY.evd='id';}if(typeof MPUX!=='undefined'){MPUX.evS=1;MPUX._rxA=1;MPUX._rxM=1;MPUX._rxS=1;MPUX.pnA=1;MPUX.pnLog=1;}
@@ -10386,8 +10431,8 @@ function damLeaf(u,s,o){var d=damById(o.opt.id),a=o.opt.act;if(!d){u.ord=null;u.
 (function(){var b=v4Act;v4Act=function(u,o){if(o.k==='dam')return damAct(u,o);return b(u,o);};})();
 (function(){var b=v4Leaf;v4Leaf=function(u,s){var o=u.ord;if(o&&o.k==='dam'&&o.opt)return damLeaf(u,s,o);return b(u,s);};})();
 /* ---------- AI：形勢危急、敵軍就在堤防保護的低地上，極端政策的一方可能決堤 ---------- */
-function damAI(){if(!damOn())return;[0,1].forEach(function(side){var S=SD(side);if(!S||!S.ai||polSide(side).civ<3)return;var mine=0,theirs=0;G.units.forEach(function(u){if(!isLeaf(u)||!onMap(u))return;if(u.side===side)mine+=u.men+u.veh*8;else if(u.side===enemyOf(side))theirs+=u.men+u.veh*8;});if(!(theirs>mine*1.6))return;
-  damL().forEach(function(d){if(d.st!=='ok')return;var D=damField(d),cs=G.map.cs,en=0,own=0;G.units.forEach(function(u){if(!isLeaf(u)||!onMap(u)||ST(u).dom!=='land')return;var dk=D[cellAt(u.x,u.y)];if(dk===65535||dk*cs>damRmax(d)*0.8)return;if(u.side===side)own+=u.men;else if(u.side===enemyOf(side))en+=u.men+u.veh*8;});
+function damAI(){if(!damOn())return;SIDES().forEach(function(side){var S=SD(side);if(!S||!S.ai||polSide(side).civ<3)return;var mine=0,theirs=0;G.units.forEach(function(u){if(!isLeaf(u)||!onMap(u))return;if(u.side===side)mine+=u.men+u.veh*8;else if(nSides()<3?u.side===enemyOf(side):hostile(side,u.side))theirs+=u.men+u.veh*8;});if(!(theirs>mine*1.6))return;
+  damL().forEach(function(d){if(d.st!=='ok')return;var D=damField(d),cs=G.map.cs,en=0,own=0;G.units.forEach(function(u){if(!isLeaf(u)||!onMap(u)||ST(u).dom!=='land')return;var dk=D[cellAt(u.x,u.y)];if(dk===65535||dk*cs>damRmax(d)*0.8)return;if(u.side===side)own+=u.men;else if(nSides()<3?u.side===enemyOf(side):hostile(side,u.side))en+=u.men+u.veh*8;});
     if(en<600||own>en*0.3||(hstr('damai|'+d.id+'|'+Math.floor(G.t/7200))%100)>=30)return;var eng=null,bd=15000;G.units.forEach(function(u){if(u.side!==side||!isLeaf(u)||!onMap(u)||!isEng(u)||typeof busyF==='function'&&busyF(u))return;var r=dist(u.x,u.y,d.x,d.y);if(r<bd){bd=r;eng=u;}});
     if(eng&&!(eng.ord&&eng.ord.k==='dam')){activate(eng,newOrder('dam',{x:d.x,y:d.y,opt:{id:d.id,act:'blow'}}));logE(side,'eng',uName(eng)+'奉命前往'+d.n+'準備決堤，以水阻敵',eng.x,eng.y,eng.id);}});});}
 (function(){var b=v8Step;v8Step=function(){b();if(!G.started)return;if(G.step===1||!G.dams)damGen();if(G.step%20===9)damStep();if(G.step%60===41)damAI();};})();
@@ -10569,7 +10614,7 @@ function fkClear(P,o,how){if(P.done)return;P.done=1;var C=G.ct[P.side];if(C)dele
   if(P.st==='mis'&&o)logE(P.side,'contact',uName(o)+(P.k==='S'?'進一步查看：'+(fkSrc(P)?fkSrc(P).n:placeTxt(P.x,P.y))+'裡只有居民，沒有敵軍':'靠近查看：'+placeTxt(P.x,P.y)+'的「敵軍」其實是逃難的平民'),P.x,P.y,o.id);}
 /* 每 2 分鐘：各方觀察前線附近的難民隊伍與村落 */
 function fkStep(){if(!fkOn()||!G.started)return;var C=G.civ;FKC.t=-1;
-  [0,1].forEach(function(s){if(!G.sides[s])return;var B=ctGridH(s);
+  SIDES().forEach(function(s){if(!G.sides[s])return;var B=ctGridH(s);
     C.R.forEach(function(Q){if(Q.n<8||!(Q.st==='go'||Q.st==='stop'||Q.st==='trap'))return;fkLookR(s,B,Q);});
     C.S.forEach(function(g,i){if(civPresent(g)<30)return;fkLookS(s,B,g,i);});});
   fkUpkeep();}
@@ -10741,6 +10786,141 @@ ldAA=function(u,s){var v=s.aa||0,L=ldOf(u);return L?v*L.aa:v;};
 (function(){var b=hit;hit=function(t,src,dm,dv,sup,kind){var L=src&&ldOf(src);if(L&&t){var ts=ST(t),f=ts.dom==='sea'||ts.dom==='sub'?L.ship:L.ad&&ts.dom==='land'&&((ts.aa||0)>0||ts.br==='ad')?L.ad:1;if(f!==1){dm*=f;dv*=f;}}return b.call(this,t,src,dm,dv,sup,kind);};})();
 /* 平民：精準武器誤傷較少，炸彈較多 */
 (function(){var b=civHitAir;civHitAir=function(a,s,x,y,SA,fr,dm,area){var L=ldOf(a);return b.call(this,a,s,x,y,L?SA*L.civ:SA,fr,dm,area);};})();
+
+/* ==== h76_tri.js ==== */
+/* ===================== 三方作戰：第三個由玩家或 AI 指揮的完整陣營（三方對戰，例如 3 對 3 對 3），開場與兩軍中立 =====================
+   有第三方（G.sides[2]）時啟用；沒有第三方時一切照舊。各方之間的關係（G.dip）：交戰、中立、同盟，預設藍軍與紅軍交戰、第三方與兩軍中立。
+   只有交戰的對象算敵軍：觀測回報、情報圖（G.ct）、射擊與突擊、防空與空戰、砲兵與航空支援、AI 都只看交戰對象；
+   中立與同盟的部隊另記在 G.ctN（看得到就知道，不必經指揮鏈回報），地圖上以各方的顏色與中立的方框顯示。
+   砲擊、轟炸、核武波及非交戰方的部隊會留下積怨（G.dipG）並通知雙方。AI 指揮的一方積怨夠深、本土被侵入太久，
+   或看見趁火打劫的機會（交戰中的一方兵力大減、自己相對強大）就會宣戰；戰況不利時提議停火；與共同的敵人交戰時提議結盟。
+   玩家在「外交」面板宣戰、提議停火或結盟、回應對方的提議（聯機時由該方的指揮官）。同盟之間共享情報；背棄同盟會失去國際聲望，官兵也會動搖。
+   一方兵力崩潰就退出戰局，最後只剩一方或時間到時依分數排名。 */
+var DIPK={war:'交戰',neu:'中立',ally:'同盟'};
+if(typeof KINDN!=='undefined')KINDN.dip='外交';
+if(typeof APDEF!=='undefined')APDEF.dip=true;
+/* 第三方的開場關係：與藍軍、與紅軍 */
+var TRIREL={neu:['neu','neu','與兩軍中立'],war:['war','war','與兩軍交戰（三方混戰）'],a0:['ally','war','與藍軍同盟'],a1:['war','ally','與紅軍同盟']};
+function triRelInit(k){var R=TRIREL[k]||TRIREL.neu,D=[[null,'war',R[0]],['war',null,R[1]],[R[0],R[1],null]];return D;}
+/* ---------- 加入第三方：補齊各方的陣列（情報圖、回報、統計、民心……），之後由兵力編成或快速想定加入部隊 ---------- */
+function triPadArr(a,mk){if(!Array.isArray(a))return;while(a.length<nSides())a.push(mk());}
+function triPad(){var z=function(){return 0;},o=function(){return {};},l=function(){return [];};
+  if(!G.ct)G.ct=[];triPadArr(G.ct,o);if(!G.rq)G.rq=[];triPadArr(G.rq,l);if(!G.ctN)G.ctN=[];triPadArr(G.ctN,o);triPadArr(G.stats,stat0);
+  if(G.civ){var C=G.civ;triPadArr(C.cs,civStat0);if(Array.isArray(C.rep))triPadArr(C.rep,function(){return 60;});if(C.prop)triPadArr(C.prop.mil,z);triPadArr(C.occ,z);if(C.intel){triPadArr(C.intel.n,z);triPadArr(C.intel.lie,z);}
+    (C.S||[]).forEach(function(g){if(Array.isArray(g.att))triPadArr(g.att,z);});}
+  ['tpSusp','cbUse','reg','cost'].forEach(function(k){if(Array.isArray(G[k]))triPadArr(G[k],k==='reg'?l:k==='cost'?o:z);});
+  if(G.aw){triPadArr(G.aw.s,o);triPadArr(G.aw.cnt,o);triPadArr(G.aw.zn,l);triPadArr(G.aw.lg,o);}
+  if(G.fg&&G.fg.st)triPadArr(G.fg.st,o);if(G.gm){var X=G.gm;['pc','m0','lw','tix','home','hq'].forEach(function(k){if(Array.isArray(X[k]))triPadArr(X[k],k==='pc'?function(){return {cas:0,vl:0,ck:0};}:k==='hq'?function(){return -1;}:z);});}
+  if(G.zed&&G.zed.st){var Z=G.zed.st;['k','lost','turn','nk'].forEach(function(k){triPadArr(Z[k],z);});}
+  if(G.tf&&G.tf.st){triPadArr(G.tf.st.k,z);triPadArr(G.tf.st.lost,z);}
+  if(G.bt)(G.bt.list||[]).forEach(function(R){triPadArr(R.u,o);['men','veh','init','later','reinf'].forEach(function(k){triPadArr(R[k],z);});});
+  (G.fac||[]).forEach(function(F){if(Array.isArray(F.kn))triPadArr(F.kn,function(){return -1;});if(Array.isArray(F.knT))triPadArr(F.knT,z);});
+  if(G.press&&Array.isArray(G.press.home))triPadArr(G.press.home,function(){return 60;});}
+/* o：{name, color, edge, ai, rel}；回傳第三方 */
+function triAdd(o){o=o||{};if(nSides()>=3)return G.sides[2];var S=newSide(2);if(o.name)S.name=String(o.name).slice(0,30);if(o.color)S.color=o.color;if(o.edge&&/^[NSWE]$/.test(o.edge))S.edge=o.edge;if(o.ai!==undefined)S.ai=!!o.ai;
+  G.sides.push(S);G.dip=triRelInit(o.rel||'neu');G.dipV=(G.dipV||0)+1;triPad();if(typeof polGen==='function'&&G.civ&&!polSide(2).gen){polGen(2);polSide(2).gen=1;}
+  logE(-1,'dip','第三方「'+S.name+'」加入戰局：'+(TRIREL[o.rel||'neu']||TRIREL.neu)[2]);return S;}
+/* 第三方的兵力：依想定的部隊清單（通常取藍軍的清單、同一年代）按比例建立，部署在第三方的地圖邊 */
+var TRISZ={s:[0.34,'約三分之一'],m:[0.5,'約一半'],e:[1,'與藍軍相當']};
+function triForces(L,sz,gran){var k=TRISZ[sz]?sz:'m',f=TRISZ[k][0],r=mb32(hstr((G.set.seed||'')+'|tri|orbat')),F=[];
+  (L||[]).forEach(function(p){var n=Math.max(1,Math.round((p[1]||1)*f));for(var i=1;i<=n;i++){var era=p[3]||null,nm=p[2]?fmtName(p[2],i):null,top=FPI[p[0]]?buildPreset(2,p[0],nm,-1,r,p[4]||gran||'co',era):UT[p[0]]?addLeaf(2,p[0],1,nm,-1,r):null;if(top){top.ix=i;F.push(top);}}});
+  reix();if(F.length)autoDeploy2(2,F);if(typeof renameSide==='function'){var S=G.sides[2];S.nm=Object.assign({},S.nm||{},{num:'rand'});try{renameSide(2);}catch(e){}}dupNames();return F;}
+/* 第三方的本土目標：本土裡最大的聚落 */
+function triObj(){var MP=G.map,Z=triHome(2),best=null;(MP.set||[]).forEach(function(q){var x=q.x*MP.cs,y=q.y*MP.cs;if(x<Z.x0||x>Z.x1||y<Z.y0||y>Z.y1)return;if(!best||q.pop>best.pop)best=q;});if(!best)return null;
+  var x=best.x*MP.cs,y=best.y*MP.cs;if((G.obj||[]).some(function(o){return dist(o.x,o.y,x,y)<3000;}))return null;var o={id:(G.obj||[]).reduce(function(m,q){return Math.max(m,q.id||0);},0)+1,name:best.name||placeTxt(x,y),x:x,y:y,own:2,pts:10,r:Math.max(600,(best.r||400)*1.3)};(G.obj=G.obj||[]).push(o);return o;}
+/* 移除第三方（開戰前）：部隊一併刪除 */
+function triDel(){if(nSides()<3||G.started)return false;G.units=G.units.filter(function(u){return u.side!==2;});G.sides.length=2;['ct','rq','ctN','stats'].forEach(function(k){if(Array.isArray(G[k]))G[k].length=Math.min(G[k].length,2);});G.dip=null;G.dipV=(G.dipV||0)+1;if(typeof reix==='function')reix();return true;}
+/* ---------- 關係 ---------- */
+function relName(r){return DIPK[r]||r;}
+function ctNOf(s){if(!G.ctN)G.ctN=[];while(G.ctN.length<nSides())G.ctN.push({});return G.ctN[s]||(G.ctN[s]={});}
+/* 依 a 對 b 的關係，把 a 情報圖裡 b 方的接觸放到對的地方（交戰：G.ct；其他：G.ctN） */
+function dipMoveCt(a,b){var C=G.ct[a],N=ctNOf(a),h=hostile(a,b),id;if(!C)return;
+  if(h){for(id in N){var c=N[id];if(c.side!==b)continue;delete N[id];if(!C[id]||C[id].t<c.t)C[id]=c;}}
+  else{for(id in C){var c2=C[id];if(c2.side!==b||+id>=9e8)continue;delete C[id];if(!N[id]||N[id].t<c2.t)N[id]=c2;}
+    if(G.rq&&G.rq[a])G.rq[a]=G.rq[a].filter(function(r){var t=uById(r.id);return !t||t.side!==b;});}}
+function everWar(a,b){var W=G.dipW;return !!(W&&W[Math.min(a,b)+'-'+Math.max(a,b)]);}
+function relSet(a,b,r,why,who){if(!(a>=0&&b>=0)||a===b||a>=nSides()||b>=nSides()||!DIPK[r]||!G.dip)return false;var o=relOf(a,b);if(o===r)return false;
+  G.dip[a][b]=r;G.dip[b][a]=r;G.dipV=(G.dipV||0)+1;if(r==='war'){G.dipW=G.dipW||{};G.dipW[Math.min(a,b)+'-'+Math.max(a,b)]=G.t;}
+  dipMoveCt(a,b);dipMoveCt(b,a);(G.dipP||[]).forEach(function(P){if(P.st==='open'&&(P.a===a&&P.b===b||P.a===b&&P.b===a))P.st='void';});
+  var A=G.sides[a].name,B=G.sides[b].name,txt=r==='war'?'⚔ '+A+'向'+B+'宣戰':r==='ally'?'🤝 '+A+'與'+B+'結盟':o==='war'?'🕊 '+A+'與'+B+'停火，轉為中立':'⚖ '+A+'與'+B+'的同盟結束，轉為中立';
+  (G.dipH=G.dipH||[]).push({t:G.t,a:a,b:b,o:o,r:r,why:why||'',who:who||''});if(G.dipH.length>200)G.dipH.splice(0,G.dipH.length-200);
+  logE(-1,'dip',txt+(why?'（'+why+'）':''));if(typeof decLog==='function')try{decLog(a,who||'指揮部',txt+(why?'（'+why+'）':''));}catch(e){}
+  /* 背棄同盟：國際聲望下降，官兵動搖 */if(o==='ally'&&r==='war'){if(G.civ&&G.civ.rep)G.civ.rep[a]=clamp((G.civ.rep[a]===undefined?60:G.civ.rep[a])-15,0,100);G.units.forEach(function(u){if(u.side===a&&isLeaf(u)&&alive(u))u.mor=clamp(u.mor-4,0,100);if(u.side===b&&isLeaf(u)&&alive(u))u.mor=clamp(u.mor-6,0,100);});}
+  if(r==='war'&&G.onPause&&apOn('dip'))G.onPause(txt);return true;}
+/* ---------- 提議（停火、結盟）：AI 依局勢決定；玩家在外交面板回應，兩小時沒回應就作罷 ---------- */
+var DIPPK={peace:'停火',ally:'結盟',end:'解除同盟'};
+function dipPropose(a,b,k,who){if(!G.dip||a===b||!DIPPK[k]||!(a>=0&&b>=0&&a<nSides()&&b<nSides()))return null;var r=relOf(a,b);if(k==='peace'&&r!=='war'||k==='ally'&&r!=='neu'||k==='end'&&r!=='ally')return null;
+  if(k==='end'){relSet(a,b,'neu','解除同盟',who);return {st:'ok'};}
+  var L=G.dipP=G.dipP||[];if(L.some(function(P){return P.st==='open'&&P.a===a&&P.b===b&&P.k===k;}))return null;var P={id:(G.dipSeq=(G.dipSeq||0)+1),t:G.t,a:a,b:b,k:k,st:'open',who:who||''};L.push(P);if(L.length>60)L.splice(0,L.length-60);
+  logE(a,'dip','向'+G.sides[b].name+'提議'+DIPPK[k]);logE(b,'dip','📨 '+G.sides[a].name+'提議'+DIPPK[k]+'（在外交面板回應）');if(SD(b).ai)dipAnswer(P,dipAiAccept(b,a,k),'AI');return P;}
+function dipAnswer(P,yes,who){if(!P||P.st!=='open')return false;var r=relOf(P.a,P.b);if(P.k==='peace'&&r!=='war'||P.k==='ally'&&r!=='neu'){P.st='void';return false;}P.st=yes?'ok':'no';P.tA=G.t;
+  if(yes)relSet(P.a,P.b,P.k==='peace'?'neu':'ally','雙方同意'+DIPPK[P.k],who);else{logE(P.a,'dip',G.sides[P.b].name+'拒絕'+DIPPK[P.k]);logE(P.b,'dip','拒絕'+G.sides[P.a].name+'的'+DIPPK[P.k]+'提議');}return true;}
+function dipFind(id){return (G.dipP||[]).filter(function(P){return P.id===id;})[0]||null;}
+/* 兵力（人＋車）與比例 */
+function dipStr(s){var X=sideStr(s);return X;}
+/* AI 是否接受：停火——自己對對方不利或同時還有其他敵人；結盟——有共同的敵人而且敵人比自己強 */
+function dipAiAccept(me,o,k){var M=dipStr(me),O=dipStr(o);if(k==='peace'){var others=SIDES().filter(function(x){return x!==me&&x!==o&&hostile(me,x);}).length;return M.f<0.55||O.m>M.m*1.2||others>0&&M.m<O.m*1.6;}
+  if(k==='ally'){var E=SIDES().filter(function(x){return x!==me&&x!==o&&hostile(me,x)&&hostile(o,x);});return E.some(function(x){return dipStr(x).m>M.m*0.8;});}return false;}
+/* ---------- 波及與積怨：火力打到非交戰方的部隊 ---------- */
+var DIPHK={fire:'火力',art:'砲擊',air:'空襲',airstrike:'空襲',nuke:'核武',aa:'防空火力',melee:'突擊',cb:'化學武器'};
+function dipHurt(t,src,dm,dv,kind){var a=t.side,b=src.side,v=(dm||0)+(dv||0)*8;if(!(v>0))return;var G2=G.dipG=G.dipG||{},k=a+'>'+b;G2[k]=(G2[k]||0)+v;
+  var L=G.dipL=G.dipL||{};if(G.t-(L[k]||-1e9)<1800)return;L[k]=G.t;var w=DIPHK[kind]||'火力';
+  logE(a,'dip','⚠ '+G.sides[b].name+'的'+w+'波及本方'+uName(t)+'（'+placeTxt(t.x,t.y)+'）',t.x,t.y,t.id);logE(b,'dip','⚠ 本方的'+w+'波及'+(relOf(a,b)==='ally'?'盟友':'中立的')+G.sides[a].name+'部隊（'+placeTxt(t.x,t.y)+'），對方可能因此翻臉',t.x,t.y,src.id);}
+(function(){var b=hit;hit=function(t,src,dm,dv,sup,kind){if(t&&src&&src.side!==t.side&&src.side>=0&&t.side>=0&&nSides()>=3&&!hostile(src.side,t.side))try{dipHurt(t,src,dm,dv,kind);}catch(e){}return b.apply(this,arguments);};})();
+/* ---------- 本土：各方部署邊的縱深（地圖的三成五） ---------- */
+function triHome(s){var MP=G.map,e=SD(s).edge||(s===1?'E':s===2?'N':'W'),f=0.35;return {x0:e==='E'?MP.Wm*(1-f):0,x1:e==='W'?MP.Wm*f:MP.Wm,y0:e==='S'?MP.Hm*(1-f):0,y1:e==='N'?MP.Hm*f:MP.Hm};}
+function inHome(s,x,y){var Z=triHome(s);return x>=Z.x0&&x<=Z.x1&&y>=Z.y0&&y<=Z.y1;}
+/* ---------- 每小時：AI 的外交判斷、侵入本土的累計、過期的提議 ---------- */
+function dipStep(){if(nSides()<3||!G.dip||!G.started)return;var h=G.step%120===61;if(!h)return;var I=G.dipI=G.dipI||{};
+  /* 侵入本土：其他方的地面部隊在本土裡（非交戰、非同盟）累計時數 */
+  SIDES().forEach(function(s){SIDES().forEach(function(o){if(o===s||relOf(s,o)!=='neu')return;var n=0;G.units.forEach(function(u){if(u.side===o&&isLeaf(u)&&onMap(u)&&ST(u).dom==='land'&&inHome(s,u.x,u.y))n+=u.men+u.veh*8;});var k=s+'>'+o;
+    if(n>=150){I[k]=(I[k]||0)+1;if(I[k]===1)logE(o,'dip','⚠ '+G.sides[s].name+'抗議本方部隊進入其領土（'+fmt(n)+' 人車當量），要求撤出');if(I[k]===1)logE(s,'dip','⚠ '+G.sides[o].name+'的部隊進入本方領土');}else if(I[k])I[k]=Math.max(0,I[k]-1);});});
+  (G.dipP||[]).forEach(function(P){if(P.st==='open'&&G.t-P.t>7200){P.st='exp';logE(P.a,'dip',G.sides[P.b].name+'沒有回應'+DIPPK[P.k]+'的提議');}});
+  SIDES().forEach(function(s){if(!SD(s).ai||G.out&&G.out[s])return;dipAI(s);});}
+function dipPers(s){var T=sideCmd(s),p=T&&T.pers?T.pers:null,agg=0.5;try{if(typeof aiPers==='function'){var P=aiPers(s);if(P&&P.agg!==undefined)agg=P.agg;}}catch(e){}if(p&&p.agg!==undefined)agg=p.agg;return clamp(agg,0,1);}
+function dipAI(s){var M=dipStr(s),agg=dipPers(s),G2=G.dipG||{},I=G.dipI||{},hours=G.t/3600-(G.t0h||0);
+  SIDES().forEach(function(o){if(o===s||G.out&&G.out[o])return;var r=relOf(s,o),O=dipStr(o),gv=G2[s+'>'+o]||0;
+    if(r==='neu'||r==='ally'){var thr=(r==='ally'?900:350)*(1.4-agg*0.8);
+      if(gv>=thr){relSet(s,o,'war','報復'+G.sides[o].name+'火力造成的損失');return;}
+      if(r==='neu'&&(I[s+'>'+o]||0)>=3){relSet(s,o,'war',G.sides[o].name+'的部隊侵入本土不肯撤出');return;}
+      /* 趁火打劫：對方正與別人交戰、兵力大減，自己相對強大 */
+      if(r==='neu'&&hours>=2&&O.f<0.6&&M.m>O.m*(1.25-agg*0.4)&&SIDES().some(function(x){return x!==s&&x!==o&&hostile(o,x);})&&rnd()<0.08+agg*0.25){relSet(s,o,'war','趁'+G.sides[o].name+'兵力大減出兵');return;}}
+    if(r==='war'){/* 不利就提議停火（每六小時最多一次） */var L=G.dipPT=G.dipPT||{},k=s+'>'+o;if(G.t-(L[k]||-1e9)>6*3600&&(M.f<0.45&&O.m>M.m*1.3||SIDES().some(function(x){return x!==s&&x!==o&&hostile(s,x)&&dipStr(x).m>M.m;})&&O.m>M.m*0.7)){L[k]=G.t;dipPropose(s,o,'peace','AI');}}
+    if(r==='neu'){/* 共同的敵人比自己強就提議結盟 */var L2=G.dipPT=G.dipPT||{},k2=s+'~'+o;if(G.t-(L2[k2]||-1e9)>6*3600&&SIDES().some(function(x){return x!==s&&x!==o&&hostile(s,x)&&hostile(o,x)&&dipStr(x).m>M.m;})){L2[k2]=G.t;dipPropose(s,o,'ally','AI');}}});}
+/* ---------- 同盟共享情報：每四步把盟友情報圖裡較新的接觸抄過來 ---------- */
+function dipShare(){if(nSides()<3||!G.dip||G.step%4!==1)return;SIDES().forEach(function(a){SIDES().forEach(function(b){if(a===b||relOf(a,b)!=='ally')return;var C=G.ct[a];if(!C)return;var D=G.ct[b],N=ctNOf(b);
+    for(var id in C){if(+id>=9e8)continue;var c=C[id];if(c.side===b||G.t-c.t>900)continue;var H=hostile(b,c.side)?D:N,q=H[id];if(!q||q.t<c.t){var z=Object.assign({},c);z.by=0;z.sh=a;H[id]=z;}}});});}
+/* 中立與同盟接觸的清理：死亡或四小時沒看到就刪除 */
+function ctNPrune(){if(!G.ctN)return;for(var s=0;s<G.ctN.length;s++){var N=G.ctN[s];for(var id in N){var c=N[id],u=uById(+id);if(!u||!alive(u)||G.t-c.t>4*3600)delete N[id];}}}
+(function(){var b=reportStep;reportStep=function(){b();if(nSides()>=3){dipShare();if(G.step%20===9)ctNPrune();}};})();
+/* ---------- 勝負：兵力崩潰的一方退出戰局；最後只剩一方或時間到時依分數排名 ---------- */
+function triScore(side){var s=0,ow=typeof gmObjW==='function'?gmObjW():1;(G.obj||[]).forEach(function(o){if(o.own===side)s+=(o.pts||10)*ow;});if(G.gm&&G.gm.tix&&+G.set.tix>0)s+=Math.round(Math.max(0,G.gm.tix[side]||0)/5);s=Math.round(s);
+  SIDES().forEach(function(o){if(o===side||!everWar(side,o)&&!hostile(side,o))return;var en=G.stats[o]||stat0(),n=SIDES().filter(function(x){return x!==o&&(everWar(x,o)||hostile(x,o));}).length||1;s+=Math.round((en.cas+en.vl*8+en.capt)/200/n);});
+  var me=G.stats[side]||stat0();s-=Math.round((me.cas+me.vl*8+me.capt)/400);if(G.out&&G.out[side])s-=50;return s;}
+(function(){var b=score;score=function(side){return nSides()>=3?triScore(side):b(side);};})();
+function triRank(){return SIDES().slice().sort(function(a,b){var oa=G.out&&G.out[a]?1:0,ob=G.out&&G.out[b]?1:0;if(oa!==ob)return oa-ob;return score(b)-score(a);});}
+(function(){var b=checkEnd;checkEnd=function(){if(nSides()<3)return b();var S=G.set,why=null,win=-1,cl=typeof gmCollapse==='function'?gmCollapse():0.15,O=G.out=G.out||{};
+  SIDES().forEach(function(i){if(O[i])return;var st=sideStr(i);if(st.m0>0&&st.f<cl){O[i]=G.t;logE(-1,'end','💀 '+G.sides[i].name+'兵力崩潰，退出戰局');SIDES().forEach(function(o){if(o!==i&&relOf(i,o)!=='war')return;});}});
+  var live=SIDES().filter(function(i){return !O[i];});if(live.length<=1){why=live.length?'其他各方兵力崩潰':'各方兵力崩潰';win=live.length?live[0]:-1;}
+  if(S.dur&&G.t>=S.dur*3600&&!why)why='時間到';
+  if(S.end==='obj'&&G.obj.length&&G.obj.every(function(o){return o.own===G.obj[0].own&&o.own>=0&&G.t-(o.tOwn||0)>=objHoldT();})){why='一方控制全部目標 '+durTxt(objHoldT());win=G.obj[0].own;}
+  if(typeof gmEnd==='function'){var X=gmEnd();if(X){why=X.why;win=X.win;}}
+  if(!why)return;var R=triRank();if(win<0){var a=score(R[0]),c=R.length>1?score(R[1]):-1e9;win=a>c?R[0]:-1;}
+  G.over={why:why,win:win,t:G.t,score:SIDES().map(score),rank:R};btCloseAll();
+  logE(-1,'end','作戰結束（'+why+'）：'+(win>=0?G.sides[win].name+'獲勝':'不分勝負')+'。名次：'+R.map(function(i,k){return (k+1)+'. '+G.sides[i].name+'（'+score(i)+' 分）';}).join('、'));if(G.onPause&&apOn('end'))G.onPause('作戰結束');};})();
+/* 遊戲模式（斬首、票數、民心）：三方時讓那一方退出戰局，不直接結束 */
+(function(){if(typeof gmEnd!=='function')return;var b=gmEnd;gmEnd=function(){if(nSides()<3)return b.apply(this,arguments);if(!G.started)return null;var X=G.gm,S=G.set,O=G.out=G.out||{};if(!X)return null;
+  var out=function(i,why){if(O[i])return;O[i]=G.t;logE(-1,'end','💀 '+G.sides[i].name+why+'，退出戰局');};
+  SIDES().forEach(function(i){if(S.decap&&X.hq&&X.hq[i]>=0){var T=uById(X.hq[i]);if(!T||!alive(T)||T.hqLost)out(i,'的最高司令部被摧毀');}
+    if(+S.tix>0&&X.tix&&X.tix[i]<=0)out(i,'的兵力票數耗盡');if(+S.supLose>0&&G.press&&G.press.home&&G.press.home[i]<+S.supLose)out(i,'的後方民心崩潰，政府接受停火');});return null;};})();
+/* ---------- 接線 ---------- */
+(function(){var b=simStep;simStep=function(){b();if(nSides()>=3&&!G.over)dipStep();};})();
+if(typeof GKEYS!=='undefined')['dip','dipV','dipW','dipH','dipP','dipSeq','dipG','dipL','dipI','dipPT','ctN','out'].forEach(function(k){if(GKEYS.indexOf(k)<0)GKEYS.push(k);});
+/* 玩家的外交動作（聯機時經伺服器，只能以本方名義） */
+function dipWar(me,o,why){if(!(o>=0)||o===me||o>=nSides()||relOf(me,o)==='war')return false;return relSet(me,o,'war',why||'','玩家');}
+function dipAnsId(me,id,yes){var P=dipFind(+id);if(!P||P.b!==me)return false;return dipAnswer(P,!!yes,'玩家');}
+if(typeof MPFN!=='undefined'){MPFN.dipWar=[MPSIDE(0),function(a){return dipWar(+a[0],+a[1],String(a[2]||'').slice(0,40));}];
+  MPFN.dipPropose=[MPSIDE(0),function(a){return !!dipPropose(+a[0],+a[1],String(a[2]),'玩家');}];MPFN.dipAnsId=[MPSIDE(0),function(a){return dipAnsId(+a[0],+a[1],!!a[2]);}];}
 if(typeof GKEYS!=='undefined')GKEYS.push('wsys','hyd');
 if(typeof GKEYS!=='undefined')GKEYS.push('sup');
 if(typeof GKEYS!=='undefined')GKEYS.push('dirs','dirSeq');
