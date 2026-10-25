@@ -2791,7 +2791,7 @@ window.LatoTerrainLib={LTCore:LTCore,LTClimate:LTClimate,LTRivers:LTRivers,LTLay
 "use strict";
 var root=document.getElementById('lato-warsim');
 if(!root)return;
-var LWBUILD="e3c276d8-online";
+var LWBUILD="412404cd-online";
 var MPON=1;
 /* ===================== LatoWarsim 作戰模擬：共用工具（數學、亂數、雜訊、幾何、時間、名稱、編碼） ===================== */
 var PI=Math.PI,D2R=PI/180,R2D=180/PI;
@@ -12695,6 +12695,62 @@ if(typeof MPWS!=='undefined')MPWS.fld='o';
 if(typeof mpPatch==='function')(function(){var b=mpPatch;mpPatch=function(s,cm,P){var rej=[];try{if(P&&P.u&&G&&G.started)for(var id in P.u){var ch=P.u[id],u=uById(+id);if(ch&&typeof ch==='object'&&ch.vm!==undefined&&u&&!(u.refit&&u.st==='off')){delete ch.vm;rej.push('u'+id+'.vm');}}}catch(e){}
   var fld=P&&P.s&&P.s.fld,S0=G&&G.sides&&G.sides[s],ov=S0&&S0.fld&&S0.fld.ver||0;var r=b(s,cm,P);if(rej.length)r.rej=(r.rej||[]).concat(rej);
   try{if(fld!==undefined&&S0){var o=fldClean(fld);if(o)o.ver=ov+1;if(o)S0.fld=o;else delete S0.fld;FTC={};fldApply(s);}}catch(e){}return r;};})();
+/* ===================== 疲憊值：長途奔襲與長期在戰場上累積的疲憊 =====================
+   u.fat 是當下的體力：行軍、交火、夜戰時累加，停下來就回復。
+   u.exh 是長期的疲憊（0～100）：缺乏睡眠、連日強行軍與連續作戰一天天累積，只有遠離敵人真正休息，或撤到後方整補才會慢慢消退。
+   u.slp 缺的睡眠（小時）；u.mkm 最近一天內走了多少公里；u.cday 累計在火線上的天數；u.strg 行軍落伍的比例；u.exhN 戰鬥疲勞後送的人數。
+   參考：美軍 FM 21-18 徒步行軍一天約 32 公里，強行軍走得更遠但會大量落伍；FM 6-22.5 連續作戰每人每天至少要睡 4 小時，
+   不睡 24 小時表現約降四分之一，72 小時後嚴重失能；二戰的研究（Swank 與 Marchand，1946）指出步兵連續作戰約一個月後效能開始下降，
+   兩個月後幾乎人人出現戰鬥疲勞。 */
+function exhOn(){return !!G&&G.set.exh!==false;}
+/* 一天走多少算強行軍：徒步 30 公里、騎乘與畜力 50 公里、車輛 200 公里 */
+function exhCap(s){return s.mobi===0?30:s.mobi<=2?50:200;}
+function exhLv(v){return v>=85?4:v>=65?3:v>=40?2:v>=20?1:0;}
+var EXHN=['精神尚可','疲乏','疲憊','精疲力竭','瀕臨崩潰'];
+function exhWhy(u){var L=[];if(u.slp>=12)L.push('缺乏睡眠約 '+fx(u.slp,0)+' 小時');var s=ST(u);if(u.mkm>exhCap(s)*0.8)L.push('一天內行軍 '+fx(u.mkm,0)+' 公里'+(u.mkm>exhCap(s)?'（強行軍）':''));
+  if(u.cday>=0.5)L.push('累計在火線上 '+fx(u.cday,1)+' 天');if(u.strg>=0.02)L.push('落伍 '+pct(u.strg*100));return L.join('、');}
+/* 效果：射擊、行進、偵察、士氣回復上限、恐懼 */
+function exhFire(u){var e=u.exh||0;return (e>20?1-0.0035*(e-20):1)*(1-(u.strg||0));}
+function exhMove(u){var e=u.exh||0;return e>30?1-0.003*(e-30):1;}
+function exhSpot(u){var e=u.exh||0,m=e>30?1-0.004*(e-30):1;if(G.env.light<0.3&&(u.slp||0)>24)m*=0.85;return m;}
+function exhMorCap(u){var e=u.exh||0;return e>40?0.25*(e-40):0;}
+function exhFear(u){var e=u.exh||0;return e>40?1+(e-40)/120:1;}
+/* 每 10 分鐘結算一次 */
+function exhStep(){if(!exhOn())return;var h=1/6,t=G.t,night=G.env.light<0.3,T=G.env.T,wx=T!==undefined&&(T<-5||T>30);
+  G.units.forEach(function(u){if(!isLeaf(u)||u.st==='dead')return;var s=ST(u);if(s.dom!=='land')return;if(u.exh===undefined){u.exh=0;u.slp=0;u.mkm=0;u.cday=0;u.strg=0;}
+    if(!onMap(u)){u.mkm*=Math.exp(-h/24);u._exx=undefined;if(u.st==='off'){var rf=!!u.refit;u.exh=Math.max(0,u.exh-(rf?5:2)*h);u.slp=Math.max(0,u.slp-2*h);u.cday=Math.max(0,u.cday-(rf?2:0.5)*h/24);u.strg=0;}return;}
+    var o=u.ord,k=o?(o.dk||o.k||''):'',fight=t-(u.fired||-1e9)<600||t-(u.uf||-1e9)<600,mv=t-(u.movedAt||-1e9)<600&&u.st!=='lift'&&!u.amph,work=!!(o&&o.ph==='work'),
+      alert=(u._ed||1e9)<2500,restO=!!(o&&/^(rest|rot)$/.test(k)),d=0,ds=0;
+    if(fight){d=1.0;ds=0.5;}else if(mv){d=0.6;ds=0.33;}else if(work){d=0.4;ds=0.33;}else if(alert){d=restO?-0.4:0.12;ds=restO?-0.4:0.15;}else{d=restO?-1.6*(night?1.3:1):-0.35;ds=restO?-(night?1.3:1):-0.5;}
+    var act=fight||mv||work,g=1,r=1;if(night&&act)g*=1.15;if(wx&&act)g*=1.2;if(u.lg&&u.lg.hun>40){g*=1.25;r*=0.6;}if((u.fear||0)>=50)g*=1.15;g*=1.15-0.3*clamp((u.trn||60)/100,0,1);if(hqNear(u))r*=1.15;if(u.insup===false)r*=0.8;
+    d=d>0?d*g:d*r;
+    /* 行軍：最近一天走的距離（10 分鐘內移動太遠的是搭火車、空運或登陸艇，不算） */
+    var cap=exhCap(s),dm=u._exx!==undefined?dist(u.x,u.y,u._exx,u._exy)/1000:0;u._exx=u.x;u._exy=u.y;if(!mv||dm>cap/16)dm=0;var m0=u.mkm*Math.exp(-h/24);u.mkm=m0+dm;var ov=u.mkm/cap-1,over=Math.max(0,u.mkm-cap)-Math.max(0,m0-cap);
+    if(mv&&ov>0)u.fat=clamp(u.fat+2*ov,0,100);
+    u.slp=clamp(u.slp+ds*h,0,96);if(u.slp>18)d+=0.035*(u.slp-18)*g;
+    if(fight||alert)u.cday+=h/24*(fight?1:0.5);else if(restO)u.cday=Math.max(0,u.cday-0.5*h/24);if(fight&&u.cday>20)d+=0.02*(u.cday-20)*g;
+    /* 超過一天的行軍量之後，每多走一公里都更累（徒步每公里約 1.2，車輛按比例少） */
+    u.exh=clamp(u.exh+d*h+(over>0?36/cap*over*g:0),0,100);
+    /* 落伍：徒步部隊強行軍又累時一路掉人；停下來後慢慢跟上 */
+    if(mv&&ov>0.15&&s.mobi===0&&u.fat>60)u.strg=Math.min(0.35,(u.strg||0)+0.03*ov*(1+u.exh/100)*h);else if(!mv&&u.strg>0)u.strg=Math.max(0,u.strg-(alert?0.05:0.15)*h);
+    /* 戰鬥疲勞：精疲力竭還在交火，開始有人撐不住、後送 */
+    if(fight&&u.exh>=70&&u.men>5){u.exhA=(u.exhA||0)+u.men*0.0012*(u.exh-70)/30*(1+(u.fear||0)/100)*h;if(u.exhA>=0.5){var m=u.exhA;u.exhA=0;hit(u,null,m,0,0,'psy');u.psyN=(u.psyN||0)+m;u.exhN=(u.exhN||0)+m;}}
+    var lv=exhLv(u.exh);if(lv>=3&&lv>(u.exhL||0)){u.exhL=lv;logE(u.side,'morale',uName(u)+(lv>=4?'連日苦戰、幾乎沒有闔眼，官兵瀕臨崩潰':'連日作戰、缺乏休息，官兵精疲力竭')+'（'+exhWhy(u)+'）',u.x,u.y,u.id);}else if(lv<=1&&(u.exhL||0)>1)u.exhL=lv;
+    if(mv&&ov>0.3&&!u.fmT){u.fmT=t;logE(u.side,'morale',uName(u)+'強行軍，一天內已走 '+fx(u.mkm,0)+' 公里，開始有人落伍',u.x,u.y,u.id);}else if(u.fmT&&ov<0&&t-u.fmT>6*3600)u.fmT=0;
+    /* AI：遠離敵人又很累的部隊就地休息 */
+    if(u.exh>55&&!act&&!alert&&(u._ed||1e9)>6000&&u.ms==='ok'&&!restO&&typeof aiControls==='function'&&aiControls(u)&&(!o||o.st==='done'||/^(halt|reserve)$/.test(k))&&!u.v10rest){activate(u,newOrder('rest',{x:u.x,y:u.y}));logE(u.side,'rest',uName(u)+'就地休息（'+EXHN[lv]+'）',u.x,u.y,u.id);}});}
+(function(){var b=v8Step;v8Step=function(){b();if(G.step%20===7)exhStep();};})();
+(function(){var b=firerMod;firerMod=function(u,s){var f=b(u,s);return exhOn()&&u.exh!==undefined?f*exhFire(u):f;};})();
+(function(){var b=speedAt;speedAt=function(u,s,pf){var v=b(u,s,pf);return exhOn()&&u.exh>30&&s.dom==='land'?v*exhMove(u):v;};})();
+(function(){var b=spotOf;spotOf=function(u,s){var r=b(u,s);return exhOn()&&u.exh!==undefined?r*exhSpot(u):r;};})();
+(function(){var b=morBase;morBase=function(u,s,off,PF){var v=b(u,s,off,PF);return exhOn()&&u.exh>40&&G.set.dynMor!==false?clamp(v-exhMorCap(u),10,100):v;};})();
+(function(){var b=fearAdd;fearAdd=function(u,v,k){return b(u,exhOn()&&u.exh>40&&v>0?v*exhFear(u):v,k);};})();
+/* AI 輪換：精疲力竭的部隊也要換下來；接替的部隊不能也是累壞的 */
+(function(){var b=rotNeed;rotNeed=function(u,P){var v=b(u,P);if(!exhOn()||!(u.exh>=(P.t==='reck'?90:75)))return v;if(v>0)return v+0.3;if(u.v10rot&&G.t-u.v10rot<5*3600)return 0;var o=u.ord;if(o&&(o.k==='rest'||o.k==='refit'||o.k==='withdraw'||o.dk==='refit'))return 0;
+  if(u.ms==='rout'||clsOf(u)==='hq'||roleOf(u)==='sup')return 0;var w=0.4+(u.exh-75)/40;if(optOf(u).post==='holdfast'&&P.hold>0.6)w*=0.3;return w>0.5&&(G.t-(u.uf||-1e9)<3600||(u._ed||1e9)<6000)?w:0;};})();
+(function(){var b=rotRep;rotRep=function(X,u){var r=b(X,u);return r&&exhOn()&&(r.exh||0)>60?null:r;};})();
+/* 線上：變化夠大才送；位置記錄與記號不送 */
+if(typeof MPTOL!=='undefined'){MPTOL.exh=0.5;MPTOL.slp=0.5;MPTOL.mkm=0.5;MPTOL.cday=0.02;MPTOL.strg=0.005;MPTOL.exhN=0.5;}if(typeof MPUX!=='undefined'){MPUX._exx=1;MPUX._exy=1;MPUX.exhL=1;MPUX.fmT=1;MPUX.exhA=1;}
 /* ===================== 兵牌：北約 APP-6、華約式、明式與二戰德軍式 =====================
    北約式：外框依觀看者的立場（友軍長方形、敵軍菱形、中立方形、不明四葉形；空中只有上半、水下只有下半），內部圖示依兵種，
    上方梯隊記號、下方機動方式（輪型、履帶、牽引）與兵力條，左上角分隊顏色、右上角隊徽；部隊可以自訂圖片。
@@ -12923,7 +12979,8 @@ function symSimple(c,o){var h=(o.h||16)*0.72,w=h*1.25,x=o.x,y=o.y,col=o.col||sid
   else{c.fillRect(x-w/2,y-h/2,w,h);c.strokeRect(x-w/2,y-h/2,w,h);}
   if(o.hq){c.fillStyle='#111';c.fillRect(x-w/2,y+h/2,1.5,h*0.5);}if(o.ech!==undefined&&o.ech>=3){c.fillStyle='#111';c.fillRect(x-w*0.3,y-h/2-3,w*0.6,1.5);}
   if(o.str!==undefined&&o.str<0.7){c.fillStyle=o.str>0.4?'#F9A825':'#E53935';c.fillRect(x-w/2,y+h/2+1,w*clamp(o.str,0,1),2);}
-  if(o.lbl&&o.sel){c.font='11px sans-serif';c.textAlign='center';c.textBaseline='top';c.lineWidth=3;c.strokeStyle='rgba(255,255,255,.9)';c.fillStyle='#111';c.strokeText(o.lbl,x,y+h/2+4);c.fillText(o.lbl,x,y+h/2+4);}
+  var ly=y+h/2+4;if(o.bars&&o.bars.length&&o.sel){o.bars.forEach(function(q){c.fillStyle='rgba(0,0,0,.55)';c.fillRect(x-w/2,ly,w,2);c.fillStyle=q[2]?'#FF1744':q[1];c.fillRect(x-w/2,ly,w*clamp(q[0],0,1),2);ly+=3;});ly+=1;}
+  if(o.lbl&&o.sel){c.font='11px sans-serif';c.textAlign='center';c.textBaseline='top';c.lineWidth=3;c.strokeStyle='rgba(255,255,255,.9)';c.fillStyle='#111';c.strokeText(o.lbl,x,ly);c.fillText(o.lbl,x,ly);}
   c.globalAlpha=1;}
 /* 隊徽：右上角的小圓章（上傳的圖片，或依編制自動產生的幾何圖形與字） */
 function insDraw(c,ins,x,y,r){if(!ins)return;c.save();if(typeof ins==='string'){var im=imgOf(ins);if(im){c.beginPath();c.arc(x,y,r,0,2*PI);c.save();c.clip();var k=Math.max(2*r/im.width,2*r/im.height);c.drawImage(im,x-im.width*k/2,y-im.height*k/2,im.width*k,im.height*k);c.restore();c.lineWidth=1;c.strokeStyle='#222';c.stroke();}c.restore();return;}
@@ -12949,8 +13006,10 @@ function drawSym(c,o){if(typeof GFX!=='undefined'&&GFX.mode==='simple'&&!o.ico){
     c.save();c.translate(x,y);if(rot!==null)c.rotate(rot);if(SPC.on&&!o.ico){var sp=symSprite(o,w,h,col,fill,dom,im,stc,aff);c.drawImage(sp.cv,-sp.ox,-sp.oy,sp.w,sp.h);}else symBody(c,o,0,0,w,h,col,fill,dom,im,stc,aff);
     if(o.ins&&h>=13)insDraw(c,o.ins,-B.l+h*0.08,B.t+h*0.12,h*0.27);if(o.ms==='rout'){c.strokeStyle='#C62828';c.lineWidth=1.6;c.beginPath();c.moveTo(-w/2-2,-h/2-2);c.lineTo(w/2+2,h/2+2);c.stroke();}c.restore();
     if(rot!==null){B=rotB(B,B.b+sb,rot);sb=0;}}
-  if(o.str!==undefined){var bw=w,bh=Math.max(2,h*0.16),by=y+B.b+sb+2;c.fillStyle='rgba(0,0,0,.55)';c.fillRect(x-bw/2,by,bw,bh);c.fillStyle=o.str>0.7?'#43A047':o.str>0.4?'#F9A825':'#E53935';c.fillRect(x-bw/2,by,bw*clamp(o.str,0,1),bh);}
-  if(o.lbl){c.font=Math.max(9,Math.round(h*0.62))+'px sans-serif';c.textAlign='center';c.textBaseline='top';c.lineWidth=3;c.strokeStyle='rgba(255,255,255,.9)';c.fillStyle='#111';var ly=y+B.b+sb+(o.str!==undefined?h*0.16+4:3);c.strokeText(o.lbl,x,ly);c.fillText(o.lbl,x,ly);}
+  var bY=0;if(o.str!==undefined){var bw=w,bh=Math.max(2,h*0.16),by=y+B.b+sb+2;c.fillStyle='rgba(0,0,0,.55)';c.fillRect(x-bw/2,by,bw,bh);c.fillStyle=o.str>0.7?'#43A047':o.str>0.4?'#F9A825':'#E53935';c.fillRect(x-bw/2,by,bw*clamp(o.str,0,1),bh);bY=bh+2;}
+  /* 狀態條（士氣、恐懼、補給、疲勞）：[比例, 顏色, 危險, 疊在上面的第二個比例, 它的顏色]，危險的那條加紅框 */
+  if(o.bars&&o.bars.length){var eh=Math.max(1.5,h*0.1),ey=y+B.b+sb+2+bY;o.bars.forEach(function(q){c.fillStyle='rgba(0,0,0,.55)';c.fillRect(x-w/2,ey,w,eh);c.fillStyle=q[1];c.fillRect(x-w/2,ey,w*clamp(q[0],0,1),eh);if(q[3]>0){c.fillStyle=q[4];c.fillRect(x-w/2,ey,w*clamp(q[3],0,1),eh);}if(q[2]){c.strokeStyle='#FF1744';c.lineWidth=1;c.strokeRect(x-w/2-0.5,ey-0.5,w+1,eh+1);}ey+=eh+1.5;});bY+=o.bars.length*(eh+1.5);}
+  if(o.lbl){c.font=Math.max(9,Math.round(h*0.62))+'px sans-serif';c.textAlign='center';c.textBaseline='top';c.lineWidth=3;c.strokeStyle='rgba(255,255,255,.9)';c.fillStyle='#111';var ly=y+B.b+sb+(bY?bY+2:3);c.strokeText(o.lbl,x,ly);c.fillText(o.lbl,x,ly);}
   c.restore();}
 /* 小圖示（DOM 用）：回傳 data URL，快取（依觀看者的立場與樣式） */
 var ICOC={};
@@ -13197,7 +13256,7 @@ function drawTop(){var c=VW.ct.getContext('2d'),d=VW.dpr;c.setTransform(d,0,0,d,
   items.forEach(function(it){var p=w2s(it.x,it.y);if(p[0]<-40||p[1]<-40||p[0]>VW.cw+40||p[1]>VW.ch+40){it.sx=undefined;return;}it.sx=p[0];it.sy=p[1];
     if(it.c){if(!UI.lay.ct)return;var cc=it.c;drawSym(c,{x:p[0],y:p[1],h:h*0.9,sym:cc.q>=1?cc.sym:'?',dom:cc.dom,side:cc.side,ech:cc.q>=1?cc.ech:-1,q:cc.q>=1?1:0,alpha:cc.dead?0.3:clamp(1-it.age/(3*3600),0.25,1),ms:cc.ms,sel:UI.selC===cc.id,lbl:UI.lay.unm!==0&&S>2.5&&cc.name?cc.name:'',img:cc.q>=1&&uById(cc.id)?unitImg(uById(cc.id)):'',u:cc.q>=1&&cc.dom==='air'?uById(cc.id):null});it.h=h*0.9;return;}
     var u=it.u,sel=it.grp?it.grp.every(function(k){return UI.sel.indexOf(k.id)>=0;}):UI.sel.indexOf(u.id)>=0,str=it.grp?sum(it.grp,strFrac)/it.grp.length:it.agg?strengthOf(u).f:strFrac(u),hh=it.agg?h*1.12:it.hq?h*0.8:h;it.h=hh;
-    drawSym(c,{x:p[0],y:p[1],h:hh,sym:it.hq?'hq':it.grp||it.agg?it.s.sym:symOfU(u),dom:it.s.dom,mob:it.hq?'':mobOfIt(it),br:it.hq?'':it.s.br,fc:fcolOf(u),ins:insOf(u),agg:it.agg?1:0,cimg:it.grp?'':u.cimg||'',fbr:(it.hq||it.agg)&&symStd()==='de'?fmBr(u,it.grp||(it.hq?null:it.L)):'',rot:!it.hq&&!it.agg&&!it.grp&&isLeaf(u)&&it.s.dom!=='air'&&UIP.symRot!==0?(u.hd||0):undefined,side:u.side,col:typeof cmColU==='function'?cmColU(u):undefined,ech:it.ech,str:str,ms:it.agg?aggMs(it.L):u.ms,sel:sel,hq:it.hq,u:it.hq||it.grp||it.agg?null:u,img:it.hq||it.grp?'':unitImg(u),lbl:UI.lay.unm===0&&!sel?'':it.lbl&&S>0.8?it.lbl:(S>3||sel)&&!it.hq?shortName(u):(it.agg&&S>0.8?shortName(u):'')});
+    drawSym(c,{x:p[0],y:p[1],h:hh,sym:it.hq?'hq':it.grp||it.agg?it.s.sym:symOfU(u),dom:it.s.dom,mob:it.hq?'':mobOfIt(it),br:it.hq?'':it.s.br,fc:fcolOf(u),ins:insOf(u),agg:it.agg?1:0,cimg:it.grp?'':u.cimg||'',fbr:(it.hq||it.agg)&&symStd()==='de'?fmBr(u,it.grp||(it.hq?null:it.L)):'',rot:!it.hq&&!it.agg&&!it.grp&&isLeaf(u)&&it.s.dom!=='air'&&UIP.symRot!==0?(u.hd||0):undefined,side:u.side,col:typeof cmColU==='function'?cmColU(u):undefined,ech:it.ech,str:str,bars:typeof uBars==='function'?uBars(it,u,sel):null,ms:it.agg?aggMs(it.L):u.ms,sel:sel,hq:it.hq,u:it.hq||it.grp||it.agg?null:u,img:it.hq||it.grp?'':unitImg(u),lbl:UI.lay.unm===0&&!sel?'':it.lbl&&S>0.8?it.lbl:(S>3||sel)&&!it.hq?shortName(u):(it.agg&&S>0.8?shortName(u):'')});
     if(sel&&isLeaf(u)&&u.ent>0.3&&!it.agg){c.strokeStyle='rgba(90,60,30,.8)';c.lineWidth=2;c.beginPath();c.arc(p[0],p[1],hh*1.05,PI*0.15,PI*0.85);c.stroke();}});
   drawTool(c);drawScale(c);}
 function aggMs(L){var r=0,s=0;L.forEach(function(x){if(x.ms==='rout')r++;else if(x.ms==='shaken')s++;});return r>L.length/2?'rout':(r+s)>L.length/2?'shaken':'ok';}
@@ -23420,9 +23479,22 @@ function fx2Splash(x,y,sz,t0){var m=mpp(),big=sz>=25;fxP({k:'fl',x:x,y:y,t0:t0,d
 /* ---------- 聲音 ---------- */
 SNDR.pop=[2,2];SNDR.splash=[4,3];SNDR.call=[0.5,1];SNDR.drum=[0.4,1];SNDR.alarm=[0.1,1];SNDR.siren=[0.02,1];SNDR.radio=[1.5,2];
 var SNDF2={
- /* 哨音：顫音的尖銳哨聲，吹兩次 */
- whistle:function(t,pan,g){var ac=SND.ac;for(var r=0;r<2;r++){var t0=t+r*0.62,o=ac.createOscillator(),lfo=ac.createOscillator(),lg=ac.createGain(),gg=ac.createGain();o.type='sine';o.frequency.value=2850;lfo.type='square';lfo.frequency.value=27;lg.gain.value=260;lfo.connect(lg);lg.connect(o.frequency);
-   gg.gain.setValueAtTime(0.0001,t0);gg.gain.linearRampToValueAtTime(g,t0+0.03);gg.gain.setValueAtTime(g,t0+0.42);gg.gain.exponentialRampToValueAtTime(0.0001,t0+0.5);o.connect(gg);sndPan(gg,pan);o.start(t0);lfo.start(t0);o.stop(t0+0.52);lfo.stop(t0+0.52);sndVoice(o);}},
+ /* 哨音：軍官的豌豆哨。哨腔裡的小球被氣流吹得亂轉，聲音是一個尖銳的音高加上不規則的顫動：音量忽大忽小、轉速忽快忽慢，
+    不像電話鈴那樣在兩個音之間規律地切換、響兩下停一下。吹氣時音高先往上爬，收尾往下掉，還混著氣聲。
+    一聲長哨，有時再補一聲短的；稍遠處另一位軍官也跟著吹 */
+ whistle:function(t,pan,g){var ac=SND.ac,f=2950+Math.random()*350,d=1.0+Math.random()*0.45;
+   function blast(t0,d,f,g,pan){var te=t0+d,o=ac.createOscillator(),o2=ac.createOscillator(),lfo=ac.createOscillator(),am=ac.createGain(),ad=ac.createGain(),fm=ac.createGain(),fm2=ac.createGain(),h2=ac.createGain(),env=ac.createGain(),n=ac.createBufferSource(),bp=ac.createBiquadFilter(),ng=ac.createGain();
+     [[o,f],[o2,f*2]].forEach(function(q){var p=q[0].frequency;q[0].type='sine';p.setValueAtTime(q[1]*0.88,t0);p.exponentialRampToValueAtTime(q[1],t0+0.08);p.setValueAtTime(q[1],te-0.15);p.exponentialRampToValueAtTime(q[1]*0.93,te);});
+     /* 小球：以調幅為主、帶一點調頻，轉速每隔幾十毫秒亂變一次 */
+     lfo.type='triangle';for(var tt=t0;tt<te;tt+=0.025+Math.random()*0.03)lfo.frequency.setValueAtTime(30+Math.random()*34,tt);
+     am.gain.value=0.62;ad.gain.value=0.36;fm.gain.value=f*0.018;fm2.gain.value=f*0.036;h2.gain.value=0.14;lfo.connect(ad);ad.connect(am.gain);lfo.connect(fm);fm.connect(o.frequency);lfo.connect(fm2);fm2.connect(o2.frequency);
+     n.buffer=SND.noise;n.loop=true;bp.type='bandpass';bp.frequency.value=f;bp.Q.value=5;ng.gain.value=0.8;
+     o.connect(am);o2.connect(h2);h2.connect(am);n.connect(bp);bp.connect(ng);ng.connect(am);am.connect(env);
+     env.gain.setValueAtTime(0.0001,t0);env.gain.linearRampToValueAtTime(g,t0+0.05);env.gain.setValueAtTime(g,te-0.1);env.gain.exponentialRampToValueAtTime(0.0001,te);sndPan(env,pan);
+     [o,o2,lfo].forEach(function(x){x.start(t0);x.stop(te+0.02);});n.start(t0,Math.random()*1.5);n.stop(te+0.02);sndVoice(o);
+     sndNoise(t0,'highpass',5200,0.7,g*0.18,0.03,Math.min(0.5,d),pan);}
+   blast(t,d,f,g,pan);if(Math.random()<0.55)blast(t+d+0.28,0.3+Math.random()*0.15,f,g*0.95,pan);
+   blast(t+0.2+Math.random()*0.45,0.8+Math.random()*0.4,f*(Math.random()<0.5?0.84+Math.random()*0.08:1.08+Math.random()*0.08),g*0.4,clamp(pan+(Math.random()<0.5?-0.35:0.35),-1,1));},
  /* 軍號：衝鋒號（C 調軍號的泛音列） */
  bugle:function(t,pan,g,notes){var ac=SND.ac,tt=t;(notes||[[392,0.13],[523,0.13],[659,0.13],[784,0.32],[659,0.13],[784,0.55]]).forEach(function(q){var o=ac.createOscillator(),lp=ac.createBiquadFilter(),gg=ac.createGain(),v=ac.createOscillator(),vg=ac.createGain();o.type='sawtooth';o.frequency.value=q[0];v.frequency.value=5.5;vg.gain.value=q[0]*0.006;v.connect(vg);vg.connect(o.frequency);
    lp.type='lowpass';lp.frequency.value=1900;lp.Q.value=1.2;gg.gain.setValueAtTime(0.0001,tt);gg.gain.linearRampToValueAtTime(g,tt+0.025);gg.gain.setValueAtTime(g*0.85,tt+q[1]*0.8);gg.gain.exponentialRampToValueAtTime(0.0001,tt+q[1]);o.connect(lp);lp.connect(gg);sndPan(gg,pan);o.start(tt);v.start(tt);o.stop(tt+q[1]+0.02);v.stop(tt+q[1]+0.02);sndVoice(o);tt+=q[1]+0.03;});},
@@ -23436,8 +23508,9 @@ var SNDF2={
    var lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1400;gg.gain.setValueAtTime(0.0001,t0);gg.gain.linearRampToValueAtTime(g,t0+1.2);gg.gain.setValueAtTime(g,t0+4.4);gg.gain.exponentialRampToValueAtTime(0.0001,t0+6);o.connect(lp);o2.connect(lp);lp.connect(gg);sndPan(gg,pan);o.start(t0);o2.start(t0);o.stop(t0+6.05);o2.stop(t0+6.05);sndVoice(o);}},
  /* 無線電：一小段雜訊加上提示音 */
  radio:function(t,pan,g){sndNoise(t,'bandpass',2300,0.8,g*0.5,0.005,0.14,pan);sndTone(t+0.16,'sine',1150,1150,0.07,g*0.4,0.004,0.06,pan);},
- /* 電報：幾聲滴答 */
- telegraph:function(t,pan,g){[0,0.08,0.24,0.32,0.4,0.56].forEach(function(o,i){sndTone(t+o,'square',820,820,i%3===1?0.12:0.04,g*0.25,0.002,i%3===1?0.11:0.035,pan);});}};
+ /* 電報：有線電報的收報音響器，不是嗶聲，而是銜鐵吸下的「喀」和彈回的「噠」；點短、劃長 */
+ telegraph:function(t,pan,g){var tt=t,c=['.-','-.','..','.-.','-..','--.'][Math.floor(Math.random()*6)]+' '+['-','.','..','.-'][Math.floor(Math.random()*4)];
+   c.split('').forEach(function(x){if(x===' '){tt+=0.14;return;}var d=x==='-'?0.17:0.06;sndNoise(tt,'bandpass',2600,6,g*1.4,0.001,0.02,pan);sndNoise(tt+d,'bandpass',1650,5,g*0.8,0.001,0.018,pan);tt+=d+0.07;});}};
 function fx2SndOk(){return SND.on&&SND.ac&&SND.ac.state==='running';}
 /* 號令：步兵、騎兵開始進攻時（畫面上的部隊、離畫面中央近的才聽得到） */
 function fx2Calls(now){if(!fx2On('sCall'))return;var cw=VW.cw,ch=VW.ch,R=Math.hypot(cw,ch)/2,best=null,bd=1e9,drum=null,dd=1e9,me=UI.side;
@@ -23744,6 +23817,81 @@ if(typeof HELP14!=='undefined')HELP14.push('<h4>列裝、載具與部隊點數</
   '<li>彈藥依口徑與砲管適用：同一種動能彈從較長的砲管射出，穿甲較高、直射距離較遠；成形裝藥不受砲管影響；榴彈的破片半徑隨口徑變大。彈藥配比改變對人與對裝甲的效果、穿甲、精度與價格。</li>'+
   '<li>列裝表（兵力編成頁首或點數視窗）決定一方的制式載具、武器、彈藥與支援裝備，也有依陣營與年代的範例列裝。開戰前套用時立即換裝；作戰中只有新的部隊、增援，以及撤到後方休整的單位會換裝。手動指定的型號不受列裝表影響；增援的費用依列裝的裝備計算。</li>'+
   '<li>部隊點數＝兵種、兵力與訓練的基本點數 × 裝備係數（武器、防護、機動、支援裝備、彈藥存量，相對於兵種的時代標準配備）。單位明細會與同時代、同層級的標準步兵、機械化或裝甲部隊比較，並列出編制上的建議；點數視窗有完整的標準點數表。</li></ul>');
+/* ===================== 兵牌狀態條：兵力條下面依序畫士氣、恐懼、補給、疲勞
+   只畫本方部隊（上帝視角或關閉戰爭迷霧時全部）；合併顯示的編制取下屬的平均；到了危險程度的那條加紅框 ===================== */
+var UBAR={mor:{n:'士氣',c:'#42A5F5'},fear:{n:'恐懼',c:'#AB47BC'},sup:{n:'補給',c:'#FFB300'},fat:{n:'疲勞',c:'#BCAAA4',c2:'#6D4C41'}},UBARK=['mor','fear','sup','fat'];
+function ubarMode(){return UIP.barM||'own';}
+function ubarOn(k){return !(UIP.bars&&UIP.bars[k]===0);}
+/* 補給：彈藥、糧秣、燃料三樣裡最缺的一樣 */
+function supFracU(u){var L=u.lg,a=clamp((u.ammo===undefined?100:u.ammo)/100,0,1),f=1,fu=1;if(L){if(L.foodCap>0)f=clamp(L.food/L.foodCap,0,1);if(L.fuelCap>0)fu=clamp(L.fuel/L.fuelCap,0,1);}return {a:a,f:f,fu:fu,v:Math.min(a,f,fu)};}
+function ubarVals(L){var n=0,o={mor:0,fear:0,sup:0,fat:0,exh:0,cut:0,rout:0};L.forEach(function(x){if(!x||!alive(x))return;n++;o.mor+=(x.mor||0)/100;o.fear+=(x.fear||0)/100;o.sup+=supFracU(x).v;o.fat+=(x.fat||0)/100;o.exh+=(x.exh||0)/100;if(x.insup===false)o.cut++;if(x.ms==='rout')o.rout++;});
+  if(!n)return null;UBARK.forEach(function(k){o[k]/=n;});o.exh/=n;o.n=n;return o;}
+function ubarWarn(k,v,o){return k==='mor'?v<0.3||o.rout>0:k==='fear'?v>=0.65:k==='sup'?v<0.15||o.cut>0:v>=0.8||o.exh>=0.65;}
+function uBars(it,u,sel){var m=ubarMode();if(m==='off'||!u||!G||!G.started||G.replay)return null;if(m==='sel'&&!sel)return null;if(!sel&&(VW.s||0)<1.5)return null;
+  var me=UI.side;if(me>=0&&u.side!==me&&!seeAll())return null;if(it.s&&it.s.dom==='air')return null;
+  var V=ubarVals(it.grp||(it.agg&&it.L)||[u]);if(!V)return null;var out=[];UBARK.forEach(function(k){if(ubarOn(k))out.push(k==='fat'?[Math.max(V.fat,V.exh),UBAR.fat.c,ubarWarn(k,V.fat,V)?1:0,V.exh,UBAR.fat.c2]:[V[k],UBAR[k].c,ubarWarn(k,V[k],V)?1:0]);});return out.length?out:null;}
+(function(){var st=document.createElement('style');st.textContent='.lw-ubsw{display:inline-block;width:12px;height:6px;border-radius:2px;margin:0 3px 1px 1px;vertical-align:middle}.lw-ubleg{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:11px;color:#5a6672;margin:2px 0 4px}.lw-bar2.ub-sup>i{background:#FFB300}';document.head.appendChild(st);})();
+function ubarLeg(){return '<div class="lw-ubleg" title="兵牌下方狀態條的順序與顏色">'+UBARK.filter(ubarOn).map(function(k){return '<span><i class="lw-ubsw" style="background:'+(UBAR[k].c2?'linear-gradient(90deg,'+UBAR[k].c2+' 50%,'+UBAR[k].c+' 50%)':UBAR[k].c)+'"></i>'+UBAR[k].n+(UBAR[k].c2?'（深色是長期疲憊）':'')+'</span>';}).join('')+'</div>';}
+/* ---------- 設定 ---------- */
+setSec('gfx','ubar',{t:'兵牌狀態條',o:9,local:true,h:function(){return setOpt(setRow('顯示',setSel('ubarm','',[['own','本方部隊（地圖放大後）'],['sel','只有選取的部隊'],['off','不顯示']],ubarMode()))+
+  setRow('項目',UBARK.map(function(k){return setChk('ubark',k,ubarOn(k),'<i class="lw-ubsw" style="background:'+(UBAR[k].c2?'linear-gradient(90deg,'+UBAR[k].c2+' 50%,'+UBAR[k].c+' 50%)':UBAR[k].c)+'"></i>'+UBAR[k].n);}).join(' ')))+
+  '<div class="lw-note">兵力條下方依序是士氣、恐懼、補給、疲勞，條越長數值越高：士氣越高昂、恐懼越深、補給越充足、越疲勞；疲勞條淺色是當下的體力消耗，深色是連日累積、要好好休整才會消退的長期疲憊。補給取彈藥、糧秣與燃料中最缺的一樣。'+
+  '加紅框表示到了危險程度：士氣低於 30 或有部隊潰散、極度驚恐（65 以上）、補給低於 15% 或補給線中斷、疲勞 80 以上或長期疲憊到精疲力竭（65 以上）。看不到敵軍的這些狀態。</div>';}});
+CHG.ubarm=function(t){UIP.barM=t.value;uipSave();if(G&&G.map&&VW.ct)vDraw(false);};
+CHG.ubark=function(t){var B=UIP.bars||(UIP.bars={});B[t.getAttribute('data-f')]=t.checked?1:0;uipSave();if(G&&G.map&&VW.ct)vDraw(false);};
+/* ---------- 部隊面板：彈藥下面加一條補給（列出最缺的是哪一樣），再附上兵牌狀態條的圖例 ---------- */
+(function(){var b=btStatus;btStatus=function(){b.apply(this,arguments);try{if(!G||!G.started||UI.selX||UI.selC||UI.selB||!UI.sel||UI.sel.length!==1)return;var u=uById(UI.sel[0]),el=btEl('bst');if(!u||!el)return;if(UI.side>=0&&u.side!==UI.side&&!seeAll())return;
+  var bars=el.querySelector('.lw-bars');if(!bars)return;var L=isLeaf(u)?[u]:leavesOf(u).filter(alive);if(!L.length)return;var a=0,f=0,fu=0,nf=0,days=0,nd=0;
+  L.forEach(function(x){var S=supFracU(x);a+=S.a;f+=S.f;if(x.lg&&x.lg.fuelCap>0){fu+=S.fu;nf++;}if(x.lg&&x.lg.dayKg>0){days+=x.lg.food/(x.lg.dayKg*(x.men0>0?Math.max(0.05,x.men/x.men0):1));nd++;}});a/=L.length;f/=L.length;fu=nf?fu/nf:1;
+  var v=Math.min(a,f,fu),low=v===a?'彈藥':v===f?'糧秣':'燃料',txt='彈藥 '+fmt(a*100)+'%・糧秣 '+(nd?(days/nd).toFixed(1)+' 天':fmt(f*100)+'%')+(nf?'・燃料 '+fmt(fu*100)+'%':'');
+  var tmp=document.createElement('div');tmp.innerHTML=bar('補給',v*100,'ub-sup',fmt(v*100)+'%');var lbl=[].slice.call(bars.children).filter(function(c){return c.tagName==='SPAN'&&c.textContent==='彈藥';})[0],ref=lbl&&lbl.nextSibling&&lbl.nextSibling.nextSibling?lbl.nextSibling.nextSibling.nextSibling:null;
+  while(tmp.firstChild)bars.insertBefore(tmp.firstChild,ref);bars.insertAdjacentHTML('afterend','<div class="lw-note lw-ubsup">補給：'+txt+(v<0.5?'；最缺的是<b>'+low+'</b>':'')+'</div>'+(ubarMode()!=='off'?ubarLeg():''));}catch(e){}};})();
+if(typeof HELP14!=='undefined')HELP14.push('<h4>兵牌狀態條</h4><ul>'+
+  '<li>作戰開始後，本方部隊的兵牌在兵力條下方依序畫出<b>士氣</b>（藍）、<b>恐懼</b>（紫）、<b>補給</b>（琥珀）、<b>疲勞</b>（褐）四條；條越長數值越高。疲勞條的淺色是當下的體力消耗，深色是長期疲憊。合併顯示的編制取下屬部隊的平均。</li>'+
+  '<li>補給取彈藥、糧秣與燃料中最缺的一樣；部隊面板的補給條下面列出三樣各剩多少。</li>'+
+  '<li>加紅框表示到了危險程度：士氣低於 30 或有部隊潰散、極度驚恐、補給低於 15% 或補給線中斷、疲勞 80 以上或精疲力竭。</li>'+
+  '<li>敵軍的士氣、恐懼、補給與疲勞看不到。設定的「兵牌狀態條」可以改成只顯示選取的部隊、關閉，或挑選要畫哪幾條。</li></ul>');
+/* ===================== 疲憊值（介面）：設定、部隊面板的疲憊條與原因、對話、說明 ===================== */
+setSec('combat','exh',{t:'疲憊',o:23,h:function(){return setOpt(setRow('長期疲憊',setChk('setb','exh',G.set.exh!==false,'缺乏睡眠、連日強行軍與長期在火線上會累積疲憊：射擊、行進、警戒變差，士氣回復上限降低，更容易恐懼，強行軍會有人落伍，精疲力竭還在交火會出現戰鬥疲勞的傷患')))+
+  '<div class="lw-note">當下的疲勞停下來就會回復；長期的疲憊要遠離敵人、下令休息，或撤到後方整補才會慢慢消退。</div>';}});
+/* 部隊面板：疲勞下面加一條疲憊，列出原因與效果 */
+(function(){var b=btStatus;btStatus=function(){b.apply(this,arguments);try{if(!G||!G.started||G.set.exh===false||UI.selX||UI.selC||UI.selB||!UI.sel||UI.sel.length!==1)return;var u=uById(UI.sel[0]),el=btEl('bst');if(!u||!el)return;if(UI.side>=0&&u.side!==UI.side&&!seeAll())return;
+  var L=isLeaf(u)?[u]:leavesOf(u).filter(function(q){return alive(q)&&ST(q).dom==='land';});if(!L.length||(isLeaf(u)&&ST(u).dom!=='land'))return;var bars=el.querySelector('.lw-bars');if(!bars)return;
+  var e=sum(L,function(q){return q.exh||0;})/L.length,lv=exhLv(e),tmp=document.createElement('div');tmp.innerHTML=bar('疲憊',e,lv>=3?'r':lv>=2?'y':'',fmt(e)+'・'+EXHN[lv]);
+  var lbl=[].slice.call(bars.children).filter(function(c){return c.tagName==='SPAN'&&c.textContent==='疲勞';})[0],ref=lbl&&lbl.nextSibling&&lbl.nextSibling.nextSibling?lbl.nextSibling.nextSibling.nextSibling:null;while(tmp.firstChild)bars.insertBefore(tmp.firstChild,ref);
+  var why=isLeaf(u)?exhWhy(u):'',eff=[],f=sum(L,function(x){return exhFire(x);})/L.length,m=sum(L,function(x){return exhMove(x);})/L.length,sp=sum(L,function(x){return exhSpot(x);})/L.length,mc=sum(L,function(x){return exhMorCap(x);})/L.length,ps=sum(L,function(x){return x.exhN||0;});
+  if(f<0.99)eff.push('射擊 '+sg((f-1)*100,0)+'%');if(m<0.99)eff.push('行進 '+sg((m-1)*100,0)+'%');if(sp<0.99)eff.push('警戒與偵察 '+sg((sp-1)*100,0)+'%');if(mc>=1)eff.push('士氣回復上限 −'+fmt(mc));if(e>40)eff.push('更容易恐懼');
+  var t='';if(why)t+='原因：'+esc(why);if(eff.length)t+=(t?'；':'')+'影響：'+eff.join('、');if(ps>=1)t+=(t?'；':'')+'已有約 '+fmt(ps)+' 人因戰鬥疲勞後送';if(lv>=2)t+=(t?'。':'')+'遠離敵人下令休息，或撤到後方整補才會消退';
+  if(t)el.insertAdjacentHTML('beforeend','<div class="lw-note lw-exhu" style="border-left:3px solid #6D4C41;padding-left:6px;margin-top:4px">'+t+'</div>');}catch(err){}};})();
+/* ---------- 對話 ---------- */
+VOXD.exh1=['眼皮重得睜不開','腿已經不是自己的了','能不能停下來喘口氣','我站著都能睡著','背包越來越重了','他剛才走著走著就睡著了','不知道幾天沒好好睡了','腦袋嗡嗡的','手在抖，不是怕，是累',
+  '別坐下，坐下就起不來了','誰還醒著？','講話都講不清楚了','剛才的口令是什麼來著？','[^1900]肩膀被槍帶磨出血了','[_1900]火繩都拿不穩了','[n]天又黑了，還是沒得睡','[n]哨兵又在打瞌睡','[h]熱得頭暈，眼前一陣黑',
+  '[c]冷得睡不著，累得醒不來','[r]泥巴把靴子吸住，每一步都要用力拔','[@arm]駕駛剛才差點睡著','[@arm]盯著潛望鏡眼前都冒金星','[@art]手臂抬不起來，砲彈一顆比一顆重','[@cav]人跟馬都累垮了','[@eng]鏟子都舉不起來了',
+  '[@med]擔架抬到手都麻了','[!]我撐不下去了','[!]再這樣下去我會倒在這裡','[~]撐著點，快換防了','[~]再忍一下，天亮就有人來換'];
+VOXD.exh2=['弟兄們都撐到極限了','這樣下去要出事的','好幾天沒闔眼了','長官，大家都快倒了','有人站著就睡著了','再打下去，不用敵人動手我們就垮了','剛才有人連口令都忘了','槍口一直往下垂',
+  '請求換防，弟兄們真的不行了','看東西都有疊影了','吃東西都沒力氣嚼','有人在發高燒，還是得撐著','[@arm]車組已經兩天沒下車了','[@art]砲班一個個坐著就睡著了','[@hq]參謀念著念著就趴在地圖上睡著',
+  '[!]我的手不聽使喚了','[n]他醒著，可是在說夢話','[~]輪班睡，一次兩個人，誰都別硬撐'];
+VOXD.exh3=['他一直盯著地上，叫他也沒反應','有人開始哭，停不下來','他說他聽見家裡的狗在叫……','我們撐不住了，真的撐不住了','他把槍放下，就坐在那裡不動','醫護兵說這不是受傷，是人撐到頭了',
+  '剛才他對著空的地方開槍','他抖個不停，連水壺都拿不住','[^1914 _1919]又一個彈震症','[^1939 _1953]醫官說是戰鬥疲勞症','[^1960]醫官說是急性壓力反應','[_1913]有人整夜喃喃自語，眼神都散了','[!]讓我離開這裡'];
+VOXD.fmarch=['今天已經走了{km}公里','這是強行軍，咬牙跟上','隊伍拉得好長','別停，停了就跟不上了','鞋底磨穿了也得走','一天{km}公里，誰受得了','前面的人在跑，後面的人在爬','水壺早就空了',
+  '[^1900]腳底的水泡破了又起','[_1900]長矛都快扛不動了','[@cav]馬口吐白沫，再跑就要倒','[@cav]下馬牽著走吧，馬撐不住了','[@arm]引擎過熱，履帶也該檢查了','[@arm]駕駛換了三輪還是累','[@art]拖著砲走，馬都在喘',
+  '[h]這種天氣強行軍會熱死人','[c]腳趾凍得沒感覺還得走','[r]泥濘裡強行軍，一步陷一步','[n]摸黑趕路，前面的人都看不見'];
+VOXD.strag=['後面有人跟不上了','又有人倒在路邊','隊伍後面一直在掉人','他說歇一下就追上來……','收容隊在後面撿人','掉隊的人要是碰上敵人就完了','點名少了好幾個','有人坐在路邊怎麼叫都不起來',
+  '[@cav]有幾匹馬跛了，只好用走的','[@arm]有車拋錨了，只能留在路邊','[h]有人中暑倒下了','[c]有人凍得走不動了'];
+VOXD.nosleep=['不記得上次睡覺是什麼時候了','閉上眼就聽見砲聲','就讓我睡五分鐘','剛剛那是幻覺吧？','眼睛乾得像砂紙','有人在發提神的藥','站哨睡著要軍法處置，撐著','腦子像塞滿了棉花','說話說到一半就忘了要說什麼',
+  '[^1900]咖啡早就沒了','[_1900]再這樣熬下去，人都要瘋了','[n]這一夜又沒得睡','[n]黑暗裡一直覺得有東西在動'];
+VOXD.rested=['總算睡了一整晚','熱的東西下肚，活過來了','洗了把臉，像換了個人','能睡覺真好','腳上的水泡總算消了一點','換了乾襪子，舒服多了','睡醒才發現自己有多累','[~]現在可以再上去了','[!]休息完還是得回去……','[^1900]總算寫了封信回家'];
+/* 疲憊等級升高、開始強行軍、有人落伍、休整回來時說一句；很累的時候閒聊也多半在講累 */
+(function(){var b=voxDetect;voxDetect=function(u,P,N,s){var r=b(u,P,N,s);if(G.set.exh===false||u.exh===undefined)return r;N.xl=exhLv(u.exh);N.fm=u.mkm>exhCap(s||ST(u))*1.3&&!!N.mv;N.sg=u.strg>=0.08?1:0;if(r||P.xl===undefined)return r;
+  if(N.xl>=4&&P.xl<4)return ['exh3',1];if(N.xl>=3&&P.xl<3)return ['exh2',2];if(N.sg&&!P.sg)return ['strag',2];if(N.fm&&!P.fm)return ['fmarch',2,{km:fx(u.mkm,0)}];if(N.xl<=1&&P.xl>=3)return ['rested',3];return null;};})();
+(function(){var b=voxAmb;voxAmb=function(u,N){var r=b(u,N);if(G.set.exh===false||!(u.exh>=20)||N.uf||N.fd||!r||r[1]<3)return r;var h=hstr(u.id+'|x|'+VOX.c)%100,lv=exhLv(u.exh);
+  if(N.mv&&N.fm&&h<45)return ['fmarch',3,{km:fx(u.mkm,0)}];if(u.slp>24&&h<35+lv*8)return ['nosleep',3];if(h<20+lv*15)return [lv>=4?'exh3':lv>=3?'exh2':'exh1',3];return r;};})();
+if(typeof HELP14!=='undefined')HELP14.push('<h4>疲憊值</h4><ul>'+
+  '<li><b>疲勞</b>是當下的體力：行軍、交火、夜戰時累加，停下來就回復。<b>疲憊</b>是連日累積的：缺乏睡眠、強行軍與長期在火線上一天天加重，只有遠離敵人、下令休息，或撤到後方整補才會慢慢消退。</li>'+
+  '<li>強行軍：一天內徒步超過約 30 公里、騎乘或畜力超過 50 公里、車輛超過 200 公里，疲憊加得快，徒步部隊還會有人落伍（停下來休息後陸續歸隊）。</li>'+
+  '<li>缺乏睡眠：交火、行軍、構工時沒得睡；敵人就在附近時只能輪班淺眠。缺的睡眠超過一天半，疲憊會加速累積；夜裡缺乏睡眠的哨兵容易打瞌睡。</li>'+
+  '<li>影響：疲憊越高，射擊、行進、警戒與偵察越差，士氣回復的上限越低、越容易恐懼；精疲力竭（65 以上）還在交火，會開始有人因戰鬥疲勞後送。部隊面板列出原因與影響。</li>'+
+  '<li>AI 會讓遠離敵人又累壞的部隊就地休息，精疲力竭的前線部隊也會換下來輪休；接替的部隊不能也是累壞的。設定的「疲憊」可以關閉這套機制。</li></ul>');
 /* ===================== 聯機版：在房間裡調整所有模擬設定 =====================
    房主可以在房間頁的「模擬設定」（開戰前不論有沒有載入想定都可以）或作戰中的「設定」分頁調整所有模擬設定；
    改動以「設定路徑 → 值」送到伺服器，所有人一起套用。載入想定前調整的設定，也會套用到之後載入的想定或存檔；「恢復想定的設定」可以撤銷。
