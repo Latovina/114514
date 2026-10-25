@@ -8355,15 +8355,23 @@ function beaufort(ws){var B=[[0.3,'無風'],[1.6,'軟風'],[3.4,'輕風'],[5.5,'
    屍群是雙方以外的第三方：追逐附近的部隊（剛開過火的部隊，兩倍距離外的屍群也聽得到），沒有部隊時襲擊平民與難民，再沒有就四處遊蕩。
    雙方部隊自動向射程內看得到的屍群射擊；砲兵的火力支援（含直屬砲兵的自動支援）會打看得到的屍群與巢穴；地毯式轟炸、核武、野火也會殺傷屍群。
    被咬傷的官兵經過潛伏期會屍變（在部隊裡出現新的屍群）；醫療補給可以救治一部分。戰死的官兵與死去的平民可能復生。
+   不可名狀之物（G.set.zed.k='eldritch' 或 'all'）：無名之物（極少、極耐打，輕兵器幾乎無效，會破壞車輛，三公里外就令人驚恐）、
+   低語者（三百公尺內才看得到，看不見也聽得到它們的低語，附近的官兵精神崩潰）、蠕影（成群、夜裡活躍，白天潛伏）；從裂隙湧出，不會感染、死者也不會復生。
    設定在 G.set.zed（預設關閉）。關閉時完全不執行、不耗用模擬亂數；開啟後屍群用自己的亂數（存在 G.zed），存檔後繼續的結果一致。 */
 var ZK={
- z:{n:'行屍',sp:0.35,hp:1,atk:0.004,veh:0,inf:0.5,det:1500,sa:1,fire:1.5,c:'#7CB342'},
- r:{n:'奔跑者',sp:2.2,hp:1,atk:0.012,veh:0,inf:0.5,det:2500,sa:0.8,fire:1.5,c:'#C0CA33'},
- b:{n:'巨型變異體',sp:0.9,hp:12,atk:0.06,veh:0.004,inf:0.2,det:2000,sa:0.25,fire:1,arm:2,c:'#8D6E63'},
- h:{n:'寄生宿主',sp:0.7,hp:1.5,atk:0.006,veh:0,inf:0.7,det:2000,sa:0.8,fire:2,c:'#BA68C8'},
- s:{n:'寄生蟲群',sp:1.6,hp:0.3,atk:0.002,veh:0,inf:0.8,det:1200,sa:0.35,fire:3,c:'#EC407A'},
- p:{n:'孢子體',sp:0.25,hp:2,atk:0.002,veh:0,inf:0.3,det:1000,sa:1,fire:2,burst:0.4,c:'#FFB300'}};
-var ZMODE={zombie:'喪屍',parasite:'寄生蟲',mixed:'喪屍與寄生蟲'};
+ z:{n:'行屍',sp:0.35,hp:1,atk:0.004,veh:0,inf:0.5,det:1500,sa:1,fire:1.5,c:'#7CB342',fear:1.5},
+ r:{n:'奔跑者',sp:2.2,hp:1,atk:0.012,veh:0,inf:0.5,det:2500,sa:0.8,fire:1.5,c:'#C0CA33',fear:2},
+ b:{n:'巨型變異體',sp:0.9,hp:12,atk:0.06,veh:0.004,inf:0.2,det:2000,sa:0.25,fire:1,arm:2,c:'#8D6E63',fear:2.5,fr:2000},
+ h:{n:'寄生宿主',sp:0.7,hp:1.5,atk:0.006,veh:0,inf:0.7,det:2000,sa:0.8,fire:2,c:'#BA68C8',fear:1.6},
+ s:{n:'寄生蟲群',sp:1.6,hp:0.3,atk:0.002,veh:0,inf:0.8,det:1200,sa:0.35,fire:3,c:'#EC407A',fear:1.4},
+ p:{n:'孢子體',sp:0.25,hp:2,atk:0.002,veh:0,inf:0.3,det:1000,sa:1,fire:2,burst:0.4,c:'#FFB300',fear:1.2},
+ w:{n:'無名之物',sp:0.5,hp:8,atk:0.06,veh:0.01,inf:0,det:3000,sa:0.08,fire:0.5,arm:3,c:'#2A0A3D',dem:1,fear:3,fr:3000},
+ q:{n:'低語者',sp:1.1,hp:2,atk:0.008,veh:0,inf:0,det:2000,sa:0.6,fire:1,c:'#7E57C2',dem:1,fear:1.6,fr:1500,psy:1,hide:300},
+ v:{n:'蠕影',sp:2.4,hp:0.6,atk:0.012,veh:0,inf:0,det:1800,sa:0.9,fire:2,c:'#1A237E',dem:1,fear:1,fr:1200,noc:1}};
+/* 種類的單位：不可名狀之物以「個」計，不稱「群」 */
+function zedNm(h){var K=ZK[h.k]||ZK.z;return K.n+(K.dem?'':'群');}
+function zedQ(h){return (ZK[h.k]||ZK.z).dem?' 個':' 隻';}
+var ZMODE={zombie:'喪屍',parasite:'寄生蟲',mixed:'喪屍與寄生蟲',eldritch:'不可名狀之物',all:'喪屍、寄生蟲與不可名狀之物'};
 var ZLV=[null,{n:'零星',pop:0.04,nest:1,iv:4,wave:250,towns:0.25},{n:'爆發',pop:0.12,nest:2,iv:2.5,wave:600,towns:0.5},{n:'末日',pop:0.3,nest:4,iv:1.5,wave:1400,towns:1}];
 var ZSRC={town:'市鎮爆發',nest:'巢穴與感染源',edge:'從地圖邊緣湧入',all:'以上全部',pick:'只在手動指定的地點'};
 var ZDEF={on:false,k:'zombie',lv:2,src:'town',rise:true,civ:true,t0:0};
@@ -8376,28 +8384,32 @@ function zedCfg(){var z=G&&G.set&&G.set.zed,o={};for(var k in ZDEF)o[k]=z&&z[k]!
 /* 自己的亂數（xorshift32，狀態存在 G.zed.rs） */
 function zr(){var Z=G.zed,x=Z.rs|0;if(!x)x=1;x^=x<<13;x^=x>>>17;x^=x<<5;Z.rs=x;return (x>>>0)/4294967296;}
 function zedPar(k){return k==='h'||k==='s'||k==='p';}
-function zedR(h){return 25+3.2*Math.sqrt(Math.max(1,h.n))*(h.k==='b'?3:h.k==='s'?0.5:1);}
+function zedDem(k){return !!(ZK[k]&&ZK[k].dem);}
+function zedDemMix(lv){return lv>=3?[['v',0.5],['q',0.3],['w',0.2]]:lv>=2?[['v',0.6],['q',0.3],['w',0.1]]:[['v',0.75],['q',0.25]];}
+function zedR(h){return 25+3.2*Math.sqrt(Math.max(1,h.n))*(h.k==='w'?6:h.k==='b'?3:h.k==='s'||h.k==='v'?0.5:1);}
 function zedPass(x,y){var MP=G.map;if(!(x>=0&&y>=0&&x<MP.Wm&&y<MP.Hm))return false;var k=cellAt(x,y);return !isWater(MP.lc[k])||MP.rd[k]>0||!!(MP.rl&&(MP.rl[k]&1));}
 function zedLand(x,y,R){for(var i=0;i<24;i++){var a=zr()*2*PI,d=i===0?0:R*Math.sqrt(zr()),px=x+Math.cos(a)*d,py=y+Math.sin(a)*d;if(zedPass(px,py)&&!isWater(G.map.lc[cellAt(px,py)]))return [px,py];}return null;}
 /* 依模式與嚴重程度挑選種類；各種類的數量換算（巨型變異體很少、寄生蟲群數量多） */
-function zedMix(C){if(C.k==='parasite')return [['h',0.55],['s',0.3],['p',0.15]];var z=C.lv>=3?[['z',0.72],['r',0.2],['b',0.08]]:C.lv>=2?[['z',0.82],['r',0.18]]:[['z',1]];
-  if(C.k==='mixed')return z.map(function(q){return [q[0],q[1]*0.55];}).concat([['h',0.25],['s',0.12],['p',0.08]]);return z;}
+function zedMix(C){if(C.k==='parasite')return [['h',0.55],['s',0.3],['p',0.15]];if(C.k==='eldritch')return zedDemMix(C.lv);var z=C.lv>=3?[['z',0.72],['r',0.2],['b',0.08]]:C.lv>=2?[['z',0.82],['r',0.18]]:[['z',1]];
+  if(C.k==='mixed')return z.map(function(q){return [q[0],q[1]*0.55];}).concat([['h',0.25],['s',0.12],['p',0.08]]);
+  if(C.k==='all')return z.map(function(q){return [q[0],q[1]*0.45];}).concat([['h',0.15],['s',0.08],['p',0.05]]).concat(zedDemMix(C.lv).map(function(q){return [q[0],q[1]*0.27];}));return z;}
 function zedPick(C){var L=zedMix(C),t=0,i;for(i=0;i<L.length;i++)t+=L[i][1];var r=zr()*t;for(i=0;i<L.length;i++){r-=L[i][1];if(r<=0)return L[i][0];}return L[0][0];}
-function zedSize(k,n){return k==='b'?Math.max(2,Math.round(n*0.012)):k==='s'?n*2:k==='p'?Math.max(3,n*0.12):k==='r'?n*0.6:n;}
-function zedKN(C){return C.k==='parasite'?'寄生體':C.k==='mixed'?'屍群與寄生體':'屍群';}
+function zedSize(k,n){return k==='w'?Math.max(1,Math.round(n*0.006)):k==='q'?Math.max(2,Math.round(n*0.04)):k==='v'?n*0.4:k==='b'?Math.max(2,Math.round(n*0.012)):k==='s'?n*2:k==='p'?Math.max(3,n*0.12):k==='r'?n*0.6:n;}
+function zedKN(C){return C.k==='parasite'?'寄生體':C.k==='mixed'?'屍群與寄生體':C.k==='eldritch'?'不可名狀之物':C.k==='all'?'屍群與不可名狀之物':'屍群';}
 /* ---------- 屍群：新增、就近併入 ---------- */
 function zedAdd(k,n,x,y){var Z=G.zed;if(!(n>=1)||!ZK[k])return null;var h={id:++Z.seq,k:k,n:n,x:x,y:y,tx:x,ty:y,st:'wan',tid:0,sn:[-1e9,-1e9],t0:G.t,wt:0};Z.H.push(h);Z.st.born+=n;return h;}
 function zedJoin(k,n,x,y){var Z=G.zed,b=null,bd=350;if(!(n>=1))return null;for(var i=0;i<Z.H.length;i++){var h=Z.H[i];if(h.k!==k||h.n<1)continue;var d=dist(h.x,h.y,x,y);if(d<bd){bd=d;b=h;}}
   if(b){var w=n/(b.n+n);b.x+=(x-b.x)*w;b.y+=(y-b.y)*w;b.n+=n;Z.st.born+=n;return b;}return zedAdd(k,n,x,y);}
-/* 在 (x,y) 半徑 R 內放出約 n 隻（依模式分成幾群不同種類）；par：巢穴決定是寄生蟲還是喪屍 */
+/* 在 (x,y) 半徑 R 內放出約 n 隻（依模式分成幾群不同種類）；par：巢穴決定是寄生蟲（1）、喪屍（0）還是不可名狀之物（2） */
 function zedSpawn(n,x,y,R,par){var C=zedCfg(),tot=0,parts=Math.min(6,Math.max(1,Math.round(n/600)));
-  for(var i=0;i<parts;i++){var k=par===undefined?zedPick(C):zedPick({k:par?'parasite':'zombie',lv:C.lv}),m=zedSize(k,n/parts),p=zedLand(x,y,R);if(!p)continue;if(zedJoin(k,m,p[0],p[1]))tot+=m;}return tot;}
+  for(var i=0;i<parts;i++){var k=par===undefined?zedPick(C):zedPick({k:par===2?'eldritch':par?'parasite':'zombie',lv:C.lv}),m=zedSize(k,n/parts),p=zedLand(x,y,R);if(!p)continue;if(zedJoin(k,m,p[0],p[1]))tot+=m;}return tot;}
 /* 死者復生：同一處、時間相近的併成一筆 */
 function zedDead(x,y,n,k,dl,mil){var Z=G.zed;if(!Z||!(n>0))return;var t=G.t+dl,m=mil?1:0;for(var i=Z.D.length-1;i>=0&&i>=Z.D.length-40;i--){var d=Z.D[i];if(d.k===k&&(d.m||0)===m&&Math.abs(d.t-t)<900&&dist(d.x,d.y,x,y)<500){d.n+=n;return;}}
   Z.D.push({x:x,y:y,n:n,k:k,t:t,m:m});if(Z.D.length>600)Z.D.splice(0,Z.D.length-600);}
 /* ---------- 巢穴與感染源 ---------- */
-function zedNestN(N){return N.par?'寄生蟲巢穴':'感染源';}
-function zedNest(x,y,C){var Z=G.zed,par=C.k==='parasite'||(C.k==='mixed'&&zr()<0.5),hp=300+150*C.lv,N={id:++Z.seq,par:par?1:0,x:x,y:y,hp:hp,hp0:hp,nx:G.t+3600*ZLV[C.lv].iv*(0.3+0.4*zr()),sn:[0,0],nm:placeTxt(x,y)};Z.N.push(N);return N;}
+function zedNestN(N){return N.dem?'裂隙':N.par?'寄生蟲巢穴':'感染源';}
+function zedNestP(N){return N.dem?2:N.par;}
+function zedNest(x,y,C){var Z=G.zed,dem=C.k==='eldritch'||(C.k==='all'&&zr()<0.34),par=!dem&&(C.k==='parasite'||((C.k==='mixed'||C.k==='all')&&zr()<0.5)),hp=300+150*C.lv,N={id:++Z.seq,par:par?1:0,dem:dem?1:0,x:x,y:y,hp:hp,hp0:hp,nx:G.t+3600*ZLV[C.lv].iv*(0.3+0.4*zr()),sn:[0,0],nm:placeTxt(x,y)};Z.N.push(N);return N;}
 function zedNestHit(N,d,side,by){if(N.hp<=0||!(d>0))return;N.hp-=d;if(N.hp>0)return;N.hp=0;N.dt=G.t;var Z=G.zed;if(side===0||side===1)Z.st.nk[side]++;logE(-1,'zed',(by?by+'摧毀了':'')+zedNestN(N)+'（'+N.nm+'）',N.x,N.y);}
 /* 離部隊最遠的陸地（林地、廢墟、工業區、沼澤優先） */
 function zedFar(minD){var MP=G.map,best=null,bs=-1,U=G.units.filter(function(u){return onMap(u)&&isLeaf(u);});
@@ -8415,20 +8427,20 @@ function zedPtOk(p){var MP=G.map;return !!p&&typeof p==='object'&&isFinite(p.x)&
 function zedPtsOf(){var z=G.set&&G.set.zed;return z&&Array.isArray(z.pts)?z.pts.filter(zedPtOk).slice(0,80):[];}
 function zedAt(p,C){var x=+p.x,y=+p.y,n=clamp(Math.round(+p.n||300),1,20000),Z=G.zed;
   if(C.civ!==false&&G.civ)G.civ.S.forEach(function(g){if(dist(g.x,g.y,x,y)>g.r+300)return;var c=Math.min(n*0.5,civPresent(g)*0.5);if(c>0.5){civCas(g,c,1,'zed',-1);g.alarm=1;Z.st.civ+=c;}});
-  if(p.nest){var N=zedNest(x,y,C);if(p.k==='parasite'||p.k==='zombie')N.par=p.k==='parasite'?1:0;N.nx=G.t+3600*ZLV[C.lv].iv*0.5;return zedSpawn(n,x,y,300,N.par);}
+  if(p.nest){var N=zedNest(x,y,C);if(p.k==='parasite'||p.k==='zombie'||p.k==='eldritch'){N.par=p.k==='parasite'?1:0;N.dem=p.k==='eldritch'?1:0;}N.nx=G.t+3600*ZLV[C.lv].iv*0.5;return zedSpawn(n,x,y,300,zedNestP(N));}
   if(ZK[p.k]){var q=zedLand(x,y,250),m=zedSize(p.k,n);return q&&zedJoin(p.k,m,q[0],q[1])?m:0;}return zedSpawn(n,x,y,250);}
 /* 作戰中（已經爆發）在地圖上點選：立即在該處出現（單機直接執行；線上由房主送到伺服器） */
 function zedSpawnAt(p){if(!G||!G.started||G.over||!zedOn()||!zedPtOk(p))return 0;var C=zedCfg(),Z=zedInit0();if(!Z.go)return 0;var m=zedAt(p,C);
-  if(m>0)logE(-1,'zed',placeTxt(+p.x,+p.y)+(p.nest?'出現新的'+(p.k==='parasite'?'寄生蟲巢穴':'感染源'):'突然爆發')+'，約 '+fmt(m)+' 隻'+(ZK[p.k]?ZK[p.k].n:zedKN(C)),+p.x,+p.y);return m;}
+  if(m>0)logE(-1,'zed',placeTxt(+p.x,+p.y)+(p.nest?'出現新的'+(p.k==='parasite'?'寄生蟲巢穴':p.k==='eldritch'?'裂隙':'感染源'):'突然爆發')+'，約 '+fmt(m)+(ZK[p.k]?(ZK[p.k].dem?' 個':' 隻')+ZK[p.k].n:' 隻'+zedKN(C)),+p.x,+p.y);return m;}
 function zedOutbreak(C){var Z=G.zed,MP=G.map,L=ZLV[C.lv],tot=0,pl=[];Z.go=1;Z.tgo=G.t;
   zedPtsOf().forEach(function(p){var m=zedAt(p,C);if(m>0){tot+=m;pl.push(placeTxt(+p.x,+p.y));}});
   if(C.src==='town'||C.src==='all'){var T=[];if(G.civ&&G.civ.S&&G.civ.S.length)G.civ.S.forEach(function(g){T.push({x:g.x,y:g.y,r:g.r,p:civPresent(g),g:g,n:g.n});});else (MP.set||[]).forEach(function(s){T.push({x:s.x*MP.cs,y:s.y*MP.cs,r:Math.max(250,s.r||300),p:s.pop||0,n:s.name});});
     T.sort(function(a,b){return b.p-a.p;});var want=Math.max(1,Math.round(T.length*L.towns));
     T.slice(0,want).forEach(function(t,i){if(i>0&&zr()>0.75)return;var n=Math.max(12,t.p*L.pop*(0.6+0.8*zr()));if(t.g&&C.civ!==false){var c=Math.min(n,civPresent(t.g)*0.9);if(c>0)civCas(t.g,c,1,'zed',-1);t.g.alarm=1;Z.st.civ+=c;}var m=zedSpawn(n,t.x,t.y,t.r);if(m>0){tot+=m;pl.push(t.n);}});}
-  if(C.src==='nest'||C.src==='all'||(C.src==='town'&&!tot)){for(var i=0;i<L.nest;i++){var p=zedFar(6000);if(!p)continue;var N=zedNest(p[0],p[1],C);tot+=zedSpawn(L.wave*(0.3+0.4*zr()),N.x,N.y,300,N.par);pl.push(N.nm+'的'+zedNestN(N));}}
+  if(C.src==='nest'||C.src==='all'||(C.src==='town'&&!tot)){for(var i=0;i<L.nest;i++){var p=zedFar(6000);if(!p)continue;var N=zedNest(p[0],p[1],C);tot+=zedSpawn(L.wave*(0.3+0.4*zr()),N.x,N.y,300,zedNestP(N));pl.push(N.nm+'的'+zedNestN(N));}}
   if(C.src==='edge'||C.src==='all'){var e=zedEdge();if(e){tot+=zedSpawn(L.wave*(0.6+0.8*zr()),e[0],e[1],400);pl.push(placeTxt(e[0],e[1])+'附近的地圖邊緣');}Z.nx=G.t+3600*L.iv*(0.6+0.8*zr());}
   if(C.src==='pick'&&!tot){logE(-1,'zed','喪屍與寄生蟲作戰環境已啟用，但沒有指定爆發地點：在「設定」的異變環境卡片按「在地圖上點選」，點選的地點會立即爆發');return;}
-  logE(-1,'zed',(C.k==='parasite'?'寄生蟲感染爆發':C.k==='mixed'?'喪屍疫情與寄生蟲感染同時爆發':'喪屍疫情爆發')+'（'+L.n+'）：'+(pl.length?pl.slice(0,6).join('、')+(pl.length>6?'等 '+pl.length+' 處':''):'各地')+'出現'+zedKN(C)+'，約 '+fmt(tot)+' 隻');
+  logE(-1,'zed',(C.k==='parasite'?'寄生蟲感染爆發':C.k==='mixed'?'喪屍疫情與寄生蟲感染同時爆發':C.k==='eldritch'?'無法解釋的東西出現在戰場上':C.k==='all'?'喪屍、寄生蟲與無法解釋的東西同時出現':'喪屍疫情爆發')+'（'+L.n+'）：'+(pl.length?pl.slice(0,6).join('、')+(pl.length>6?'等 '+pl.length+' 處':''):'各地')+'出現'+zedKN(C)+'，約 '+fmt(tot)+' 隻');
   if(G.onPause&&apOn('zed'))G.onPause('喪屍與寄生蟲爆發');}
 /* ---------- 每一步（兩個模擬步，60 秒）：計時、觀測、移動、近戰、射擊、巢穴、野火、屍變、整理 ---------- */
 function zedStep(){var C=zedCfg(),Z=zedInit0();if(!Z.go){if(G.t<Z.ts+C.t0*3600)return;zedOutbreak(C);}
@@ -8436,17 +8448,17 @@ function zedStep(){var C=zedCfg(),Z=zedInit0();if(!Z.go){if(G.t<Z.ts+C.t0*3600)r
 (function(){var b=v8Step;v8Step=function(){b.apply(this,arguments);if(!G||!G.started||G.over||!zedOn())return;if(G.step%2===0)zedStep();zedRq();};})();
 function zedTimers(C){var Z=G.zed,L=ZLV[C.lv];
   /* 從地圖邊緣湧入的屍潮 */if((C.src==='edge'||C.src==='all')&&G.t>=(Z.nx||0)){var e=zedEdge();if(e){var n=zedSpawn(L.wave*(0.5+zr()),e[0],e[1],400);if(n>0)logE(-1,'zed','又一波'+zedKN(C)+'從'+placeTxt(e[0],e[1])+'附近的地圖邊緣湧入，約 '+fmt(n)+' 隻',e[0],e[1]);}Z.nx=G.t+3600*L.iv*(0.6+0.8*zr());}
-  /* 巢穴與感染源不斷放出新的屍群，直到被摧毀 */Z.N.forEach(function(N){if(N.hp<=0||G.t<N.nx)return;var n=zedSpawn(L.wave*(0.25+0.35*zr()),N.x,N.y,250,N.par);N.nx=G.t+3600*L.iv*(0.7+0.6*zr());if(n>0)zedLog(N.x,N.y,zedNestN(N)+'（'+N.nm+'）又湧出約 '+fmt(n)+' 隻',6000);});
-  /* 死者復生 */if(Z.D.length){var keep=[],up=0;Z.D.forEach(function(d){if(G.t<d.t){keep.push(d);return;}if(d.n>=1){var p=zedLand(d.x,d.y,150);if(p&&zedJoin(d.k,d.n,p[0],p[1])){Z.st.rise+=d.n;up+=d.n;if(d.m&&d.n>=5)zedLog(d.x,d.y,placeTxt(d.x,d.y)+'約 '+fmt(d.n)+' 名陣亡官兵的屍體復生',4000);}}});Z.D=keep;}}
+  /* 巢穴與感染源不斷放出新的屍群，直到被摧毀 */Z.N.forEach(function(N){if(N.hp<=0||G.t<N.nx)return;var n=zedSpawn(L.wave*(0.25+0.35*zr()),N.x,N.y,250,zedNestP(N));N.nx=G.t+3600*L.iv*(0.7+0.6*zr());if(n>0)zedLog(N.x,N.y,zedNestN(N)+'（'+N.nm+'）又湧出約 '+fmt(n)+(N.dem?' 個不可名狀之物':' 隻'),6000);});
+  /* 死者復生 */if(Z.D.length){var keep=[],up=0;Z.D.forEach(function(d){if(G.t<d.t){keep.push(d);return;}if(d.n>=1){var p=zedLand(d.x,d.y,150);if(p&&zedJoin(d.k,d.n,p[0],p[1])){Z.st.rise+=d.n;up+=d.n;if(d.m&&d.n>=5)zedLog(d.x,d.y,placeTxt(d.x,d.y)+'約 '+fmt(d.n)+' 名陣亡官兵的屍體復生',4000);if(typeof fearArea==='function'&&d.n>=3)fearArea(p[0],p[1],1500,Math.min(18,4+Math.sqrt(d.n)),'rise');}}});Z.D=keep;}}
 /* 觀測：各方部隊依觀測距離（大群看得更遠）發現屍群；巢穴一經發現就一直標示 */
 function zedSee(){var Z=G.zed,MR=[0,0];G.units.forEach(function(u){if((u.side===0||u.side===1)&&onMap(u)&&isLeaf(u)){var R=zedVR(u);if(R>MR[u.side])MR[u.side]=R;}});
   [0,1].forEach(function(s){if(!(MR[s]>0))return;Z.H.forEach(function(h){if(h.n<1)return;var sz=clamp(0.7+0.3*Math.log10(h.n+1),0.7,1.4),hr=zedR(h),f=false;
-      gridNearS(h.x,h.y,Math.min(12000,MR[s]*sz+hr+50),s,function(u){if(f||!onMap(u)||!isLeaf(u))return;var R=zedVR(u)*sz;if(R>0&&dist(u.x,u.y,h.x,h.y)<=R+hr)f=true;});
-      if(f){if(h.n>=200&&G.t-h.sn[s]>3*3600){logE(s,'zed','發現'+ZK[h.k].n+'群：約 '+fmt(h.n)+' 隻，在'+placeTxt(h.x,h.y),h.x,h.y);if(G.onPause&&apOn('zed')&&zedNear(s,h.x,h.y,3000)&&G.t-(Z.apT||-1e9)>1800){Z.apT=G.t;G.onPause('屍群逼近');}}h.sn[s]=G.t;}});
+      var hide=ZK[h.k].hide;gridNearS(h.x,h.y,Math.min(12000,hide?hide+hr+50:MR[s]*sz+hr+50),s,function(u){if(f||!onMap(u)||!isLeaf(u))return;var R=zedVR(u)*sz;if(hide)R=Math.min(R,hide);if(R>0&&dist(u.x,u.y,h.x,h.y)<=R+hr)f=true;});
+      if(f){if((h.n>=200||ZK[h.k].dem)&&G.t-h.sn[s]>3*3600){logE(s,'zed',ZK[h.k].dem?'官兵看見了無法形容的東西（'+ZK[h.k].n+'，約 '+fmt(h.n)+' 個），在'+placeTxt(h.x,h.y):'發現'+zedNm(h)+'：約 '+fmt(h.n)+' 隻，在'+placeTxt(h.x,h.y),h.x,h.y);if(G.onPause&&apOn('zed')&&zedNear(s,h.x,h.y,3000)&&G.t-(Z.apT||-1e9)>1800){Z.apT=G.t;G.onPause('屍群逼近');}}h.sn[s]=G.t;}});
     Z.N.forEach(function(N){if(N.sn[s]||N.hp<=0)return;var f=false;gridNearS(N.x,N.y,6000,s,function(u){if(!f&&onMap(u)&&isLeaf(u)&&dist(u.x,u.y,N.x,N.y)<=Math.min(zedVR(u),4000))f=true;});if(f){N.sn[s]=G.t;logE(s,'zed','發現'+zedNestN(N)+'：'+N.nm+'（摧毀它才能阻止新的屍群出現）',N.x,N.y);}});});}
 /* 目標與移動：最近的部隊 → 平民與難民 → 往市鎮或隨機遊蕩；遇水繞行，只能走橋 */
 function zedMove(C){var Z=G.zed,MP=G.map,E=G.env,night=E.phase==='night',cold=E.T<-5,civ=C.civ!==false&&G.civ;
-  Z.H.forEach(function(h){if(h.n<1)return;var K=ZK[h.k],hr=zedR(h),R=K.det*(night&&h.k==='r'?1.2:1),t=null,td=1e18,cur=h.tid?uById(h.tid):null;
+  Z.H.forEach(function(h){if(h.n<1)return;var K=ZK[h.k],hr=zedR(h),R=K.det*(night&&h.k==='r'?1.2:1)*(K.noc&&!night?0.4:1),t=null,td=1e18,cur=h.tid?uById(h.tid):null;
     if(cur&&onMap(cur)&&ST(cur).dom==='land'&&dist(cur.x,cur.y,h.x,h.y)<R*2.5){t=cur;td=dist(cur.x,cur.y,h.x,h.y)*0.8;}
     gridNear(h.x,h.y,R*2,function(u){if(!onMap(u)||!isLeaf(u)||ST(u).dom!=='land')return;var d=dist(u.x,u.y,h.x,h.y),loud=u.fired!==undefined&&G.t-u.fired<=180;if(d>(loud?R*2:R))return;var v=d/(loud?1.6:1);if(v<td){td=v;t=u;}});
     var stop=30;if(t){h.tid=t.id;h.tx=t.x;h.ty=t.y;h.st=dist(t.x,t.y,h.x,h.y)<=hr+120?'fight':'hunt';stop=Math.max(20,hr*0.4);}
@@ -8456,22 +8468,22 @@ function zedMove(C){var Z=G.zed,MP=G.map,E=G.env,night=E.phase==='night',cold=E.
           for(var j=0;j<6&&!p;j++){var a2=zr()*2*PI,r2=1500+2500*zr(),px=clamp(h.x+Math.cos(a2)*r2,MP.cs,MP.Wm-MP.cs),py=clamp(h.y+Math.sin(a2)*r2,MP.cs,MP.Hm-MP.cs);if(zedPass(px,py))p=[px,py];}
           if(p){h.tx=p[0];h.ty=p[1];}h.wt=G.t+1800+3600*zr();}h.st='wan';}}
     var dx=h.tx-h.x,dy=h.ty-h.y,d=Math.hypot(dx,dy);if(d<=stop)return;var c=MP.lc[cellAt(h.x,h.y)],tf=isWater(c)?0.6:Math.max(0.2,LC[c][3][0]);
-    var v=K.sp*tf*DT*2*(h.st==='wan'?0.45:1)*(cold&&(h.k==='z'||h.k==='h')?0.6:1)*(h.n>3000?0.8:1);v=Math.min(v,d-stop);if(!(v>0))return;var a=Math.atan2(dy,dx),A=[0,0.6,-0.6,1.2,-1.2,1.9,-1.9],ok=false;
+    var v=K.sp*tf*DT*2*(h.st==='wan'?0.45:1)*(cold&&(h.k==='z'||h.k==='h')?0.6:1)*(h.n>3000?0.8:1)*(K.noc&&!night?0.3:1);v=Math.min(v,d-stop);if(!(v>0))return;var a=Math.atan2(dy,dx),A=[0,0.6,-0.6,1.2,-1.2,1.9,-1.9],ok=false;
     for(var i=0;i<A.length;i++){var b=a+A[i],nx=h.x+Math.cos(b)*v,ny=h.y+Math.sin(b)*v;if(zedPass(nx,ny)){h.x=nx;h.y=ny;h.hd=Math.round(b*100)/100;ok=true;break;}}if(!ok){h.wt=0;if(h.st==='wan')h.tx=h.x;}});}
 /* 近戰：與屍群接觸的部隊（依掩蔽、工事、裝甲減輕）傷亡、士氣下降，部分官兵被咬傷；沒有部隊時襲擊平民與難民 */
 function zedMelee(C){var Z=G.zed;Z.H.forEach(function(h){if(h.n<1)return;var K=ZK[h.k],hr=zedR(h),eng=Math.min(h.n,120+h.n*0.3),L=[];
     gridNear(h.x,h.y,hr+150,function(u){if(onMap(u)&&isLeaf(u)&&ST(u).dom==='land'&&dist(u.x,u.y,h.x,h.y)<=hr+120)L.push(u);});
     if(L.length){var e=eng/L.length;L.forEach(function(u){zedBite(h,u,e);});h.st='fight';return;}
     if(C.civ===false||!G.civ)return;var vk=zedPar(h.k)?'h':'z';
-    G.civ.S.forEach(function(g){if(dist(g.x,g.y,h.x,h.y)>g.r+hr)return;var p=civPresent(g);if(p<1)return;var c=Math.min(p*0.08,eng*K.atk*3*(1-0.6*(g.shel||0)));if(!(c>0))return;civCas(g,c,0.85,'zed',-1);g.alarm=1;g.hitT=G.t;Z.st.civ+=c;zedDead(g.x+(zr()-0.5)*g.r,g.y+(zr()-0.5)*g.r,c*0.85*0.6,vk,600+600*zr());
-      if(c>=10&&(!g.zlT||G.t-g.zlT>3600)){g.zlT=G.t;zedLog(g.x,g.y,ZK[h.k].n+'群闖入'+(g.n||placeTxt(g.x,g.y))+'，襲擊居民',6000);}});
-    (G.civ.R||[]).forEach(function(R2){if(R2.st==='out'||R2.st==='camp'||!(R2.n>=1))return;if(dist(R2.x,R2.y,h.x,h.y)>hr+150)return;var c=Math.min(R2.n*0.1,eng*K.atk*4);if(!(c>0))return;if(typeof refCas==='function')refCas(R2,c,0.85,'zed',-1);else R2.n-=c;Z.st.civ+=c;zedDead(R2.x,R2.y,c*0.85*0.6,vk,600+600*zr());});});}
+    G.civ.S.forEach(function(g){if(dist(g.x,g.y,h.x,h.y)>g.r+hr)return;var p=civPresent(g);if(p<1)return;var c=Math.min(p*0.08,eng*K.atk*3*(1-0.6*(g.shel||0)));if(!(c>0))return;civCas(g,c,0.85,'zed',-1);g.alarm=1;g.hitT=G.t;Z.st.civ+=c;if(!K.dem)zedDead(g.x+(zr()-0.5)*g.r,g.y+(zr()-0.5)*g.r,c*0.85*0.6,vk,600+600*zr());
+      if(c>=10&&(!g.zlT||G.t-g.zlT>3600)){g.zlT=G.t;zedLog(g.x,g.y,zedNm(h)+'闖入'+(g.n||placeTxt(g.x,g.y))+'，襲擊居民',6000);}});
+    (G.civ.R||[]).forEach(function(R2){if(R2.st==='out'||R2.st==='camp'||!(R2.n>=1))return;if(dist(R2.x,R2.y,h.x,h.y)>hr+150)return;var c=Math.min(R2.n*0.1,eng*K.atk*4);if(!(c>0))return;if(typeof refCas==='function')refCas(R2,c,0.85,'zed',-1);else R2.n-=c;Z.st.civ+=c;if(!K.dem)zedDead(R2.x,R2.y,c*0.85*0.6,vk,600+600*zr());});});}
 function zedBite(h,u,e){var K=ZK[h.k],s=ST(u),c=G.map.lc[cellAt(u.x,u.y)],cov=LC[c][4],ent=u.ent||0,Z=G.zed;
   var dm=e*K.atk*2*(0.45+0.55*cov)*(1-0.55*ent)*(1-0.85*s.hard)*(u.form==='square'?0.6:1)*(G.env.phase==='night'?1.15:1),dv=e*(K.veh||0)*2*(s.hard>=0.5?1:0.3);
   dm=Math.min(dm,u.men*0.25);dv=Math.min(dv,u.veh*0.25);if(!(dm>0)&&!(dv>0))return;hit(u,null,dm,dv,Math.min(40,6+400*dm/Math.max(10,u.men)),'zed');Z.st.lost[u.side]+=dm;
   var mopp=typeof cbMopp==='function'?cbMopp(u):0,bit=dm*K.inf*0.8*(1-0.6*ent)*(mopp>=3?0.6:1);if(bit>0){u.zi=Math.min(u.men*0.6,(u.zi||0)+bit);if(!u.ziT)u.ziT=G.t;u.zik=zedPar(h.k)?'p':'z';}
   u.mor=clamp(u.mor-Math.min(6,0.8+e/120)*(1-(u.trn||60)/250),0,100);u.zfT=G.t;u.uf=G.t;
-  if(!u.zcT||G.t-u.zcT>1800){u.zcT=G.t;logE(u.side,'zed',uName(u)+'與'+ZK[h.k].n+'群（約 '+fmt(h.n)+' 隻）短兵相接',u.x,u.y,u.id);}
+  if(!u.zcT||G.t-u.zcT>1800){u.zcT=G.t;logE(u.side,'zed',uName(u)+'與'+zedNm(h)+'（約 '+fmt(h.n)+zedQ(h)+'）短兵相接',u.x,u.y,u.id);}
   if(typeof FX!=='undefined'&&FX.cap&&FX.ev.length<5000)FX.ev.push({k:'zbite',x0:h.x,y0:h.y,x1:u.x,y1:u.y,m:dm,zk:h.k,b:u});}
 /* ---------- 射擊：部隊自動向射程內、看得到的屍群開火（依交戰規則；正在打敵軍的部隊分一半火力） ---------- */
 function zedBk(){var B=new Map();G.zed.H.forEach(function(h){if(h.n<1)return;var k=Math.floor(h.x/4000)*65536+Math.floor(h.y/4000),L=B.get(k);if(!L)B.set(k,L=[]);L.push(h);});return B;}
@@ -8510,7 +8522,7 @@ function zedCarpet(side,cx,cy,ang,L,W,tons){var fx=Math.cos(ang),fy=Math.sin(ang
   G.zed.N.forEach(function(N){if(N.hp<=0)return;var dx=N.x-cx,dy=N.y-cy,a=Math.abs(dx*fx+dy*fy),b=Math.abs(-dx*fy+dy*fx);if(a>L/2+100||b>W/2+100)return;zedNestHit(N,rho*3,side,'轟炸');});}
 (function(){var b=nukeAt;nukeAt=function(side,x,y,Y,src){var r=b.apply(this,arguments);if(G.zed&&G.zed.go&&zedOn())zedNuke(side,x,y,Y);return r;};})();
 function zedNuke(side,x,y,Y){var R=nukeR(Y),tot=0;G.zed.H.forEach(function(h){if(h.n<1)return;var d=dist(h.x,h.y,x,y);if(d>R[2]+zedR(h))return;var f=d<R[0]?1:d<R[1]?lerp(0.98,0.85,(d-R[0])/(R[1]-R[0])):d<R[2]?lerp(0.8,0.2,(d-R[1])/(R[2]-R[1])):0.1,k=Math.min(h.n,h.n*f);tot+=k;zedKill(h,k,side,null);});
-  G.zed.N.forEach(function(N){if(N.hp>0&&dist(N.x,N.y,x,y)<R[1])zedNestHit(N,1e9,side,'核爆');});if(tot>=1)logE(-1,'zed','核爆消滅了約 '+fmt(tot)+' 隻屍群與寄生體',x,y);}
+  G.zed.N.forEach(function(N){if(N.hp>0&&dist(N.x,N.y,x,y)<R[1])zedNestHit(N,1e9,side,'核爆');});if(tot>=1)logE(-1,'zed','核爆消滅了約 '+fmt(tot)+' 隻（個）'+zedKN(zedCfg()),x,y);}
 function zedBurn(){var F=G.evt&&G.evt.fire;if(!F)return;G.zed.H.forEach(function(h){if(h.n<1||F[cellAt(h.x,h.y)]!==1)return;var K=ZK[h.k];zedKill(h,h.n*0.08*K.fire/Math.max(1,K.hp/2),-1,null);});}
 /* ---------- 巢穴：部隊在 400 公尺內就會攻擊它 ---------- */
 function zedNests(){G.zed.N.forEach(function(N){if(N.hp<=0)return;gridNear(N.x,N.y,450,function(u){if(N.hp<=0||!onMap(u)||!isLeaf(u)||u.ms==='rout'||u.ammo<=0)return;var s=ST(u);if(s.dom!=='land'||dist(u.x,u.y,N.x,N.y)>400)return;var SA=saOf(u,s);if(SA<=0)return;
@@ -8523,9 +8535,9 @@ function zedTurn(C){var Z=G.zed;G.units.forEach(function(u){if(!(u.zi>0))return;
     hit(u,null,tr,0,25,'zturn');Z.st.turn[u.side]+=tr;u.mor=clamp(u.mor-Math.min(20,4+200*tr/Math.max(10,u.men)),0,100);u.zta=(u.zta||0)+tr;if(u.zta>=1){var jt=zr()*2*PI,nt=Math.floor(u.zta);u.zta-=nt;zedJoin(par?'h':'z',nt,u.x+Math.cos(jt)*40,u.y+Math.sin(jt)*40);}
     u.ztN=(u.ztN||0)+tr;if(!u.ztL||G.t-u.ztL>1800){u.ztL=G.t;logE(u.side,'zed',uName(u)+'有約 '+fmt(Math.max(1,u.ztN))+' 名被'+(par?'寄生':'咬傷')+'的官兵屍變！',u.x,u.y,u.id);u.ztN=0;if(G.onPause&&apOn('zed')&&G.t-(Z.apT||-1e9)>1800){Z.apT=G.t;G.onPause('部隊屍變');}}});}
 /* 戰死者復生：每一步套用傷害時記下陣亡的位置與人數（核爆、野火與屍變本身除外），二十到五十分鐘後復生 */
-(function(){var b=applyDamage;applyDamage=function(){var rs=null;if(G.zed&&G.zed.go&&zedOn()&&zedCfg().rise!==false){rs=[];for(var id in G._inc){var I=G._inc[id],t=uById(+id);if(!t||!alive(t)||!(I.m>0.3)||ST(t).dom!=='land'||t.st==='air')continue;var kk=I.k||{},tot=0,ex=0;for(var q in kk){tot+=kk[q];if(q==='nuke'||q==='burn'||q==='zturn'||q==='zamp')ex+=kk[q];}var f=tot>0?1-ex/tot:1;if(f>0)rs.push([t.x,t.y,Math.min(t.men,I.m)*f]);}}
+(function(){var b=applyDamage;applyDamage=function(){var rs=null;if(G.zed&&G.zed.go&&zedOn()&&zedCfg().rise!==false&&zedCfg().k!=='eldritch'){rs=[];for(var id in G._inc){var I=G._inc[id],t=uById(+id);if(!t||!alive(t)||!(I.m>0.3)||ST(t).dom!=='land'||t.st==='air')continue;var kk=I.k||{},tot=0,ex=0;for(var q in kk){tot+=kk[q];if(q==='nuke'||q==='burn'||q==='zturn'||q==='zamp')ex+=kk[q];}var f=tot>0?1-ex/tot:1;if(f>0)rs.push([t.x,t.y,Math.min(t.men,I.m)*f]);}}
   b();if(rs&&rs.length){var vk=zedCfg().k==='parasite'?'h':'z';rs.forEach(function(r){zedDead(r[0],r[1],r[2]*0.3*0.85,vk,1200+1800*zr(),1);});}};})();
-(function(){var b=civCas;civCas=function(g,c,kf,cause,bySide){b.apply(this,arguments);if(cause!=='zed'&&cause!=='nuke'&&cause!=='burn'&&c>0.3&&G.zed&&G.zed.go&&zedOn()&&zedCfg().rise!==false)zedDead(g.x+(zr()-0.5)*g.r,g.y+(zr()-0.5)*g.r,c*(kf===undefined?0.35:kf)*0.85,zedCfg().k==='parasite'?'h':'z',1800+1800*zr());};})();
+(function(){var b=civCas;civCas=function(g,c,kf,cause,bySide){b.apply(this,arguments);if(cause!=='zed'&&cause!=='nuke'&&cause!=='burn'&&c>0.3&&G.zed&&G.zed.go&&zedOn()&&zedCfg().rise!==false&&zedCfg().k!=='eldritch')zedDead(g.x+(zr()-0.5)*g.r,g.y+(zr()-0.5)*g.r,c*(kf===undefined?0.35:kf)*0.85,zedCfg().k==='parasite'?'h':'z',1800+1800*zr());};})();
 /* 平民逃離時避開附近的屍群（大群、越近越要避開） */
 (function(){var b=civDanger;civDanger=function(x,y){var r=b(x,y);if(!G.zed||!G.zed.go||!zedOn())return r;var n=0,sx=0,sy=0;G.zed.H.forEach(function(h){if(h.n<5)return;var d=dist(h.x,h.y,x,y);if(d>6000)return;var w=h.n/(1+d/500);sx+=h.x*w;sy+=h.y*w;n+=w;});if(!n)return r;var z=[sx/n,sy/n];return r?[(r[0]+z[0]*2)/3,(r[1]+z[1]*2)/3]:z;};})();
 var zedRq=function(){};
@@ -8545,7 +8557,7 @@ function zedSeen(h,side){if(side===undefined||side<0)return true;return G.t-((h.
 function zedTot(){var Z=G.zed,n=0;if(Z&&Z.H)Z.H.forEach(function(h){n+=h.n;});return n;}
 /* ---------- 線上對戰：屍群與巢穴依各方看得到的送出 ---------- */
 if(typeof MPCOL!=='undefined'){MPCOL.push(['zH','id',function(s){var Z=G.zed;if(!Z||!Z.H||!zedOn())return [];return Z.H.filter(function(h){return h.n>=1&&(s<0||G.t-h.sn[s]<=90);}).map(function(h){var o={id:h.id,k:h.k,n:Math.round(h.n),x:Math.round(h.x),y:Math.round(h.y),st:h.st,hd:h.hd===undefined?0:Math.round(h.hd*10)/10};if(s<0)o.sn=h.sn;return o;});}],
-  ['zN','id',function(s){var Z=G.zed;if(!Z||!Z.N||!zedOn())return [];return Z.N.filter(function(N){return s<0||N.sn[s];}).map(function(N){return {id:N.id,par:N.par,x:Math.round(N.x),y:Math.round(N.y),hp:Math.round(N.hp),hp0:N.hp0,nm:N.nm};});}]);
+  ['zN','id',function(s){var Z=G.zed;if(!Z||!Z.N||!zedOn())return [];return Z.N.filter(function(N){return s<0||N.sn[s];}).map(function(N){return {id:N.id,par:N.par,dem:N.dem||0,x:Math.round(N.x),y:Math.round(N.y),hp:Math.round(N.hp),hp0:N.hp0,nm:N.nm};});}]);
   MPKEY.zH='id';MPKEY.zN='id';MPCC.zH=function(){if(!G.zed)G.zed={H:[],N:[],D:[]};return G.zed.H||(G.zed.H=[]);};MPCC.zN=function(){if(!G.zed)G.zed={H:[],N:[],D:[]};return G.zed.N||(G.zed.N=[]);};}
 if(typeof mpValList==='function'){(function(){var b=mpValList;mpValList=function(s){var V=b.apply(this,arguments);if(G.zed&&G.zed.st){V.push(['zed.st',G.zed.st]);V.push(['zed.go',G.zed.go||0]);}return V;};})();}
 
@@ -9492,6 +9504,123 @@ function crView(s,O){var out=[],t=G.t;crEach(function(m,src,side){if(side===s)re
 if(typeof MPFN!=='undefined'){MPFN.txSend=[function(s,cm,a){return a[0]===s&&(cm<0||+a[1]===cm||!tmOn(s))?'':'只能以自己的名義發訊。';},function(a){return txSend(a[0],+a[1],a[2],String(a[3]||'auto'),!!a[4],String(a[5]||''),a[6],a[7],+a[8]||0);}];
   MPCOL.push(['tx','id',function(s){return (G.tx||[]).filter(function(m){return s<0||m.side===s;});}],['cv','id',function(s,O){return s<0?[]:crView(s,O);}]);
   MPCC.tx=function(){return G.tx||(G.tx=[]);};MPCC.cv=function(){return G.cv||(G.cv=[]);};MPKEY.tx='id';MPKEY.cv='id';}
+
+/* ==== h66_fear.js ==== */
+/* ===================== 恐懼值：官兵面對恐怖事物時的急性恐懼（與士氣分開：升得快，沒有刺激時也退得快） =====================
+   來源：看見屍群與不可名狀之物（數量越多、越近越怕，夜裡更怕，短兵相接時加倍；低語者看不見也聽得到）、同袍屍變、死者復生，
+   毒氣、火焰、核爆、轟炸、砲擊與白刃戰造成的傷亡、友軍潰散、令人畏懼的敵軍（戰象、飛龍等），以及敵軍的「死人衝鋒」。
+   訓練與經驗、指揮官（頑強、鼓舞）、鐵的紀律、工事與司令部在旁會減輕恐懼。
+   效果：拖累士氣、射擊失準；65 以上的部隊可能停止進攻、就地掩蔽；88 以上可能陷入恐慌而潰逃；
+   長時間處在 70 以上，部分官兵精神崩潰（戰鬥壓力反應：後送，不計陣亡）。
+   死人衝鋒（取材自 1915 年俄軍守衛奧索維茨要塞時遭氯氣攻擊後的反擊）：近一小時內一成以上官兵因毒氣傷亡、仍未潰散的守軍，
+   在敵軍逼近時可能用布巾蒙住口鼻衝出陣地反擊；看見這群被毒氣灼傷、咳著血衝來的官兵，進攻的一方極度驚恐，即使兵力占優也可能潰逃。
+   背水一戰：恐懼到了極限、退無可退（潰散或極度驚恐，敵軍逼近到 600 公尺內，被包圍或退路被切斷）的部隊，有機會反而激發死戰的勇氣：
+   停止潰逃、不再投降，固守或向逼近的敵軍反衝，射擊更猛烈、也不再找掩蔽，雙方傷亡都會加重；約半小時後力竭。
+   投降者遭處決的消息：敵軍拒絕受降或處決戰俘時，附近三公里內的友軍立刻知道，之後口耳相傳，兩小時後傳遍全軍；
+   聽到消息的部隊短期內更恐懼，但投降的機率大降，面臨投降與否時寧可背水一戰或撤退。
+   恐懼承受值與英勇（編制頁可調，設在編制上會套用到底下所有部隊）：承受值越高恐懼升得越慢；英勇越高，越容易背水一戰或發起死人衝鋒。
+   設定在 G.set.fear（預設開啟）；用自己的亂數（存在 G.frs），不影響其他模擬的亂數。 */
+var FRK={gas:3,nerve:3.5,blister:3,mias:2,burn:2.5,flame:2.5,breath:3,nuke:4,snuke:4,fallout:1.5,rad:1.5,art:1.3,airstrike:1.6,air:1.2,msl:1.4,expl:1.5,drop:1.4,melee:1.6,zed:2.2,zturn:4,zamp:1.5,exec:1.5,ff:1.6,uxo:1.5,grapple:2.5,storm:0.8,quake:1.2,drown:1.2};
+var FRKK={gas:'gas',nerve:'gas',blister:'gas',mias:'gas',burn:'fire',flame:'fire',breath:'fire',nuke:'nuke',snuke:'nuke',fallout:'nuke',rad:'nuke',art:'art',airstrike:'bomb',air:'bomb',msl:'bomb',expl:'bomb',melee:'melee',zed:'hor',zturn:'turn',zamp:'turn',ff:'ff',exec:'exec'};
+var FRN={atro:'友軍投降遭處決',hor:'屍群',dem:'不可名狀之物',psyw:'聽見低語',turn:'同袍屍變',rise:'死者復生',gas:'毒氣',fire:'火焰',nuke:'核爆',bomb:'轟炸',art:'砲擊',cas:'傷亡',melee:'白刃戰',ff:'友軍誤擊',exec:'處決',rout:'友軍潰散',dmc:'死人衝鋒',aura:'令人畏懼的敵軍'};
+var FRADV=/^(attack|storm|breakthrough|penetrate|pursue|siege|eager|joint|crossing)$/;
+if(typeof KIAF!=='undefined')KIAF.psy=1e-4;
+if(typeof KINDN!=='undefined')KINDN.psy='精神崩潰（戰鬥壓力反應）';
+if(typeof MFN!=='undefined')MFN.terror='恐懼';
+if(typeof RPC!=='undefined')RPC.fear='恐懼';
+if(typeof ORDN!=='undefined'){ORDN.dmc='死人衝鋒';ORDN.lst='背水一戰';}
+/* 線上：恐懼值變化 0.5 以上才送；逐步的明細與計時不送 */if(typeof MPTOL!=='undefined')MPTOL.fear=0.5;if(typeof MPUX!=='undefined'){MPUX.fk=1;MPUX.frT=1;MPUX.frH=1;MPUX.frB=1;MPUX.gasR=1;}if(typeof MPWU!=='undefined'){MPWU.frTol='n';MPWU.brave='n';}
+function fearOn(){return !G||!G.set||G.set.fear!==false;}
+/* 自己的亂數（xorshift32） */
+function frr(){var x=G.frs|0;if(!x)x=(hstr((G.set.seed||'')+'|fear')|0)||1;x^=x<<13;x^=x>>>17;x^=x<<5;G.frs=x;return (x>>>0)/4294967296;}
+function fearOk(u){return isLeaf(u)&&onMap(u)&&alive(u)&&u.men>=1&&ST(u).dom==='land'&&u.st!=='air';}
+/* 恐懼承受值與英勇：百分比（預設 100），往上找最近設定的編制 */
+function fearTolOf(u){var x=u;while(x){if(x.frTol!==undefined&&x.frTol!==null)return clamp(+x.frTol||100,25,300)/100;x=x.p>=0?uById(x.p):null;}return 1;}
+function braveOf(u){var x=u;while(x){if(x.brave!==undefined&&x.brave!==null)return clamp(isFinite(+x.brave)?+x.brave:100,0,500)/100;x=x.p>=0?uById(x.p):null;}return 1;}
+/* 抗性（乘在增加量上）：0.25～1.3，再除以恐懼承受值 */
+function fearRes(u){var pi=typeof profIdxOf==='function'?profIdxOf(u):2,off=offOf(u),r=1.25-0.12*pi-Math.min(30,u.exp||0)/150;if(hasQ(off,'stubborn'))r-=0.15;if(hasQ(off,'inspire'))r-=0.1;
+  if(typeof ironRt==='function'&&ironRt(u)<1)r-=0.1;if((u.ent||0)>0.5)r-=0.1;if(typeof hqNear==='function'&&hqNear(u))r-=0.08;if(clsOf(u)==='sof')r-=0.15;return clamp(r,0.25,1.3)/fearTolOf(u);}
+function fearAdd(u,v,k){if(!(v>0)||!fearOn()||!fearOk(u)||(u.dmc&&G.t<u.dmc.t1)||(u.lst&&G.t<u.lst.t1))return 0;v*=fearRes(u);var f0=u.fear||0;u.fear=Math.min(100,f0+v);u.frT=G.t;var F=u.fk||(u.fk={});F[k]=Math.min(100,(F[k]||0)+v);return u.fear-f0;}
+/* 一個範圍內的部隊都受到驚嚇（越近越強）；side 指定時只影響該方，ex 除外 */
+function fearArea(x,y,R,v,k,side,ex){if(!fearOn()||!(v>0))return;var f=function(u){if(u===ex||(side!==undefined&&side!==null&&u.side!==side)||!fearOk(u))return;var d=dist(u.x,u.y,x,y);if(d>R)return;fearAdd(u,v*(1-0.7*d/R),k);};
+  if(R<=GFR&&G._gf)gridNear(x,y,R,f);else G.units.forEach(f);}
+function fearTxt(u){var F=u.fk;if(!F)return u.frS||'';return Object.keys(F).filter(function(k){return F[k]>=1&&FRN[k];}).sort(function(a,b){return F[b]-F[a];}).slice(0,3).map(function(k){return FRN[k];}).join('、');}
+function fearLv(f){return f>=88?'恐慌':f>=65?'極度驚恐':f>=40?'驚恐':f>=15?'緊張':'鎮定';}
+function fearRep(u,txt,pri){if(G.set.txRep===false||!G.started||u.irr||u.side<0||u.side>1||(typeof aiControls==='function'&&aiControls(u))||typeof repSend!=='function')return;repSend(u,txt,pri,'fear');}
+/* ---------- 每一步（在士氣之前） ---------- */
+function fearStep(){if(!fearOn())return;var night=G.env&&G.env.light<0.3,Z=G.zed&&G.zed.go&&typeof zedOn==='function'&&zedOn()&&G.zed.H&&G.zed.H.length?G.zed:null,B=Z?zedBk():null,FS=null,DM=null;
+  G.units.forEach(function(f){if(!onMap(f)||!alive(f))return;if(ST(f).fl.indexOf('F')>=0)(FS||(FS=[])).push(f);if(f.dmc){if(G.t<f.dmc.t1)(DM||(DM=[])).push(f);else dmcEnd(f);}if(f.lst&&G.t>=f.lst.t1)lstEnd(f);});
+  if(G.step%2===0)atroSpread();
+  G.units.forEach(function(u){if(!fearOk(u)){if(u.fear)u.fear=0;return;}
+    if(B)fearHorror(u,B,night);
+    if(FS)for(var i=0;i<FS.length;i++){var f=FS[i];if(f.side===u.side)continue;var R=ST(f).dom==='air'?1500:1000,d=dist(f.x,f.y,u.x,u.y);if(d<R)fearAdd(u,0.4+1.2*(1-d/R),'aura');}
+    if(DM)for(var j=0;j<DM.length;j++){var m=DM[j];if(m.side===u.side)continue;var dd=dist(m.x,m.y,u.x,u.y);if(dd<900)fearAdd(u,3.5*clamp(m.men/150,0.5,2)*(1-0.6*dd/900),'dmc');}
+    if(u.gasR)u.gasR=u.gasR>1e-4?u.gasR*0.993:0;
+    if(G.step%2===0&&!u.dmcN&&(u.gasR||0)>=0.1)dmcCheck(u);
+    if(G.step%2===1&&!u.lst&&(u.ms==='rout'||(u.fear||0)>=90))lstCheck(u,'fear');
+    var fresh=G.t-(u.frT||-1e9)<=DT+1,dec=fresh?0.25:1.2+(typeof hqNear==='function'&&hqNear(u)?0.8:0)+(hasQ(offOf(u),'inspire')?0.5:0)+(u.ord&&u.ord.k==='rest'?0.5:0);if(night)dec*=0.75;
+    if(u.fear)u.fear=Math.max(0,u.fear-dec);if(u.fk){for(var k in u.fk){u.fk[k]*=fresh?0.97:0.88;if(u.fk[k]<0.5)delete u.fk[k];}if(!Object.keys(u.fk).length)delete u.fk;}
+    /* 給畫面看的恐懼來源（線上只送這一項，不送逐步變化的明細） */var ts=u.fear>=15?fearTxt(u):'';if(ts!==(u.frS||'')){if(ts)u.frS=ts;else delete u.frS;}
+    fearAct(u);});}
+/* 屍群與不可名狀之物：要看得到（低語者例外），數量越多、越近越怕，夜裡更怕，短兵相接加倍 */
+function fearHorror(u,B,night){var v=0,vk='hor',vm=0,VR=null;zedBkNear(B,u.x,u.y,3400,function(h){if(h.n<1)return;var K=ZK[h.k];if(!K)return;var fr=K.fr||1500,d=Math.max(0,dist(u.x,u.y,h.x,h.y)-zedR(h));if(d>fr)return;
+    if(!K.psy){if(VR===null)VR=zedVR(u);if(d>VR)return;}
+    var sz=clamp(Math.sqrt(h.n/(K.dem?2:200)),0.3,3),px=1-d/fr,w=(K.fear||1)*sz*px*(night?1.3:1)*(d<=120?2:1);v+=w;if(w>vm){vm=w;vk=K.dem?(K.psy?'psyw':'dem'):'hor';}});
+  if(v>0)fearAdd(u,Math.min(12,v),vk);}
+/* ---------- 效果：精神崩潰、恐慌潰逃、停止進攻、回報 ---------- */
+function fearAct(u){var f=u.fear||0,s=ST(u);
+  if(f>=70){u.frH=(u.frH||0)+DT;if(u.frH>=1200){var m=Math.min(u.men*0.05,u.men*0.0008*(f-60)/40);if(m>0.02){hit(u,null,m,0,0,'psy');u.psyN=(u.psyN||0)+m;}}}else if(u.frH)u.frH=Math.max(0,u.frH-DT*2);
+  var band=f>=88?3:f>=65?2:f>=40?1:0,pb=u.frB||0;u.frB=band;
+  if(u.ms==='rout'||(u.dmc&&G.t<u.dmc.t1)||(u.lst&&G.t<u.lst.t1))return;
+  if(f>=88&&frr()<(f-85)/40){logE(u.side,'morale',uName(u)+'陷入恐慌而潰逃'+(fearTxt(u)?'（'+fearTxt(u)+'）':''),u.x,u.y,u.id);fearRep(u,'官兵陷入恐慌，部隊潰逃！',1);goRout(u,s);return;}
+  var o=u.ord;if(f>=65&&o&&o.st==='exec'&&FRADV.test(o.dk||o.k)&&!o.frR&&frr()<0.3){o.frR=1;logE(u.side,'refuse',uName(u)+'官兵驚恐，停止進攻、就地掩蔽'+(fearTxt(u)?'（'+fearTxt(u)+'）':''),u.x,u.y,u.id);fearRep(u,'官兵驚恐，無法繼續進攻',1);activate(u,newOrder('defend',{x:u.x,y:u.y,face:u.hd,opt:{post:'hasty'},dk:'refuse'}));return;}
+  if(band>=2&&pb<2)fearRep(u,'官兵極度驚恐'+(fearTxt(u)?'（'+fearTxt(u)+'）':''),2);}
+/* ---------- 死人衝鋒 ---------- */
+function dmcCheck(u){if((u.gasR||0)<0.1||u.ms==='rout'||u.men<30||!/^(inf|pike|mech|eng|sec|gue|mp)$/.test(clsOf(u)))return;var o=u.ord;if(o&&o.st==='exec'&&!/^(defend|halt|holdfast|fortify|reserve|refuse|delay|ambush)$/.test(o.dk||o.k))return;
+  var e=u._eid?uById(u._eid):null;if(!e||!alive(e)||!onMap(e)||e.side===u.side||(u._ed||1e9)>1200)return;
+  var off=offOf(u),p=0.12*braveOf(u)*(hasQ(off,'stubborn')?1.6:1)*(hasQ(off,'inspire')?1.4:1)*(typeof ironRt==='function'&&ironRt(u)<1?1.4:1)*(u.gasR>=0.25?1.5:1);if(frr()>=p)return;
+  u.dmcN=1;u.dmc={t0:G.t,t1:G.t+1200,e:e.id};u.fear=0;delete u.fk;delete u.frS;u.mor=Math.max(u.mor,55);if(u.ms==='shaken')u.ms='ok';
+  activate(u,newOrder('attack',{x:e.x,y:e.y,x0:u.x,y0:u.y,dk:'dmc',opt:{tac:'frontal',pace:'rush',tol:80}}));
+  logE(u.side,'morale','〔死人衝鋒〕'+uName(u)+'遭毒氣重創，倖存的官兵用布巾蒙住口鼻、咳著血衝出陣地反擊',u.x,u.y,u.id);fearRep(u,'遭毒氣重創，全員衝出陣地反擊！',1);
+  var seen={};gridNear(u.x,u.y,1300,function(q){if(q.side===u.side||!fearOk(q)||dist(q.x,q.y,u.x,u.y)>1300)return;fearAdd(q,22*(1-0.5*dist(q.x,q.y,u.x,u.y)/1300),'dmc');seen[q.side]=1;});
+  Object.keys(seen).forEach(function(s){logE(+s,'morale','敵軍陣地衝出一群被毒氣灼傷、咳著血的官兵，我軍官兵驚恐',u.x,u.y);});}
+function dmcEnd(u){var D=u.dmc;u.dmc=null;if(!alive(u))return;u.org=Math.max(0,(u.org||0)-30);u.fat=Math.min(100,(u.fat||0)+25);logE(u.side,'morale',uName(u)+'的反擊衝鋒結束，中毒的官兵已筋疲力竭',u.x,u.y,u.id);}
+/* ---------- 背水一戰 ---------- */
+function lstCut(u){var enc=G.t-(u.encT||-1e9)<600||(u.besieged&&G.t-u.besieged<1200);return enc||friendNear(u.side,u.x,u.y,2500)-(u.men+u.veh*8)<=0;}
+function lstCheck(u,why){if(!fearOn()||u.lst||(u.lstN||0)>=2||u.men<15||!fearOk(u)||clsOf(u)==='beast')return false;var e=u._eid?uById(u._eid):null;if(!e||!alive(e)||!onMap(e)||e.side===u.side||(u._ed||1e9)>600)return false;
+  if(why!=='atro'&&!lstCut(u))return false;var off=offOf(u),r=nsrOf(u),p=(why==='atro'?0.25:0.05)*braveOf(u)*(hasQ(off,'stubborn')?1.5:1)*(hasQ(off,'inspire')?1.3:1)*(1+2*r)*((u.fear||0)>=95?1.5:1);if(frr()>=p)return false;lstStart(u,e,why);return true;}
+function lstStart(u,e,why){u.lst={t0:G.t,t1:G.t+1800,e:e.id};u.lstN=(u.lstN||0)+1;u.fear=0;delete u.fk;delete u.frS;u.mor=Math.max(u.mor,65);u.ms='ok';u.routT=0;
+  var d=dist(u.x,u.y,e.x,e.y);activate(u,d<500?newOrder('attack',{x:e.x,y:e.y,x0:u.x,y0:u.y,dk:'lst',opt:{tac:'frontal',pace:'rush',tol:90}}):newOrder('defend',{x:u.x,y:u.y,face:Math.atan2(e.y-u.y,e.x-u.x),opt:{post:'holdfast'},dk:'lst'}));
+  logE(u.side,'morale','〔背水一戰〕'+uName(u)+(why==='atro'?'知道投降只有死路一條，':'退無可退，')+'官兵決心死戰',u.x,u.y,u.id);fearRep(u,why==='atro'?'投降只有死路一條，全員死戰！':'退無可退，全員死戰！',1);
+  if(e.side===0||e.side===1)logE(e.side,'morale','已經潰散的敵軍突然回頭死戰（'+placeTxt(u.x,u.y)+'）',u.x,u.y);}
+function lstEnd(u){u.lst=null;if(!alive(u))return;u.org=Math.max(0,(u.org||0)-25);u.fat=Math.min(100,(u.fat||0)+20);u.fear=Math.max(u.fear||0,35);logE(u.side,'morale',uName(u)+'的死戰告一段落，倖存的官兵筋疲力竭',u.x,u.y,u.id);}
+/* 退不了也不投降：向敵軍反方向撤退 */
+function lstFall(u){var e=u._eid?uById(u._eid):null;if(!e||!onMap(e))return;var ax=u.x-e.x,ay=u.y-e.y,d=Math.hypot(ax,ay)||1,q=validPos({dom:'land'},u.x+ax/d*1500,u.y+ay/d*1500);if(!q)return;
+  activate(u,newOrder('withdraw',{x:q[0],y:q[1],dk:'twd',face:Math.atan2(-ay,-ax)}));logE(u.side,'twd',uName(u)+'不願投降，向後撤退',u.x,u.y,u.id);}
+/* ---------- 投降者遭處決的消息 ---------- */
+function nsrOf(u){var A=G.sides&&G.sides[u.side]&&G.sides[u.side].atro;if(!A||!A.n)return 0;var r=u.atH?0.8:0;if(A.all)r=Math.max(r,Math.min(0.8,0.3*A.n));return r;}
+function atroHear(u){if(u.atH)return false;u.atH=Math.max(1,G.t);fearAdd(u,12,'atro');return true;}
+function atroNews(side,x,y){if(!fearOn()||(side!==0&&side!==1))return;var S=G.sides[side],A=S.atro||(S.atro={n:0});A.n++;A.t=G.t;if(!A.t0)A.t0=Math.max(1,G.t);var n=0;
+  gridNear(x,y,3000,function(u){if(u.side===side&&fearOk(u)&&dist(u.x,u.y,x,y)<=3000&&atroHear(u))n++;});
+  logE(side,'morale','投降的官兵遭敵軍處決的消息在附近部隊間傳開'+(n?'（'+n+' 個部隊得知）':'')+'：官兵更加恐懼，但不再願意投降',x,y);}
+function atroSpread(){[0,1].forEach(function(s){var A=G.sides[s]&&G.sides[s].atro;if(!A||!A.n)return;
+  G.units.forEach(function(u){if(u.side!==s||!u.atH||G.t-u.atH>6*3600||!fearOk(u))return;gridNear(u.x,u.y,2000,function(q){if(q.side!==s||q.atH||!fearOk(q)||dist(q.x,q.y,u.x,u.y)>2000)return;if(frr()<0.15)atroHear(q);});});
+  if(!A.all&&G.t-A.t0>=7200){A.all=1;logE(s,'morale','投降者遭處決的消息已傳遍全軍：官兵寧可死戰或撤退，也不願投降');}});}
+/* ---------- 掛勾：士氣、射擊、傷亡、潰散、投降、戰爭罪行、核爆、轟炸 ---------- */
+(function(){var b=moraleStep;moraleStep=function(){try{fearStep();}catch(e){if(typeof console!=='undefined')console.warn('fear',e);}return b.apply(this,arguments);};})();
+(function(){var b=morDelta;morDelta=function(u){var d=b.apply(this,arguments),f=u.fear||0;if(f>3&&u.ms!=='rout'&&fearOn()){var v=-f*0.006;d+=v;mfAdd(u,'terror',v);}return d;};})();
+(function(){var b=firerMod;firerMod=function(u,s){var f=b.apply(this,arguments),q=u.fear||0;if(u.lst&&G.t<u.lst.t1)return f*1.35;return q>0?f*(1-q/250):f;};})();
+(function(){var b=applyDamage;applyDamage=function(){if(fearOn()&&G._inc){for(var id in G._inc){var I=G._inc[id],t=uById(+id);if(!t||!(I.m>0.05)||!fearOk(t))continue;var men=Math.max(10,t.men),kk=I.k||{},tot=0,q;for(q in kk)tot+=kk[q];if(!(tot>0))continue;
+      for(q in kk){if(q==='psy')continue;var v=Math.min(30,220*(I.m/men)*(FRK[q]||1)*kk[q]/tot);if(v>0.05)fearAdd(t,v,FRKK[q]||'cas');}
+      var gk=(kk.gas||0)+(kk.nerve||0)+(kk.blister||0);if(gk>0)t.gasR=(t.gasR||0)+gk/men;}
+    /* 背水一戰的部隊不找掩蔽，傷亡加重 */for(var id2 in G._inc){var t2=uById(+id2);if(t2&&t2.lst&&G.t<t2.lst.t1){G._inc[id2].m*=1.3;G._inc[id2].v*=1.3;}}}
+  return b.apply(this,arguments);};})();
+(function(){var b=goRout;goRout=function(u,s){if((u.dmc&&G.t<u.dmc.t1)||(u.lst&&G.t<u.lst.t1))return;b.apply(this,arguments);if(fearOn()&&onMap(u)&&ST(u).dom==='land')fearArea(u.x,u.y,1500,5,'rout',u.side,u);};})();
+(function(){var b=surrCheck;surrCheck=function(u,s,off,PF,rt,routing){if(u.lst&&G.t<u.lst.t1)return false;var r=fearOn()?nsrOf(u):0;
+  if(r>0&&(u._ed||1e9)<1500&&frr()<r){/* 寧死不降：背水一戰，否則撤退 */if(!lstCheck(u,'atro')&&!routing&&!(u.ord&&u.ord.dk==='twd'))lstFall(u);return false;}return b.apply(this,arguments);};})();
+(function(){var b=warCrime;warCrime=function(u,kind,v){var e=b.apply(this,arguments);try{if(fearOn()&&u&&(kind==='exec'||kind==='powex')&&v>=1&&(u.side===0||u.side===1))atroNews(1-u.side,u.x,u.y);}catch(x){}return e;};})();
+(function(){var b=nukeAt;nukeAt=function(side,x,y,Y){var r=b.apply(this,arguments);if(fearOn())fearArea(x,y,Math.min(20000,nukeR(Y)[3]*4),45,'nuke');return r;};})();
+(function(){var b=carpetHit;carpetHit=function(side,src,cx,cy,ang,L,W){var r=b.apply(this,arguments);if(fearOn())fearArea(cx,cy,Math.min(6000,Math.max(L,W)/2+1500),14,'bomb');return r;};})();
 if(typeof GKEYS!=='undefined')GKEYS.push('wsys','hyd');
 if(typeof GKEYS!=='undefined')GKEYS.push('sup');
 if(typeof GKEYS!=='undefined')GKEYS.push('dirs','dirSeq');
