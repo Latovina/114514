@@ -8,13 +8,13 @@ const E=SIM.E;
 const F={};['mpFxOn','mpLoad','saveText','mpQuick','mpTeams','mpBegin','mpDiff','mpFull','mpCmd','mpPatch','mpUnbase','mpDepOp','mpOrbIn','mpForcePts','simStep','replayPack','cmList'].forEach(function(k){F[k]=E(k);});
 const DT=E('DT');
 let dur0=0,set0=null,soPrev={},running=false,speed=60,acc=0,lastTick=Date.now(),snapMs=(workerData&&workerData.snapMs)||500,lastSnap=0,dirty=true,urgent=false,overSent=false,depth=0.4,realSp=0,spHist=[];
-const subs=new Map();/* 連線編號 → {view:-1|0|1,cm,need:true} */
+const subs=new Map();/* 連線編號 → {view:-1（全知）或陣營編號,cm,need:true} */
 function G(){return SIM.getG();}
 function post(m,tr){parentPort.postMessage(m,tr||[]);}
 function pack(kind,obj){const buf=zlib.deflateRawSync(Buffer.from(JSON.stringify(obj)),{level:6});const out=Buffer.allocUnsafe(buf.length+1);out[0]=kind;buf.copy(out,1);return out;}
 function sendBuf(conns,kind,obj){if(!conns.length)return;const b=pack(kind,obj);const ab=b.buffer.slice(b.byteOffset,b.byteOffset+b.length);post({op:'snap',conns:conns,kind:kind,buf:ab},[ab]);}
 function info(){const g=G();if(!g||!g.map)return null;const S=g.sides;return {name:g.map.name,year:g.set.y,start:{y:g.set.y,m:g.set.m,d:g.set.d,h:g.set.h},dur:g.set.dur,dur0:dur0||g.set.dur,ffog:!!g.set.ffog,set:setPub(g.set),W:Math.round(g.map.Wm/100)/10,H:Math.round(g.map.Hm/100)/10,started:!!g.started,over:g.over||null,t:g.t,
-  sides:[0,1].map(function(i){const L=F.cmList(i);return {name:S[i].name,color:S[i].color,edge:S[i].edge,pts:F.mpForcePts(i),units:g.units.filter(function(u){return u.side===i&&u.mix;}).length,cm:L.map(function(R){return {n:R.n,ai:!!R.ai,roots:R.roots.length};})};})};}
+  sides:S.map(function(S0,i){const L=F.cmList(i);return {name:S[i].name,color:S[i].color,edge:S[i].edge,pts:F.mpForcePts(i),units:g.units.filter(function(u){return u.side===i&&u.mix;}).length,cm:L.map(function(R){return {n:R.n,ai:!!R.ai,roots:R.roots.length};})};})};}
 function sendInfo(){post({op:'info',info:info()});}
 /* 送出各方的差異；新訂閱的連線先讓既有連線跟上，再送完整內容 */
 function flush(force){const g=G();if(!g||!g.map)return;const views=new Map();subs.forEach(function(s,id){if(!views.has(s.view))views.set(s.view,{old:[],nw:[]});const v=views.get(s.view);if(s.need)v.nw.push([id,s]);else v.old.push(id);});
@@ -52,7 +52,7 @@ function applySo(so){const g=G();if(!g||!set0)return;const J=function(p){return 
     if(ch('nuke.n')&&g.started&&g.set.nuke)g.sides.forEach(function(S){S.nk=g.set.nuke.n;});
     if(ch('snuke.n')&&g.started&&g.set.snuke)g.sides.forEach(function(S){S.snk=g.set.snuke.n;});
     if(ch('engLock')&&!g.set.engLock)E('EZ').list=[];
-    if(ch('tmCq0'))[0,1].forEach(function(s){if(E('tmOn')(s)){const B=E('tmB')(s),v=+g.set.tmCq0||0;B.cq=v;B.lv=Math.min(E('tmCap')(s)||3,v>=0.75?3:v>=0.45?2:v>=0.15?1:0);}});
+    if(ch('tmCq0'))g.sides.forEach(function(S0,s){if(E('tmOn')(s)){const B=E('tmB')(s),v=+g.set.tmCq0||0;B.cq=v;B.lv=Math.min(E('tmCap')(s)||3,v>=0.75?3:v>=0.45?2:v>=0.15?1:0);}});
     if(ch('lgRoadM')){g.set.lgRoad=g.set.lgRoadM!=='off';g._lgpc=null;g.units.forEach(function(u){u._rbT=-1;});}
     if(ch('featY'))g._facP=null;}catch(e){post({op:'log',msg:'settings error: '+(e&&e.stack||e)});}
   dirty=true;}
@@ -62,7 +62,7 @@ setInterval(tick,50);
 function res(m,r){post({op:'res',conn:m.conn,id:m.id,r:r});dirty=true;urgent=true;}
 parentPort.on('message',async function(m){try{switch(m.op){
   case 'load':{F.mpFxOn();F.simStep=E('simStep');await F.mpLoad(typeof m.save==='string'?JSON.parse(m.save):m.save);const g=G();g.set.fog=true;overSent=!!g.over;dur0=g.set.dur||0;mpApOff();setSnap();hookPause();sendInfo();post({op:'loaded',info:info()});break;}
-  case 'quick':{F.mpFxOn();F.simStep=E('simStep');await F.mpQuick(m.k,m.seed);overSent=false;dur0=G().set.dur||0;mpApOff();setSnap();hookPause();sendInfo();post({op:'loaded',info:info()});break;}
+  case 'quick':{F.mpFxOn();F.simStep=E('simStep');await F.mpQuick(m.k,m.seed,m.tri&&typeof m.tri==='object'?m.tri:null);overSent=false;dur0=G().set.dur||0;mpApOff();setSnap();hookPause();sendInfo();post({op:'loaded',info:info()});break;}
   case 'tpls':{const g=G();if(!g)break;g.set.rfX=Array.isArray(m.list)?m.list:[];g.set.rfH=Array.isArray(m.hide)?m.hide:[];dirty=true;break;}
 case 'teams':{(m.teams||[]).forEach(function(T,i){F.mpTeams(i,T.n,T.human);});dirty=true;sendInfo();break;}
   case 'cfg':{const g=G();if(!g)break;const c=m.cfg||{};if(c.dur>0)g.set.dur=c.dur;else if(c.dur===0&&dur0>0)g.set.dur=dur0;if(c.ffog!==undefined&&!!g.set.ffog!==!!c.ffog){g.set.ffog=!!c.ffog;if(!c.ffog)try{E('ffClear')();}catch(e){}}['rp','tech','rp0','rpDay','tp0','tpDay','leth','cbrn','ff','rfL'].forEach(function(k){if(c[k]!==undefined)g.set[k]=c[k];});if(c.so)applySo(c.so);if(c.depth)depth=c.depth;if(c.snapMs)snapMs=c.snapMs;dirty=true;sendInfo();resumeIfLonger();break;}
@@ -76,7 +76,8 @@ case 'teams':{(m.teams||[]).forEach(function(T,i){F.mpTeams(i,T.n,T.human);});di
   case 'orb':{res(m,F.mpOrbIn(m.side,m.cm,m.data,!!m.replace,depth));sendInfo();break;}
   case 'pack':{const t=await F.saveText();post({op:'packed',req:m.req,data:t});break;}
   case 'replay':{try{const P=await F.replayPack();post({op:'replay',req:m.req,data:JSON.stringify(P)});}catch(e){post({op:'replay',req:m.req,err:e.message});}break;}
-  case 'end':{const g=G();if(g&&g.started&&!g.over){g.over={why:m.why||'房主結束作戰',win:-1,t:g.t,score:[0,0]};try{const sc=E('score');g.over.score=[sc(0),sc(1)];const w=g.over.score[0]>g.over.score[1]*1.15?0:g.over.score[1]>g.over.score[0]*1.15?1:-1;g.over.win=w;}catch(e){}}checkOver();break;}
+  case 'end':{const g=G();if(g&&g.started&&!g.over){g.over={why:m.why||'房主結束作戰',win:-1,t:g.t,score:g.sides.map(function(){return 0;})};try{const sc=E('score');g.over.score=g.sides.map(function(S0,i){return sc(i);});
+    if(g.sides.length>=3){/* 三方：依分數排名，第一名領先才算獲勝 */const R=E('triRank')();g.over.rank=R;g.over.win=R.length>1&&sc(R[0])>sc(R[1])?R[0]:-1;}else{const w=g.over.score[0]>g.over.score[1]*1.15?0:g.over.score[1]>g.over.score[0]*1.15?1:-1;g.over.win=w;}}catch(e){}}checkOver();break;}
   case 'zed':{const g=G();if(!g||!g.started||g.over)break;E('zedSpawnAt')({x:+m.x,y:+m.y,n:+m.n,k:String(m.k||''),nest:!!m.nest});dirty=true;break;}
   case 'evt':{const g=G();if(!g||!g.started||g.over)break;const K=E('EVK');if(!K[m.k])break;const o={};if(m.k==='quake'&&m.M>=4.5&&m.M<=8.5)o.M=+m.M;if(m.k==='fire'){o.x=g.map.Wm/2;o.y=g.map.Hm/2;}E('evtStart')(m.k,o);dirty=true;break;}
   case 'info':{sendInfo();break;}

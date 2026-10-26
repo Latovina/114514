@@ -371,6 +371,21 @@
 .lw-touch .lw-bx [data-a="keyhelp"]{display:none;}
 .lw-touch .lw-btn,.lw-touch .lw-tc button{min-height:34px;}
 .lw-touch .lw-mapw .lw-zm button{width:40px;height:40px;font-size:18px;}
+/* 三方作戰：關係標籤、開始頁的三方對戰、兵力編成的開場關係、外交面板與頂列按鈕上的提議數 */
+#lato-warsim .lw-rel{display:inline-block;border:1px solid;border-radius:999px;padding:0 7px;font-size:12px;line-height:18px;font-weight:600;background:#fff;white-space:nowrap}
+#lato-warsim .lw-trirow{flex-wrap:wrap;gap:6px 12px;margin:0 0 8px}
+#lato-warsim .lw-trirow select:disabled{opacity:.55}
+#lato-warsim .lw-trirel{flex-wrap:wrap;gap:6px 12px;margin:2px 0 8px;font-size:12.5px}
+#lato-warsim .lw-trip{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+#lato-warsim .lw-dipdlg .lw-dipt td{vertical-align:top}
+#lato-warsim .lw-dipdlg .lw-dipa{white-space:nowrap}
+#lato-warsim .lw-dipdlg .lw-dipa .lw-btn{margin:0 4px 4px 0}
+#lato-warsim .lw-dipb{position:relative}
+#lato-warsim .lw-dipn{display:inline-block;min-width:16px;margin-left:4px;padding:0 4px;border-radius:999px;background:#b3261e;color:#fff;font-size:11px;line-height:16px;text-align:center}
+#lato-warsim .lw-triadd{grid-template-columns:auto minmax(0,1fr)}
+@media (max-width:640px){#lato-warsim .lw-dipdlg .lw-dipa{white-space:normal}}
+#lato-warsim .lw-dipdlg h3 small{margin-left:8px;font-weight:400;color:#666;font-size:12px}
+#lato-warsim .lw-dipdlg h4{margin:12px 0 4px;font-size:13px}
 /* ===== LatoArmory 介面（整合到裝備庫） ===== */
 
 /* ===== LatoTools 共用樣式（MediaWiki:Gadget-LatoTools.css 已有，不必重貼） ===== */
@@ -2791,7 +2806,7 @@ window.LatoTerrainLib={LTCore:LTCore,LTClimate:LTClimate,LTRivers:LTRivers,LTLay
 "use strict";
 var root=document.getElementById('lato-warsim');
 if(!root)return;
-var LWBUILD="f94233aa-online";
+var LWBUILD="73c01796-online";
 var MPON=1;
 /* ===================== LatoWarsim 作戰模擬：共用工具（數學、亂數、雜訊、幾何、時間、名稱、編碼） ===================== */
 var PI=Math.PI,D2R=PI/180,R2D=180/PI;
@@ -13359,18 +13374,20 @@ var TRIREL={neu:['neu','neu','與兩軍中立'],war:['war','war','與兩軍交�
 function triRelInit(k){var R=TRIREL[k]||TRIREL.neu,D=[[null,'war',R[0]],['war',null,R[1]],[R[0],R[1],null]];return D;}
 /* ---------- 加入第三方：補齊各方的陣列（情報圖、回報、統計、民心……），之後由兵力編成或快速想定加入部隊 ---------- */
 function triPadArr(a,mk){if(!Array.isArray(a))return;while(a.length<nSides())a.push(mk());}
-function triPad(){var z=function(){return 0;},o=function(){return {};},l=function(){return [];};
-  if(!G.ct)G.ct=[];triPadArr(G.ct,o);if(!G.rq)G.rq=[];triPadArr(G.rq,l);if(!G.ctN)G.ctN=[];triPadArr(G.ctN,o);triPadArr(G.stats,stat0);
-  if(G.civ){var C=G.civ;triPadArr(C.cs,civStat0);if(Array.isArray(C.rep))triPadArr(C.rep,function(){return 60;});if(C.prop)triPadArr(C.prop.mil,z);triPadArr(C.occ,z);if(C.intel){triPadArr(C.intel.n,z);triPadArr(C.intel.lie,z);}
-    (C.S||[]).forEach(function(g){if(Array.isArray(g.att))triPadArr(g.att,z);});}
-  ['tpSusp','cbUse','reg','cost'].forEach(function(k){if(Array.isArray(G[k]))triPadArr(G[k],k==='reg'?l:k==='cost'?o:z);});
-  if(G.aw){triPadArr(G.aw.s,o);triPadArr(G.aw.cnt,o);triPadArr(G.aw.zn,l);triPadArr(G.aw.lg,o);}
-  if(G.fg&&G.fg.st)triPadArr(G.fg.st,o);if(G.gm){var X=G.gm;['pc','m0','lw','tix','home','hq'].forEach(function(k){if(Array.isArray(X[k]))triPadArr(X[k],k==='pc'?function(){return {cas:0,vl:0,ck:0};}:k==='hq'?function(){return -1;}:z);});}
-  if(G.zed&&G.zed.st){var Z=G.zed.st;['k','lost','turn','nk'].forEach(function(k){triPadArr(Z[k],z);});}
-  if(G.tf&&G.tf.st){triPadArr(G.tf.st.k,z);triPadArr(G.tf.st.lost,z);}
-  if(G.bt)(G.bt.list||[]).forEach(function(R){triPadArr(R.u,o);['men','veh','init','later','reinf'].forEach(function(k){triPadArr(R[k],z);});});
-  (G.fac||[]).forEach(function(F){if(Array.isArray(F.kn))triPadArr(F.kn,function(){return -1;});if(Array.isArray(F.knT))triPadArr(F.knT,z);});
-  if(G.press&&Array.isArray(G.press.home))triPadArr(G.press.home,function(){return 60;});}
+/* 各方的陣列（情報圖、回報、統計、民心……）：P(陣列, 建立空項目的函式) 補齊或截短 */
+function triArrs(P){var z=function(){return 0;},o=function(){return {};},l=function(){return [];};
+  if(!G.ct)G.ct=[];P(G.ct,o);if(!G.rq)G.rq=[];P(G.rq,l);if(!G.ctN)G.ctN=[];P(G.ctN,o);P(G.stats,stat0);
+  if(G.civ){var C=G.civ;P(C.cs,civStat0);if(Array.isArray(C.rep))P(C.rep,function(){return 60;});if(C.prop)P(C.prop.mil,z);P(C.occ,z);if(C.intel){P(C.intel.n,z);P(C.intel.lie,z);}
+    (C.S||[]).forEach(function(g){if(Array.isArray(g.att))P(g.att,z);});}
+  ['tpSusp','cbUse','reg','cost'].forEach(function(k){if(Array.isArray(G[k]))P(G[k],k==='reg'?l:k==='cost'?o:z);});
+  if(G.aw){P(G.aw.s,o);P(G.aw.cnt,o);P(G.aw.zn,l);P(G.aw.lg,o);}
+  if(G.fg&&G.fg.st)P(G.fg.st,o);if(G.gm){var X=G.gm;['pc','m0','lw','tix','home','hq'].forEach(function(k){if(Array.isArray(X[k]))P(X[k],k==='pc'?function(){return {cas:0,vl:0,ck:0};}:k==='hq'?function(){return -1;}:z);});}
+  if(G.zed&&G.zed.st){var Z=G.zed.st;['k','lost','turn','nk'].forEach(function(k){P(Z[k],z);});}
+  if(G.tf&&G.tf.st){P(G.tf.st.k,z);P(G.tf.st.lost,z);}
+  if(G.bt)(G.bt.list||[]).forEach(function(R){P(R.u,o);['men','veh','init','later','reinf'].forEach(function(k){P(R[k],z);});});
+  (G.fac||[]).forEach(function(F){if(Array.isArray(F.kn))P(F.kn,function(){return -1;});if(Array.isArray(F.knT))P(F.knT,z);});
+  if(G.press&&Array.isArray(G.press.home))P(G.press.home,function(){return 60;});}
+function triPad(){triArrs(triPadArr);}
 /* o：{name, color, edge, ai, rel}；回傳第三方 */
 function triAdd(o){o=o||{};if(nSides()>=3)return G.sides[2];var S=newSide(2);if(o.name)S.name=String(o.name).slice(0,30);if(o.color)S.color=o.color;if(o.edge&&/^[NSWE]$/.test(o.edge))S.edge=o.edge;if(o.ai!==undefined)S.ai=!!o.ai;
   G.sides.push(S);G.dip=triRelInit(o.rel||'neu');G.dipV=(G.dipV||0)+1;triPad();if(typeof polGen==='function'&&G.civ&&!polSide(2).gen){polGen(2);polSide(2).gen=1;}
@@ -13378,13 +13395,26 @@ function triAdd(o){o=o||{};if(nSides()>=3)return G.sides[2];var S=newSide(2);if(
 /* 第三方的兵力：依想定的部隊清單（通常取藍軍的清單、同一年代）按比例建立，部署在第三方的地圖邊 */
 var TRISZ={s:[0.34,'約三分之一'],m:[0.5,'約一半'],e:[1,'與藍軍相當']};
 function triForces(L,sz,gran){var k=TRISZ[sz]?sz:'m',f=TRISZ[k][0],r=mb32(hstr((G.set.seed||'')+'|tri|orbat')),F=[];
-  (L||[]).forEach(function(p){var n=Math.max(1,Math.round((p[1]||1)*f));for(var i=1;i<=n;i++){var era=p[3]||null,nm=p[2]?fmtName(p[2],i):null,top=FPI[p[0]]?buildPreset(2,p[0],nm,-1,r,p[4]||gran||'co',era):UT[p[0]]?addLeaf(2,p[0],1,nm,-1,r):null;if(top){top.ix=i;F.push(top);}}});
-  reix();if(F.length)autoDeploy2(2,F);if(typeof renameSide==='function'){var S=G.sides[2];S.nm=Object.assign({},S.nm||{},{num:'rand'});try{renameSide(2);}catch(e){}}dupNames();return F;}
+  (L||[]).forEach(function(p){var n=Math.max(1,p[1]||1);for(var i=1;i<=n;i++){var era=p[3]||null,nm=p[2]?fmtName(p[2],i):null,top=FPI[p[0]]?buildPreset(2,p[0],nm,-1,r,p[4]||gran||'co',era):UT[p[0]]?addLeaf(2,p[0],1,nm,-1,r):null;if(top){top.ix=i;F.push(top);}}});
+  reix();F=triTrim(F,f);if(F.length)autoDeploy2(2,F);if(typeof renameSide==='function'){var S=G.sides[2];S.nm=Object.assign({},S.nm||{},{num:'rand'});try{renameSide(2);}catch(e){}}dupNames();return F;}
+/* 第三方的地圖邊：兩軍沒用到的邊裡水面最少的一邊 */
+function triEdge(){var MP=G.map,used=[G.sides[0].edge||'W',G.sides[1].edge||'E'],C=['N','S','W','E'].filter(function(e){return used.indexOf(e)<0;}),best=C[0]||'N',bw=2;
+  C.forEach(function(e){var n=0,w=0;for(var i=0;i<24;i++)for(var j=0;j<6;j++){var a=(i+0.5)/24,d=(j+0.5)/6*0.2,x,y;if(e==='N'||e==='S'){x=a*MP.Wm;y=e==='N'?d*MP.Hm:MP.Hm*(1-d);}else{y=a*MP.Hm;x=e==='W'?d*MP.Wm:MP.Wm*(1-d);}n++;if(isWater(MP.lc[cellAt(x,y)]))w++;}if(w/n<bw-0.05){bw=w/n;best=e;}});return best;}
+/* 依比例縮編：從最大、但不超過剩餘差額的下級單位開始整個移除（整個編制有好幾個時也可以整個移除），每個編制至少留一個下級 */
+function triTrim(F,f){if(!(f<0.99)||!F.length)return F;var wt=function(u){var s=strengthOf(u);return s.men+s.veh*8;},cur=0;F.forEach(function(u){cur+=wt(u);});var goal=cur*f,g=0;
+  while(cur>goal*1.1&&g++<500){var need=cur-goal,best=null,bw=0;
+    var look=function(list,drop){list.forEach(function(k){var w=wt(k);if(drop&&w<=need*1.2&&w>bw){best=k;bw=w;}if(!isLeaf(k)&&w>need*1.2)look(kidsOf(k),kidsOf(k).length>1);});};
+    look(F,F.length>1);if(!best)break;var i=F.indexOf(best);if(i>=0)F.splice(i,1);delUnit(best);cur-=bw;}
+  return F;}
 /* 第三方的本土目標：本土裡最大的聚落 */
-function triObj(){var MP=G.map,Z=triHome(2),best=null;(MP.set||[]).forEach(function(q){var x=q.x*MP.cs,y=q.y*MP.cs;if(x<Z.x0||x>Z.x1||y<Z.y0||y>Z.y1)return;if(!best||q.pop>best.pop)best=q;});if(!best)return null;
-  var x=best.x*MP.cs,y=best.y*MP.cs;if((G.obj||[]).some(function(o){return dist(o.x,o.y,x,y)<3000;}))return null;var o={id:(G.obj||[]).reduce(function(m,q){return Math.max(m,q.id||0);},0)+1,name:best.name||placeTxt(x,y),x:x,y:y,own:2,pts:10,r:Math.max(600,(best.r||400)*1.3)};(G.obj=G.obj||[]).push(o);return o;}
+function triObj(){var MP=G.map,Z=triHome(2),L=[];(MP.set||[]).forEach(function(q){var x=q.x*MP.cs,y=q.y*MP.cs;if(x<Z.x0||x>Z.x1||y<Z.y0||y>Z.y1)return;L.push({q:q,x:x,y:y});});L.sort(function(a,b){return (b.q.pop||0)-(a.q.pop||0);});
+  var far=function(x,y){return !(G.obj||[]).some(function(o){return dist(o.x,o.y,x,y)<3000;});},best=L.filter(function(c){return far(c.x,c.y);})[0],x,y,nm='',r=800;
+  if(best){x=best.x;y=best.y;nm=best.q.name||'';r=Math.max(600,(best.q.r||400)*1.3);}
+  else{/* 本土沒有合適的聚落：本土中央附近的陸地 */x=(Z.x0+Z.x1)/2;y=(Z.y0+Z.y1)/2;var ok=!isWater(MP.lc[cellAt(x,y)])&&far(x,y);for(var i=0;i<60&&!ok;i++){var a=i*2.39996,d=400+i*300,x2=clamp(x+Math.cos(a)*d,Z.x0+200,Z.x1-200),y2=clamp(y+Math.sin(a)*d,Z.y0+200,Z.y1-200);if(!isWater(MP.lc[cellAt(x2,y2)])&&far(x2,y2)){x=x2;y=y2;ok=true;}}if(!ok)return null;}
+  var o={id:(G.obj||[]).reduce(function(m,q){return Math.max(m,q.id||0);},0)+1,name:nm||placeTxt(x,y),x:x,y:y,own:2,pts:10,tri:1,r:r};(G.obj=G.obj||[]).push(o);return o;}
 /* 移除第三方（開戰前）：部隊一併刪除 */
-function triDel(){if(nSides()<3||G.started)return false;G.units=G.units.filter(function(u){return u.side!==2;});G.sides.length=2;['ct','rq','ctN','stats'].forEach(function(k){if(Array.isArray(G[k]))G[k].length=Math.min(G[k].length,2);});G.dip=null;G.dipV=(G.dipV||0)+1;if(typeof reix==='function')reix();return true;}
+function triDel(){if(nSides()<3||G.started)return false;G.units=G.units.filter(function(u){return u.side!==2;});G.sides.length=2;triArrs(function(a){if(Array.isArray(a)&&a.length>2)a.length=2;});
+  G.obj=(G.obj||[]).filter(function(o){return !o.tri;});G.obj.forEach(function(o){if(o.own>=2)o.own=-1;});G.dip=null;G.dipV=(G.dipV||0)+1;['dipW','dipH','dipP','dipG','dipL','dipI','dipPT','out'].forEach(function(k){delete G[k];});if(typeof reix==='function')reix();return true;}
 /* ---------- 關係 ---------- */
 function relName(r){return DIPK[r]||r;}
 function ctNOf(s){if(!G.ctN)G.ctN=[];while(G.ctN.length<nSides())G.ctN.push({});return G.ctN[s]||(G.ctN[s]={});}
@@ -13402,12 +13432,14 @@ function relSet(a,b,r,why,who){if(!(a>=0&&b>=0)||a===b||a>=nSides()||b>=nSides()
   logE(-1,'dip',txt+(why?'（'+why+'）':''));if(typeof decLog==='function')try{decLog(a,who||'指揮部',txt+(why?'（'+why+'）':''));}catch(e){}
   /* 背棄同盟：國際聲望下降，官兵動搖 */if(o==='ally'&&r==='war'){if(G.civ&&G.civ.rep)G.civ.rep[a]=clamp((G.civ.rep[a]===undefined?60:G.civ.rep[a])-15,0,100);G.units.forEach(function(u){if(u.side===a&&isLeaf(u)&&alive(u))u.mor=clamp(u.mor-4,0,100);if(u.side===b&&isLeaf(u)&&alive(u))u.mor=clamp(u.mor-6,0,100);});}
   if(r==='war'&&G.onPause&&apOn('dip'))G.onPause(txt);return true;}
+/* 這一方有玩家指揮（整方、一部分或組隊裡的任一位指揮官）：外交由玩家決定，AI 不代為宣戰或回應提議 */
+function sideHum(s){var S=SD(s);if(!S)return false;var L=S.cm||[];return !S.ai||S.pu>0||L.length>1&&L.some(function(R){return !R.ai;});}
 /* ---------- 提議（停火、結盟）：AI 依局勢決定；玩家在外交面板回應，兩小時沒回應就作罷 ---------- */
 var DIPPK={peace:'停火',ally:'結盟',end:'解除同盟'};
 function dipPropose(a,b,k,who){if(!G.dip||a===b||!DIPPK[k]||!(a>=0&&b>=0&&a<nSides()&&b<nSides()))return null;var r=relOf(a,b);if(k==='peace'&&r!=='war'||k==='ally'&&r!=='neu'||k==='end'&&r!=='ally')return null;
   if(k==='end'){relSet(a,b,'neu','解除同盟',who);return {st:'ok'};}
   var L=G.dipP=G.dipP||[];if(L.some(function(P){return P.st==='open'&&P.a===a&&P.b===b&&P.k===k;}))return null;var P={id:(G.dipSeq=(G.dipSeq||0)+1),t:G.t,a:a,b:b,k:k,st:'open',who:who||''};L.push(P);if(L.length>60)L.splice(0,L.length-60);
-  logE(a,'dip','向'+G.sides[b].name+'提議'+DIPPK[k]);logE(b,'dip','📨 '+G.sides[a].name+'提議'+DIPPK[k]+'（在外交面板回應）');if(SD(b).ai)dipAnswer(P,dipAiAccept(b,a,k),'AI');return P;}
+  logE(a,'dip','向'+G.sides[b].name+'提議'+DIPPK[k]);logE(b,'dip','📨 '+G.sides[a].name+'提議'+DIPPK[k]+'（在外交面板回應）');if(!sideHum(b))dipAnswer(P,dipAiAccept(b,a,k),'AI');return P;}
 function dipAnswer(P,yes,who){if(!P||P.st!=='open')return false;var r=relOf(P.a,P.b);if(P.k==='peace'&&r!=='war'||P.k==='ally'&&r!=='neu'){P.st='void';return false;}P.st=yes?'ok':'no';P.tA=G.t;
   if(yes)relSet(P.a,P.b,P.k==='peace'?'neu':'ally','雙方同意'+DIPPK[P.k],who);else{logE(P.a,'dip',G.sides[P.b].name+'拒絕'+DIPPK[P.k]);logE(P.b,'dip','拒絕'+G.sides[P.a].name+'的'+DIPPK[P.k]+'提議');}return true;}
 function dipFind(id){return (G.dipP||[]).filter(function(P){return P.id===id;})[0]||null;}
@@ -13431,7 +13463,7 @@ function dipStep(){if(nSides()<3||!G.dip||!G.started)return;var h=G.step%120===6
   SIDES().forEach(function(s){SIDES().forEach(function(o){if(o===s||relOf(s,o)!=='neu')return;var n=0;G.units.forEach(function(u){if(u.side===o&&isLeaf(u)&&onMap(u)&&ST(u).dom==='land'&&inHome(s,u.x,u.y))n+=u.men+u.veh*8;});var k=s+'>'+o;
     if(n>=150){I[k]=(I[k]||0)+1;if(I[k]===1)logE(o,'dip','⚠ '+G.sides[s].name+'抗議本方部隊進入其領土（'+fmt(n)+' 人車當量），要求撤出');if(I[k]===1)logE(s,'dip','⚠ '+G.sides[o].name+'的部隊進入本方領土');}else if(I[k])I[k]=Math.max(0,I[k]-1);});});
   (G.dipP||[]).forEach(function(P){if(P.st==='open'&&G.t-P.t>7200){P.st='exp';logE(P.a,'dip',G.sides[P.b].name+'沒有回應'+DIPPK[P.k]+'的提議');}});
-  SIDES().forEach(function(s){if(!SD(s).ai||G.out&&G.out[s])return;dipAI(s);});}
+  SIDES().forEach(function(s){if(sideHum(s)||G.out&&G.out[s])return;dipAI(s);});}
 function dipPers(s){var T=sideCmd(s),p=T&&T.pers?T.pers:null,agg=0.5;try{if(typeof aiPers==='function'){var P=aiPers(s);if(P&&P.agg!==undefined)agg=P.agg;}}catch(e){}if(p&&p.agg!==undefined)agg=p.agg;return clamp(agg,0,1);}
 function dipAI(s){var M=dipStr(s),agg=dipPers(s),G2=G.dipG||{},I=G.dipI||{},hours=G.t/3600-(G.t0h||0);
   SIDES().forEach(function(o){if(o===s||G.out&&G.out[o])return;var r=relOf(s,o),O=dipStr(o),gv=G2[s+'>'+o]||0;
@@ -13474,6 +13506,13 @@ if(typeof GKEYS!=='undefined')['dip','dipV','dipW','dipH','dipP','dipSeq','dipG'
 /* 玩家的外交動作（聯機時經伺服器，只能以本方名義） */
 function dipWar(me,o,why){if(!(o>=0)||o===me||o>=nSides()||relOf(me,o)==='war')return false;return relSet(me,o,'war',why||'','玩家');}
 function dipAnsId(me,id,yes){var P=dipFind(+id);if(!P||P.b!==me)return false;return dipAnswer(P,!!yes,'玩家');}
+/* 聯機：外交狀態送給各方（關係、紀錄與退出戰局公開；提議、積怨與領土侵入只給相關的一方） */
+if(typeof mpValList==='function'){(function(){var b=mpValList;mpValList=function(s){var V=b.apply(this,arguments);if(nSides()<3)return V;var flt=function(O){if(!O||s<0)return O;var o={};for(var k in O){var p=k.split(/[>~]/);if(+p[0]===s||+p[1]===s)o[k]=O[k];}return o;};
+  V.push(['dip',G.dip]);V.push(['dipV',G.dipV||0]);V.push(['dipW',G.dipW]);V.push(['dipH',G.dipH]);V.push(['out',G.out]);V.push(['dipP',(G.dipP||[]).filter(function(P){return s<0||P.a===s||P.b===s;})]);V.push(['dipG',flt(G.dipG)]);V.push(['dipI',flt(G.dipI)]);return V;};})();}
+/* 聯機：房間設定為三方對戰時，快速想定加入第三方（由 AI 指揮，席位交給玩家後改由玩家指揮） */
+if(typeof mpQuick==='function'){(function(){var b=mpQuick;mpQuick=async function(key,seed,tri){var g=await b(key,seed);if(tri&&typeof tri==='object'&&nSides()<3){var sc=SCN.filter(function(q){return q.k===key;})[0]||SCN[4];
+  triAdd({rel:TRIREL[tri.rel]?tri.rel:'neu',ai:true,edge:triEdge()});triForces(tri.src==='B'?sc.B:sc.A,TRISZ[tri.sz]?tri.sz:'m',sc.gran||'co');triObj();dupNames();mpReset();}return g;};})();}
+if(typeof MPSLOW!=='undefined')MPSLOW['sides.2']=2000;
 if(typeof MPFN!=='undefined'){MPFN.dipWar=[MPSIDE(0),function(a){return dipWar(+a[0],+a[1],String(a[2]||'').slice(0,40));}];
   MPFN.dipPropose=[MPSIDE(0),function(a){return !!dipPropose(+a[0],+a[1],String(a[2]),'玩家');}];MPFN.dipAnsId=[MPSIDE(0),function(a){return dipAnsId(+a[0],+a[1],!!a[2]);}];}
 /* ===================== 物資與裝備目錄：武器分成「單兵與班組武器」與「載具武裝」；載具型號一份清單（泛用、內建、LatoVehicle 設計、自訂；無人機也是載具）；自訂糧食 =====================
@@ -17852,6 +17891,12 @@ function mpReplHtml(){var L=MPS.replays;if(!L)return '<div class="lw-note">按�
   return '<table class="lw-tbl"><tr><th>作戰</th><th>雙方</th><th>結果</th><th class="n">大小</th><th></th></tr>'+L.slice(0,50).map(function(r){return '<tr><td>'+mpEsc(r.name)+'<br><span class="lw-note">'+mpEsc(r.room||'')+'・'+new Date(r.date).toLocaleString()+'</span></td><td>'+mpEsc((r.sides||[]).join(' 對 '))+'</td><td>'+(r.win>=0&&r.sides?mpEsc(r.sides[r.win])+'獲勝':'不分勝負')+'<br><span class="lw-note">'+mpEsc(r.why||'')+'</span></td><td class="n">'+Math.round(r.size/1024)+' KB</td><td><button type="button" class="lw-btn sm" data-a="mprepopen" data-v="'+r.id+'">開啟</button> <a class="lw-btn sm" href="/api/replay/'+r.id+'?token='+encodeURIComponent(MPS.tok)+'">下載</a></td></tr>';}).join('')+'</table>';}
 function mpChatList(){var el=UI.body&&UI.body.querySelector('[data-k="mplch"]');if(el){el.innerHTML=MPS.lchat.slice(-80).map(mpChatLine).join('')||'<div class="lw-note">還沒有訊息。</div>';el.scrollTop=el.scrollHeight;}
   var e2=UI.body&&UI.body.querySelector('[data-k="mprch"]');if(e2){e2.innerHTML=MPS.chat.slice(-100).map(mpChatLine).join('')||'<div class="lw-note">還沒有訊息。</div>';e2.scrollTop=e2.scrollHeight;}}
+/* 尚未選想定時各方的預設名稱與顏色 */
+var MPSN=['藍方','紅方','第三方'],MPSC=['#2B6CD4','#D23B3B','#2E9D57'];
+/* 房間設定：三方對戰（建立快速想定時加入第三方；開場關係、兵力、編成仿照哪一方） */
+function mpTriHtml(C,dis){var T=typeof TRIREL!=='undefined'?TRIREL:{neu:[0,0,'與兩軍中立']},Z=typeof TRISZ!=='undefined'?TRISZ:{m:[0,'約一半']},sel=function(f,opts){return '<select data-c="mpcf" data-f="'+f+'"'+dis+'>'+opts.map(function(q){return '<option value="'+q[0]+'"'+(C[f]===q[0]?' selected':'')+'>'+mpEsc(q[1])+'</option>';}).join('')+'</select>';};
+  return '<div class="lw-row"><label><input type="checkbox" data-c="mpcf" data-f="tri"'+(C.tri?' checked':'')+dis+'> 三方對戰（第三方由玩家或電腦扮演）</label>'+(C.tri?'<label>開場 '+sel('triRel',Object.keys(T).map(function(k){return [k,T[k][2]];}))+'</label><label>第三方兵力 '+sel('triSz',Object.keys(Z).map(function(k){return [k,Z[k][1]];}))+'</label><label>編成仿照 '+sel('triSrc',[['A','藍方'],['B','紅方']])+'</label>':'')+'</div>'+
+    (C.tri?'<div class="lw-note">建立快速想定時加入第三方，開場預設與兩軍中立：互不開火，之後由各方指揮官在「外交」宣戰、停火或結盟。每一方的指揮官人數照上面設定（例如三方各 3 位就是 3 對 3 對 3）。上傳的存檔若已有三方，直接沿用。</div>':'');}
 function mpPgRoom(){var R=MPS.room,me=MPS.me||{},H=mpHost(),u=MPS.user,S=R.scn,o='';
   o+='<div class="lw-card"><h3>🏠 '+mpEsc(R.name)+'<small>'+mpPhaseTxt(R.phase)+'・房主 '+mpEsc(R.hostName)+(R.locked?'・🔒':'')+'</small></h3><div class="lw-row">'+(mpActive()?'<button type="button" class="lw-btn pri" data-a="tab" data-v="'+(G.started?'battle':'deploy')+'">前往'+(G.started?'作戰':'部署')+'畫面</button>':'')+
     '<button type="button" class="lw-btn" data-a="mpinv" title="把這個連結傳給朋友，登入後會直接進入這個房間">🔗 複製邀請連結</button><button type="button" class="lw-btn" data-a="mpleave">離開房間</button>'+(R.phase==='run'?'<span class="lw-mpbig" data-k="mpgt">'+mpClock()+'</span>':'')+'</div></div>';
@@ -17863,9 +17908,9 @@ function mpPgRoom(){var R=MPS.room,me=MPS.me||{},H=mpHost(),u=MPS.user,S=R.scn,o
     '<div class="lw-note">建議在單機版的「開始」「地圖編修」「兵力編成」「部署」準備好雙方，再上傳或直接使用；玩家也可以在部署階段匯入自己的編制檔。上傳後雙方都只看得到自己的部隊。</div>';}
   o+='</div>';
   /* 席位 */
-  if(R.slots){o+='<div class="lw-card"><h3>席位<small>每一方 1–8 位指揮官，全房間最多 8 位玩家（例如 8 人合作對抗電腦或 4 對 4）</small></h3><table class="lw-tbl lw-mpsl"><tr><th>陣營</th><th>指揮官</th><th>由誰指揮</th><th></th></tr>';
+  if(R.slots){o+='<div class="lw-card"><h3>席位<small>每一方 1–8 位指揮官，全房間最多 12 位玩家（例如多人合作對抗電腦、4 對 4 或 3 對 3 對 3）</small></h3><table class="lw-tbl lw-mpsl"><tr><th>陣營</th><th>指揮官</th><th>由誰指揮</th><th></th></tr>';
     R.slots.forEach(function(L,s){var sn=S?S.sides[s]:null;L.forEach(function(sl,i){var cmN=sn&&sn.cm[i]?sn.cm[i].n:(i+1)+' 號指揮官',mine=sl.uid&&u&&sl.uid===u.id,who=sl.kind==='ai'?'🤖 電腦':sl.uid?mpAvHtml(sl.uid,(R.mem.filter(function(m){return m.uid===sl.uid;})[0]||{}).av,sl.name,20)+' '+mpEsc(sl.name)+(sl.auto?'（斷線，AI 暫代）':'')+(R.mem.some(function(m){return m.uid===sl.uid&&m.ready;})?' ✓':''):'（空位'+(R.cfg.aiFill?'，開戰時由電腦補上':'')+'）';
-      o+='<tr><td>'+(i===0?'<span class="lw-sw" style="background:'+(sn?sn.color:s?'#D23B3B':'#2B6CD4')+'"></span> '+mpEsc(sn?sn.name:(s?'紅方':'藍方')):'')+'</td><td>'+mpEsc(cmN)+(sn&&sn.cm[i]?'<span class="lw-note">（'+sn.cm[i].roots+' 個編制）</span>':'')+'</td><td>'+who+'</td><td>'+
+      o+='<tr><td>'+(i===0?'<span class="lw-sw" style="background:'+(sn?sn.color:MPSC[s]||'#888')+'"></span> '+mpEsc(sn?sn.name:(MPSN[s]||'第'+(s+1)+'方')):'')+'</td><td>'+mpEsc(cmN)+(sn&&sn.cm[i]?'<span class="lw-note">（'+sn.cm[i].roots+' 個編制）</span>':'')+'</td><td>'+who+'</td><td>'+
         (sl.kind==='open'&&!sl.uid?'<button type="button" class="lw-btn sm pri" data-a="mptake" data-v="'+s+','+i+'">坐這裡</button>':'')+(mine&&R.phase!=='run'?'<button type="button" class="lw-btn sm" data-a="mpuntake">離開席位</button>':'')+
         (H&&R.phase!=='over'?' <select data-c="mpslk" data-v="'+s+','+i+'"><option value="open"'+(sl.kind==='open'?' selected':'')+'>玩家</option><option value="ai"'+(sl.kind==='ai'?' selected':'')+'>電腦</option></select>':'')+'</td></tr>';});});
     o+='</table><div class="lw-row">'+(R.cfg.spect||R.phase==='over'?'<button type="button" class="lw-btn sm" data-a="mpspec">'+(me.spec?'停止觀戰':'觀戰（上帝視角）')+'</button>':'')+(me.side>=0&&R.phase==='deploy'?'<button type="button" class="lw-btn sm'+(mpMeReady()?' pri':'')+'" data-a="mpready">'+(mpMeReady()?'✓ 已準備好':'準備完成')+'</button>':'')+'</div>';
@@ -17874,13 +17919,13 @@ function mpPgRoom(){var R=MPS.room,me=MPS.me||{},H=mpHost(),u=MPS.user,S=R.scn,o
   /* 作戰控制、結果 */
   if(R.phase==='run'){o+='<div class="lw-card"><h3>作戰進行中</h3><div class="lw-row"><span>作戰時限 '+(mpDurCur()?durH(mpDurCur()):'依想定')+'</span><button type="button" class="lw-btn sm" data-a="mpdurdlg">'+(H?'⏱ 調整時限':'⏱ 時限')+'</button></div><div class="lw-row">'+(H||R.cfg.pause==='all'&&me.side>=0?'<button type="button" class="lw-btn pri" data-a="mprun">'+(R.run.on?'⏸ 暫停':'▶ 繼續')+'</button>':'<span>'+(R.run.on?'進行中':'暫停中')+'</span>')+
     (H?'<label>速度 <select data-c="mpspd">'+SPEEDS.map(function(v){return '<option value="'+v+'"'+(R.cfg.speed===v?' selected':'')+'>每秒 '+durTxt(v)+'</option>';}).join('')+'</select></label><button type="button" class="lw-btn dng" data-a="mpend">結束作戰</button>':'<span class="lw-note">速度：每秒 '+durTxt(R.cfg.speed)+'</span>')+'</div></div>';}
-  if(R.phase==='over'){var ov=R.over||{};o+='<div class="lw-card"><h3>作戰結束</h3><div class="lw-mpbig">'+mpEsc(ov.why||'')+'：'+(ov.win>=0&&S?mpEsc(S.sides[ov.win].name)+'獲勝':'不分勝負')+'</div><div class="lw-note">戰場已全面揭曉：可在「作戰」「戰報」查看雙方完整的部署與損失。'+(ov.why==='時間到'?(H?'作戰是因時限結束的：按「延長時限」可以讓作戰繼續（戰場回到雙盲）。':'作戰是因時限結束的，房主可以延長時限讓作戰繼續。'):'')+'</div><div class="lw-row">'+(H&&ov.why==='時間到'?'<button type="button" class="lw-btn pri" data-a="mpdurx">延長時限，繼續作戰</button>':'')+
+  if(R.phase==='over'){var ov=R.over||{};o+='<div class="lw-card"><h3>作戰結束</h3><div class="lw-mpbig">'+mpEsc(ov.why||'')+'：'+(ov.win>=0&&S?mpEsc(S.sides[ov.win].name)+'獲勝':'不分勝負')+'</div>'+(ov.rank&&S?'<div class="lw-note">名次：'+ov.rank.map(function(i,k){return (k+1)+'. '+mpEsc(S.sides[i]?S.sides[i].name:'')+(ov.score&&ov.score[i]!==undefined?'（'+ov.score[i]+' 分）':'');}).join('、')+'</div>':'')+'<div class="lw-note">戰場已全面揭曉：可在「作戰」「戰報」查看雙方完整的部署與損失。'+(ov.why==='時間到'?(H?'作戰是因時限結束的：按「延長時限」可以讓作戰繼續（戰場回到雙盲）。':'作戰是因時限結束的，房主可以延長時限讓作戰繼續。'):'')+'</div><div class="lw-row">'+(H&&ov.why==='時間到'?'<button type="button" class="lw-btn pri" data-a="mpdurx">延長時限，繼續作戰</button>':'')+
     (R.replay?'<a class="lw-btn pri" href="/api/replay/'+R.replay+'?token='+encodeURIComponent(MPS.tok)+'">下載回放</a><button type="button" class="lw-btn" data-a="mprepopen" data-v="'+R.replay+'">在回放分頁開啟</button>':'<span class="lw-note">回放整理中…</span>')+(H||u&&u.admin?'<a class="lw-btn" href="/api/save/'+R.id+'?token='+encodeURIComponent(MPS.tok)+'">下載完整存檔</a>':'')+(H?'<button type="button" class="lw-btn" data-a="mpreset">再來一局（重選想定）</button>':'')+'</div></div>';}
   /* 房間設定 */
   var C=R.cfg,dis=H?'':' disabled';o+='<div class="lw-card"><h3>房間設定'+(H?'':'<small>只有房主可以修改</small>')+'</h3><div class="lw-row"><label>房間名稱 <input type="text" data-c="mpcf" data-f="name" value="'+mpEsc(C.name)+'" maxlength="40"'+dis+'></label>'+(H?'<label>密碼 <input type="text" data-c="mpcf" data-f="pass" value="" placeholder="'+(R.locked?'（已設定，留空不變）':'（無）')+'" maxlength="40" style="width:9em"></label>':'')+'</div>'+
     '<div class="lw-row"><label>時間速度 <select data-c="mpcf" data-f="speed"'+dis+'>'+SPEEDS.map(function(v){return '<option value="'+v+'"'+(C.speed===v?' selected':'')+'>每秒 '+durTxt(v)+'</option>';}).join('')+'</select></label><label>暫停 <select data-c="mpcf" data-f="pause"'+dis+'><option value="host"'+(C.pause==='host'?' selected':'')+'>只有房主</option><option value="all"'+(C.pause==='all'?' selected':'')+'>所有玩家</option></select></label>'+
     '<label>部署區縱深 <select data-c="mpcf" data-f="depth"'+dis+'>'+[0.2,0.3,0.4,0.5].map(function(v){return '<option value="'+v+'"'+(Math.abs(C.depth-v)<0.01?' selected':'')+'>'+Math.round(v*100)+'%</option>';}).join('')+'</select></label></div>'+
-    (R.phase!=='run'&&R.phase!=='over'?'<div class="lw-row">'+SIDES().map(function(s){return '<label>'+mpEsc(S?S.sides[s].name:s?'紅方':'藍方')+'指揮官 <select data-c="mpcf" data-f="team'+s+'"'+dis+'>'+[1,2,3,4,5,6,7,8].map(function(n){return '<option value="'+n+'"'+(C.teams[s]===n?' selected':'')+'>'+n+' 位</option>';}).join('')+'</select></label>';}).join('')+'</div>':'')+
+    (R.phase!=='run'&&R.phase!=='over'?'<div class="lw-row">'+C.teams.map(function(n0,s){return '<label>'+mpEsc(S&&S.sides[s]?S.sides[s].name:MPSN[s]||'第'+(s+1)+'方')+'指揮官 <select data-c="mpcf" data-f="team'+s+'"'+dis+'>'+[1,2,3,4,5,6,7,8].map(function(n){return '<option value="'+n+'"'+(C.teams[s]===n?' selected':'')+'>'+n+' 位</option>';}).join('')+'</select></label>';}).join('')+'</div>'+mpTriHtml(C,dis):'')+
     '<div class="lw-row">'+[['aiFill','空位開戰時由電腦補上'],['aiTake','玩家斷線時由電腦暫代'],['spect','開放觀戰（觀戰者看得到雙方）'],['ffog','友軍迷霧（與司令部失聯的本方部隊從地圖上消失）'],['rp','增援點數'],['tech','科技點數']].map(function(q){return '<label><input type="checkbox" data-c="mpcf" data-f="'+q[0]+'"'+(C[q[0]]?' checked':'')+dis+'> '+q[1]+'</label>';}).join('')+'</div>'+
     (C.rp||C.tech?'<div class="lw-row">'+(C.rp?'<label>初始增援點數 <input type="number" data-c="mpcf" data-f="rp0" value="'+C.rp0+'" min="0" style="width:6em"'+dis+'></label><label>每日增援點數 <input type="text" data-c="mpcf" data-f="rpDay" value="'+mpEsc(C.rpDay)+'" style="width:5em"'+dis+'>（auto＝依補給需求）</label>':'')+(C.tech?'<label>初始科技點數 <input type="number" data-c="mpcf" data-f="tp0" value="'+C.tp0+'" min="0" style="width:5em"'+dis+'></label><label>每日科技點數 <input type="number" data-c="mpcf" data-f="tpDay" value="'+C.tpDay+'" min="0" style="width:5em"'+dis+'></label>':'')+'</div>':'')+
     '<div class="lw-row"><label>作戰時限 <input type="number" data-c="mpcf" data-f="dur" value="'+(C.dur||0)+'" min="0" max="2200" step="1" style="width:6em"'+dis+'> 小時</label>'+(H?'<button type="button" class="lw-btn sm" data-a="mpdurdlg">快速設定…</button>':'')+'<span class="lw-note" data-k="mpdurn">'+mpDurNote(R)+'</span></div><div class="lw-note">雙方完全雙盲：每位玩家只收到本方看得到的戰場（本方部隊、偵察到的敵情、視野內的地形變化）；地圖標示與「本方」聊天只有隊友看得到。</div></div>';
@@ -17936,7 +17981,7 @@ ACT.mpkick=function(b){if(confirm('請這位成員離開房間？'))mpSend({t:'k
 ACT.mprun=function(){mpSend({t:'run',on:!(MPS.room&&MPS.room.run.on)});};ACT.mpend=function(){if(confirm('結束作戰？雙方的戰場會全面揭曉，並整理回放。'))mpSend({t:'end'});};ACT.mpreset=function(){if(confirm('清除目前的作戰，重新選擇想定？'))mpSend({t:'reset'});};
 CHG.mpspd=function(t){mpSend({t:'rcfg',cfg:{speed:+t.value}});};
 CHG.mpslk=function(t){var q=t.getAttribute('data-v').split(',');mpSend({t:'slotkind',side:+q[0],cm:+q[1],kind:t.value});};
-CHG.mpcf=function(t){var f=t.getAttribute('data-f'),v=t.type==='checkbox'?t.checked:t.value,c={};if(/^team[01]$/.test(f)){var T=(MPS.room.cfg.teams||[1,1]).slice();T[+f.slice(4)]=+v;c.teams=T;}else if(f==='pass'){if(!v&&!confirm('清除房間密碼？'))return;c.pass=v;}else if(f==='dur'){var dv=Math.round(+v||0);if(dv===0){c.dur=0;}else{if(!mpDurSend(dv)){t.value=MPS.room.cfg.dur||0;}else toast('作戰時限改為 '+durH(dv)+'。',3000);return;}}else if(f==='speed'||f==='depth'||f==='rp0'||f==='tp0'||f==='tpDay')c[f]=+v;else c[f]=v;mpSend({t:'rcfg',cfg:c});};
+CHG.mpcf=function(t){var f=t.getAttribute('data-f'),v=t.type==='checkbox'?t.checked:t.value,c={};if(/^team[0-2]$/.test(f)){var T=(MPS.room.cfg.teams||[1,1]).slice();T[+f.slice(4)]=+v;c.teams=T;}else if(f==='pass'){if(!v&&!confirm('清除房間密碼？'))return;c.pass=v;}else if(f==='dur'){var dv=Math.round(+v||0);if(dv===0){c.dur=0;}else{if(!mpDurSend(dv)){t.value=MPS.room.cfg.dur||0;}else toast('作戰時限改為 '+durH(dv)+'。',3000);return;}}else if(f==='speed'||f==='depth'||f==='rp0'||f==='tp0'||f==='tpDay')c[f]=+v;else c[f]=v;mpSend({t:'rcfg',cfg:c});};
 ACT.mpquick=function(){var k=(root.querySelector('[data-k="mpq"]')||{}).value;mpSend({t:'quick',k:k});toast('伺服器建立想定中，地圖生成需要一點時間…',4000);};
 ACT.mpscnf=function(){var inp=document.createElement('input');inp.type='file';inp.accept='.json,application/json';inp.onchange=function(){var f=inp.files[0];if(!f)return;toast('讀取中…');f.text().then(function(s){var o=JSON.parse(s);if(o.format!=='LatoWarsim')throw new Error('這不是作戰模擬存檔（.latowarsim.json）。');toast('上傳中（'+Math.round(s.length/1048576*10)/10+' MB）…',4000);return mpSendBig({t:'scn',save:o});}).catch(function(e){toast('無法上傳：'+e.message,4500);});};inp.click();};
 ACT.mpscnl=async function(){var g0=G,lg=MPS.localG&&MPS.localG.map?MPS.localG:G;if(!lg||!lg.map||lg.mp){toast('目前沒有單機作戰。先在「開始」建立或讀取一場作戰。');return;}try{G=lg;var S=gameSnap(false);G=g0;var o=JSON.parse(await gameText(await S));toast('上傳中…',3000);await mpSendBig({t:'scn',save:o});}catch(e){G=g0;toast('無法上傳：'+e.message,4500);}};
@@ -17956,7 +18001,7 @@ ACT.admroom=function(b){if(confirm('關閉這個房間？進行中的作戰會�
 HELP14.push('<h4>聯機作戰（聯機版）</h4><ul>'+
   '<li><b>登入與大廳</b>：「聯機」分頁註冊或登入，第一位註冊的人是伺服器管理員（可設定是否開放註冊、邀請碼、停用帳號、重設密碼、關閉房間）。大廳可以建立房間（可設密碼）、加入房間、聊天、下載以前的回放。</li>'+
   '<li><b>帳號與頭像</b>：註冊時要在「確認密碼」再輸入一次密碼，修改密碼時新密碼也要輸入兩次。大廳可以「更換頭像」（PNG、JPEG、GIF 或 WebP，自動置中裁成正方形），頭像顯示在大廳的線上名單、房間成員、席位與聊天；管理員可以移除不當的頭像。</li>'+
-  '<li><b>房間與想定</b>：房主上傳存檔（在單機版準備好地圖、雙方兵力與部署後下載的 .latowarsim.json）、直接使用單機版目前的作戰，或選擇快速想定。房主設定時間速度、誰可以暫停、部署區縱深、每一方的指揮官人數（1–8 位；全房間最多 8 位玩家，例如 8 人合作對抗電腦或 4 對 4）、點數規則與作戰時限。</li>'+
+  '<li><b>房間與想定</b>：房主上傳存檔（在單機版準備好地圖、雙方兵力與部署後下載的 .latowarsim.json）、直接使用單機版目前的作戰，或選擇快速想定。房主設定時間速度、誰可以暫停、部署區縱深、每一方的指揮官人數（1–8 位；全房間最多 12 位玩家，例如多人合作對抗電腦、4 對 4，或開啟「三方對戰」後 3 對 3 對 3：第三方開場與兩軍中立，各方在「外交」宣戰、停火或結盟）、點數規則與作戰時限。</li>'+
   '<li><b>作戰時限</b>：房主在開戰前（不論有沒有載入想定或存檔）或作戰中隨時可以調整：房間設定、部署分頁或頂列的「⏱」按鈕（可以加 6 小時、1 天、3 天、1 週，或直接選 1 天到 3 個月），或作戰中的「設定」分頁；送到伺服器後所有人一起套用。作戰因時限結束時，房主可以「延長時限，繼續作戰」：戰場回到雙盲、時間先暫停。房間設定也可以開啟<b>友軍迷霧</b>。</li>'+
   '<li><b>模擬設定</b>：房主可以在房間頁的「模擬設定」（開戰前不論有沒有載入想定或存檔都可以）或作戰中的「設定」分頁調整所有模擬設定，送到伺服器後所有人一起套用；載入想定前調整的設定會套用到之後載入的想定或存檔，「恢復想定的設定」可以撤銷。聯機作戰固定雙盲；自動暫停會暫停整個房間（預設全部關閉，由房主開啟）；房主可以在作戰中觸發事件。畫面、效果、音效、音樂與戰爭花費單價是各自的設定。其他玩家看得到設定，但不能修改。</li>'+
   '<li><b>席位</b>：每一方的每位指揮官是一個席位，可以設為「玩家」或「電腦」；空位開戰時可由電腦補上；玩家斷線太久由電腦暫代，重新加入後自動交還。單人對電腦（PVE）、玩家對玩家（PVP）、玩家與電腦組隊都可以。</li>'+
@@ -26037,6 +26082,132 @@ if(typeof HELP14!=='undefined')HELP14.push('<h4>物資與裝備（編制、載�
   '<li>編制裝備：選一個單位（或一個類型，影響整局）編輯人員、武器、載具與無人機（泛用的車可以換成合適的型號，也可以加入額外的車）、支援裝備、馬匹、攜行的口糧與草料天數、彈藥基數與伙食；畫面下方即時比較火力、防護、機動、補給與造價。只換主要車輛型號時與過去的「載具與彈藥」相同；開戰前立即換裝，作戰中等撤到後方休整。空中與海上部隊在這裡換機型、艦型（數量不變）。</li>'+
   '<li>換掉泛用的車時，車上機槍的火力沿用兵種的標準（避免與兵種本來的火力重複）；另外加入的車整套武裝都算。沒有指定型號、沒有制式裝備時，所有單位與過去完全相同。</li>'+
   '<li>糧水與物資：內建與自訂的糧食品項、各方的標準伙食與飲水；醫療與 CBRN 物資依年代配發，由補給鏈運送。</li></ul>');
+/* ===================== 三方作戰介面：開始頁的三方對戰、兵力編成的第三方（加入、開場關係、移除）、視角選單、
+   外交面板（宣戰、提議停火或結盟、回應對方的提議、紀錄；開戰前與上帝視角可直接設定各方關係）、
+   地圖上的中立與同盟部隊（中立以方框兵牌顯示，點選可看概況）、退出戰局與名次 ===================== */
+function triOn(){return !!(G&&G.sides&&G.sides.length>=3);}
+var RELC={war:'#b3261e',neu:'#5f6670',ally:'#2e7d32'};
+function relTag(r){return '<span class="lw-rel" style="color:'+(RELC[r]||'#444')+';border-color:'+(RELC[r]||'#999')+'">'+esc(relName(r))+'</span>';}
+function sideTag(s){var S=G.sides[s];return S?'<span class="lw-sw" style="background:'+S.color+'"></span> '+esc(S.name):'';}
+/* 這一方已退出戰局（G.out 記的是退出的時間，可能是 0） */
+function triOut(i){return !!(G.out&&G.out[i]!==undefined&&G.out[i]!==null);}
+function triMp(){return typeof mpActive==='function'&&mpActive();}
+/* 某一方目前的頂層編制，整理成快速想定的部隊清單（給第三方仿照） */
+function triListOf(s){var by={},L=[];G.units.forEach(function(u){if(u.side!==s||u.p>=0||u.st==='dead')return;var k=u.pk&&FPI[u.pk]?u.pk:isLeaf(u)&&u.mix&&u.mix[0]&&UT[u.mix[0][0]]?u.mix[0][0]:null;if(!k)return;if(!by[k]){by[k]=[k,0];L.push(by[k]);}by[k][1]++;});return L;}
+/* ---------- 開始頁：快速想定加入第三方（三方對戰；對戰形式 3 對 3 時就是 3v3v3） ---------- */
+var TRI0={on:false,rel:'neu',sz:'m',src:'A',me:0};
+function triOpt(){return ST0.tri||(ST0.tri=Object.assign({},TRI0));}
+(function(){var b=PAGES.start;PAGES.start=function(host){b(host);var sc=host.querySelector('.lw-scn');if(!sc)return;var T=triOpt(),d=document.createElement('div');d.className='lw-row lw-trirow';
+  var sel=function(f,opts){return '<select data-c="tri0" data-f="'+f+'"'+(T.on?'':' disabled')+'>'+opts.map(function(q){return '<option value="'+q[0]+'"'+(String(T[f])===String(q[0])?' selected':'')+'>'+esc(q[1])+'</option>';}).join('')+'</select>';};
+  d.innerHTML='<b>三方對戰</b><label title="加入第三個完整的陣營（綠軍），由玩家或 AI 指揮"><input type="checkbox" data-c="tri0" data-f="on"'+(T.on?' checked':'')+'>加入第三方</label>'+
+    '<label>開場 '+sel('rel',Object.keys(TRIREL).map(function(k){return [k,TRIREL[k][2]];}))+'</label><label>兵力 '+sel('sz',Object.keys(TRISZ).map(function(k){return [k,TRISZ[k][1]];}))+'</label>'+
+    '<label>編成仿照 '+sel('src',[['A','藍方'],['B','紅方']])+'</label><label>你扮演 '+sel('me',[[0,'藍方'],[2,'第三方']])+'</label>'+
+    '<span class="lw-note">第三方從兩軍沒用到的地圖邊進入，預設與兩軍中立：互不開火、不算敵軍，但看得到彼此。之後由各方指揮官（玩家或 AI）宣戰、提議停火或結盟；對戰形式選 3 對 3 就是 3v3v3。</span>';
+  var tm=host.querySelector('.lw-v11team');if(tm&&tm.parentNode)tm.parentNode.insertBefore(d,tm.nextSibling);else sc.parentNode.insertBefore(d,sc);};})();
+CHG.tri0=function(t){var T=triOpt(),f=t.getAttribute('data-f');if(f==='on'){T.on=t.checked;var r=t.closest('.lw-trirow');if(r)r.querySelectorAll('select').forEach(function(s){s.disabled=!T.on;});return;}T[f]=f==='me'?+t.value:t.value;};
+function triSetup(sc,T){var n=clamp(+(ST0.team||1),1,4),md=ST0.tmode==='dup'?'dup':'split',L=(T.src==='B'?sc.B:sc.A)||[];if(n>1&&md==='dup')L=dupList(L,n);
+  var S=triAdd({rel:T.rel,ai:T.me!==2,edge:triEdge()});triForces(L,T.sz,sc.gran||'co');triObj();if(n>1)teamSetup(2,n,md);
+  if(T.me===2){var S0=G.sides[0];S0.ai=true;S0.pu=0;(S0.cm||[]).forEach(function(R){R.ai=true;});S.ai=false;S.pu=0;if(S.cm&&S.cm[0])S.cm[0].ai=false;UI.side=2;OB.side=2;}
+  cmBump();reix();dupNames();return S;}
+(function(){var b=runScn;runScn=async function(sc,pg){await b(sc,pg);var T=ST0.tri;if(!T||!T.on||!G||triOn())return;var S=triSetup(sc,T);barRender();show('deploy');
+  toast('已加入第三方「'+S.name+'」（'+TRIREL[T.rel][2]+'，兵力'+TRISZ[T.sz][1]+'，由'+({N:'北',S:'南',W:'西',E:'東'}[S.edge]||S.edge)+'側進入）。'+(T.me===2?'你扮演第三方，藍軍改由 AI 指揮。':'第三方由 AI 指揮。')+'在「外交」查看與改變各方關係。',8000);};})();
+/* ---------- 兵力編成：加入第三方、開場關係、移除 ---------- */
+(function(){var b=PAGES.orbat;PAGES.orbat=function(host){b(host);if(!G)return;var ph=host.querySelector('.lw-ph');if(!ph)return;var bt=document.createElement('button');bt.type='button';bt.className='lw-btn sm';
+  if(triOn()){bt.setAttribute('data-a','dipdlg');bt.textContent='外交';bt.title='各方之間的關係：交戰、中立、同盟';}else{if(G.started||triMp())return;bt.setAttribute('data-a','triadd');bt.textContent='＋第三方';bt.title='加入第三個陣營（三方對戰），開場預設與兩軍中立';}
+  ph.insertBefore(bt,ph.querySelector('.lw-sp'));};})();
+function triRelPre(s){var o='<span>外交關係</span>',pre=!G.started&&!triMp();SIDES().forEach(function(q){if(q===s)return;var r=relOf(s,q);
+    o+='<span class="lw-trip">'+sideTag(q)+' '+(pre?'<select data-c="trirel" data-v="'+q+'">'+Object.keys(DIPK).map(function(k){return '<option value="'+k+'"'+(r===k?' selected':'')+'>'+DIPK[k]+'</option>';}).join('')+'</select>':relTag(r))+'</span>';});
+  if(pre&&s===2)o+='<button type="button" class="lw-btn sm" data-a="tridel" title="刪除第三方與它的全部部隊">移除第三方</button>';else if(G.started)o+='<button type="button" class="lw-btn sm" data-a="dipdlg">外交…</button>';return o;}
+(function(){var b=obTree;obTree=function(){b();if(!triOn())return;var el=UI.body&&UI.body.querySelector('[data-k="obtree"]');if(!el)return;var r=el.querySelector('.lw-row');if(!r)return;var d=document.createElement('div');d.className='lw-row lw-trirel';d.innerHTML=triRelPre(OB.side);r.parentNode.insertBefore(d,r.nextSibling);};})();
+CHG.trirel=function(t){var s=OB.side,q=+t.getAttribute('data-v'),r=t.value;if(G.started||triMp()||!G.dip||!DIPK[r])return;G.dip[s][q]=r;G.dip[q][s]=r;G.dipV=(G.dipV||0)+1;toast(G.sides[s].name+'與'+G.sides[q].name+'：開場'+DIPK[r]+'。');if(typeof vDraw==='function')vDraw(false);};
+ACT.tridel=function(){if(!triOn()||G.started)return;var S=G.sides[2],n=G.units.filter(function(u){return u.side===2;}).length;if(!confirm('移除第三方「'+S.name+'」與它的 '+n+' 個單位？'))return;triDel();OB.side=0;OB.sel=0;if(UI.side===2)UI.side=0;UI.sel=[];barRender();show('orbat');toast('已移除第三方。');};
+ACT.triadd=function(){if(triOn()||G.started)return;var e=triEdge(),o='<h3>加入第三方<small>三方對戰</small></h3><div class="lw-opt lw-triadd">'+
+    '<span>名稱</span><input type="text" data-k="tname" value="綠軍" maxlength="30"><span>顏色</span><input type="color" data-k="tcol" value="#2E9D57">'+
+    '<span>進入的地圖邊</span><select data-k="tedge">'+[['N','北'],['S','南'],['W','西'],['E','東']].map(function(q){return '<option value="'+q[0]+'"'+(q[0]===e?' selected':'')+'>'+q[1]+(q[0]===e?'（建議）':'')+'</option>';}).join('')+'</select>'+
+    '<span>開場關係</span><select data-k="trel">'+Object.keys(TRIREL).map(function(k){return '<option value="'+k+'">'+esc(TRIREL[k][2])+'</option>';}).join('')+'</select>'+
+    '<span>部隊</span><select data-k="tsrc"><option value="A">仿照'+esc(G.sides[0].name)+'的編制</option><option value="B">仿照'+esc(G.sides[1].name)+'的編制</option><option value="none">先不建立（之後在兵力編成加入）</option></select>'+
+    '<span>規模</span><select data-k="tsz">'+Object.keys(TRISZ).map(function(k){return '<option value="'+k+'"'+(k==='m'?' selected':'')+'>'+esc(TRISZ[k][1])+'</option>';}).join('')+'</select>'+
+    '<span>指揮</span><select data-k="tctl"><option value="ai">由 AI 指揮</option><option value="pl">由玩家指揮</option></select>'+
+    '<span>本土目標</span><label><input type="checkbox" data-k="tobj" checked>在本土最大的聚落設一個目標</label></div>'+
+    '<div class="lw-note">第三方是完整的陣營：有自己的補給、情報、民心與指揮官。中立的各方互不開火、不算敵軍；火力波及中立方會累積積怨，AI 積怨夠深或本土被侵入太久就會宣戰。</div>'+
+    '<div class="lw-row"><span class="lw-sp"></span><button type="button" class="lw-btn" data-a="x">取消</button><button type="button" class="lw-btn pri" data-a="triaddok">加入</button></div>';
+  dlg(o);};
+ACT.triaddok=function(b){var d=b.closest('.lw-dlg');if(!d||triOn())return;var v=function(k){var e=d.querySelector('[data-k="'+k+'"]');return e?(e.type==='checkbox'?e.checked:e.value):null;};
+  var S=triAdd({name:v('tname')||'綠軍',color:v('tcol'),edge:v('tedge'),rel:v('trel'),ai:v('tctl')!=='pl'}),src=v('tsrc'),n=0;
+  if(src==='A'||src==='B')n=triForces(triListOf(src==='B'?1:0),v('tsz'),'co').length;if(v('tobj'))triObj();reix();dupNames();d.remove();OB.side=2;OB.sel=0;barRender();show('orbat');
+  toast('已加入第三方「'+S.name+'」'+(n?'（'+n+' 個頂層編制，已自動部署）':'（還沒有部隊）')+'：'+TRIREL[v('trel')][2]+'。',6000);};
+/* ---------- 視角選單與外交按鈕 ---------- */
+(function(){var b=barRender;barRender=function(){b();if(!UI.bar||!triOn()||!G.map)return;var v=UI.bar.querySelector('select[data-c="view"]');
+  if(v&&!v.querySelector('option[value="2"]')){var op=document.createElement('option');op.value='2';op.textContent=G.sides[2].name+'視角';if(UI.side===2)op.selected=true;v.insertBefore(op,v.querySelector('option[value="-1"]'));}
+  if(UI.bar.querySelector('[data-a="dipdlg"]'))return;var bt=document.createElement('button');bt.type='button';bt.className='lw-btn sm lw-dipb';bt.setAttribute('data-a','dipdlg');bt.title='外交：各方之間的關係、宣戰、停火與結盟的提議';bt.innerHTML='外交<b class="lw-dipn" data-k="dipn"></b>';
+  if(v)UI.bar.insertBefore(bt,v);else UI.bar.appendChild(bt);dipBadge();layoutVar();};})();
+function dipPend(me){return (G.dipP||[]).filter(function(P){return P.st==='open'&&(me===null||me<0?sideHum(P.b):P.b===me);});}
+function dipBadge(){var e=UI.bar&&UI.bar.querySelector('[data-k="dipn"]');if(!e)return;var n=G&&G.started?dipPend(mySide()).length:0;e.textContent=n?String(n):'';e.style.display=n?'':'none';}
+/* 外交的變化：新的提議、宣戰或停火時提示；外交面板開著時更新內容 */
+var DIP={d:null,k:'',np:-1,nh:-1,g:null};
+(function(){var b=hudTick;hudTick=function(force){b(force);if(!triOn())return;if(DIP.g!==G){DIP.g=G;DIP.np=-1;DIP.nh=-1;}var me=mySide(),P=dipPend(me),nh=(G.dipH||[]).length;
+  if(DIP.np>=0&&P.length>DIP.np&&G.started){var q=P[P.length-1];toast('📨 '+G.sides[q.a].name+'提議'+DIPPK[q.k]+'——在「外交」回應（兩小時內沒有回應就作罷）。',7000);}
+  if(DIP.nh>=0&&nh>DIP.nh){var h=G.dipH[nh-1];if(h&&(me===null||h.a===me||h.b===me))toast((h.r==='war'?'⚔ '+G.sides[h.a].name+'向'+G.sides[h.b].name+'宣戰':h.r==='ally'?'🤝 '+G.sides[h.a].name+'與'+G.sides[h.b].name+'結盟':'🕊 '+G.sides[h.a].name+'與'+G.sides[h.b].name+'轉為中立')+(h.why?'：'+h.why:''),7000);}
+  DIP.np=P.length;DIP.nh=nh;dipBadge();
+  if(DIP.d){if(!DIP.d.isConnected){DIP.d=null;return;}var k=[G.dipV||0,(G.dipP||[]).map(function(q){return q.id+q.st;}).join(),nh,me,G.over?1:0,Object.keys(G.out||{}).length].join('|');if(k!==DIP.k)dipRender();}};})();
+/* ---------- 外交面板 ---------- */
+var GRVN=[[100,'輕微'],[350,'不滿'],[900,'強烈'],[1e12,'極度']];
+function grvTxt(v){if(!(v>0))return '—';for(var i=0;i<GRVN.length;i++)if(v<GRVN[i][0])return GRVN[i][1];return GRVN[GRVN.length-1][1];}
+/* 對另一方兵力的了解：上帝視角或沒有戰場迷霧時是實數；否則只算情報圖與中立接觸裡兩小時內看到的人數 */
+function dipSeen(me,o){if(me===null||me<0||!G.set.fog)return '約 '+fmt(Math.round(sideStr(o).m/100)*100)+' 人';var n=0,seen={};[G.ct[me]||{},G.ctN&&G.ctN[me]||{}].forEach(function(C){for(var id in C){var c=C[id];if(c.side!==o||seen[id]||G.t-c.t>7200||c.dead)continue;seen[id]=1;n+=c.men||0;}});return n?'已知約 '+fmt(n)+' 人':'沒有情報';}
+function dipActs(me,o){if(G.over||!G.started||triOut(me)||triOut(o))return '';var r=relOf(me,o),B=function(a,t,tip,cls){return '<button type="button" class="lw-btn sm'+(cls?' '+cls:'')+'" data-a="'+a+'" data-v="'+o+'"'+(tip?' title="'+esc(tip)+'"':'')+'>'+t+'</button>';};
+  if(r==='neu')return B('dipwar','宣戰','中立的部隊立刻成為敵軍：開始互相射擊、砲擊與空襲','dng')+B('dipally','提議結盟','有共同的敵人時對方比較可能接受；同盟之間共享情報');
+  if(r==='war')return B('dippeace','提議停火','停火後轉為中立，雙方停止交火');
+  if(r==='ally')return B('dipend','解除同盟','轉為中立，不再共享情報')+B('dipwar','背棄同盟並宣戰','國際聲望大降，雙方官兵士氣動搖','dng');return '';}
+function dipHtml(){var me=mySide(),god=me===null,o='<h3>外交<small>'+(god?'上帝視角：可直接設定各方關係':esc(G.sides[me].name)+'的外交')+'</small></h3>';
+  if(!G.started||god){o+='<div class="lw-note">'+(G.started?'上帝視角可以直接改變任兩方的關係（記入外交紀錄）。':'開戰前設定各方的開場關係。')+'</div><table class="lw-tbl"><tr><th>雙方</th><th>關係</th></tr>';
+    SIDES().forEach(function(a){SIDES().forEach(function(c){if(c<=a)return;var r=relOf(a,c);o+='<tr><td>'+sideTag(a)+' ↔ '+sideTag(c)+'</td><td>'+(triMp()?relTag(r):'<select data-c="dipset" data-v="'+a+'-'+c+'">'+Object.keys(DIPK).map(function(k){return '<option value="'+k+'"'+(r===k?' selected':'')+'>'+DIPK[k]+'</option>';}).join('')+'</select>')+'</td></tr>';});});o+='</table>';}
+  if(!god){o+='<table class="lw-tbl lw-dipt"><tr><th>對象</th><th>關係</th><th>兵力</th><th title="對方的火力波及本方部隊累積的不滿">本方的積怨</th><th title="本方的火力波及對方部隊累積的不滿">對方的積怨</th><th></th></tr>';
+    SIDES().forEach(function(q){if(q===me)return;var r=relOf(me,q),Gv=G.dipG||{},I=G.dipI||{},W=G.dipW&&G.dipW[Math.min(me,q)+'-'+Math.max(me,q)],inc=[];
+      if((I[me+'>'+q]||0)>0)inc.push('對方部隊在本方領土 '+I[me+'>'+q]+' 小時');if((I[q+'>'+me]||0)>0)inc.push('本方部隊在對方領土 '+I[q+'>'+me]+' 小時（3 小時以上對方可能宣戰）');
+      o+='<tr><td>'+sideTag(q)+(triOut(q)?'<br><small>已退出戰局</small>':'')+(SD(q).ai?'<br><small>AI 指揮</small>':'<br><small>玩家指揮</small>')+'</td><td>'+relTag(r)+(r==='war'&&W!==undefined?'<br><small>'+durTxt(Math.max(0,G.t-W))+'前開戰</small>':'')+'</td><td>'+esc(dipSeen(me,q))+'</td><td>'+grvTxt(Gv[me+'>'+q])+'</td><td>'+grvTxt(Gv[q+'>'+me])+'</td><td class="lw-dipa">'+dipActs(me,q)+'</td></tr>'+(inc.length?'<tr><td></td><td colspan="5" class="lw-note">⚠ '+esc(inc.join('；'))+'</td></tr>':'');});o+='</table>';}
+  var P=(G.dipP||[]).filter(function(q){return q.st==='open'&&(god||q.b===me||q.a===me);});
+  if(P.length){o+='<h4>提議</h4><table class="lw-tbl">'+P.map(function(q){var inb=god||q.b===me,left=Math.max(0,7200-(G.t-q.t));return '<tr><td>'+sideTag(q.a)+' → '+sideTag(q.b)+'：'+DIPPK[q.k]+'<br><small>'+durTxt(G.t-q.t)+'前提出，'+(left>0?'再 '+durTxt(left)+'沒有回應就作罷':'即將作罷')+'</small></td><td>'+(inb&&q.b!==undefined&&(god||q.b===me)?'<button type="button" class="lw-btn sm pri" data-a="dipans" data-v="'+q.id+'" data-k="1">接受</button><button type="button" class="lw-btn sm" data-a="dipans" data-v="'+q.id+'" data-k="0">拒絕</button>':'<span class="lw-note">等待對方回應</span>')+'</td></tr>';}).join('')+'</table>';}
+  var H=(G.dipH||[]).slice(-15).reverse();o+='<h4>外交紀錄</h4>'+(H.length?'<table class="lw-tbl">'+H.map(function(h){return '<tr><td style="white-space:nowrap;width:1%">'+esc(tTxt(h.t).slice(-11))+'</td><td>'+sideTag(h.a)+(h.r==='war'?' 向 ':' 與 ')+sideTag(h.b)+'：'+(h.r==='war'?'宣戰':h.r==='ally'?'結盟':h.o==='war'?'停火':'解除同盟')+(h.why?'<br><small>'+esc(h.why)+'</small>':'')+'</td></tr>';}).join('')+'</table>':'<div class="lw-note">還沒有外交事件。</div>');
+  if(G.out&&Object.keys(G.out).length)o+='<div class="lw-note">已退出戰局：'+Object.keys(G.out).map(function(k){return esc(G.sides[+k].name)+'（開戰後 '+durTxt(G.out[k])+'兵力崩潰）';}).join('、')+'</div>';
+  o+='<div class="lw-note">中立的各方互不開火、不算敵軍，但看得到彼此（地圖上以方框兵牌表示）。火力波及中立或同盟的部隊會留下積怨；AI 積怨夠深、本土被侵入超過三小時，或看見對方兵力大減時可能宣戰；戰況不利時會提議停火，有共同的強敵時會提議結盟。背棄同盟會讓國際聲望下降、雙方官兵士氣動搖。</div>';
+  return o+'<div class="lw-row"><span class="lw-sp"></span><button type="button" class="lw-btn" data-a="x">關閉</button></div>';}
+function dipRender(){if(!DIP.d)return;var box=DIP.d.firstChild;if(!box)return;var sc=box.scrollTop;box.innerHTML=dipHtml();box.scrollTop=sc;var me=mySide();DIP.k=[G.dipV||0,(G.dipP||[]).map(function(q){return q.id+q.st;}).join(),(G.dipH||[]).length,me,G.over?1:0,Object.keys(G.out||{}).length].join('|');}
+ACT.dipdlg=function(){if(!triOn())return;if(DIP.d&&DIP.d.isConnected)DIP.d.remove();DIP.d=dlg(dipHtml(),true);DIP.d.classList.add('lw-dipdlg');dipRender();};
+/* 動作：單機直接執行；聯機時送到伺服器（只能以本方名義） */
+function dipDo(fn,a,done){if(triMp()){mpRpc(fn,a);toast('已送出，等待伺服器處理。');return;}var r=fn==='dipWar'?dipWar(a[0],a[1],a[2]):fn==='dipPropose'?dipPropose(a[0],a[1],a[2],'玩家'):fn==='dipAnsId'?dipAnsId(a[0],a[1],a[2]):null;if(done)done(r);dipRender();barRender();if(UI.tab==='battle'){btLeft(true);btStatus();}if(typeof vDraw==='function')vDraw(true);}
+ACT.dipwar=function(b){var me=mySide(),o=+b.getAttribute('data-v');if(me===null)return;var ally=relOf(me,o)==='ally';if(!confirm((ally?'背棄與':'向')+G.sides[o].name+(ally?'的同盟並宣戰':'宣戰')+'？\n'+G.sides[o].name+'的部隊會立刻成為敵軍，雙方開始交火。'+(ally?'\n背棄同盟會讓國際聲望大降、雙方官兵士氣動搖。':'')))return;
+  dipDo('dipWar',[me,o,ally?'背棄同盟':'玩家下令'],function(r){toast(r?'已向'+G.sides[o].name+'宣戰。':'無法宣戰。');});};
+function dipProp(b,k){var me=mySide(),o=+b.getAttribute('data-v');if(me===null)return;dipDo('dipPropose',[me,o,k],function(P){if(!P){toast('無法提議（已有相同的提議，或雙方的關係不符）。');return;}if(k==='end'){toast('已解除與'+G.sides[o].name+'的同盟。');return;}
+  toast(P.st==='ok'?G.sides[o].name+'接受'+DIPPK[k]+'。':P.st==='no'?G.sides[o].name+'拒絕'+DIPPK[k]+'。':'已向'+G.sides[o].name+'提議'+DIPPK[k]+'，等待回應。',6000);});}
+ACT.dippeace=function(b){dipProp(b,'peace');};ACT.dipally=function(b){dipProp(b,'ally');};ACT.dipend=function(b){if(confirm('解除與'+G.sides[+b.getAttribute('data-v')].name+'的同盟（轉為中立）？'))dipProp(b,'end');};
+ACT.dipans=function(b){var id=+b.getAttribute('data-v'),yes=b.getAttribute('data-k')==='1',P=dipFind(id),me=mySide();if(!P)return;
+  if(me===null){if(triMp())return;dipAnswer(P,yes,'上帝視角');dipRender();barRender();return;}dipDo('dipAnsId',[me,id,yes],function(r){toast(r?(yes?'已接受':'已拒絕')+G.sides[P.a].name+'的'+DIPPK[P.k]+'提議。':'這個提議已經失效。');});};
+CHG.dipset=function(t){var p=t.getAttribute('data-v').split('-'),a=+p[0],c=+p[1],r=t.value;if(triMp()||!DIPK[r]||!G.dip)return;if(!G.started){G.dip[a][c]=r;G.dip[c][a]=r;G.dipV=(G.dipV||0)+1;}else relSet(a,c,r,'上帝視角調整','上帝視角');dipRender();if(UI.tab==='orbat')obTree();if(typeof vDraw==='function')vDraw(true);};
+/* ---------- 地圖：中立與同盟的部隊（不在敵情圖裡，記在 G.ctN） ---------- */
+(function(){var b=visItems0;visItems0=function(lvl){var out=b.apply(this,arguments);if(!triOn()||seeAll()||UI.side<0||!G.ctN)return out;var N=G.ctN[UI.side],C=G.ct[UI.side]||{};if(!N)return out;
+  for(var id in N){var c=N[id],age=G.t-c.t;if(age>2*3600||C[id]||triOut(c.side))continue;out.push({c:c,x:c.x,y:c.y,ech:c.q>=1?c.ech:-1,age:age,nt:1});}return out;};})();
+/* 兵牌的身分：三方時依本方與對方的關係（交戰＝敵軍、同盟＝友軍、中立＝中立的方框） */
+(function(){var b=symAffOf;symAffOf=function(o){if(!o.aff&&o.q!==0&&o.side>=0&&triOn()){var me=mySide();if(me!==null&&o.side!==me){var r=relOf(me,o.side);return r==='war'?'h':r==='ally'?'f':'n';}}return b(o);};})();
+/* 點選中立或同盟的部隊：概況與外交 */
+(function(){var b=btStatus;btStatus=function(){b.apply(this,arguments);if(!triOn()||!UI.selC||UI.side<0)return;if(G.ct[UI.side]&&G.ct[UI.side][UI.selC])return;var N=G.ctN&&G.ctN[UI.side],c=N&&N[UI.selC],el=btEl('bst');if(!c||!el)return;var r=relOf(UI.side,c.side);
+  el.innerHTML='<h3 style="margin:0 0 6px;font-size:14px">'+esc(c.name||G.sides[c.side].name+'部隊')+'</h3><div class="lw-kv"><span>所屬</span><span>'+sideTag(c.side)+' '+relTag(r)+'</span><span>兵種</span><span>'+(c.q>=1?esc(BR[c.br]||''):'不明')+'</span><span>規模</span><span>'+(c.q>=1?ECH[clamp(c.ech,0,8)][1]+'級':'不明')+'，約 '+fmt(c.men)+' 人'+(c.veh?'、'+fmt(c.veh)+' 件裝備':'')+'</span><span>位置</span><span>'+esc(placeTxt(c.x,c.y))+'</span><span>看到</span><span>'+durTxt(G.t-c.t)+'前</span></div>'+
+    '<div class="lw-note">'+(r==='ally'?'同盟的部隊：雙方共享情報、不會互相開火。':'中立的部隊：雙方互不開火，也不算敵軍。本方火力波及它會累積積怨；要攻擊必須先在「外交」宣戰。')+'</div><div class="lw-row"><button type="button" class="lw-btn sm" data-a="dipdlg">外交…</button></div>';};})();
+/* ---------- 戰況總覽與戰報：外交關係、退出戰局與名次 ---------- */
+function triRankTxt(){var O=G.over;if(!O||!O.rank)return '';return O.rank.map(function(i,k){return (k+1)+'. '+esc(G.sides[i].name)+'（'+score(i)+' 分'+(triOut(i)?'，已退出':'')+'）';}).join('、');}
+(function(){var b=overview;overview=function(){var o=b();if(!triOn())return o;try{var me=mySide(),x='<div class="lw-kv lw-trikv">';
+    if(me!==null)SIDES().forEach(function(q){if(q!==me)x+='<span>'+sideTag(q)+'</span><span>'+relTag(relOf(me,q))+(triOut(q)?'（已退出戰局）':'')+'</span>';});
+    else SIDES().forEach(function(a){SIDES().forEach(function(c){if(c>a)x+='<span>'+sideTag(a)+' ↔ '+sideTag(c)+'</span><span>'+relTag(relOf(a,c))+'</span>';});});
+    var n=G.started?dipPend(me).length:0;if(n)x+='<span>提議</span><span><button type="button" class="lw-btn sm" data-a="dipdlg">'+n+' 個提議等待回應</button></span>';if(G.over&&G.over.rank)x+='<span>名次</span><span>'+triRankTxt()+'</span>';x+='</div>';
+    var i=o.indexOf('</h3>');if(i>=0)o=o.slice(0,i+5)+x+o.slice(i+5);}catch(e){}return o;};})();
+(function(){var b=PAGES.rep;PAGES.rep=function(host){b(host);if(!triOn()||!G.over||!G.over.rank)return;var r=host.querySelector('.lw-card .lw-row');if(!r)return;var s=document.createElement('span');s.className='lw-note';s.innerHTML='名次：'+triRankTxt();r.appendChild(s);};})();
+if(typeof HELP14!=='undefined')HELP14.push('<h4>三方作戰（三方對戰、3v3v3）</h4><ul>'+
+  '<li>開始頁的「三方對戰」在快速想定加入第三方（綠軍）：開場關係（與兩軍中立、三方混戰、與其中一方同盟）、兵力規模、編成仿照哪一方、你扮演哪一方。對戰形式選 3 對 3 時三方各有三位指揮官。</li>'+
+  '<li>任何作戰都可以在「兵力編成」按「＋第三方」加入，開戰前在第三方的頁面設定開場關係或移除第三方。</li>'+
+  '<li>各方之間的關係是交戰、中立或同盟。只有交戰的對象算敵軍：中立的部隊互不開火，但看得到彼此（地圖上以方框兵牌表示，點選可看概況）；同盟之間共享情報。</li>'+
+  '<li>「外交」面板（頂列或兵力編成）：宣戰、提議停火或結盟、解除同盟、回應對方的提議（兩小時內沒有回應就作罷），並列出積怨、領土侵入與外交紀錄。上帝視角可以直接改變任兩方的關係。</li>'+
+  '<li>火力波及中立或同盟的部隊會留下積怨；AI 積怨夠深、本土被侵入三小時以上，或看見對方兵力大減時可能宣戰。背棄同盟會讓國際聲望下降、雙方官兵士氣動搖。</li>'+
+  '<li>兵力崩潰的一方退出戰局，其餘各方繼續作戰；最後只剩一方或時間到時依分數排名。</li></ul>');
 /* ===================== 聯機版：在房間裡調整所有模擬設定 =====================
    房主可以在房間頁的「模擬設定」（開戰前不論有沒有載入想定都可以）或作戰中的「設定」分頁調整所有模擬設定；
    改動以「設定路徑 → 值」送到伺服器，所有人一起套用。載入想定前調整的設定，也會套用到之後載入的想定或存檔；「恢復想定的設定」可以撤銷。
@@ -26063,7 +26234,7 @@ function mpSetBase(R){var C=R.cfg||{},S;if(R.scn&&R.scn.set)S=JSON.parse(JSON.st
   else{S=newGame({year:1943,seed:'room'},{}).set;delete S.seed;var A=S.autoPause||(S.autoPause={});Object.keys(APDEF).forEach(function(k){A[k]=false;});var so=C.so||{};Object.keys(so).forEach(function(p){mpSoSet(S,p,so[p]);});
     if(C.dur>0)S.dur=C.dur;S.ffog=!!C.ffog;['rp','tech','rp0','rpDay','tp0','tpDay'].forEach(function(k){if(C[k]!==undefined)S[k]=C[k];});if(C.rfL)S.rfL=C.rfL;}
   S.fog=true;return S;}
-function mpSetStub(R){var g=newGame({year:(R.scn&&R.scn.year)||1943,seed:'room'},{});g.set=mpSetBase(R);g.started=false;if(R.scn&&R.scn.sides)[0,1].forEach(function(i){var s=R.scn.sides[i];if(s){g.sides[i].name=s.name;g.sides[i].color=s.color;}});return g;}
+function mpSetStub(R){var g=newGame({year:(R.scn&&R.scn.year)||1943,seed:'room'},{});g.set=mpSetBase(R);g.started=false;if(R.scn&&R.scn.sides)R.scn.sides.forEach(function(s,i){if(!s||i>2)return;if(!g.sides[i])g.sides[i]=newSide(i);g.sides[i].name=s.name;g.sides[i].color=s.color;});return g;}
 /* 在暫時的作戰（只有設定）上執行單機版設定頁的程式：畫面、切換分頁與頂列都不動 */
 function mpSetStubRun(fn){var S=MPSET.stub;if(!S)return;var g0=G,sh=show,br=barRender,vd=vDraw,before=JSON.parse(JSON.stringify(S.set));MPSET.rr=false;G=S;show=function(){MPSET.rr=true;};barRender=function(){};vDraw=function(){};
   try{fn();}catch(e){if(window.console)console.warn('mpset',e);}finally{G=g0;show=sh;barRender=br;vDraw=vd;}

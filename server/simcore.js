@@ -10804,18 +10804,20 @@ var TRIREL={neu:['neu','neu','與兩軍中立'],war:['war','war','與兩軍交�
 function triRelInit(k){var R=TRIREL[k]||TRIREL.neu,D=[[null,'war',R[0]],['war',null,R[1]],[R[0],R[1],null]];return D;}
 /* ---------- 加入第三方：補齊各方的陣列（情報圖、回報、統計、民心……），之後由兵力編成或快速想定加入部隊 ---------- */
 function triPadArr(a,mk){if(!Array.isArray(a))return;while(a.length<nSides())a.push(mk());}
-function triPad(){var z=function(){return 0;},o=function(){return {};},l=function(){return [];};
-  if(!G.ct)G.ct=[];triPadArr(G.ct,o);if(!G.rq)G.rq=[];triPadArr(G.rq,l);if(!G.ctN)G.ctN=[];triPadArr(G.ctN,o);triPadArr(G.stats,stat0);
-  if(G.civ){var C=G.civ;triPadArr(C.cs,civStat0);if(Array.isArray(C.rep))triPadArr(C.rep,function(){return 60;});if(C.prop)triPadArr(C.prop.mil,z);triPadArr(C.occ,z);if(C.intel){triPadArr(C.intel.n,z);triPadArr(C.intel.lie,z);}
-    (C.S||[]).forEach(function(g){if(Array.isArray(g.att))triPadArr(g.att,z);});}
-  ['tpSusp','cbUse','reg','cost'].forEach(function(k){if(Array.isArray(G[k]))triPadArr(G[k],k==='reg'?l:k==='cost'?o:z);});
-  if(G.aw){triPadArr(G.aw.s,o);triPadArr(G.aw.cnt,o);triPadArr(G.aw.zn,l);triPadArr(G.aw.lg,o);}
-  if(G.fg&&G.fg.st)triPadArr(G.fg.st,o);if(G.gm){var X=G.gm;['pc','m0','lw','tix','home','hq'].forEach(function(k){if(Array.isArray(X[k]))triPadArr(X[k],k==='pc'?function(){return {cas:0,vl:0,ck:0};}:k==='hq'?function(){return -1;}:z);});}
-  if(G.zed&&G.zed.st){var Z=G.zed.st;['k','lost','turn','nk'].forEach(function(k){triPadArr(Z[k],z);});}
-  if(G.tf&&G.tf.st){triPadArr(G.tf.st.k,z);triPadArr(G.tf.st.lost,z);}
-  if(G.bt)(G.bt.list||[]).forEach(function(R){triPadArr(R.u,o);['men','veh','init','later','reinf'].forEach(function(k){triPadArr(R[k],z);});});
-  (G.fac||[]).forEach(function(F){if(Array.isArray(F.kn))triPadArr(F.kn,function(){return -1;});if(Array.isArray(F.knT))triPadArr(F.knT,z);});
-  if(G.press&&Array.isArray(G.press.home))triPadArr(G.press.home,function(){return 60;});}
+/* 各方的陣列（情報圖、回報、統計、民心……）：P(陣列, 建立空項目的函式) 補齊或截短 */
+function triArrs(P){var z=function(){return 0;},o=function(){return {};},l=function(){return [];};
+  if(!G.ct)G.ct=[];P(G.ct,o);if(!G.rq)G.rq=[];P(G.rq,l);if(!G.ctN)G.ctN=[];P(G.ctN,o);P(G.stats,stat0);
+  if(G.civ){var C=G.civ;P(C.cs,civStat0);if(Array.isArray(C.rep))P(C.rep,function(){return 60;});if(C.prop)P(C.prop.mil,z);P(C.occ,z);if(C.intel){P(C.intel.n,z);P(C.intel.lie,z);}
+    (C.S||[]).forEach(function(g){if(Array.isArray(g.att))P(g.att,z);});}
+  ['tpSusp','cbUse','reg','cost'].forEach(function(k){if(Array.isArray(G[k]))P(G[k],k==='reg'?l:k==='cost'?o:z);});
+  if(G.aw){P(G.aw.s,o);P(G.aw.cnt,o);P(G.aw.zn,l);P(G.aw.lg,o);}
+  if(G.fg&&G.fg.st)P(G.fg.st,o);if(G.gm){var X=G.gm;['pc','m0','lw','tix','home','hq'].forEach(function(k){if(Array.isArray(X[k]))P(X[k],k==='pc'?function(){return {cas:0,vl:0,ck:0};}:k==='hq'?function(){return -1;}:z);});}
+  if(G.zed&&G.zed.st){var Z=G.zed.st;['k','lost','turn','nk'].forEach(function(k){P(Z[k],z);});}
+  if(G.tf&&G.tf.st){P(G.tf.st.k,z);P(G.tf.st.lost,z);}
+  if(G.bt)(G.bt.list||[]).forEach(function(R){P(R.u,o);['men','veh','init','later','reinf'].forEach(function(k){P(R[k],z);});});
+  (G.fac||[]).forEach(function(F){if(Array.isArray(F.kn))P(F.kn,function(){return -1;});if(Array.isArray(F.knT))P(F.knT,z);});
+  if(G.press&&Array.isArray(G.press.home))P(G.press.home,function(){return 60;});}
+function triPad(){triArrs(triPadArr);}
 /* o：{name, color, edge, ai, rel}；回傳第三方 */
 function triAdd(o){o=o||{};if(nSides()>=3)return G.sides[2];var S=newSide(2);if(o.name)S.name=String(o.name).slice(0,30);if(o.color)S.color=o.color;if(o.edge&&/^[NSWE]$/.test(o.edge))S.edge=o.edge;if(o.ai!==undefined)S.ai=!!o.ai;
   G.sides.push(S);G.dip=triRelInit(o.rel||'neu');G.dipV=(G.dipV||0)+1;triPad();if(typeof polGen==='function'&&G.civ&&!polSide(2).gen){polGen(2);polSide(2).gen=1;}
@@ -10823,13 +10825,26 @@ function triAdd(o){o=o||{};if(nSides()>=3)return G.sides[2];var S=newSide(2);if(
 /* 第三方的兵力：依想定的部隊清單（通常取藍軍的清單、同一年代）按比例建立，部署在第三方的地圖邊 */
 var TRISZ={s:[0.34,'約三分之一'],m:[0.5,'約一半'],e:[1,'與藍軍相當']};
 function triForces(L,sz,gran){var k=TRISZ[sz]?sz:'m',f=TRISZ[k][0],r=mb32(hstr((G.set.seed||'')+'|tri|orbat')),F=[];
-  (L||[]).forEach(function(p){var n=Math.max(1,Math.round((p[1]||1)*f));for(var i=1;i<=n;i++){var era=p[3]||null,nm=p[2]?fmtName(p[2],i):null,top=FPI[p[0]]?buildPreset(2,p[0],nm,-1,r,p[4]||gran||'co',era):UT[p[0]]?addLeaf(2,p[0],1,nm,-1,r):null;if(top){top.ix=i;F.push(top);}}});
-  reix();if(F.length)autoDeploy2(2,F);if(typeof renameSide==='function'){var S=G.sides[2];S.nm=Object.assign({},S.nm||{},{num:'rand'});try{renameSide(2);}catch(e){}}dupNames();return F;}
+  (L||[]).forEach(function(p){var n=Math.max(1,p[1]||1);for(var i=1;i<=n;i++){var era=p[3]||null,nm=p[2]?fmtName(p[2],i):null,top=FPI[p[0]]?buildPreset(2,p[0],nm,-1,r,p[4]||gran||'co',era):UT[p[0]]?addLeaf(2,p[0],1,nm,-1,r):null;if(top){top.ix=i;F.push(top);}}});
+  reix();F=triTrim(F,f);if(F.length)autoDeploy2(2,F);if(typeof renameSide==='function'){var S=G.sides[2];S.nm=Object.assign({},S.nm||{},{num:'rand'});try{renameSide(2);}catch(e){}}dupNames();return F;}
+/* 第三方的地圖邊：兩軍沒用到的邊裡水面最少的一邊 */
+function triEdge(){var MP=G.map,used=[G.sides[0].edge||'W',G.sides[1].edge||'E'],C=['N','S','W','E'].filter(function(e){return used.indexOf(e)<0;}),best=C[0]||'N',bw=2;
+  C.forEach(function(e){var n=0,w=0;for(var i=0;i<24;i++)for(var j=0;j<6;j++){var a=(i+0.5)/24,d=(j+0.5)/6*0.2,x,y;if(e==='N'||e==='S'){x=a*MP.Wm;y=e==='N'?d*MP.Hm:MP.Hm*(1-d);}else{y=a*MP.Hm;x=e==='W'?d*MP.Wm:MP.Wm*(1-d);}n++;if(isWater(MP.lc[cellAt(x,y)]))w++;}if(w/n<bw-0.05){bw=w/n;best=e;}});return best;}
+/* 依比例縮編：從最大、但不超過剩餘差額的下級單位開始整個移除（整個編制有好幾個時也可以整個移除），每個編制至少留一個下級 */
+function triTrim(F,f){if(!(f<0.99)||!F.length)return F;var wt=function(u){var s=strengthOf(u);return s.men+s.veh*8;},cur=0;F.forEach(function(u){cur+=wt(u);});var goal=cur*f,g=0;
+  while(cur>goal*1.1&&g++<500){var need=cur-goal,best=null,bw=0;
+    var look=function(list,drop){list.forEach(function(k){var w=wt(k);if(drop&&w<=need*1.2&&w>bw){best=k;bw=w;}if(!isLeaf(k)&&w>need*1.2)look(kidsOf(k),kidsOf(k).length>1);});};
+    look(F,F.length>1);if(!best)break;var i=F.indexOf(best);if(i>=0)F.splice(i,1);delUnit(best);cur-=bw;}
+  return F;}
 /* 第三方的本土目標：本土裡最大的聚落 */
-function triObj(){var MP=G.map,Z=triHome(2),best=null;(MP.set||[]).forEach(function(q){var x=q.x*MP.cs,y=q.y*MP.cs;if(x<Z.x0||x>Z.x1||y<Z.y0||y>Z.y1)return;if(!best||q.pop>best.pop)best=q;});if(!best)return null;
-  var x=best.x*MP.cs,y=best.y*MP.cs;if((G.obj||[]).some(function(o){return dist(o.x,o.y,x,y)<3000;}))return null;var o={id:(G.obj||[]).reduce(function(m,q){return Math.max(m,q.id||0);},0)+1,name:best.name||placeTxt(x,y),x:x,y:y,own:2,pts:10,r:Math.max(600,(best.r||400)*1.3)};(G.obj=G.obj||[]).push(o);return o;}
+function triObj(){var MP=G.map,Z=triHome(2),L=[];(MP.set||[]).forEach(function(q){var x=q.x*MP.cs,y=q.y*MP.cs;if(x<Z.x0||x>Z.x1||y<Z.y0||y>Z.y1)return;L.push({q:q,x:x,y:y});});L.sort(function(a,b){return (b.q.pop||0)-(a.q.pop||0);});
+  var far=function(x,y){return !(G.obj||[]).some(function(o){return dist(o.x,o.y,x,y)<3000;});},best=L.filter(function(c){return far(c.x,c.y);})[0],x,y,nm='',r=800;
+  if(best){x=best.x;y=best.y;nm=best.q.name||'';r=Math.max(600,(best.q.r||400)*1.3);}
+  else{/* 本土沒有合適的聚落：本土中央附近的陸地 */x=(Z.x0+Z.x1)/2;y=(Z.y0+Z.y1)/2;var ok=!isWater(MP.lc[cellAt(x,y)])&&far(x,y);for(var i=0;i<60&&!ok;i++){var a=i*2.39996,d=400+i*300,x2=clamp(x+Math.cos(a)*d,Z.x0+200,Z.x1-200),y2=clamp(y+Math.sin(a)*d,Z.y0+200,Z.y1-200);if(!isWater(MP.lc[cellAt(x2,y2)])&&far(x2,y2)){x=x2;y=y2;ok=true;}}if(!ok)return null;}
+  var o={id:(G.obj||[]).reduce(function(m,q){return Math.max(m,q.id||0);},0)+1,name:nm||placeTxt(x,y),x:x,y:y,own:2,pts:10,tri:1,r:r};(G.obj=G.obj||[]).push(o);return o;}
 /* 移除第三方（開戰前）：部隊一併刪除 */
-function triDel(){if(nSides()<3||G.started)return false;G.units=G.units.filter(function(u){return u.side!==2;});G.sides.length=2;['ct','rq','ctN','stats'].forEach(function(k){if(Array.isArray(G[k]))G[k].length=Math.min(G[k].length,2);});G.dip=null;G.dipV=(G.dipV||0)+1;if(typeof reix==='function')reix();return true;}
+function triDel(){if(nSides()<3||G.started)return false;G.units=G.units.filter(function(u){return u.side!==2;});G.sides.length=2;triArrs(function(a){if(Array.isArray(a)&&a.length>2)a.length=2;});
+  G.obj=(G.obj||[]).filter(function(o){return !o.tri;});G.obj.forEach(function(o){if(o.own>=2)o.own=-1;});G.dip=null;G.dipV=(G.dipV||0)+1;['dipW','dipH','dipP','dipG','dipL','dipI','dipPT','out'].forEach(function(k){delete G[k];});if(typeof reix==='function')reix();return true;}
 /* ---------- 關係 ---------- */
 function relName(r){return DIPK[r]||r;}
 function ctNOf(s){if(!G.ctN)G.ctN=[];while(G.ctN.length<nSides())G.ctN.push({});return G.ctN[s]||(G.ctN[s]={});}
@@ -10847,12 +10862,14 @@ function relSet(a,b,r,why,who){if(!(a>=0&&b>=0)||a===b||a>=nSides()||b>=nSides()
   logE(-1,'dip',txt+(why?'（'+why+'）':''));if(typeof decLog==='function')try{decLog(a,who||'指揮部',txt+(why?'（'+why+'）':''));}catch(e){}
   /* 背棄同盟：國際聲望下降，官兵動搖 */if(o==='ally'&&r==='war'){if(G.civ&&G.civ.rep)G.civ.rep[a]=clamp((G.civ.rep[a]===undefined?60:G.civ.rep[a])-15,0,100);G.units.forEach(function(u){if(u.side===a&&isLeaf(u)&&alive(u))u.mor=clamp(u.mor-4,0,100);if(u.side===b&&isLeaf(u)&&alive(u))u.mor=clamp(u.mor-6,0,100);});}
   if(r==='war'&&G.onPause&&apOn('dip'))G.onPause(txt);return true;}
+/* 這一方有玩家指揮（整方、一部分或組隊裡的任一位指揮官）：外交由玩家決定，AI 不代為宣戰或回應提議 */
+function sideHum(s){var S=SD(s);if(!S)return false;var L=S.cm||[];return !S.ai||S.pu>0||L.length>1&&L.some(function(R){return !R.ai;});}
 /* ---------- 提議（停火、結盟）：AI 依局勢決定；玩家在外交面板回應，兩小時沒回應就作罷 ---------- */
 var DIPPK={peace:'停火',ally:'結盟',end:'解除同盟'};
 function dipPropose(a,b,k,who){if(!G.dip||a===b||!DIPPK[k]||!(a>=0&&b>=0&&a<nSides()&&b<nSides()))return null;var r=relOf(a,b);if(k==='peace'&&r!=='war'||k==='ally'&&r!=='neu'||k==='end'&&r!=='ally')return null;
   if(k==='end'){relSet(a,b,'neu','解除同盟',who);return {st:'ok'};}
   var L=G.dipP=G.dipP||[];if(L.some(function(P){return P.st==='open'&&P.a===a&&P.b===b&&P.k===k;}))return null;var P={id:(G.dipSeq=(G.dipSeq||0)+1),t:G.t,a:a,b:b,k:k,st:'open',who:who||''};L.push(P);if(L.length>60)L.splice(0,L.length-60);
-  logE(a,'dip','向'+G.sides[b].name+'提議'+DIPPK[k]);logE(b,'dip','📨 '+G.sides[a].name+'提議'+DIPPK[k]+'（在外交面板回應）');if(SD(b).ai)dipAnswer(P,dipAiAccept(b,a,k),'AI');return P;}
+  logE(a,'dip','向'+G.sides[b].name+'提議'+DIPPK[k]);logE(b,'dip','📨 '+G.sides[a].name+'提議'+DIPPK[k]+'（在外交面板回應）');if(!sideHum(b))dipAnswer(P,dipAiAccept(b,a,k),'AI');return P;}
 function dipAnswer(P,yes,who){if(!P||P.st!=='open')return false;var r=relOf(P.a,P.b);if(P.k==='peace'&&r!=='war'||P.k==='ally'&&r!=='neu'){P.st='void';return false;}P.st=yes?'ok':'no';P.tA=G.t;
   if(yes)relSet(P.a,P.b,P.k==='peace'?'neu':'ally','雙方同意'+DIPPK[P.k],who);else{logE(P.a,'dip',G.sides[P.b].name+'拒絕'+DIPPK[P.k]);logE(P.b,'dip','拒絕'+G.sides[P.a].name+'的'+DIPPK[P.k]+'提議');}return true;}
 function dipFind(id){return (G.dipP||[]).filter(function(P){return P.id===id;})[0]||null;}
@@ -10876,7 +10893,7 @@ function dipStep(){if(nSides()<3||!G.dip||!G.started)return;var h=G.step%120===6
   SIDES().forEach(function(s){SIDES().forEach(function(o){if(o===s||relOf(s,o)!=='neu')return;var n=0;G.units.forEach(function(u){if(u.side===o&&isLeaf(u)&&onMap(u)&&ST(u).dom==='land'&&inHome(s,u.x,u.y))n+=u.men+u.veh*8;});var k=s+'>'+o;
     if(n>=150){I[k]=(I[k]||0)+1;if(I[k]===1)logE(o,'dip','⚠ '+G.sides[s].name+'抗議本方部隊進入其領土（'+fmt(n)+' 人車當量），要求撤出');if(I[k]===1)logE(s,'dip','⚠ '+G.sides[o].name+'的部隊進入本方領土');}else if(I[k])I[k]=Math.max(0,I[k]-1);});});
   (G.dipP||[]).forEach(function(P){if(P.st==='open'&&G.t-P.t>7200){P.st='exp';logE(P.a,'dip',G.sides[P.b].name+'沒有回應'+DIPPK[P.k]+'的提議');}});
-  SIDES().forEach(function(s){if(!SD(s).ai||G.out&&G.out[s])return;dipAI(s);});}
+  SIDES().forEach(function(s){if(sideHum(s)||G.out&&G.out[s])return;dipAI(s);});}
 function dipPers(s){var T=sideCmd(s),p=T&&T.pers?T.pers:null,agg=0.5;try{if(typeof aiPers==='function'){var P=aiPers(s);if(P&&P.agg!==undefined)agg=P.agg;}}catch(e){}if(p&&p.agg!==undefined)agg=p.agg;return clamp(agg,0,1);}
 function dipAI(s){var M=dipStr(s),agg=dipPers(s),G2=G.dipG||{},I=G.dipI||{},hours=G.t/3600-(G.t0h||0);
   SIDES().forEach(function(o){if(o===s||G.out&&G.out[o])return;var r=relOf(s,o),O=dipStr(o),gv=G2[s+'>'+o]||0;
@@ -10919,6 +10936,13 @@ if(typeof GKEYS!=='undefined')['dip','dipV','dipW','dipH','dipP','dipSeq','dipG'
 /* 玩家的外交動作（聯機時經伺服器，只能以本方名義） */
 function dipWar(me,o,why){if(!(o>=0)||o===me||o>=nSides()||relOf(me,o)==='war')return false;return relSet(me,o,'war',why||'','玩家');}
 function dipAnsId(me,id,yes){var P=dipFind(+id);if(!P||P.b!==me)return false;return dipAnswer(P,!!yes,'玩家');}
+/* 聯機：外交狀態送給各方（關係、紀錄與退出戰局公開；提議、積怨與領土侵入只給相關的一方） */
+if(typeof mpValList==='function'){(function(){var b=mpValList;mpValList=function(s){var V=b.apply(this,arguments);if(nSides()<3)return V;var flt=function(O){if(!O||s<0)return O;var o={};for(var k in O){var p=k.split(/[>~]/);if(+p[0]===s||+p[1]===s)o[k]=O[k];}return o;};
+  V.push(['dip',G.dip]);V.push(['dipV',G.dipV||0]);V.push(['dipW',G.dipW]);V.push(['dipH',G.dipH]);V.push(['out',G.out]);V.push(['dipP',(G.dipP||[]).filter(function(P){return s<0||P.a===s||P.b===s;})]);V.push(['dipG',flt(G.dipG)]);V.push(['dipI',flt(G.dipI)]);return V;};})();}
+/* 聯機：房間設定為三方對戰時，快速想定加入第三方（由 AI 指揮，席位交給玩家後改由玩家指揮） */
+if(typeof mpQuick==='function'){(function(){var b=mpQuick;mpQuick=async function(key,seed,tri){var g=await b(key,seed);if(tri&&typeof tri==='object'&&nSides()<3){var sc=SCN.filter(function(q){return q.k===key;})[0]||SCN[4];
+  triAdd({rel:TRIREL[tri.rel]?tri.rel:'neu',ai:true,edge:triEdge()});triForces(tri.src==='B'?sc.B:sc.A,TRISZ[tri.sz]?tri.sz:'m',sc.gran||'co');triObj();dupNames();mpReset();}return g;};})();}
+if(typeof MPSLOW!=='undefined')MPSLOW['sides.2']=2000;
 if(typeof MPFN!=='undefined'){MPFN.dipWar=[MPSIDE(0),function(a){return dipWar(+a[0],+a[1],String(a[2]||'').slice(0,40));}];
   MPFN.dipPropose=[MPSIDE(0),function(a){return !!dipPropose(+a[0],+a[1],String(a[2]),'玩家');}];MPFN.dipAnsId=[MPSIDE(0),function(a){return dipAnsId(+a[0],+a[1],!!a[2]);}];}
 
