@@ -2806,7 +2806,7 @@ window.LatoTerrainLib={LTCore:LTCore,LTClimate:LTClimate,LTRivers:LTRivers,LTLay
 "use strict";
 var root=document.getElementById('lato-warsim');
 if(!root)return;
-var LWBUILD="73c01796-online";
+var LWBUILD="e4b49ea9-online";
 var MPON=1;
 /* ===================== LatoWarsim 作戰模擬：共用工具（數學、亂數、雜訊、幾何、時間、名稱、編碼） ===================== */
 var PI=Math.PI,D2R=PI/180,R2D=180/PI;
@@ -13396,10 +13396,12 @@ function triAdd(o){o=o||{};if(nSides()>=3)return G.sides[2];var S=newSide(2);if(
 var TRISZ={s:[0.34,'約三分之一'],m:[0.5,'約一半'],e:[1,'與藍軍相當']};
 function triForces(L,sz,gran){var k=TRISZ[sz]?sz:'m',f=TRISZ[k][0],r=mb32(hstr((G.set.seed||'')+'|tri|orbat')),F=[];
   (L||[]).forEach(function(p){var n=Math.max(1,p[1]||1);for(var i=1;i<=n;i++){var era=p[3]||null,nm=p[2]?fmtName(p[2],i):null,top=FPI[p[0]]?buildPreset(2,p[0],nm,-1,r,p[4]||gran||'co',era):UT[p[0]]?addLeaf(2,p[0],1,nm,-1,r):null;if(top){top.ix=i;F.push(top);}}});
-  reix();F=triTrim(F,f);if(F.length)autoDeploy2(2,F);if(typeof renameSide==='function'){var S=G.sides[2];S.nm=Object.assign({},S.nm||{},{num:'rand'});try{renameSide(2);}catch(e){}}dupNames();return F;}
+  reix();F=triTrim(F,f);if(F.length)triDeploy(F);if(typeof renameSide==='function'){var S=G.sides[2];S.nm=Object.assign({},S.nm||{},{num:'rand'});try{renameSide(2);}catch(e){}}dupNames();return F;}
 /* 第三方的地圖邊：兩軍沒用到的邊裡水面最少的一邊 */
 function triEdge(){var MP=G.map,used=[G.sides[0].edge||'W',G.sides[1].edge||'E'],C=['N','S','W','E'].filter(function(e){return used.indexOf(e)<0;}),best=C[0]||'N',bw=2;
   C.forEach(function(e){var n=0,w=0;for(var i=0;i<24;i++)for(var j=0;j<6;j++){var a=(i+0.5)/24,d=(j+0.5)/6*0.2,x,y;if(e==='N'||e==='S'){x=a*MP.Wm;y=e==='N'?d*MP.Hm:MP.Hm*(1-d);}else{y=a*MP.Hm;x=e==='W'?d*MP.Wm:MP.Wm*(1-d);}n++;if(isWater(MP.lc[cellAt(x,y)]))w++;}if(w/n<bw-0.05){bw=w/n;best=e;}});return best;}
+/* 第三方的部署：沿自己那一邊的中段、靠近地圖邊排開，不和另外兩方的部署帶重疊 */
+function triDeploy(F){var b=landSpot;landSpot=function(e,dep,f){return b(e,Math.min(dep,0.12),0.36+(clamp(f,0.15,0.85)-0.15)/0.7*0.28);};try{autoDeploy2(2,F);}finally{landSpot=b;}}
 /* 依比例縮編：從最大、但不超過剩餘差額的下級單位開始整個移除（整個編制有好幾個時也可以整個移除），每個編制至少留一個下級 */
 function triTrim(F,f){if(!(f<0.99)||!F.length)return F;var wt=function(u){var s=strengthOf(u);return s.men+s.veh*8;},cur=0;F.forEach(function(u){cur+=wt(u);});var goal=cur*f,g=0;
   while(cur>goal*1.1&&g++<500){var need=cur-goal,best=null,bw=0;
@@ -13455,12 +13457,14 @@ function dipHurt(t,src,dm,dv,kind){var a=t.side,b=src.side,v=(dm||0)+(dv||0)*8;i
   logE(a,'dip','⚠ '+G.sides[b].name+'的'+w+'波及本方'+uName(t)+'（'+placeTxt(t.x,t.y)+'）',t.x,t.y,t.id);logE(b,'dip','⚠ 本方的'+w+'波及'+(relOf(a,b)==='ally'?'盟友':'中立的')+G.sides[a].name+'部隊（'+placeTxt(t.x,t.y)+'），對方可能因此翻臉',t.x,t.y,src.id);}
 (function(){var b=hit;hit=function(t,src,dm,dv,sup,kind){if(t&&src&&src.side!==t.side&&src.side>=0&&t.side>=0&&nSides()>=3&&!hostile(src.side,t.side))try{dipHurt(t,src,dm,dv,kind);}catch(e){}return b.apply(this,arguments);};})();
 /* ---------- 本土：各方部署邊的縱深（地圖的三成五） ---------- */
-function triHome(s){var MP=G.map,e=SD(s).edge||(s===1?'E':s===2?'N':'W'),f=0.35;return {x0:e==='E'?MP.Wm*(1-f):0,x1:e==='W'?MP.Wm*f:MP.Wm,y0:e==='S'?MP.Hm*(1-f):0,y1:e==='N'?MP.Hm*f:MP.Hm};}
+/* 第三方的本土只算邊的中段（兩端是另外兩方的部署帶） */
+function triHome(s){var MP=G.map,e=SD(s).edge||(s===1?'E':s===2?'N':'W'),f=0.35,a=s>=2?0.25:0,b=s>=2?0.75:1;
+  if(e==='N'||e==='S')return {x0:MP.Wm*a,x1:MP.Wm*b,y0:e==='S'?MP.Hm*(1-f):0,y1:e==='N'?MP.Hm*f:MP.Hm};return {x0:e==='E'?MP.Wm*(1-f):0,x1:e==='W'?MP.Wm*f:MP.Wm,y0:MP.Hm*a,y1:MP.Hm*b};}
 function inHome(s,x,y){var Z=triHome(s);return x>=Z.x0&&x<=Z.x1&&y>=Z.y0&&y<=Z.y1;}
 /* ---------- 每小時：AI 的外交判斷、侵入本土的累計、過期的提議 ---------- */
 function dipStep(){if(nSides()<3||!G.dip||!G.started)return;var h=G.step%120===61;if(!h)return;var I=G.dipI=G.dipI||{};
   /* 侵入本土：其他方的地面部隊在本土裡（非交戰、非同盟）累計時數 */
-  SIDES().forEach(function(s){SIDES().forEach(function(o){if(o===s||relOf(s,o)!=='neu')return;var n=0;G.units.forEach(function(u){if(u.side===o&&isLeaf(u)&&onMap(u)&&ST(u).dom==='land'&&inHome(s,u.x,u.y))n+=u.men+u.veh*8;});var k=s+'>'+o;
+  SIDES().forEach(function(s){SIDES().forEach(function(o){if(o===s||relOf(s,o)!=='neu')return;var n=0;G.units.forEach(function(u){if(u.side===o&&isLeaf(u)&&onMap(u)&&ST(u).dom==='land'&&inHome(s,u.x,u.y)&&!inHome(o,u.x,u.y))n+=u.men+u.veh*8;});var k=s+'>'+o;
     if(n>=150){I[k]=(I[k]||0)+1;if(I[k]===1)logE(o,'dip','⚠ '+G.sides[s].name+'抗議本方部隊進入其領土（'+fmt(n)+' 人車當量），要求撤出');if(I[k]===1)logE(s,'dip','⚠ '+G.sides[o].name+'的部隊進入本方領土');}else if(I[k])I[k]=Math.max(0,I[k]-1);});});
   (G.dipP||[]).forEach(function(P){if(P.st==='open'&&G.t-P.t>7200){P.st='exp';logE(P.a,'dip',G.sides[P.b].name+'沒有回應'+DIPPK[P.k]+'的提議');}});
   SIDES().forEach(function(s){if(sideHum(s)||G.out&&G.out[s])return;dipAI(s);});}
@@ -13513,6 +13517,8 @@ if(typeof mpValList==='function'){(function(){var b=mpValList;mpValList=function
 if(typeof mpQuick==='function'){(function(){var b=mpQuick;mpQuick=async function(key,seed,tri){var g=await b(key,seed);if(tri&&typeof tri==='object'&&nSides()<3){var sc=SCN.filter(function(q){return q.k===key;})[0]||SCN[4];
   triAdd({rel:TRIREL[tri.rel]?tri.rel:'neu',ai:true,edge:triEdge()});triForces(tri.src==='B'?sc.B:sc.A,TRISZ[tri.sz]?tri.sz:'m',sc.gran||'co');triObj();dupNames();mpReset();}return g;};})();}
 if(typeof MPSLOW!=='undefined')MPSLOW['sides.2']=2000;
+/* 聯機的部署區：第三方只用自己那一邊的中段（與本土相同），兩端留給另外兩方 */
+if(typeof mpZone==='function'){(function(){var b=mpZone;mpZone=function(side,dep){var Z=b(side,dep);if(side>=2&&nSides()>=3&&G.map){var MP=G.map;if(Z.e==='N'||Z.e==='S'){Z.x0=MP.Wm*0.25;Z.x1=MP.Wm*0.75;}else{Z.y0=MP.Hm*0.25;Z.y1=MP.Hm*0.75;}}return Z;};})();}
 if(typeof MPFN!=='undefined'){MPFN.dipWar=[MPSIDE(0),function(a){return dipWar(+a[0],+a[1],String(a[2]||'').slice(0,40));}];
   MPFN.dipPropose=[MPSIDE(0),function(a){return !!dipPropose(+a[0],+a[1],String(a[2]),'玩家');}];MPFN.dipAnsId=[MPSIDE(0),function(a){return dipAnsId(+a[0],+a[1],!!a[2]);}];}
 /* ===================== 物資與裝備目錄：武器分成「單兵與班組武器」與「載具武裝」；載具型號一份清單（泛用、內建、LatoVehicle 設計、自訂；無人機也是載具）；自訂糧食 =====================
