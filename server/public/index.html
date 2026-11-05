@@ -2806,7 +2806,7 @@ window.LatoTerrainLib={LTCore:LTCore,LTClimate:LTClimate,LTRivers:LTRivers,LTLay
 "use strict";
 var root=document.getElementById('lato-warsim');
 if(!root)return;
-var LWBUILD="5077dc61-online";
+var LWBUILD="8dcadc4f-online";
 var MPON=1;
 /* ===================== LatoArmory 與 LatoVehicle 運算庫（材料、外彈道、終端彈道、裝甲、載具設計與計價、化生放核魔），原樣嵌入 ===================== */
 
@@ -15747,6 +15747,63 @@ function sqPos(u){var L=pltPos(u);if(!L.length)return [];var tac=sqTac(u),W=Math
       else if(tac==='rout'){var hh=hstr('rs|'+u.id+'|'+pi+'|'+j+'|'+Math.floor(t/60));fw=((hh%100)/100-0.7)*gap*3;lt=(((hh>>8)%100)/100-0.5)*gap*4;}
       out.push({x:o[0]+fw*c-lt*s,y:o[1]+fw*s+lt*c,p:p,pi:pi,j:j,n:n,f:clamp((p.m+p.v*8)/((p.m0+p.v0*8)||1),0,1)});}});
   return out;}
+/* ===================== 部隊點數：依花費計算（購置、維持費、後勤累積） =====================
+   部隊點數＝這支部隊花了多少錢（2020 年美元，與裝備庫的造價同一幣值），每點預設 10 萬美元，可在「設定 → 點數」調整：
+   一、購置：現有的武器、載具、支援裝備、個人裝具、馬匹，加上人員的徵募與訓練（依年代、訓練程度與軍官、士官比例）。
+   二、維持費：薪餉、糧秣與草料、平時用油、載具與武器的維修保養，乘上維持的天數（預設 30 天）。
+   三、後勤累積：部隊身上現有的彈藥、燃料、糧秣與草料；整個陣營另加補給站裡的存量。
+   兵力、載具、彈藥減少，點數就跟著減少。舊的算法（依火力、防護、訓練與兵力）改稱「戰力」，仍用來比較雙方戰力、與同級標準比較，
+   也仍是增援點數的計價基準（增援點數另有自己的收支）；設定裡可以把部隊點數切回戰力算法。 ===================== */
+function fpcOn(){return !G||!G.set||G.set.fpm!=='pow';}
+function fpcUsd(){var v=G&&G.set&&+G.set.fpUsd;return v>0?v:100000;}
+function fpcDays(){var v=G&&G.set&&G.set.fpDays;return v!==undefined&&v!==''&&isFinite(+v)?clamp(+v,0,3650):30;}
+/* 每人的徵募與訓練費（2020 年美元；士兵、士官、軍官的倍數另計） */
+function fpcTrainUsd(y){return y<1700?1500:y<1800?2500:y<1870?4000:y<1914?6000:y<1945?10000:y<1970?25000:y<1990?40000:60000;}
+/* 每人每日的薪餉與津貼 */
+function fpcPayUsd(y){return y<1800?8:y<1900?12:y<1945?25:y<1970?50:y<1990?90:150;}
+var FPCRK=[[1,1],[2,1.8],[5,3.5]];
+/* 原本的戰力算法（依火力、防護、訓練與兵力） */
+var fpPowLeaf=fpU,fpPowEst=fpEst;
+function fpPowU(u){if(!u||!alive(u))return 0;if(!isLeaf(u)){var n=u.hq&&u.men0>0?fpType(u.hq)*clamp(u.men/u.men0,0,1):0;leavesOf(u).forEach(function(q){n+=fpPowU(q);});return Math.round(n);}return fpPowLeaf(u);}
+function fpPowSide(side){var n=0;G.units.forEach(function(u){if(u.side!==side||!alive(u)||u.st==='off'||u.irr)return;if(isLeaf(u))n+=fpPowLeaf(u);else if(u.hq&&u.men0>0)n+=fpType(u.hq)*clamp(u.men/u.men0,0,1);});return Math.round(n);}
+/* 單一單位（末端）的花費明細：buy 購置、keep 維持費（設定的天數）、day 每日維持、stock 後勤累積、t 合計（美元） */
+function fpcLeaf(u,full){var L=u.lg||logInit(u),c=unitUsd(u),y=uEra(u).y,P=costP(),fr=full?1:(u.men0>0?clamp(u.men/u.men0,0,1.2):1),t=ST(u),trn=u.trn!==undefined?u.trn:t.trn||60,rk=L.rk||[u.men0||0,0,0];
+  var men=[0,1,2].map(function(i){return (rk[i]||0)*fr;}),tr=fpcTrainUsd(y)*(0.6+0.8*clamp(trn,0,100)/100),pay=fpcPayUsd(y);
+  var hw=(c.w||0)+(c.e||0)+(c.p||0)+(c.h||0),veh=c.v||0;
+  var buy={eq:hw,veh:veh,men:sum([0,1,2],function(i){return men[i]*tr*FPCRK[i][0];})};buy.t=buy.eq+buy.veh+buy.men;
+  var fuelDay=0;try{fuelDay=dayNeed(u,0.3,20).fuel*1000;}catch(e){}
+  var day={pay:sum([0,1,2],function(i){return men[i]*pay*FPCRK[i][1];}),food:(L.dayKg||0)*(full?1:1)*P.food+(L.fodDay||0)*P.fod,fuel:fuelDay*P.fuel*P.haul,mnt:veh*0.10/365+hw*0.04/365};day.t=day.pay+day.food+day.fuel+day.mnt;
+  var am=full?1:clamp((u.ammo===undefined?100:u.ammo)/100,0,2);
+  var stock={ammo:(c.a||0)*am,fuel:(full?L.fuelCap:L.fuel||0)*P.fuel*P.haul,food:(full?L.foodCap:L.food||0)*P.food+(full?L.fodCap:L.fod||0)*P.fod};stock.t=stock.ammo+stock.fuel+stock.food;
+  var D=fpcDays();return {buy:buy,day:day,keep:day.t*D,days:D,stock:stock,t:buy.t+day.t*D+stock.t};}
+function fpcAdd(a,b){a.buy+=b.buy.t;a.keep+=b.keep;a.stock+=b.stock.t;a.t+=b.t;a.n++;return a;}
+function fpcZero(){return {buy:0,keep:0,stock:0,dep:0,t:0,n:0,days:fpcDays()};}
+/* 司令部（非末端單位本身的指揮與參謀）：用司令部的單位類型估計，依目前兵力的比例 */
+function fpcHq(u){if(!u.hq||!(u.men0>0))return null;var t=typeOf(u.hq);if(!t)return null;var f=clamp(u.men/u.men0,0,1),q={id:-1,side:u.side,mix:[[u.hq,1]],men0:t.men,veh0:t.veh,men:t.men,veh:t.veh,ammo:100,p:-1,kids:[],ech:1,st:'ok',trn:t.trn};
+  try{logInit(q);var r=fpcLeaf(q,true);['buy','stock'].forEach(function(k){r[k].t*=f;});r.keep*=f;r.t*=f;return r;}catch(e){return null;}}
+/* 一支部隊（含下級）的花費明細 */
+function fpcOf(u){var o=fpcZero();if(!u||u.st==='dead')return o;if(isLeaf(u))return fpcAdd(o,fpcLeaf(u));var h=fpcHq(u);if(h)fpcAdd(o,h);leavesOf(u).forEach(function(q){if(q.st!=='dead'&&alive(q))fpcAdd(o,fpcLeaf(q));});return o;}
+function fpcPts(usd){return Math.round(usd/fpcUsd());}
+/* 補給站裡的存量（公噸）：彈藥每公斤的價格取本方部隊的平均 */
+function fpcAmmoKg(side){var a=0,kg=0;G.units.forEach(function(u){if(u.side!==side||!isLeaf(u)||!alive(u)||!u.lg)return;var c=unitUsd(u),k=(u.lg.uof||0)*(u.lg.basic||1);if(k>0&&c.a>0){a+=c.a;kg+=k;}});return kg>0?a/kg:30;}
+function fpcDepot(side){var P=costP(),ak=fpcAmmoKg(side),v=0;(typeof nodesOf==='function'?nodesOf(side):[]).forEach(function(N){if(N.k==='off'||!N.st)return;v+=(N.st.food||0)*1000*P.food+(N.st.fod||0)*1000*P.fod+(N.st.fuel||0)*1000*P.fuel*P.haul+(N.st.ammo||0)*1000*ak;});return v;}
+function fpcSide(side){var o=fpcZero();G.units.forEach(function(u){if(u.side!==side||!alive(u)||u.st==='off'||u.irr)return;if(isLeaf(u))fpcAdd(o,fpcLeaf(u));else{var h=fpcHq(u);if(h)fpcAdd(o,h);}});o.dep=fpcDepot(side);o.stock+=o.dep;o.t+=o.dep;return o;}
+/* 某單位類型滿編時的花費（增援對話框在增援點數關閉時顯示） */
+var FPCT={};
+function fpcType(tk,side){var t=typeOf(tk);if(!t)return 0;var key=tk+'|'+(side===undefined?'':side)+'|'+(G&&G._tv||0)+'|'+fpcDays()+'|'+fpcUsd();if(FPCT[key]!==undefined)return FPCT[key];var v=0;
+  try{var q={id:-1,side:side===undefined||side===null?0:side,mix:[[tk,1]],men0:t.men,veh0:t.veh,men:t.men,veh:t.veh,ammo:100,p:-1,kids:[],ech:1,st:'ok',trn:t.trn};logInit(q);v=fpcLeaf(q,true).t/fpcUsd();}catch(e){v=0;}
+  return (FPCT[key]=v);}
+/* 部隊點數：花費制時取代原本的算法 */
+fpU=function(u){if(!fpcOn())return fpPowU(u);if(!u||!alive(u))return 0;return fpcPts(fpcOf(u).t);};
+fpSide=function(side){if(!fpcOn())return fpPowSide(side);return fpcPts(fpcSide(side).t);};
+/* 開戰後只能依情報估計敵方：依看到的人數與車輛數、作戰年代的一般價格 */
+fpEst=function(side){if(!fpcOn())return fpPowEst(side);var C=G.ct[side]||{},y=G.set.y||1943,man=fpcTrainUsd(y)*1.1+fpcPayUsd(y)*1.3*fpcDays()+(y<1900?300:y<1945?1500:y<1990?6000:12000),veh=y<1918?30000:y<1940?300000:y<1970?1500000:y<1990?4000000:6000000,n=0;
+  for(var id in C){var c=C[id];if(c.dead||G.t-c.t>6*3600)continue;n+=(c.men||0)*man+(c.veh||0)*veh;}return fpcPts(n);};
+/* 增援點數關閉時，增援對話框的「部隊點數」也依花費 */
+(function(){var b=rpTypeCost;rpTypeCost=function(tk,n,side){if(rpOn()||!fpcOn()||side===undefined||side===null)return b.apply(this,arguments);return Math.max(1,Math.round(fpcType(tk,side)*(n||1)));};})();
+(function(){var b=rpPresetCost;rpPresetCost=function(pk,side){if(rpOn()||!fpcOn()||!FPI[pk]||side===undefined||side===null)return b.apply(this,arguments);var v=0,hq=0;flatMix(pk,{}).forEach(function(q){v+=fpcType(q[0],side)*(q[1]||1);});
+  (function c(k){var Q=FPI[k];hq++;Q.kids.forEach(function(kd){if(kd[0].charAt(0)==='@')for(var i=0;i<kd[1];i++)c(kd[0].slice(1));});})(pk);return Math.max(1,Math.round(v+hq*fpcType(hqTypeFor(FPI[pk].era),side)));};})();
+(function(){var b=rftCost;rftCost=function(T,side){if(rpOn()||!fpcOn()||side===undefined||side===null)return b.apply(this,arguments);var v=0;(T&&T.items||[]).forEach(function(q){if(typeOf(q[0]))v+=fpcType(q[0],side)*Math.max(0,+q[1]||0);});if(T&&T.hq!==0)v+=fpcType(hqTypeFor(rftEra(T)),side);return Math.max(1,Math.round(v));};})();
 /* ===================== 兵牌：北約 APP-6、華約式、明式與二戰德軍式 =====================
    北約式：外框依觀看者的立場（友軍長方形、敵軍菱形、中立方形、不明四葉形；空中只有上半、水下只有下半），內部圖示依兵種，
    上方梯隊記號、下方機動方式（輪型、履帶、牽引）與兵力條，左上角分隊顏色、右上角隊徽；部隊可以自訂圖片。
@@ -19338,13 +19395,14 @@ function ptsSideTxt(s){return G.sides[s]?G.sides[s].name:'';}
 /* 頂列只在開啟增援或科技點數時顯示（保持一行）；戰力比較放在提示與點數明細 */
 function ptsHud(){var me=mySide(),o=[];if(me===null){if(rpOn())o.push('增援 '+fmt(Math.floor(rpS(0).v))+'／'+fmt(Math.floor(rpS(1).v)));if(techOn())o.push('科技 '+fmt(Math.floor(tpS(0).v))+'／'+fmt(Math.floor(tpS(1).v)));}
   else{if(rpOn())o.push('增援 '+fmt(Math.floor(rpS(me).v)));if(techOn())o.push('科技 '+fmt(Math.floor(tpS(me).v)));}return o.join('｜');}
-function ptsTip(){var me=mySide();return '戰力（部隊點數）：'+(me===null?SIDES().map(function(s){return fmt(fpSide(s));}).join('：'):fmt(fpSide(me))+'：'+(seeAll()?SIDES().filter(function(s){return s!==me;}).map(function(s){return fmt(fpSide(s));}).join('：'):'約 '+fmt(fpEst(me))+'（估計）'))+'。按一下查看點數明細';}
+function ptsTip(){var me=mySide(),cmp=function(f,est){return me===null?SIDES().map(function(s){return fmt(f(s));}).join('：'):fmt(f(me))+'：'+(seeAll()?SIDES().filter(function(s){return s!==me;}).map(function(s){return fmt(f(s));}).join('：'):'約 '+fmt(est(me))+'（估計）');};
+  return (fpcOn()?'部隊點數（花費）：'+cmp(fpSide,fpEst)+'；戰力：'+cmp(fpPowSide,fpPowEst):'戰力（部隊點數）：'+cmp(fpSide,fpEst))+'。按一下查看點數明細';}
 (function(){var b=barRender;barRender=function(){b();if(!G||!G.started||G.replay||!UI.bar||!rpOn()&&!techOn())return;var sp=UI.bar.querySelector('.lw-sp');if(!sp||UI.bar.querySelector('[data-k="pts"]'))return;var e=document.createElement('button');e.type='button';e.className='lw-btn sm lw-pts';e.setAttribute('data-k','pts');e.setAttribute('data-a','ptsdlg');
-  e.title='點數：增援點數、科技點數與雙方戰力（部隊點數）';e.style.cssText='min-height:24px;font-size:12px;white-space:nowrap';sp.parentNode.insertBefore(e,sp);e.textContent=ptsHud();e.title=ptsTip();};})();
+  e.title='點數：增援點數、科技點數、雙方的部隊點數與戰力';e.style.cssText='min-height:24px;font-size:12px;white-space:nowrap';sp.parentNode.insertBefore(e,sp);e.textContent=ptsHud();e.title=ptsTip();};})();
 var PTT=0;(function(){var b=hudTick;hudTick=function(force){b(force);var n=Date.now();if(!force&&n-PTT<2000)return;PTT=n;var e=UI.bar&&UI.bar.querySelector('[data-k="pts"]');if(e&&G&&G.started){try{e.textContent=ptsHud();e.title=ptsTip();}catch(x){}}};})();
 /* ---------- 點數明細 ---------- */
-function ptsDlg(){var me=mySide(),sides=me===null?SIDES():[me],o='<h3>點數<small>部隊點數只用來比較戰力</small></h3>';
-  o+='<div class="lw-kv">'+SIDES().map(function(s){return kv(esc(ptsSideTxt(s))+'戰力',me===null||s===me||seeAll()?fmt(fpSide(s))+' 點':'約 '+fmt(fpEst(me))+' 點（依目前的情報估計）');}).join('')+'</div>';
+function ptsDlg(){var me=mySide(),sides=me===null?SIDES():[me],o='<h3>點數<small>'+(fpcOn()?'部隊點數依花費計算，戰力依火力與兵力':'部隊點數只用來比較戰力')+'</small></h3>';
+  o+=fpcOn()?fpcDlgHtml(me):'<div class="lw-kv">'+SIDES().map(function(s){return kv(esc(ptsSideTxt(s))+'戰力',me===null||s===me||seeAll()?fmt(fpSide(s))+' 點':'約 '+fmt(fpEst(me))+' 點（依目前的情報估計）');}).join('')+'</div>';
   sides.forEach(function(s){if(rpOn()){var R=rpS(s);o+='<h4 style="margin:10px 0 4px">'+esc(ptsSideTxt(s))+'：增援點數 '+fmt(Math.floor(R.v))+'</h4><div class="lw-note">每日配給約 '+fmt(rpDayAmt(s))+' 點；累計收入 '+fmt(R.earn)+'、支出 '+fmt(R.spend)+'。</div>'+
       '<table class="lw-tbl"><tr><th>項目</th><th class="n">累計</th></tr>'+Object.keys(R.by).filter(function(k){return Math.abs(R.by[k])>=0.5;}).sort(function(a,b){return R.by[b]-R.by[a];}).map(function(k){return '<tr><td>'+esc(RPWHY[k]||k)+'</td><td class="n" style="color:'+(R.by[k]<0?'#b3261e':'#2e7d32')+'">'+(R.by[k]>0?'+':'')+fmt(R.by[k])+'</td></tr>';}).join('')+'</table>'+
       '<details><summary class="lw-note" style="cursor:pointer">最近的帳目（'+R.log.length+'）</summary><table class="lw-tbl">'+R.log.slice(-25).reverse().map(function(e){return '<tr><td>'+tTxt(e.t)+'</td><td>'+esc(RPWHY[e.why]||e.why)+(e.txt?'：'+esc(e.txt):'')+'</td><td class="n" style="color:'+(e.v<0?'#b3261e':'#2e7d32')+'">'+(e.v>0?'+':'')+fmt(e.v,Math.abs(e.v)<10?1:0)+'</td></tr>';}).join('')+'</table></details>';}
@@ -19397,7 +19455,7 @@ function rftDlg0(side,id){if(side!==undefined)RFE.side=side;if(id!==undefined)RF
   var o='<h3>自訂增援範本<small>'+esc(ptsSideTxt(RFE.side))+'</small></h3><div class="lw-row"><select data-c="rfesel">'+(L.length?L.map(function(q){return '<option value="'+esc(q.id)+'"'+(T&&q.id===T.id?' selected':'')+'>'+esc(q.n)+'</option>';}).join(''):'<option value="">（尚無）</option>')+'</select><button type="button" class="lw-btn sm" data-a="rfenew">＋ 新範本</button>'+(T?'<button type="button" class="lw-btn sm" data-a="rfedup">複製</button><button type="button" class="lw-btn sm dng" data-a="rferm">刪除</button>':'')+'<button type="button" class="lw-btn sm" data-a="rftexp">匯出全部</button><label class="lw-btn sm">匯入<input type="file" accept=".json,application/json" data-c="rftimp" hidden></label></div>';
   if(T){var men=0,veh=0;(T.items||[]).forEach(function(q){var t=typeOf(q[0]);if(t){men+=t.men*(+q[1]||0);veh+=t.veh*(+q[1]||0);}});var lk=rftLock(RFE.side,T);
     o+='<div class="lw-opt"><span>名稱</span><input type="text" value="'+esc(T.n)+'" data-c="rfe" data-f="n" style="width:18em"><span>編制</span><select data-c="rfe" data-f="ech">'+[[2,'營'],[3,'團'],[4,'旅'],[5,'師']].map(function(q){return '<option value="'+q[0]+'"'+(+T.ech===q[0]?' selected':'')+'>'+q[1]+'（含司令部）</option>';}).join('')+'</select></div>'+
-      '<table class="lw-tbl"><tr><th>單位類型</th><th class="n">數量</th><th class="n">部隊點數</th><th></th></tr>'+(T.items||[]).map(function(q,i){return '<tr><td><select data-c="rfei" data-f="k" data-v="'+i+'">'+typeOpts(q[0])+'</select></td><td class="n"><input type="number" min="0" max="60" value="'+(+q[1]||0)+'" data-c="rfei" data-f="n" data-v="'+i+'" style="width:56px"></td><td class="n">'+fmt(fpType(q[0])*(+q[1]||0))+'</td><td><button type="button" class="lw-btn sm dng" data-a="rfedel" data-v="'+i+'">✕</button></td></tr>';}).join('')+'</table><button type="button" class="lw-btn sm" data-a="rfeadd">＋ 單位</button>'+
+      '<table class="lw-tbl"><tr><th>單位類型</th><th class="n">數量</th><th class="n">部隊點數</th><th></th></tr>'+(T.items||[]).map(function(q,i){return '<tr><td><select data-c="rfei" data-f="k" data-v="'+i+'">'+typeOpts(q[0])+'</select></td><td class="n"><input type="number" min="0" max="60" value="'+(+q[1]||0)+'" data-c="rfei" data-f="n" data-v="'+i+'" style="width:56px"></td><td class="n">'+fmt((+q[1]||0)>0?rpTypeCost(q[0],+q[1]||0,RFE.side):0)+'</td><td><button type="button" class="lw-btn sm dng" data-a="rfedel" data-v="'+i+'">✕</button></td></tr>';}).join('')+'</table><button type="button" class="lw-btn sm" data-a="rfeadd">＋ 單位</button>'+
       '<div class="lw-note" style="margin-top:6px">共 '+fmt(men)+' 人、'+fmt(veh)+' 件裝備；'+(rpOn()?'派遣需要 <b>'+fmt(rftCost(T,RFE.side))+'</b> 增援點數':'部隊點數 '+fmt(rftCost(T,RFE.side)))+'。'+(lk.length?'<span style="color:#b3261e">需要先解鎖：'+lk.map(function(k){return esc(wpnOf(k)?wpnOf(k).n:k);}).join('、')+'</span>':'')+'在「戰中增援」選擇「自訂範本」派遣；可以匯出給其他玩家或下一場使用。</div>';}
   o+='<div class="lw-row"><button type="button" class="lw-btn pri" data-a="rfedone">完成</button></div>';if(UI.rfe&&UI.rfe.isConnected&&UI.rfe.firstChild)UI.rfe.firstChild.innerHTML=o;else UI.rfe=dlg(o,true);}
 ACT.rftdlg=function(){var me=mySide();rftDlg(UI.rfd&&UI.rfd.isConnected?RF.side:me!==null?me:0,UI.rfd&&UI.rfd.isConnected?RF.rft:undefined);};
@@ -19411,9 +19469,9 @@ ACT.rfenew=function(){var L=rftOf(RFE.side),hq=sideCmd(RFE.side),era=hq?uEra(hq)
 ACT.rfedup=function(){var T=rfeT();if(!T)return;var C=clone(T);C.id='r'+Date.now().toString(36);C.n=T.n+'（複本）';rftOf(RFE.side).push(C);rftDlg(undefined,C.id);};
 ACT.rferm=function(){var L=rftOf(RFE.side),T=rfeT();if(!T)return;L.splice(L.indexOf(T),1);RFE.id=L[0]?L[0].id:'';rftDlg();};
 /* ---------- 單位面板、兵力編成 ---------- */
-(function(){var b=v4Status;v4Status=function(u,leaf,L){var o=b(u,leaf,L);var me=mySide();if(me!==null&&u.side!==me&&!seeAll())return o;return o+'<span>部隊點數</span><span>'+fmt(fpU(u))+'</span>';};})();
+(function(){var b=v4Status;v4Status=function(u,leaf,L){var o=b(u,leaf,L);var me=mySide();if(me!==null&&u.side!==me&&!seeAll())return o;return o+'<span>部隊點數</span><span>'+fmt(fpU(u))+(fpcOn()?'（戰力 '+fmt(fpPowU(u))+'）':'')+'</span>';};})();
 (function(){var b=PAGES.orbat;PAGES.orbat=function(host){b(host);if(!G)return;var ph=host.querySelector('.lw-pane .lw-ph');if(!ph)return;var me=mySide(),d=document.createElement('span');d.className='lw-note';d.style.cssText='margin-left:8px;white-space:nowrap';
-  d.title='部隊點數只用來比較雙方戰力'+(rpOn()?'；增援點數：'+SIDES().filter(function(s){return me===null||s===me;}).map(function(s){return ptsSideTxt(s)+' '+fmt(Math.floor(rpS(s).v));}).join('、'):'');
+  d.title=(fpcOn()?'部隊點數依花費計算（購置、維持費、後勤累積）；戰力：'+SIDES().map(function(s){return ptsSideTxt(s)+' '+(!G.started||me===null||s===me||seeAll()?fmt(fpPowSide(s)):'約 '+fmt(fpPowEst(me)));}).join('、'):'部隊點數只用來比較雙方戰力')+(rpOn()?'；增援點數：'+SIDES().filter(function(s){return me===null||s===me;}).map(function(s){return ptsSideTxt(s)+' '+fmt(Math.floor(rpS(s).v));}).join('、'):'');
   d.textContent='部隊點數：'+SIDES().map(function(s){return ptsSideTxt(s)+' '+(!G.started||me===null||s===me||seeAll()?fmt(fpSide(s)):'約 '+fmt(fpEst(me)));}).join('｜');ph.appendChild(d);};})();
 /* ---------- 增援點數模式：擴充補給設施要付費；作戰中改武器要用呼叫物資 ---------- */
 var NDC={thr:0.5,cap:0.02,cvn:4};
@@ -19421,15 +19479,16 @@ var NDC={thr:0.5,cap:0.02,cvn:4};
   if(cost>0&&!rpSpend(LG.side,cost,'node',N.name)){toast('增援點數不足：擴充需要 '+fmt(Math.ceil(cost))+' 點',4000);t.value=old;return;}return b(t);};})();
 ['uw','uwdel','uwplus','uwreset'].forEach(function(k){var H=k==='uw'?CHG:ACT,b=H[k];if(!b)return;H[k]=function(x){if(rpOn()&&G&&G.started&&UI.side>=0){toast('增援點數模式下，作戰中的武器請以「呼叫物資」補充或換裝。',4500);if(UI.panelTick)UI.panelTick(true);return;}return b(x);};});
 /* ---------- 設定頁 ---------- */
-setSec('pts','pts',{t:'點數',o:10,room:false,note:'部隊點數一律顯示，只用來比較雙方戰力（開戰後敵方只能依情報估計）。開戰後再改初始值不會影響已經發放的點數。',h:function(){var S=G.set;
-  return setOpt(setRow('增援點數',setChk('setb','rp',S.rp,'所有增援、物資與建造都要花增援點數'))+
+setSec('pts','pts',{t:'點數',o:10,room:false,note:'部隊點數一律顯示，不設限制（開戰後敵方只能依情報估計）。開戰後再改增援點數的初始值不會影響已經發放的點數。',h:function(){var S=G.set;
+  return setOpt(fpcSetRows(S)+setRow('增援點數',setChk('setb','rp',S.rp,'所有增援、物資與建造都要花增援點數'))+
     setRow('初始','<input type="number" min="0" max="1000000" value="'+(S.rp0!==undefined&&S.rp0!==''?S.rp0:800)+'" data-c="setpt" data-f="rp0" style="width:90px">')+
     setRow('每日配給','<span><input type="text" value="'+(S.rpDay!==undefined&&S.rpDay!==''?S.rpDay:'auto')+'" data-c="setpt" data-f="rpDay" style="width:90px"> <span class="lw-note">「auto」依兵力的每日補給需求計算（約需求噸數的六成再加 250）</span></span>')+
     setRow('科技點數',setChk('setb','tech',S.tech,'開戰時沒有的武器與裝備要用科技點數解鎖'))+
     setRow('初始／每日','<span><input type="number" min="0" max="100000" value="'+(S.tp0!==undefined&&S.tp0!==''?S.tp0:30)+'" data-c="setpt" data-f="tp0" style="width:80px"> ／ <input type="number" min="0" max="10000" value="'+(S.tpDay!==undefined&&S.tpDay!==''?S.tpDay:20)+'" data-c="setpt" data-f="tpDay" style="width:70px"></span>'));}});
 CHG.setpt=function(t){var f=t.getAttribute('data-f'),v=String(t.value||'').trim();G.set[f]=f==='rpDay'&&(v===''||/^auto$/i.test(v))?'auto':Math.max(0,+v||0);};
 HELP14.push('<h4>點數：部隊點數、增援點數、科技點數與自訂增援範本</h4><ul>'+
-  '<li><b>部隊點數</b>只用來衡量雙方戰力，不設限制：依各單位的火力（含武器配置）、裝甲、訓練與現有兵力計算，頂列與兵力編成頁顯示雙方總數。開戰後在戰場迷霧下，敵方的點數只能依目前掌握的情報估計。</li>'+
+  '<li><b>部隊點數</b>不設限制，依花費計算：購置（武器、載具、支援裝備、個人裝具、馬匹，以及人員的徵募與訓練）＋維持費（薪餉、糧秣、平時用油、維修保養，乘上設定的天數，預設 30 天）＋後勤累積（部隊身上的彈藥、燃料、糧秣與草料，陣營另加補給站的存量）；以 2020 年美元計，每點預設 10 萬美元。兵力、裝備與存量減少，點數也跟著減少。頂列的提示、點數視窗與兵力編成頁顯示雙方總數；開戰後在戰場迷霧下，敵方只能依情報估計。</li>'+
+  '<li><b>戰力</b>依各單位的火力（含武器配置）、裝甲、訓練與現有兵力計算，用來比較雙方戰力與同級標準，也是增援點數的計價基準。設定裡可以把部隊點數切回戰力的算法。</li>'+
   '<li><b>增援點數</b>（設定頁開啟）：所有增援與物資都要花點數——派遣增援（依部隊點數）、呼叫物資（每噸陸路 1、鐵路 0.7、空運 3 點，武器每噸 20 點）、從地圖外進入戰場的日常補給（送達時每噸 0.25～2 點，依運輸方式）、休整時補充的兵員與裝備、工兵構築（野戰陣地 10、半永久工事 30、堡壘 80、稜堡 120、補給站 60、橋梁 60、渡口 5～25、造路 40、修路 8、修鐵道 15、修復設施 15 點）、擴充補給設施的吞吐量、儲量與車隊。點數不足時無法派遣或開工，日常補給只收下付得起的部分。</li>'+
   '<li>收入：每日固定配給（預設依兵力的補給需求計算）；交戰戰果（每殺傷一名敵軍 0.12 點、每擊毀一件裝備 2 點）；佔領目標（目標分數 ×5）與守住目標（每小時 1.5 點×分數/10，遭敵軍威脅時加倍）；把傷患後送出地圖（每人 0.3 點）、把戰俘後送出地圖（每人 0.5 點）。頂列的點數按鈕可以查看帳目。AI 兵力居於劣勢時會用點數購買增援。</li>'+
   '<li><b>科技點數</b>（設定頁開啟）：開戰時本方已有、或已經過時的武器不必解鎖；其他武器與裝備要用科技點數解鎖後，才能用「呼叫物資」配發或換裝，也才能派遣使用它們的單位類型。每日固定收入，交戰與佔領目標另有收入；較本時代更新的武器可以提前研發，代價較高。</li>'+
@@ -25208,7 +25267,7 @@ function vmAmHtml(u,m){var g=m.m&&m.m[0],w=g&&wpnOf(g);if(!w||!w.am0)return '';v
 /* 與兵種的時代標準配備相比 */
 function vmFxTxt(u){var b=fpBase(u),s=ST(u),f=WF(u),X=fpX(u),p=[];if(Math.abs(s.arm-b.arm)>0.05)p.push('裝甲 '+fx(b.arm,1)+' → '+fx(s.arm,1));var bc=b.armC!==undefined?b.armC:b.arm,sc=s.armC!==undefined?s.armC:s.arm;if(Math.abs(sc-bc)>0.05&&Math.abs(sc-s.arm)>0.05)p.push('化學能裝甲 '+fx(bc,1)+' → '+fx(sc,1));
   if(Math.abs(s.vx-b.vx)>0.05)p.push('越野速度 '+fx(b.vx,1)+' → '+fx(s.vx,1)+' 公里／時');if(Math.abs(f.penD||0)>0.05)p.push('穿甲 '+((f.penD||0)>0?'+':'')+fx(f.penD||0,1)+' 級');if(Math.abs((f.a||1)-1)>0.01)p.push('對裝甲火力 ×'+fx(f.a||1,2));if(Math.abs((f.p||1)-1)>0.01)p.push('對人火力 ×'+fx(f.p||1,2));
-  return '與兵種的時代標準配備相比：'+(p.length?p.join('、'):'沒有差別')+'。部隊點數 '+fmt(fpShow(u))+'（裝備係數 ×'+fx(X.t,2)+'），造價 '+amoney(unitUsd(u).t)+'。';}
+  return '與兵種的時代標準配備相比：'+(p.length?p.join('、'):'沒有差別')+'。戰力 '+fmt(fpPowShow(u))+'（裝備係數 ×'+fx(X.t,2)+'），造價 '+amoney(unitUsd(u).t)+'。';}
 /* 作戰中（不在後方休整）的改動要等下次休整才換裝 */
 function vmLater(u){return !!(G&&G.started&&!(u.refit&&u.st==='off'));}
 function vmSecHtml(u,inDlg){var role=vmRoleU(u);if(!role)return '';var t=vmTypeU(u),P=vmPrinc(t),nv=P?vmNv(u,P[0]):0,F=fldOf(u.side),fk=F&&F.v&&F.v[role],V=u.vm,m=V&&vmOf(V.m),pend=u.vmNext,uid=u.id;
@@ -25221,11 +25280,11 @@ function vmSecHtml(u,inDlg){var role=vmRoleU(u);if(!role)return '';var t=vmTypeU
   if(vmLater(u))o+='<div class="lw-note">作戰中更換型號、砲管或加掛，要等這個單位撤到後方休整時才進行；彈藥配比可以隨時調整，下一次補給起生效。</div>';
   o+='<div class="lw-vm"><h5>'+esc(m.n)+(V.src==='f'?' <span class="lw-pill">列裝</span>':'')+'</h5>'+vmCardHtml(m,V,u)+'<div style="margin-top:6px"><b style="font-size:12px">加掛</b> <button type="button" class="lw-btn sm" data-a="vmadf" data-u="'+uid+'">原廠配置</button></div>'+vmAdHtml(m,V,uid)+'</div>';
   return o+vmAmHtml(u,m)+'<div class="lw-note" style="margin-top:4px">'+vmFxTxt(u)+'</div>';}
-/* 部隊點數（不在地圖上的單位也照算） */
-function fpShow(u){if(!u||u.st==='dead')return 0;if(!isLeaf(u)){var n=u.hq&&u.men0>0?fpType(u.hq)*clamp(u.men/u.men0,0,1):0;leavesOf(u).forEach(function(q){n+=fpShow(q);});return Math.round(n);}return Math.round(fpMix(u.mix)*fpX(u).t*clamp(strFrac(u),0,1.2));}
-function fpSecHtml(u){var leaf=isLeaf(u),pts=fpShow(u),o='<h4 style="margin:10px 0 4px;font-size:13px">部隊點數</h4><div class="lw-kv">';
-  if(leaf){var X=fpX(u);o+=kv('部隊點數',fmt(pts)+(Math.abs(X.t-1)>0.005?'（裝備係數 ×'+fx(X.t,2)+'）':''))+kv('裝備係數','武器 ×'+fx(X.wf,2)+'、防護 ×'+fx(X.pf,2)+'、機動 ×'+fx(X.mf,2)+'、支援裝備 ×'+fx(X.ef,2)+'、彈藥存量 ×'+fx(X.am,2));}
-  else o+=kv('部隊點數',fmt(pts)+'（'+leavesOf(u).length+' 個單位）');
+/* 戰力（不在地圖上的單位也照算）；部隊點數見 fpShow */
+function fpPowShow(u){if(!u||u.st==='dead')return 0;if(!isLeaf(u)){var n=u.hq&&u.men0>0?fpType(u.hq)*clamp(u.men/u.men0,0,1):0;leavesOf(u).forEach(function(q){n+=fpPowShow(q);});return Math.round(n);}return Math.round(fpMix(u.mix)*fpX(u).t*clamp(strFrac(u),0,1.2));}
+function fpSecHtml(u){var leaf=isLeaf(u),pts=fpPowShow(u),o=fpcSecHtml(u)+'<h4 style="margin:10px 0 4px;font-size:13px">戰力</h4><div class="lw-kv">';
+  if(leaf){var X=fpX(u);o+=kv('戰力',fmt(pts)+(Math.abs(X.t-1)>0.005?'（裝備係數 ×'+fx(X.t,2)+'）':''))+kv('裝備係數','武器 ×'+fx(X.wf,2)+'、防護 ×'+fx(X.pf,2)+'、機動 ×'+fx(X.mf,2)+'、支援裝備 ×'+fx(X.ef,2)+'、彈藥存量 ×'+fx(X.am,2));}
+  else o+=kv('戰力',fmt(pts)+'（'+leavesOf(u).length+' 個單位）');
   var S=fpStdU(u);if(S&&S.v>0){var r=pts/S.v,E=ERAI[S.era]||{};o+=kv('同級標準',esc(E.n||'')+'的標準'+FPKIND[S.kind]+(ECH[S.ech]||ECH[1])[1]+'約 '+fmt(S.v)+' 點'+(S.est?'（估計）':'（依「'+esc(S.src[0])+'」）')+'；本部隊為 '+fx(r,2)+' 倍<div class="lw-fpbar" title="紅線為同級標準"><i style="width:'+Math.round(clamp(r/2,0,1)*100)+'%"></i><b></b></div>');}
   o+='</div>';var H=fmHints(u);if(H.length)o+='<ul class="lw-fph">'+H.map(function(h){return '<li>'+esc(h)+'</li>';}).join('')+'</ul>';return o;}
 /* 編制建議：兵種搭配、年代與型號、與同級標準相比 */
@@ -25242,7 +25301,7 @@ function fmHints(u){var o=[],y=vmYearNow();if(isLeaf(u)){var mm=u.vm&&vmOf(u.vm.
   if(ech>=2&&y>=1940&&!w.at&&!w.arm&&sh('mech')<0.2)o.push('反裝甲火力薄弱：沒有戰車、反戰車或機械化單位。');
   var ek=Object.keys(eras);if(ek.length>1){var ys=ek.map(function(k){return eras[k].y;}).sort(function(a,b){return a-b;});if(ys[ys.length-1]-ys[0]>=30)o.push('混用年代相差很大的單位：'+ek.map(function(k){return eras[k].n;}).join('、')+'。');}
   if(late.length)o.push('有 '+late.length+' 個單位的載具晚於作戰年代（例如 '+late[0].n+'，'+late[0].y+' 年服役）。');
-  var S=fpStdU(u);if(S&&S.v>0){var r=fpShow(u)/S.v;if(r<0.6)o.push('戰力只有同級標準的'+pct(r*100)+'：可能是缺編或層級設得太高。');else if(r>1.8)o.push('戰力是同級標準的 '+fx(r,1)+' 倍：可能編得太大，或層級設得太低。');}
+  var S=fpStdU(u);if(S&&S.v>0){var r=fpPowShow(u)/S.v;if(r<0.6)o.push('戰力只有同級標準的'+pct(r*100)+'：可能是缺編或層級設得太高。');else if(r>1.8)o.push('戰力是同級標準的 '+fx(r,1)+' 倍：可能編得太大，或層級設得太低。');}
   return o;}
 /* ---------- 兵力編成的單位明細 ---------- */
 (function(){var b=obDet;obDet=function(){b.apply(this,arguments);try{var el=UI.body&&UI.body.querySelector('[data-k="obdet"]'),u=OB.sel?uById(OB.sel):null;if(!el||!u||el.querySelector('.lw-fpsec'))return;
@@ -25250,7 +25309,7 @@ function fmHints(u){var o=[],y=vmYearNow();if(isLeaf(u)){var mm=u.vm&&vmOf(u.vm.
 /* ---------- 作戰中的部隊面板：載具摘要 ---------- */
 (function(){var b=lgUnitHtml;lgUnitHtml=function(u){var o=b(u);try{if(!o||!u||UI.tab==='orbat'||!isLeaf(u)||!vmRoleU(u))return o;var m=u.vm&&vmOf(u.vm.m),pm=u.vmNext&&(vmOf(u.vmNext.m)||{n:'標準配備'});
   return '<div class="lw-row" style="margin:2px 0 6px"><span>載具：'+(m?esc(m.n)+'（'+fmt(u.lg&&u.lg.vmN||0)+' 輛）':'標準配備')+(pm?'<span class="lw-note">，休整時換裝為 '+esc(pm.n)+'</span>':u.vmPend?'<span class="lw-note">，待換裝</span>':'')+'</span><button type="button" class="lw-btn sm" data-a="vmdlg" data-v="'+u.id+'">載具與彈藥…</button></div>'+o;}catch(e){return o;}};})();
-function vmDlg(u){if(!u)return;UI.vmdU=u.id;var o='<h3>'+esc(uName(u))+'<small>載具、彈藥與部隊點數</small></h3>'+vmSecHtml(u,true)+fpSecHtml(u)+'<div class="lw-row"><button type="button" class="lw-btn" data-a="x">關閉</button></div>';if(UI.vmd&&UI.vmd.isConnected)UI.vmd.remove();UI.vmd=dlg(o,true);}
+function vmDlg(u){if(!u)return;UI.vmdU=u.id;var o='<h3>'+esc(uName(u))+'<small>載具、彈藥、部隊點數與戰力</small></h3>'+vmSecHtml(u,true)+fpSecHtml(u)+'<div class="lw-row"><button type="button" class="lw-btn" data-a="x">關閉</button></div>';if(UI.vmd&&UI.vmd.isConnected)UI.vmd.remove();UI.vmd=dlg(o,true);}
 ACT.vmdlg=function(b){vmDlg(uById(+b.getAttribute('data-v')));};
 function vmRedraw(u){if(UI.tab==='orbat'&&OB.sel===u.id)obDet();if(UI.vmd&&UI.vmd.isConnected&&UI.vmdU===u.id)vmDlg(u);if(UI.panelTick)try{UI.panelTick(true);}catch(e){}}
 function vmUnit(t){return uById(+t.getAttribute('data-u'));}
@@ -25305,12 +25364,12 @@ ACT.fldclr=function(){FLD.draft={v:{},w:{},a:{},e:{}};fldDlg();};
 ACT.fldok=function(){var S=FLD.side;if(!fldEditable(S))return;var n=fldSet(S,FLD.draft);FLD.draft=null;toast(G.started?'列裝表已更新：新的部隊與增援直接使用，前線部隊在後方休整時換裝。':(n?n+' 個單位已換裝，其餘':'列裝表已套用：')+'各單位開戰時依列裝表換裝。',4000);fldDlg();if(UI.tab==='orbat'){try{obTree();obDet();}catch(e){}}};
 /* 兵力編成的頁首：列裝表按鈕 */
 (function(){var b=PAGES.orbat;PAGES.orbat=function(host){b(host);try{var d=host.querySelector('.lw-obv');if(d)d.insertAdjacentHTML('beforeend','<button type="button" class="lw-btn sm" data-a="flddlg" title="一方的制式載具、武器、彈藥與支援裝備">列裝表…</button>');}catch(e){}};})();
-/* ---------- 點數視窗：標準部隊點數表 ---------- */
-function fpStdTblHtml(){var E=ERA.filter(function(e){return !e.fan;}),ech=[0,1,2,3,4,5,6],o='<div class="lw-note">有內建編制範本的層級取範本的點數，其餘以標準連的點數依層級估計（標「≈」）。部隊點數只用來比較戰力：兵種、兵力與訓練的基本點數，乘上武器、防護、機動、支援裝備與彈藥存量的裝備係數。</div>';
+/* ---------- 點數視窗：標準戰力表 ---------- */
+function fpStdTblHtml(){var E=ERA.filter(function(e){return !e.fan;}),ech=[0,1,2,3,4,5,6],o='<div class="lw-note">有內建編制範本的層級取範本的點數，其餘以標準連的戰力依層級估計（標「≈」）。戰力：兵種、兵力與訓練的基本點數，乘上武器、防護、機動、支援裝備與彈藥存量的裝備係數。</div>';
   ['inf','mech','arm'].forEach(function(k){var rows=E.map(function(e){var cells=ech.map(function(h){var r=fpStd(e.k,k,h);return r?'<td class="n">'+(r.est?'≈':'')+fmt(r.v)+'</td>':'<td class="n">—</td>';});return cells.join('').replace(/<td class="n">—<\/td>/g,'').length?'<tr><td>'+esc(e.n)+'</td>'+cells.join('')+'</tr>':'';}).filter(Boolean);if(!rows.length)return;
     o+='<h4 style="margin:8px 0 4px">'+FPKIND[k]+'</h4><table class="lw-tbl"><tr><th>時代</th>'+ech.map(function(h){return '<th class="n">'+ECH[h][1]+'</th>';}).join('')+'</tr>'+rows.join('')+'</table>';});return o;}
 (function(){var b=ptsDlg;ptsDlg=function(){b.apply(this,arguments);try{var box=UI.ptd&&UI.ptd.firstElementChild,rows=box&&box.querySelectorAll(':scope>.lw-row'),last=rows&&rows[rows.length-1];if(!last)return;
-  last.insertAdjacentHTML('beforebegin','<details style="margin-top:8px"><summary style="cursor:pointer"><b>各時代、各層級的標準部隊點數</b></summary>'+fpStdTblHtml()+'</details>');last.insertAdjacentHTML('afterbegin','<button type="button" class="lw-btn sm" data-a="flddlg">列裝表…</button>');}catch(e){}};})();
+  last.insertAdjacentHTML('beforebegin','<details style="margin-top:8px"><summary style="cursor:pointer"><b>各時代、各層級的標準戰力</b></summary>'+fpStdTblHtml()+'</details>');last.insertAdjacentHTML('afterbegin','<button type="button" class="lw-btn sm" data-a="flddlg">列裝表…</button>');}catch(e){}};})();
 /* ---------- 裝備庫：載具型號一覽 ---------- */
 if(typeof ARTABS!=='undefined')ARTABS.push(['vmc','載具型號']);
 function vmCatHtml(){var o='<div class="lw-note">範例載具型號：在兵力編成選取單位後，可以在「載具與彈藥」換上這些型號，或在列裝表裡指定為一方的制式裝備。裝甲是正面、側面、後方的加權等級；穿甲依原廠彈藥與砲管換算。</div><div class="lw-sc" style="max-height:60vh;overflow:auto"><table class="lw-tbl"><tr><th>型號</th><th>國別</th><th class="n">年代</th><th>角色</th><th>主武器</th><th class="n">穿甲</th><th class="n">裝甲</th><th class="n">公路／越野</th><th class="n">單價</th></tr>';
@@ -25321,7 +25380,7 @@ if(typeof HELP14!=='undefined')HELP14.push('<h4>列裝、載具與部隊點數</
   '<li>單位可以換上具體的載具型號（兵力編成的單位明細，或作戰中部隊面板的「載具與彈藥」）：主武器、裝甲、速度、油耗與造價都依型號計算；機槍的火力沿用兵種的時代標準。可以選擇加掛（原廠的、常見的與合乎年代的）、更換砲管的倍徑，並調整每輛車的彈藥配比。</li>'+
   '<li>彈藥依口徑與砲管適用：同一種動能彈從較長的砲管射出，穿甲較高、直射距離較遠；成形裝藥不受砲管影響；榴彈的破片半徑隨口徑變大。彈藥配比改變對人與對裝甲的效果、穿甲、精度與價格。</li>'+
   '<li>列裝表（兵力編成頁首或點數視窗）決定一方的制式載具、武器、彈藥與支援裝備，也有依陣營與年代的範例列裝。開戰前套用時立即換裝；作戰中只有新的部隊、增援，以及撤到後方休整的單位會換裝。手動指定的型號不受列裝表影響；增援的費用依列裝的裝備計算。</li>'+
-  '<li>部隊點數＝兵種、兵力與訓練的基本點數 × 裝備係數（武器、防護、機動、支援裝備、彈藥存量，相對於兵種的時代標準配備）。單位明細會與同時代、同層級的標準步兵、機械化或裝甲部隊比較，並列出編制上的建議；點數視窗有完整的標準點數表。</li></ul>');
+  '<li>戰力＝兵種、兵力與訓練的基本點數 × 裝備係數（武器、防護、機動、支援裝備、彈藥存量，相對於兵種的時代標準配備）。單位明細會與同時代、同層級的標準步兵、機械化或裝甲部隊比較，並列出編制上的建議；點數視窗有完整的標準戰力表。部隊點數則依花費計算（見「點數」）。</li></ul>');
 /* ===================== 兵牌狀態條：兵力條下面依序畫士氣、恐懼、補給、疲勞
    只畫本方部隊（上帝視角或關閉戰爭迷霧時全部）；合併顯示的編制取下屬的平均；到了危險程度的那條加紅框 ===================== */
 var UBAR={mor:{n:'士氣',c:'#42A5F5'},fear:{n:'恐懼',c:'#AB47BC'},sup:{n:'補給',c:'#FFB300'},fat:{n:'疲勞',c:'#BCAAA4',c2:'#6D4C41'}},UBARK=['mor','fear','sup','fat'];
@@ -26721,8 +26780,9 @@ HELP14.push('<h4>排與組：在連的指揮下依戰術部署</h4><ul><li>連�
 var HELPV={tab:'feat',q:''};
 /* 更新日誌（新的在前）：d 日期、t 標題、i 項目 */
 var CHLOG=[
- {d:'2026-11-05',t:'排與組的戰術、雪地與高山、對抗措施',i:[
+ {d:'2026-11-05',t:'部隊點數依花費、排與組的戰術、雪地與高山、對抗措施',i:[
   '說明頁分成「功能說明」與「更新日誌」：功能依主題分類、可搜尋；更新日誌依日期整理。',
+  '部隊點數改依花費計算：購置（裝備、載具、人員徵募與訓練）＋維持費（薪餉、糧秣、平時用油、維修，預設 30 天）＋後勤累積（身上與補給站的彈藥、燃料、糧秣），以 2020 年美元計、每點 10 萬美元；原本依火力與兵力的算法改稱「戰力」，並列顯示，也可在設定切回。',
   '排與組：組成為地圖上最小的元素，仍不能直接下令或拆出連；在連長聯絡得到的範圍內，依命令、訓練、經驗與指揮官的個性部署與移動（交替掩護前進或後撤、大規模衝鋒、口袋防禦、環形防禦、伏擊、縱隊、無組織後撤）。戰鬥的排在前、支援的排在後。',
   '積雪依緯度、海拔與天氣累積，融雪造成泥濘並直接畫進地圖；高處積雪的路段額外減速。',
   '高山症：非山地部隊到高海拔會逐漸適應，太快上山可能出現病患並後送。水土不服：可設定各方的原駐地氣候，部隊到差異大的氣候區頭幾週會出現病患。',
@@ -26824,6 +26884,30 @@ function helpFilter(root,q){q=(q||'').trim().toLowerCase();var any={};root.query
 ACT.helptab=function(b){HELPV.tab=b.getAttribute('data-v');show('help');};
 ACT.helpcat=function(b){var e=document.getElementById('help-'+b.getAttribute('data-v'));if(e&&e.scrollIntoView)e.scrollIntoView({block:'start'});};
 INP.helpq=function(t){HELPV.q=t.value;helpFilter(t.closest('.lw-card'),t.value);};
+/* ===================== 部隊點數（花費）：單位明細、點數視窗、設定 ===================== */
+/* 部隊點數（不在地圖上的單位也照算） */
+function fpShow(u){if(!u||u.st==='dead')return 0;if(!fpcOn())return fpPowShow(u);var o=fpcZero();if(isLeaf(u))fpcAdd(o,fpcLeaf(u));else{var h=fpcHq(u);if(h)fpcAdd(o,h);leavesOf(u).forEach(function(q){if(q.st!=='dead')fpcAdd(o,fpcLeaf(q));});}return fpcPts(o.t);}
+function fpcShowOf(u){var o=fpcZero(),B={eq:0,veh:0,men:0},D={pay:0,food:0,fuel:0,mnt:0},S={ammo:0,fuel:0,food:0},add=function(r){fpcAdd(o,r);for(var k in B)B[k]+=r.buy[k]||0;for(var k2 in D)D[k2]+=r.day[k2]||0;for(var k3 in S)S[k3]+=r.stock[k3]||0;};
+  if(isLeaf(u))add(fpcLeaf(u));else{var h=fpcHq(u);if(h)add(h);leavesOf(u).forEach(function(q){if(q.st!=='dead')add(fpcLeaf(q));});}o.B=B;o.D=D;o.S=S;return o;}
+function fpcUsdTxt(v){return typeof amoney==='function'?amoney(v):usdTxt(v);}
+function fpcSecHtml(u){if(!fpcOn()||!u||u.st==='dead')return '';var o=fpcShowOf(u),P=function(v){return fmt(fpcPts(v));},m=fpcUsdTxt;
+  return '<h4 style="margin:10px 0 4px;font-size:13px">部隊點數（花費）</h4><div class="lw-kv lw-fpc">'+
+    kv('部隊點數','<b>'+fmt(fpcPts(o.t))+'</b> 點（'+m(o.t)+'；每點 '+m(fpcUsd())+'）')+
+    kv('購置',P(o.buy)+' 點：武器與裝具 '+m(o.B.eq)+'、載具 '+m(o.B.veh)+'、人員徵募與訓練 '+m(o.B.men))+
+    kv('維持費',P(o.keep)+' 點（'+o.days+' 天）：每日 '+m(o.D.pay+o.D.food+o.D.fuel+o.D.mnt)+'＝薪餉 '+m(o.D.pay)+'、糧秣草料 '+m(o.D.food)+'、平時用油 '+m(o.D.fuel)+'、維修保養 '+m(o.D.mnt))+
+    kv('後勤累積',P(o.stock)+' 點：彈藥 '+m(o.S.ammo)+'、燃料 '+m(o.S.fuel)+'、糧秣草料 '+m(o.S.food))+'</div>';}
+/* 點數視窗：各方的部隊點數、明細與戰力 */
+function fpcDlgHtml(me){var see=function(s){return me===null||s===me||seeAll();},m=fpcUsdTxt,P=function(v){return fmt(fpcPts(v));};
+  var o='<div class="lw-kv">'+SIDES().map(function(s){return kv(esc(ptsSideTxt(s))+'部隊點數',see(s)?fmt(fpSide(s))+' 點':'約 '+fmt(fpEst(me))+' 點（依目前的情報估計）')+kv(esc(ptsSideTxt(s))+'戰力',see(s)?fmt(fpPowSide(s))+' 點':'約 '+fmt(fpPowEst(me))+' 點（估計）');}).join('')+'</div>';
+  var vis=SIDES().filter(see);if(!vis.length)return o;
+  o+='<table class="lw-tbl" style="margin-top:6px"><tr><th>花費</th>'+vis.map(function(s){return '<th class="n">'+esc(ptsSideTxt(s))+'</th>';}).join('')+'</tr>';var C=vis.map(fpcSide);
+  [['buy','購置（裝備、載具、人員訓練）'],['keep','維持費（'+fpcDays()+' 天）'],['stock','後勤累積（含補給站 '+C.map(function(c){return m(c.dep);}).join('／')+'）'],['t','合計']].forEach(function(r){o+='<tr><td>'+(r[0]==='t'?'<b>'+r[1]+'</b>':r[1])+'</td>'+C.map(function(c){return '<td class="n">'+P(c[r[0]])+' 點<br><span class="lw-note">'+m(c[r[0]])+'</span></td>';}).join('')+'</tr>';});
+  return o+'</table><div class="lw-note">部隊點數＝購置＋維持費＋後勤累積，以 2020 年美元計，每點 '+m(fpcUsd())+'；可在「設定 → 點數」調整。戰力依火力、防護、訓練與兵力，用來比較雙方戰力。</div>';}
+/* 設定 */
+function fpcSetRows(S){return setRow('部隊點數',setSel('setfpc','fpm',[['cost','依花費（購置、維持費、後勤累積）'],['pow','依戰力（火力、防護、訓練、兵力）']],S.fpm==='pow'?'pow':'cost'))+
+  setRow('每點','<span><input type="number" min="1000" max="100000000" step="10000" value="'+fpcUsd()+'" data-c="setfpc" data-f="fpUsd" style="width:110px"> 美元（2020 年幣值）</span>')+
+  setRow('維持天數','<span><input type="number" min="0" max="3650" value="'+fpcDays()+'" data-c="setfpc" data-f="fpDays" style="width:80px"> 天的維持費計入部隊點數</span>');}
+CHG.setfpc=function(t){var f=t.getAttribute('data-f');if(f==='fpm')G.set.fpm=t.value==='pow'?'pow':'cost';else{var v=+t.value;if(f==='fpUsd')G.set.fpUsd=v>0?v:100000;else G.set.fpDays=isFinite(v)?clamp(v,0,3650):30;}FPCT={};if(typeof hudTick==='function')hudTick(true);};
 /* ===================== 聯機版：在房間裡調整所有模擬設定 =====================
    房主可以在房間頁的「模擬設定」（開戰前不論有沒有載入想定都可以）或作戰中的「設定」分頁調整所有模擬設定；
    改動以「設定路徑 → 值」送到伺服器，所有人一起套用。載入想定前調整的設定，也會套用到之後載入的想定或存檔；「恢復想定的設定」可以撤銷。

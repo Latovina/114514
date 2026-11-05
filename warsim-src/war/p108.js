@@ -48,7 +48,7 @@ function vmAmHtml(u,m){var g=m.m&&m.m[0],w=g&&wpnOf(g);if(!w||!w.am0)return '';v
 /* 與兵種的時代標準配備相比 */
 function vmFxTxt(u){var b=fpBase(u),s=ST(u),f=WF(u),X=fpX(u),p=[];if(Math.abs(s.arm-b.arm)>0.05)p.push('裝甲 '+fx(b.arm,1)+' → '+fx(s.arm,1));var bc=b.armC!==undefined?b.armC:b.arm,sc=s.armC!==undefined?s.armC:s.arm;if(Math.abs(sc-bc)>0.05&&Math.abs(sc-s.arm)>0.05)p.push('化學能裝甲 '+fx(bc,1)+' → '+fx(sc,1));
   if(Math.abs(s.vx-b.vx)>0.05)p.push('越野速度 '+fx(b.vx,1)+' → '+fx(s.vx,1)+' 公里／時');if(Math.abs(f.penD||0)>0.05)p.push('穿甲 '+((f.penD||0)>0?'+':'')+fx(f.penD||0,1)+' 級');if(Math.abs((f.a||1)-1)>0.01)p.push('對裝甲火力 ×'+fx(f.a||1,2));if(Math.abs((f.p||1)-1)>0.01)p.push('對人火力 ×'+fx(f.p||1,2));
-  return '與兵種的時代標準配備相比：'+(p.length?p.join('、'):'沒有差別')+'。部隊點數 '+fmt(fpShow(u))+'（裝備係數 ×'+fx(X.t,2)+'），造價 '+amoney(unitUsd(u).t)+'。';}
+  return '與兵種的時代標準配備相比：'+(p.length?p.join('、'):'沒有差別')+'。戰力 '+fmt(fpPowShow(u))+'（裝備係數 ×'+fx(X.t,2)+'），造價 '+amoney(unitUsd(u).t)+'。';}
 /* 作戰中（不在後方休整）的改動要等下次休整才換裝 */
 function vmLater(u){return !!(G&&G.started&&!(u.refit&&u.st==='off'));}
 function vmSecHtml(u,inDlg){var role=vmRoleU(u);if(!role)return '';var t=vmTypeU(u),P=vmPrinc(t),nv=P?vmNv(u,P[0]):0,F=fldOf(u.side),fk=F&&F.v&&F.v[role],V=u.vm,m=V&&vmOf(V.m),pend=u.vmNext,uid=u.id;
@@ -61,11 +61,11 @@ function vmSecHtml(u,inDlg){var role=vmRoleU(u);if(!role)return '';var t=vmTypeU
   if(vmLater(u))o+='<div class="lw-note">作戰中更換型號、砲管或加掛，要等這個單位撤到後方休整時才進行；彈藥配比可以隨時調整，下一次補給起生效。</div>';
   o+='<div class="lw-vm"><h5>'+esc(m.n)+(V.src==='f'?' <span class="lw-pill">列裝</span>':'')+'</h5>'+vmCardHtml(m,V,u)+'<div style="margin-top:6px"><b style="font-size:12px">加掛</b> <button type="button" class="lw-btn sm" data-a="vmadf" data-u="'+uid+'">原廠配置</button></div>'+vmAdHtml(m,V,uid)+'</div>';
   return o+vmAmHtml(u,m)+'<div class="lw-note" style="margin-top:4px">'+vmFxTxt(u)+'</div>';}
-/* 部隊點數（不在地圖上的單位也照算） */
-function fpShow(u){if(!u||u.st==='dead')return 0;if(!isLeaf(u)){var n=u.hq&&u.men0>0?fpType(u.hq)*clamp(u.men/u.men0,0,1):0;leavesOf(u).forEach(function(q){n+=fpShow(q);});return Math.round(n);}return Math.round(fpMix(u.mix)*fpX(u).t*clamp(strFrac(u),0,1.2));}
-function fpSecHtml(u){var leaf=isLeaf(u),pts=fpShow(u),o='<h4 style="margin:10px 0 4px;font-size:13px">部隊點數</h4><div class="lw-kv">';
-  if(leaf){var X=fpX(u);o+=kv('部隊點數',fmt(pts)+(Math.abs(X.t-1)>0.005?'（裝備係數 ×'+fx(X.t,2)+'）':''))+kv('裝備係數','武器 ×'+fx(X.wf,2)+'、防護 ×'+fx(X.pf,2)+'、機動 ×'+fx(X.mf,2)+'、支援裝備 ×'+fx(X.ef,2)+'、彈藥存量 ×'+fx(X.am,2));}
-  else o+=kv('部隊點數',fmt(pts)+'（'+leavesOf(u).length+' 個單位）');
+/* 戰力（不在地圖上的單位也照算）；部隊點數見 fpShow */
+function fpPowShow(u){if(!u||u.st==='dead')return 0;if(!isLeaf(u)){var n=u.hq&&u.men0>0?fpType(u.hq)*clamp(u.men/u.men0,0,1):0;leavesOf(u).forEach(function(q){n+=fpPowShow(q);});return Math.round(n);}return Math.round(fpMix(u.mix)*fpX(u).t*clamp(strFrac(u),0,1.2));}
+function fpSecHtml(u){var leaf=isLeaf(u),pts=fpPowShow(u),o=fpcSecHtml(u)+'<h4 style="margin:10px 0 4px;font-size:13px">戰力</h4><div class="lw-kv">';
+  if(leaf){var X=fpX(u);o+=kv('戰力',fmt(pts)+(Math.abs(X.t-1)>0.005?'（裝備係數 ×'+fx(X.t,2)+'）':''))+kv('裝備係數','武器 ×'+fx(X.wf,2)+'、防護 ×'+fx(X.pf,2)+'、機動 ×'+fx(X.mf,2)+'、支援裝備 ×'+fx(X.ef,2)+'、彈藥存量 ×'+fx(X.am,2));}
+  else o+=kv('戰力',fmt(pts)+'（'+leavesOf(u).length+' 個單位）');
   var S=fpStdU(u);if(S&&S.v>0){var r=pts/S.v,E=ERAI[S.era]||{};o+=kv('同級標準',esc(E.n||'')+'的標準'+FPKIND[S.kind]+(ECH[S.ech]||ECH[1])[1]+'約 '+fmt(S.v)+' 點'+(S.est?'（估計）':'（依「'+esc(S.src[0])+'」）')+'；本部隊為 '+fx(r,2)+' 倍<div class="lw-fpbar" title="紅線為同級標準"><i style="width:'+Math.round(clamp(r/2,0,1)*100)+'%"></i><b></b></div>');}
   o+='</div>';var H=fmHints(u);if(H.length)o+='<ul class="lw-fph">'+H.map(function(h){return '<li>'+esc(h)+'</li>';}).join('')+'</ul>';return o;}
 /* 編制建議：兵種搭配、年代與型號、與同級標準相比 */
@@ -82,7 +82,7 @@ function fmHints(u){var o=[],y=vmYearNow();if(isLeaf(u)){var mm=u.vm&&vmOf(u.vm.
   if(ech>=2&&y>=1940&&!w.at&&!w.arm&&sh('mech')<0.2)o.push('反裝甲火力薄弱：沒有戰車、反戰車或機械化單位。');
   var ek=Object.keys(eras);if(ek.length>1){var ys=ek.map(function(k){return eras[k].y;}).sort(function(a,b){return a-b;});if(ys[ys.length-1]-ys[0]>=30)o.push('混用年代相差很大的單位：'+ek.map(function(k){return eras[k].n;}).join('、')+'。');}
   if(late.length)o.push('有 '+late.length+' 個單位的載具晚於作戰年代（例如 '+late[0].n+'，'+late[0].y+' 年服役）。');
-  var S=fpStdU(u);if(S&&S.v>0){var r=fpShow(u)/S.v;if(r<0.6)o.push('戰力只有同級標準的'+pct(r*100)+'：可能是缺編或層級設得太高。');else if(r>1.8)o.push('戰力是同級標準的 '+fx(r,1)+' 倍：可能編得太大，或層級設得太低。');}
+  var S=fpStdU(u);if(S&&S.v>0){var r=fpPowShow(u)/S.v;if(r<0.6)o.push('戰力只有同級標準的'+pct(r*100)+'：可能是缺編或層級設得太高。');else if(r>1.8)o.push('戰力是同級標準的 '+fx(r,1)+' 倍：可能編得太大，或層級設得太低。');}
   return o;}
 /* ---------- 兵力編成的單位明細 ---------- */
 (function(){var b=obDet;obDet=function(){b.apply(this,arguments);try{var el=UI.body&&UI.body.querySelector('[data-k="obdet"]'),u=OB.sel?uById(OB.sel):null;if(!el||!u||el.querySelector('.lw-fpsec'))return;
@@ -90,7 +90,7 @@ function fmHints(u){var o=[],y=vmYearNow();if(isLeaf(u)){var mm=u.vm&&vmOf(u.vm.
 /* ---------- 作戰中的部隊面板：載具摘要 ---------- */
 (function(){var b=lgUnitHtml;lgUnitHtml=function(u){var o=b(u);try{if(!o||!u||UI.tab==='orbat'||!isLeaf(u)||!vmRoleU(u))return o;var m=u.vm&&vmOf(u.vm.m),pm=u.vmNext&&(vmOf(u.vmNext.m)||{n:'標準配備'});
   return '<div class="lw-row" style="margin:2px 0 6px"><span>載具：'+(m?esc(m.n)+'（'+fmt(u.lg&&u.lg.vmN||0)+' 輛）':'標準配備')+(pm?'<span class="lw-note">，休整時換裝為 '+esc(pm.n)+'</span>':u.vmPend?'<span class="lw-note">，待換裝</span>':'')+'</span><button type="button" class="lw-btn sm" data-a="vmdlg" data-v="'+u.id+'">載具與彈藥…</button></div>'+o;}catch(e){return o;}};})();
-function vmDlg(u){if(!u)return;UI.vmdU=u.id;var o='<h3>'+esc(uName(u))+'<small>載具、彈藥與部隊點數</small></h3>'+vmSecHtml(u,true)+fpSecHtml(u)+'<div class="lw-row"><button type="button" class="lw-btn" data-a="x">關閉</button></div>';if(UI.vmd&&UI.vmd.isConnected)UI.vmd.remove();UI.vmd=dlg(o,true);}
+function vmDlg(u){if(!u)return;UI.vmdU=u.id;var o='<h3>'+esc(uName(u))+'<small>載具、彈藥、部隊點數與戰力</small></h3>'+vmSecHtml(u,true)+fpSecHtml(u)+'<div class="lw-row"><button type="button" class="lw-btn" data-a="x">關閉</button></div>';if(UI.vmd&&UI.vmd.isConnected)UI.vmd.remove();UI.vmd=dlg(o,true);}
 ACT.vmdlg=function(b){vmDlg(uById(+b.getAttribute('data-v')));};
 function vmRedraw(u){if(UI.tab==='orbat'&&OB.sel===u.id)obDet();if(UI.vmd&&UI.vmd.isConnected&&UI.vmdU===u.id)vmDlg(u);if(UI.panelTick)try{UI.panelTick(true);}catch(e){}}
 function vmUnit(t){return uById(+t.getAttribute('data-u'));}
@@ -145,12 +145,12 @@ ACT.fldclr=function(){FLD.draft={v:{},w:{},a:{},e:{}};fldDlg();};
 ACT.fldok=function(){var S=FLD.side;if(!fldEditable(S))return;var n=fldSet(S,FLD.draft);FLD.draft=null;toast(G.started?'列裝表已更新：新的部隊與增援直接使用，前線部隊在後方休整時換裝。':(n?n+' 個單位已換裝，其餘':'列裝表已套用：')+'各單位開戰時依列裝表換裝。',4000);fldDlg();if(UI.tab==='orbat'){try{obTree();obDet();}catch(e){}}};
 /* 兵力編成的頁首：列裝表按鈕 */
 (function(){var b=PAGES.orbat;PAGES.orbat=function(host){b(host);try{var d=host.querySelector('.lw-obv');if(d)d.insertAdjacentHTML('beforeend','<button type="button" class="lw-btn sm" data-a="flddlg" title="一方的制式載具、武器、彈藥與支援裝備">列裝表…</button>');}catch(e){}};})();
-/* ---------- 點數視窗：標準部隊點數表 ---------- */
-function fpStdTblHtml(){var E=ERA.filter(function(e){return !e.fan;}),ech=[0,1,2,3,4,5,6],o='<div class="lw-note">有內建編制範本的層級取範本的點數，其餘以標準連的點數依層級估計（標「≈」）。部隊點數只用來比較戰力：兵種、兵力與訓練的基本點數，乘上武器、防護、機動、支援裝備與彈藥存量的裝備係數。</div>';
+/* ---------- 點數視窗：標準戰力表 ---------- */
+function fpStdTblHtml(){var E=ERA.filter(function(e){return !e.fan;}),ech=[0,1,2,3,4,5,6],o='<div class="lw-note">有內建編制範本的層級取範本的點數，其餘以標準連的戰力依層級估計（標「≈」）。戰力：兵種、兵力與訓練的基本點數，乘上武器、防護、機動、支援裝備與彈藥存量的裝備係數。</div>';
   ['inf','mech','arm'].forEach(function(k){var rows=E.map(function(e){var cells=ech.map(function(h){var r=fpStd(e.k,k,h);return r?'<td class="n">'+(r.est?'≈':'')+fmt(r.v)+'</td>':'<td class="n">—</td>';});return cells.join('').replace(/<td class="n">—<\/td>/g,'').length?'<tr><td>'+esc(e.n)+'</td>'+cells.join('')+'</tr>':'';}).filter(Boolean);if(!rows.length)return;
     o+='<h4 style="margin:8px 0 4px">'+FPKIND[k]+'</h4><table class="lw-tbl"><tr><th>時代</th>'+ech.map(function(h){return '<th class="n">'+ECH[h][1]+'</th>';}).join('')+'</tr>'+rows.join('')+'</table>';});return o;}
 (function(){var b=ptsDlg;ptsDlg=function(){b.apply(this,arguments);try{var box=UI.ptd&&UI.ptd.firstElementChild,rows=box&&box.querySelectorAll(':scope>.lw-row'),last=rows&&rows[rows.length-1];if(!last)return;
-  last.insertAdjacentHTML('beforebegin','<details style="margin-top:8px"><summary style="cursor:pointer"><b>各時代、各層級的標準部隊點數</b></summary>'+fpStdTblHtml()+'</details>');last.insertAdjacentHTML('afterbegin','<button type="button" class="lw-btn sm" data-a="flddlg">列裝表…</button>');}catch(e){}};})();
+  last.insertAdjacentHTML('beforebegin','<details style="margin-top:8px"><summary style="cursor:pointer"><b>各時代、各層級的標準戰力</b></summary>'+fpStdTblHtml()+'</details>');last.insertAdjacentHTML('afterbegin','<button type="button" class="lw-btn sm" data-a="flddlg">列裝表…</button>');}catch(e){}};})();
 /* ---------- 裝備庫：載具型號一覽 ---------- */
 if(typeof ARTABS!=='undefined')ARTABS.push(['vmc','載具型號']);
 function vmCatHtml(){var o='<div class="lw-note">範例載具型號：在兵力編成選取單位後，可以在「載具與彈藥」換上這些型號，或在列裝表裡指定為一方的制式裝備。裝甲是正面、側面、後方的加權等級；穿甲依原廠彈藥與砲管換算。</div><div class="lw-sc" style="max-height:60vh;overflow:auto"><table class="lw-tbl"><tr><th>型號</th><th>國別</th><th class="n">年代</th><th>角色</th><th>主武器</th><th class="n">穿甲</th><th class="n">裝甲</th><th class="n">公路／越野</th><th class="n">單價</th></tr>';
@@ -161,4 +161,4 @@ if(typeof HELP14!=='undefined')HELP14.push('<h4>列裝、載具與部隊點數</
   '<li>單位可以換上具體的載具型號（兵力編成的單位明細，或作戰中部隊面板的「載具與彈藥」）：主武器、裝甲、速度、油耗與造價都依型號計算；機槍的火力沿用兵種的時代標準。可以選擇加掛（原廠的、常見的與合乎年代的）、更換砲管的倍徑，並調整每輛車的彈藥配比。</li>'+
   '<li>彈藥依口徑與砲管適用：同一種動能彈從較長的砲管射出，穿甲較高、直射距離較遠；成形裝藥不受砲管影響；榴彈的破片半徑隨口徑變大。彈藥配比改變對人與對裝甲的效果、穿甲、精度與價格。</li>'+
   '<li>列裝表（兵力編成頁首或點數視窗）決定一方的制式載具、武器、彈藥與支援裝備，也有依陣營與年代的範例列裝。開戰前套用時立即換裝；作戰中只有新的部隊、增援，以及撤到後方休整的單位會換裝。手動指定的型號不受列裝表影響；增援的費用依列裝的裝備計算。</li>'+
-  '<li>部隊點數＝兵種、兵力與訓練的基本點數 × 裝備係數（武器、防護、機動、支援裝備、彈藥存量，相對於兵種的時代標準配備）。單位明細會與同時代、同層級的標準步兵、機械化或裝甲部隊比較，並列出編制上的建議；點數視窗有完整的標準點數表。</li></ul>');
+  '<li>戰力＝兵種、兵力與訓練的基本點數 × 裝備係數（武器、防護、機動、支援裝備、彈藥存量，相對於兵種的時代標準配備）。單位明細會與同時代、同層級的標準步兵、機械化或裝甲部隊比較，並列出編制上的建議；點數視窗有完整的標準戰力表。部隊點數則依花費計算（見「點數」）。</li></ul>');
