@@ -2806,7 +2806,7 @@ window.LatoTerrainLib={LTCore:LTCore,LTClimate:LTClimate,LTRivers:LTRivers,LTLay
 "use strict";
 var root=document.getElementById('lato-warsim');
 if(!root)return;
-var LWBUILD="f4be0c09-online";
+var LWBUILD="1543dcc4-online";
 var MPON=1;
 /* ===================== LatoArmory 與 LatoVehicle 運算庫（材料、外彈道、終端彈道、裝甲、載具設計與計價、化生放核魔），原樣嵌入 ===================== */
 
@@ -15689,6 +15689,64 @@ function envBodyStep(){var h=1/6;G.units.forEach(function(u){if(!isLeaf(u)||!onM
 if(typeof GKEYS!=='undefined')['sn'].forEach(function(k){if(GKEYS.indexOf(k)<0)GKEYS.push(k);});
 /* 聯機：積雪格（各方都一樣）跟著天氣一起送 */
 if(typeof mpValList==='function'){(function(){var b=mpValList;mpValList=function(s){var V=b.apply(this,arguments);if(G.sn)V.push(['sn',G.sn]);return V;};})();}
+/* ===================== 排與組：在連的指揮下依戰術自由部署 =====================
+   排之下分成組（步兵班、火力組、戰車分排），組是地圖上最小的元素；組和排都不能直接下令，也不能從連裡拆出來單獨作戰，
+   但會在連的活動範圍內（連長能聯絡得到的距離：1900 年前口令與號音約 200 公尺、1900～1935 年傳令與哨音約 400 公尺、之後有無線電約 800 公尺）依戰術移動：
+   - 依兵種部署：戰鬥的排（步兵、機步、戰車、騎兵、偵察）在前，支援的排（火力、反戰車、防空、砲、指揮、醫療、運輸、工兵）在後；
+     偵察排最前；空曠地形進攻時戰車在前，城鎮與森林裡步兵在前。
+   - 依命令、訓練、經驗與指揮官的個性選擇動作：
+     進攻：訓練好、1915 年以後 → 交替掩護前進（一半前進、一半原地掩護，輪流）；訓練差、1918 年以前或指揮官魯莽 → 大規模衝鋒；其餘 → 橫隊推進。
+     防禦：訓練好、1915 年以後 → 口袋防禦（兩翼在前、中央稍後，火力排在中央後方）；被包圍 → 環形防禦；其餘 → 橫隊。
+     伏擊 → 沿側翼一線埋伏。撤退：訓練好、士氣還在 → 交替掩護後撤；士氣崩潰或潰散 → 無組織後撤（四散往後跑）。
+     行軍 → 縱隊。
+   這些位置也決定傷亡落在哪些排（面向敵人、衝在前面的排損失較多）。 ===================== */
+var SQK={inf:3,mech:3,pike:3,gue:3,sof:3,cav:3,wpn:3,arm:2,rec:2,eng:2,at:2,ad:2,art:2,mp:2,sec:2,med:1,sup:2,hq:1,rear:1};
+var SQSUP={wpn:1,at:1,ad:1,art:1,hq:1,med:1,sup:1,rear:1,eng:1,mp:1,sec:1};
+var SQTN={line:'橫隊推進',bound:'交替掩護前進',charge:'大規模衝鋒',pocket:'口袋防禦',allround:'環形防禦',ambush:'沿側翼埋伏',wbound:'交替掩護後撤',rout:'無組織後撤',column:'縱隊',hold:'橫隊'};
+function sqOn(){return !!G&&G.set.sqd!==false;}
+function sqYear(u){return typeof utYear==='function'?utYear(u)||G.set.y||1943:G.set.y||1943;}
+/* 連長能聯絡得到的距離（組的活動範圍） */
+function sqComm(u){var y=sqYear(u);return y<1900?200:y<1935?400:800;}
+function sqTrn(u){var s=ST(u);return (u.trn!==undefined?u.trn:s.trn||60)+Math.min(30,u.exp||0);}
+function sqAgg(u){var T=typeof sideCmd==='function'?sideCmd(u.side):null,p=T&&T.pers;return p&&p.agg!==undefined?p.agg:0.5;}
+/* 戰術：依命令、士氣、訓練、經驗、年代與指揮官的個性 */
+function sqTac(u){var o=u.ord,k=o?(o.dk||o.k||''):'',op=o&&o.opt||{},tr=sqTrn(u),y=sqYear(u),agg=sqAgg(u),h=(hstr('sq|'+u.id)%100)/100;
+  if(u.ms==='rout')return 'rout';
+  if(/withdraw|retreat/.test(k)||u.task==='retreat')return u.ms==='shaken'&&(u.mor||50)<35?'rout':tr>=55?'wbound':'line';
+  if(u.form==='march'&&(u._ed||1e9)>3000)return 'column';
+  if(op.post==='ambush'||k==='ambush')return 'ambush';
+  if(/attack|assault|storm|joint|raid|counter/.test(k)){if(y<1918&&tr<70||tr<35||agg>0.75&&h<agg-0.4)return 'charge';return tr>=60&&y>=1915?'bound':'line';}
+  if(/defend|hold|fortify|dig|reserve/.test(k)||u.task==='hold'){if(u.enc||u.cut)return 'allround';return tr>=55&&y>=1915?'pocket':'line';}
+  return u.form==='march'?'column':'line';}
+/* 空曠地形（戰車在前）還是封閉地形（步兵在前） */
+function sqOpen(u){var c=G.map.lc[cellAt(u.x,u.y)];return !(typeof isUrban==='function'&&isUrban(c))&&!(c===LCI.dfor||c===LCI.cfor||c===LCI.jung);}
+/* 各排在連座標系裡的位置 [前後, 左右]（公尺；前方是行進或面對的方向） */
+function sqSlots(u,P,tac){var W=Math.min(Math.max(120,frontW(u)*0.8),sqComm(u)*1.6),n=P.length,L=[],C=[],S=[],R=[],open=sqOpen(u),t=G.t||0;
+  P.forEach(function(p,i){if(p.k==='rec')R.push(i);else if(SQSUP[p.k])S.push(i);else C.push(i);});
+  /* 戰鬥的排的順序：空曠地形戰車在中間前面，封閉地形步兵在前 */
+  C.sort(function(a,b){var ka=P[a].k==='arm'?(open?-1:1):0,kb=P[b].k==='arm'?(open?-1:1):0;return ka-kb||a-b;});
+  var put=function(i,fw,lt){L[i]=[fw,lt];},spread=function(arr,fw,width,f){arr.forEach(function(i,j){var a=arr.length>1?j/(arr.length-1)-0.5:0;put(i,typeof f==='function'?f(j,a):fw,a*width);});};
+  if(tac==='column'){var all=R.concat(C,S);all.forEach(function(i,j){put(i,(all.length-1)/2*W*0.3-j*W*0.3,0);});}
+  else if(tac==='allround'){var all2=C.concat(R);all2.forEach(function(i,j){var an=2*PI*j/Math.max(1,all2.length);put(i,Math.cos(an)*W*0.32,Math.sin(an)*W*0.32);});spread(S,0,W*0.2);}
+  else if(tac==='charge'){spread(C,W*0.42,W*0.55,function(j,a){return W*(0.42-Math.abs(a)*0.25);});spread(R,W*0.55,W*0.3);spread(S,W*0.08,W*0.4);}
+  else if(tac==='bound'||tac==='wbound'){var ph=Math.floor(t/Math.max(60,240-sqTrn(u)))%2,dir=tac==='bound'?1:-1;spread(C,0,W*0.9,function(j){var mv=(j%2)===ph;return dir>0?(mv?W*0.38:W*0.1):(mv?-W*0.3:W*0.08);});spread(R,dir>0?W*0.5:W*0.15,W*0.5);spread(S,dir>0?-W*0.2:-W*0.35,W*0.5);}
+  else if(tac==='pocket'){spread(C,0,W*1.0,function(j,a){return C.length>=3?(Math.abs(a)>0.3?W*0.25:-W*0.08):W*0.12;});spread(R,W*0.45,W*0.6);spread(S,-W*0.3,W*0.4);}
+  else if(tac==='ambush'){spread(C,W*0.05,W*1.3);spread(R,W*0.3,W*0.6);spread(S,-W*0.2,W*0.5);}
+  else if(tac==='rout'){P.forEach(function(p,i){var hh=hstr('rt|'+u.id+'|'+i+'|'+Math.floor(t/90));put(i,-W*(0.2+((hh%100)/100)*0.6),(((hh>>8)%100)/100-0.5)*W*1.3);});}
+  else{spread(C,W*0.15,W*0.9);spread(R,W*0.45,W*0.6);spread(S,-W*0.25,W*0.5);}
+  /* 活動範圍：連長能聯絡得到的距離內 */
+  var Rc=sqComm(u);for(var i=0;i<n;i++){if(!L[i])L[i]=[0,0];var d=Math.hypot(L[i][0],L[i][1]);if(d>Rc){L[i][0]*=Rc/d;L[i][1]*=Rc/d;}}
+  return L;}
+/* 排的位置：取代原本只依陣型的位置（傷亡分配也用這個） */
+(function(){var b=pltSlots;pltSlots=function(u,n){if(!sqOn())return b.apply(this,arguments);var P=pltLive(u);if(P.length!==n)return b.apply(this,arguments);return sqSlots(u,P,sqTac(u));};})();
+/* 組：每個排分成幾個組，位置在排的周圍，隊形跟著戰術 */
+function sqN(p){return SQK[p.k]||2;}
+function sqPos(u){var L=pltPos(u);if(!L.length)return [];var tac=sqTac(u),W=Math.max(120,frontW(u)*0.8),h=u.hd||0,c=Math.cos(h),s=Math.sin(h),out=[],t=G.t||0,gap=W*(tac==='charge'?0.04:tac==='rout'?0.12:0.07);
+  L.forEach(function(o,pi){var p=o[2],n=sqN(p);for(var j=0;j<n;j++){var a=n>1?j/(n-1)-0.5:0,fw=0,lt=a*gap*n;
+      if(tac==='column'){fw=-j*gap;lt=0;}else if(tac==='bound'||tac==='wbound'){fw=((j+pi)%2?1:-1)*gap*0.5;}else if(tac==='pocket'&&n>=3){fw=Math.abs(a)>0.3?gap*0.6:-gap*0.3;}else if(tac==='charge'){fw=-Math.abs(a)*gap;}
+      else if(tac==='rout'){var hh=hstr('rs|'+u.id+'|'+pi+'|'+j+'|'+Math.floor(t/60));fw=((hh%100)/100-0.7)*gap*3;lt=(((hh>>8)%100)/100-0.5)*gap*4;}
+      out.push({x:o[0]+fw*c-lt*s,y:o[1]+fw*s+lt*c,p:p,pi:pi,j:j,n:n,f:clamp((p.m+p.v*8)/((p.m0+p.v0*8)||1),0,1)});}});
+  return out;}
 /* ===================== 兵牌：北約 APP-6、華約式、明式與二戰德軍式 =====================
    北約式：外框依觀看者的立場（友軍長方形、敵軍菱形、中立方形、不明四葉形；空中只有上半、水下只有下半），內部圖示依兵種，
    上方梯隊記號、下方機動方式（輪型、履帶、牽引）與兵力條，左上角分隊顏色、右上角隊徽；部隊可以自訂圖片。
@@ -26630,6 +26688,33 @@ HELP14.push('<h4>積雪、融雪泥濘、高山症與水土不服</h4><ul><li>�
   '<li>融雪讓地面變成爛泥，之後慢慢變乾；結凍時泥地是硬的。積雪深、泥濘重的地方越野更慢（輪型車輛與馬匹最慢，履帶較好）；道路不受影響。</li>'+
   '<li>高山症：海拔 2500 公尺以上，非山地部隊待上幾小時後交火與行軍效率下降，3500 公尺以上開始有人後送；在 2000 公尺以上待約 5 天大致適應。山地部隊不受影響。</li>'+
   '<li>水土不服：在「設定 → 戰鬥 → 高山症與水土不服」設定各方部隊的原駐地氣候；與戰區不同時，頭三週病號較多（熱帶的瘧疾與痢疾、寒帶的凍傷、乾燥地區的中暑），效率也較差。預設「同戰區」不受影響。</li></ul>');
+/* ===================== 排與組（介面）：地圖上平滑移動的排與組、狀態面板的戰術、說明 =====================
+   放大到一定程度畫出各排；再放大畫出各組（排的小兵牌換成更小的組兵牌）。排與組從目前位置平滑移到戰術位置，看得到交替掩護、衝鋒、後撤。 */
+var SQV={};
+/* 平滑移動：每一幀往目標靠近一段（距離太遠就直接跳過去，例如剛開始或連被空運） */
+function sqSmooth(u,T,W){var V=SQV[u.id],now=performance.now();if(!V||V.n!==T.length){SQV[u.id]={n:T.length,P:T.map(function(q){return [q.x,q.y];}),t:now};return SQV[u.id].P;}
+  var dt=Math.min(0.1,(now-V.t)/1000);V.t=now;var k=1-Math.exp(-dt*(UI.run?2.2:6));for(var i=0;i<T.length;i++){var p=V.P[i],q=T[i],d=Math.hypot(q.x-p[0],q.y-p[1]);if(d>W*2.5){p[0]=q.x;p[1]=q.y;continue;}p[0]+=(q.x-p[0])*k;p[1]+=(q.y-p[1])*k;}return V.P;}
+(function(){drawPlt=function(c){VW._plt=[];if(!PLTV.on||pltMode()==='off'||UI.lay.plt===0||!G||!G.units||typeof gfxSimple==='function'&&gfxSimple())return;var m=mpp();if(m>12)return;
+  var seen={},selOnly=pltMode()==='sel',rotOn=typeof UIP!=='undefined'&&UIP.symRot!==0,live={};(VW.items||[]).forEach(function(it){if(it.u&&!it.agg&&!it.grp)seen[it.u.id]=1;});c.save();
+  G.units.forEach(function(u){if(!seen[u.id]||!isLeaf(u)||!pltVisible(u)||u.st==='off'||u.st==='dead'||u.st==='air'||u.st==='base'||u.st==='lift'||!pltOK(u))return;var sel=UI.sel&&UI.sel.indexOf(u.id)>=0;if(selOnly&&!sel)return;
+    var W=Math.max(120,frontW(u)*0.8);if(W/m<60)return;var p0=w2s(u.x,u.y);if(p0[0]<-300||p0[1]<-300||p0[0]>VW.cw+300||p0[1]>VW.ch+300)return;live[u.id]=1;
+    var col=sideCol(u.side),cc=typeof cmColU==='function'?cmColU(u):undefined,mobOff=typeof UIP!=='undefined'&&UIP.mobOn===0,sq=W/m>=150&&sqOn();
+    if(sq){var T=sqPos(u);if(T.length<2)return;var P=sqSmooth(u,T,W);T.forEach(function(q,i){var s=w2s(P[i][0],P[i][1]),S=pltSymOf(q.p),h=clamp(6+3*Math.sqrt(1/q.n),6,9);
+        drawSym(c,{x:s[0],y:s[1],h:h,sym:S.sym,ech:0,dom:'land',side:u.side,col:cc,mob:mobOff?'':S.mob,str:q.f<0.99?q.f:undefined,ms:u.ms,sel:sel,cimg:u.cimg||'',rot:rotOn?(u.hd||0):undefined,alpha:0.45+0.55*q.f});
+        VW._plt.push({sx:s[0],sy:s[1],r:h*0.8,u:u,p:q.p});});return;}
+    var L=pltPos(u);if(L.length<2)return;var P2=sqSmooth(u,L.map(function(o){return {x:o[0],y:o[1]};}),W),tot=sum(L,function(o){return o[2].m0+o[2].v0*8;})||1;
+    L.forEach(function(o,i){var p=o[2],q=w2s(P2[i][0],P2[i][1]),sh=(p.m0+p.v0*8)/tot,h=clamp(8+7*Math.sqrt(sh),8,13),f=clamp((p.m+p.v*8)/((p.m0+p.v0*8)||1),0,1),S=pltSymOf(p);
+      c.globalAlpha=0.3;c.strokeStyle=cc||col;c.lineWidth=0.6;c.beginPath();c.moveTo(p0[0],p0[1]);c.lineTo(q[0],q[1]);c.stroke();c.globalAlpha=1;
+      drawSym(c,{x:q[0],y:q[1],h:h,sym:S.sym,ech:0,dom:'land',side:u.side,col:cc,mob:mobOff?'':S.mob,str:f<0.99?f:undefined,ms:u.ms,sel:sel,cimg:u.cimg||'',rot:rotOn?(u.hd||0):undefined,alpha:0.45+0.55*f});
+      VW._plt.push({sx:q[0],sy:q[1],r:h*0.75,u:u,p:p});});});
+  c.restore();for(var id in SQV)if(!live[id])delete SQV[id];};})();
+/* 狀態面板：排的區塊加上目前的戰術 */
+(function(){var b=pltBlock;pltBlock=function(u){var h=b(u);if(!h||!sqOn())return h;var t=sqTac(u);return h+'<div class="lw-note">排與組目前的動作：'+esc(SQTN[t]||t)+'（依命令、訓練、經驗與指揮官的個性；活動範圍約 '+fmt(sqComm(u))+' 公尺內）</div>';};})();
+setSec('combat','sqd',{t:'排與組的戰術部署',o:28,h:function(){return setOpt(setRow('排與組',setChk('setb','sqd',G.set.sqd!==false,'依命令、訓練、經驗與指揮官的個性在連的範圍內部署與移動（交替掩護、衝鋒、口袋防禦、伏擊、後撤）；關閉時排只依陣型排列')));}});
+HELP14.push('<h4>排與組：在連的指揮下依戰術部署</h4><ul><li>連由排組成，排再分成組（步兵班、火力組、戰車分排）。排與組不能直接下令，也不能從連裡拆出來，但會在連長能聯絡得到的範圍內（1900 年前約 200 公尺、1900～1935 年約 400 公尺、之後約 800 公尺）依戰術移動。放大地圖時畫出各排，再放大畫出各組。</li>'+
+  '<li>依兵種部署：戰鬥的排在前，火力、反戰車、防空、砲、指揮、醫療、運輸與工兵在後，偵察最前；空曠地形進攻時戰車在前，城鎮與森林裡步兵在前。</li>'+
+  '<li>依命令與部隊素質選擇動作：進攻時，訓練好的部隊交替掩護前進，訓練差、1918 年前或指揮官魯莽時大規模衝鋒，其餘橫隊推進；防禦時訓練好的部隊擺口袋防禦，被包圍時環形防禦；伏擊時沿側翼一線埋伏；撤退時訓練好、士氣還在的交替掩護後撤，士氣崩潰時四散後撤；行軍時縱隊。部隊面板會寫出目前的動作。</li>'+
+  '<li>排的位置也決定傷亡落在哪些排：衝在前面、面向敵人的排損失較多。可以在「設定 → 戰鬥」關閉，排就只依陣型排列。</li></ul>');
 /* ===================== 聯機版：在房間裡調整所有模擬設定 =====================
    房主可以在房間頁的「模擬設定」（開戰前不論有沒有載入想定都可以）或作戰中的「設定」分頁調整所有模擬設定；
    改動以「設定路徑 → 值」送到伺服器，所有人一起套用。載入想定前調整的設定，也會套用到之後載入的想定或存檔；「恢復想定的設定」可以撤銷。
