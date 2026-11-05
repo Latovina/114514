@@ -56,7 +56,7 @@ var RKN=['士兵','士官','軍官'],MEALN=['早餐','午餐','晚餐'];
 function rankMix(t){if(t.rk)return [1-(t.rk[0]+t.rk[1])/100,t.rk[1]/100,t.rk[0]/100];var y=(ERAI[t.era]||ERA[6]).y,o=y<1900?0.03:y<1960?0.04:0.06,n=y<1800?0.08:y<1900?0.1:y<1960?0.14:0.2;
   if(t.br==='hq'){o=0.2;n=0.3;}else if(t.dom==='air'&&t.br!=='uav'){o=0.55;n=0.35;}else if(t.dom==='sea'||t.dom==='sub'){o=0.07;n=0.25;}else if(t.br==='drg'||t.br==='mon'){return [1,0,0];}return [1-o-n,n,o];}
 /* ---------- 預設：各類武器數量與載具（依兵種與年代推定，可在編輯器中修改） ---------- */
-function defLoad(t){var E=ERAI[t.era]||ERA[6],y=E.y,m=t.men,v=t.veh,br=t.br,w=[],vh=[],h=0,fl=t.fl||'',vn=t.vn||'',K=t.k||'';
+function defLoad(t){var E=ERAI[t.era]||ERA[6],y=E.y,m=t.men,v=t.veh,br=t.br,w=[],vh=[],h=0,fl=t.fl||'',vn=t.vn||'',K=(t.k||'').replace(/_1$/,'');
   function A(k,n){n=Math.round(n);if(n>0)w.push([k,n]);}function V(k,n){n=Math.round(n);if(n>0)vh.push([k,n]);}
   var rif=y<1690?'match':y<1845?'flint':y<1866?'rmus':y<1886?'brl':y<1950?'bolt':y<1962?'semi':y<1985?'asr1':y<2012?'asr2':'asr3',atgm=y<1975?'atgm1':y<1996?'atgm2':'atgm3',mbt=y<1980?'mbt1':y<2008?'mbt2':'mbt3',truck=y<1914?'wagon':'truck',rk=function(f){A(rif,m*f);};
   if(br==='drg'||br==='mon'){A(br==='drg'?'breath':'claw',Math.max(1,v));V('beast',v);return {w:w,v:vh,h:0};}

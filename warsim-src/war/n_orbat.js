@@ -22,7 +22,7 @@ CHG.side=function(t){var S=G.sides[OB.side],f=t.getAttribute('data-f');S[f]=t.ty
 /* ---------- 新增 ---------- */
 ACT.obadd=function(b){OB.addMode=b.getAttribute('data-v');obAddBox();};
 function eraOpts(sel){return ERA.map(function(e){return '<option value="'+e.k+'"'+(sel===e.k?' selected':'')+'>'+esc(e.n)+(e.fan?'':'（'+e.y0+'–'+(e.y1>=2040?'':e.y1)+'）')+'</option>';}).join('');}
-function typeOpts(sel){var o='',groups={};var all=Object.keys(UT).map(function(k){return UT[k];}).concat(Object.keys(G.types||{}).map(function(k){return G.types[k];}));all.forEach(function(t){var g=t.cus?'cus':t.era;(groups[g]=groups[g]||[]).push(t);});
+function typeOpts(sel){var o='',groups={};var all=Object.keys(UT).map(function(k){return UT[k];}).concat(Object.keys(G.types||{}).map(function(k){return G.types[k];}));all.forEach(function(t){if(t.old&&t.k!==sel)return;var g=t.cus?'cus':t.era;(groups[g]=groups[g]||[]).push(t);});
   if(groups.cus){o+='<optgroup label="自訂類型">'+groups.cus.map(function(t){return '<option value="'+t.k+'"'+(sel===t.k?' selected':'')+'>'+esc(t.n)+'</option>';}).join('')+'</optgroup>';}
   ERA.forEach(function(e){var L=groups[e.k];if(!L)return;o+='<optgroup label="'+esc(e.n)+'">'+L.map(function(t){return '<option value="'+t.k+'"'+(sel===t.k?' selected':'')+'>'+esc(t.n)+'（'+(BR[t.br]||'')+'）</option>';}).join('')+'</optgroup>';});return o;}
 function presetOpts(sel){var o='';ERA.forEach(function(e){var L=FP.filter(function(p){return p.era===e.k;});if(!L.length)return;o+='<optgroup label="'+esc(e.n)+'">'+L.map(function(p){return '<option value="'+p.k+'"'+(sel===p.k?' selected':'')+'>'+esc(p.n)+'（'+ECH[p.ech][1]+'）</option>';}).join('')+'</optgroup>';});return o;}

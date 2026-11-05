@@ -7,6 +7,7 @@
 "b2_data4.js",
 "b3_data5.js",
 "b4_data6.js",
+"b5_navy.js",
 "c_map.js",
 "c2_city.js",
 "c3_blk.js",
@@ -106,6 +107,7 @@
 "h82_env.js",
 "h83_sqd.js",
 "h84_fpc.js",
+"h85_navy.js",
 "t000.js",
 "t001.js",
 "t002.js",
@@ -249,6 +251,7 @@
 "o9b_help.js",
 "o9c_fpc.js",
 "o9d_armio.js",
+"o9e_navy.js",
 {
 "f": "o59_mpset.js",
 "online": true
@@ -264,6 +267,7 @@
 "b2_data4.js",
 "b3_data5.js",
 "b4_data6.js",
+"b5_navy.js",
 "c_map.js",
 "c2_city.js",
 "c3_blk.js",
@@ -360,7 +364,8 @@
 "h81_cm.js",
 "h82_env.js",
 "h83_sqd.js",
-"h84_fpc.js"
+"h84_fpc.js",
+"h85_navy.js"
 ],
 "server_tail": "\nif(typeof GKEYS!=='undefined')GKEYS.push('wsys','hyd');\nif(typeof GKEYS!=='undefined')GKEYS.push('sup');\nif(typeof GKEYS!=='undefined')GKEYS.push('dirs','dirSeq');\nif(typeof GKEYS!=='undefined')GKEYS.push('cbx','cbgr','cbUse','cbSeq');\nif(typeof GKEYS!=='undefined')GKEYS.push('cost');\nif(typeof GKEYS!=='undefined')GKEYS.push('laSet','laVs');\nif(typeof GKEYS!=='undefined')GKEYS.push('zed');\nif(typeof GKEYS!=='undefined')GKEYS.push('gm');\nif(typeof GKEYS!=='undefined')GKEYS.push('tf');\nif(typeof GKEYS!=='undefined')GKEYS.push('fg');\nif(typeof GKEYS!=='undefined')GKEYS.push('cmp');\nfunction wpnChanged(){G._tv=(G._tv||1)+1;G.units.forEach(function(u){if(u.lg)logRecalc(u);});}\nfunction wfTxt(u){if(!u.lg||!u.lg.wpnF)return '';var f=u.lg.wpnF,p=[];if(Math.abs(f.p-1)>0.02)p.push('對人 ×'+fx(f.p,2));if(Math.abs(f.a-1)>0.02)p.push('對裝甲 ×'+fx(f.a,2));if(f.pAdd)p.push('對人 +'+fx(f.pAdd,2));if(f.aAdd)p.push('對裝甲 +'+fx(f.aAdd,2));if(Math.abs(f.penD)>0.05)p.push('穿甲 '+sg(f.penD,1));if(f.penAbs)p.push('穿甲 '+fx(f.penAbs,1));if(Math.abs(f.sup-1)>0.02)p.push('壓制 ×'+fx(f.sup,2));if(Math.abs(f.rng-1)>0.02)p.push('射程 ×'+fx(f.rng,2));if(Math.abs(f.ind-1)>0.02)p.push('間接射程 ×'+fx(f.ind,2));if(f.indAbs)p.push('間接射程 '+kmTxt(f.indAbs));if(f.aaD>0.05)p.push('防空 +'+fx(f.aaD,1));return p.length?p.join('、'):'與時代標準配備相同';}\n\n/* 伺服器沒有畫面特效模組：只用來收集交戰事件 */\nvar FX={cap:false,ev:[]};\n\n;module.exports={E:function(s){return eval(s);},setG:function(g){G=g;},getG:function(){return G;}};\n"
 }
