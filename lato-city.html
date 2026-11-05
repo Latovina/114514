@@ -350,7 +350,7 @@ var D8X=[1,1,0,-1,-1,-1,0,1],D8Y=[0,1,1,1,0,-1,-1,-1],D8L=[1,1.4142,1,1.4142,1,1
 /* ===================== 狀態 ===================== */
 var C={};
 function resetState(){C={MP:null,P:null,S:null,U:[],lines:[],routes:[],ext:[],ev:[],rec:[],xst:[],fac:[],facN:[],R:null,t:0,y0:2025,hist:[],
-  opt:{auto:true,recMode:'better',recBudget:0.35,imp:true,birth:9,death:8},nid:1,faults:[],name:'',seed:'',nmc:{},sel:null,dirty:{f:1,z:1,net:1,bnd:1,lbl:1,poi:1},mid:Math.random().toString(36).slice(2),design:[],uroads:[],droads:[],bovr:{}};NET={};TRF={};TRFQ=[];}
+  opt:{auto:true,recMode:'better',recBudget:0.35,imp:true,birth:9,death:8},nid:1,faults:[],name:'',seed:'',nmc:{},sel:null,dirty:{f:1,z:1,net:1,bnd:1,lbl:1,poi:1},mid:Math.random().toString(36).slice(2),design:[],uroads:[],droads:[],bovr:{},her:herNew()};NET={};TRF={};TRFQ=[];}
 resetState();
 function K(s){var MP=C.MP;return clamp(Math.floor(s.y),0,MP.GH-1)*MP.GW+clamp(Math.floor(s.x),0,MP.GW-1);}
 function kx(k){return k%C.MP.GW;}function ky(k){return (k/C.MP.GW)|0;}
@@ -396,7 +396,10 @@ function stepCost(k,kind,g){var MP=C.MP,P=C.P,c=MP.lc[k];if(c<=2)return 0;var s=
     if(MP.rd[k])cost*=MP.rd[k]>=3?0.4:0.6;}
   else if(kind==='rail'){cost=1+Math.pow(s*0.28,2);if(c===LCI.riv)cost+=20;else if(MP.rv[k]>=3)cost+=8;if(z===ZI.air||z===ZI.mil)cost+=60;else if(zDev(z))cost+=1.5;if(MP.rl[k]&1)cost*=0.35;}
   else if(kind==='lrt'){cost=(MP.rd[k]>=2?0.7:3)+s*0.15;if(c===LCI.riv)cost+=10;if(z===ZI.air||z===ZI.mil)cost+=60;}
+  else if(kind==='hsr'){/* 高鐵：避開山地與密集市區，進城時沿既有鐵路走廊 */cost=1+Math.pow(s*0.3,2);var e=MP.el[k];if(e>250)cost+=(e-250)/60;if(c===LCI.riv)cost+=2;if(z===ZI.air||z===ZI.mil||z===ZI.port)cost+=80;else if(zDev(z)&&P.dn[k]>=3)cost+=5;else if(zDev(z)||zPub(z))cost+=1.2;if(MP.rl[k]&2)cost*=0.35;else if(MP.rl[k]&1)cost*=0.5;}
   else cost=1;
+  if(kind==='rail'||kind==='hsr'){var bx=k%MP.GW,by=(k/MP.GW)|0;if(bx<5||by<5||bx>=MP.GW-5||by>=MP.GH-5)cost+=20;}/* 不沿著地圖邊緣走 */
+  var hm=C.her&&C.her.walls.length?herMask():null;if(hm&&hm[k]){if(hm[k]===2)cost+=400;else if(kind==='rail'||kind==='hsr')cost+=2.5;}/* 宮城與壇廟不穿越，鐵路盡量繞過皇城 */
   return cost;}
 function findPath(a,b,kind,g,maxN){var MP=C.MP,GW=MP.GW,GH=MP.GH,N=GW*GH,F=pfInit(N),s=++F.s,H=F.H,bx=b%GW,by=(b/GW)|0,cnt=0,hw=kind==='rail'?0.9:1;H.clear();
   if(!stepCost(a,kind,g)||!stepCost(b,kind,g))return null;
@@ -585,7 +588,7 @@ function fullName(u){var a=[];while(u&&u.lv>0){a.unshift(u.name);u=C.U[u.par];}r
 
 /* ===================== 公共設施：鄉鎮公所、學校、消防、醫院；機場、港口、電廠、淨水場、營區、國家公園 ===================== */
 function placeFacilities(sets,r,opt){opt=opt||{};var MP=C.MP,P=C.P,S=C.S,GW=MP.GW,GH=MP.GH,N=GW*GH,cs=MP.cs,U=C.U,G=growCtx();
-  var free=function(k){return P.zt[k]===0&&!isWater(MP.lc[k])&&S.SL[k]<15;},any=function(k){return MP.lc[k]>2?1:0;},conv=function(k){var z=P.zt[k];return (z===0||zDev(z))&&!isWater(MP.lc[k])&&S.SL[k]<15;};
+  var free=function(k){var c=MP.lc[k];return P.zt[k]===0&&!isWater(c)&&c!==LCI.sand&&c!==LCI.marsh&&S.SL[k]<15;},any=function(k){return MP.lc[k]>2?1:0;},conv=function(k){var z=P.zt[k];return (z===0||zDev(z))&&!isWater(MP.lc[k])&&S.SL[k]<15;};
   function near(k0,n,z,l,okf){var L=growFrom(G,k0,n,okf||free,any,40000);L.forEach(function(k){setZone(k,z,l,0);});return L;}
   /* 每個鄉鎮：公所、國小、消防分隊；縣市政府與醫院在縣治 */
   var hasEdu={},hasEmg={};for(var q=0;q<N;q++){if(P.adm[q]===0xFFFF)continue;if(P.zt[q]===ZI.edu)hasEdu[P.adm[q]]=1;if(P.zt[q]===ZI.emg)hasEmg[P.adm[q]]=1;}
@@ -597,7 +600,7 @@ function placeFacilities(sets,r,opt){opt=opt||{};var MP=C.MP,P=C.P,S=C.S,GW=MP.G
   C.facN=[];var cities=sets.filter(function(s){return s.kind==='city';});
   function airport(s,lv,minD,maxD){var Lc=Math.round(3000/cs)+2,Wc=Math.max(3,Math.round(650/cs)),best=null,bsc=1e18;
     for(var t=0;t<500;t++){var a=r()*2*PI,dd=(minD+r()*(maxD-minD))/cs,cx=s.x+Math.cos(a)*dd,cy=s.y+Math.sin(a)*dd,ra=Math.floor(r()*4)*PI/4,ca=Math.cos(ra),sa=Math.sin(ra),cells={},ok=true;
-      for(var i=-Lc/2;i<=Lc/2&&ok;i+=0.5)for(var j=-Wc/2;j<=Wc/2;j+=0.5){var X=Math.floor(cx+ca*i-sa*j),Y=Math.floor(cy+sa*i+ca*j);if(X<0||Y<0||X>=GW||Y>=GH){ok=false;break;}var k=Y*GW+X;if(!(P.zt[k]===0||zDev(P.zt[k])&&P.dn[k]<=1)||isWater(MP.lc[k])||S.SL[k]>4){ok=false;break;}cells[k]=1;}
+      for(var i=-Lc/2;i<=Lc/2&&ok;i+=0.5)for(var j=-Wc/2;j<=Wc/2;j+=0.5){var X=Math.floor(cx+ca*i-sa*j),Y=Math.floor(cy+sa*i+ca*j);if(X<0||Y<0||X>=GW||Y>=GH){ok=false;break;}var k=Y*GW+X;if(!(P.zt[k]===0||zDev(P.zt[k])&&P.dn[k]<=1)||isWater(MP.lc[k])||MP.lc[k]===LCI.sand||MP.lc[k]===LCI.marsh||S.SL[k]>4){ok=false;break;}cells[k]=1;}
       if(ok&&dd<bsc){bsc=dd;best={cells:cells,x:cx,y:cy};}}
     if(!best)return null;Object.keys(best.cells).forEach(function(k){setZone(+k,ZI.air,lv,0);});var f={kind:'air',x:best.x,y:best.y,name:s.name+(lv>=3?'國際機場':'機場'),id:C.nid++};C.facN.push(f);return f;}
   var A1=!opt.noAir&&cities[0]?airport(cities[0],3,9000,26000):null,A2=!opt.noAir&&cities[1]?airport(cities[1],2,5000,18000):null;
@@ -639,31 +642,14 @@ async function genTransport(sets,r,prog){var MP=C.MP,P=C.P,S=C.S,GW=MP.GW,GH=MP.
   while(out.length){var bd=1e18,bi=-1,bj=-1;for(var i=0;i<inT.length;i++)for(var j=0;j<out.length;j++){var d=dist(inT[i].x,inT[i].y,out[j].x,out[j].y);if(d<bd){bd=d;bi=i;bj=j;}}edges.push([inT[bi],out[bj]]);inT.push(out[bj]);out.splice(bj,1);}
   towns.forEach(function(t){var ns=towns.filter(function(u){return u!==t;}).sort(function(a,b){return dist(t.x,t.y,a.x,a.y)-dist(t.x,t.y,b.x,b.y);});if(ns[1]&&dist(t.x,t.y,ns[1].x,ns[1].y)*cs<30000&&r()<0.35)edges.push([t,ns[1]]);});
   for(var e=0;e<edges.length;e++){var A=edges[e][0],B=edges[e][1],g=A.pop>=40000&&B.pop>=40000?3:2,p3=routeLine('road',g,[K(A),K(B)]);if(p3)addLine({kind:'road',g:g,name:nextName('road',g),pts:p3,wp:[K(A),K(B)],built:1});if((e&7)===0)await prog('省道與縣道',0.66+0.08*e/edges.length);}
-  /* 村落：鄉道接到最近的道路（基本道路網） */
-  await prog('鄉道',0.75);sets.filter(function(s){return s.kind==='village';}).forEach(function(v){var bx=Math.floor(v.x),by=Math.floor(v.y),R=Math.ceil(5000/cs),best=-1,bd2=1e18;
-    for(var b=-R;b<=R;b++)for(var a=-R;a<=R;a++){var X=bx+a,Y=by+b;if(X<0||Y<0||X>=GW||Y>=GH)continue;var q=Y*GW+X;if(MP.rd[q]>=2&&a*a+b*b>1){var dd=a*a+b*b;if(dd<bd2){bd2=dd;best=q;}}}
-    if(best<0)return;var p4=findPath(K(v),best,'road',1,60000);if(p4)p4.forEach(function(q){if(P.rd0[q]<2)P.rd0[q]=2;if(MP.rd[q]<2)MP.rd[q]=2;});});
-  /* 鐵路：主線串連城市與大市鎮，另有一條支線 */
-  await prog('鐵路',0.8);var rs=corridor(towns.filter(function(s){return s.pop>=15000;}),proj),main=null;
-  if(rs.length>=2){var crr=chainRoute('rail',0,rs.map(K)),wr=crr?crr.wp:null,pr=crr?crr.pts:null;if(pr){var st=[];rs.forEach(function(s){var q=nearestOn(pr,s.x,s.y);if(q.d*cs<2500&&st.indexOf(pr[q.i])<0)st.push(pr[q.i]);});towns.forEach(function(s){if(rs.indexOf(s)>=0)return;var q=nearestOn(pr,s.x,s.y);if(q.d*cs<1500&&st.indexOf(pr[q.i])<0)st.push(pr[q.i]);});
-      main=addLine({kind:'rail',name:nextName('rail'),col:LK.rail.col,pts:pr,wp:wr,st:st,built:1});}}
-  if(main){var far=towns.filter(function(s){var q=nearestOn(main.pts,s.x,s.y);return q.d*cs>7000&&q.d*cs<40000;}).sort(function(a,b){return b.pop-a.pop;})[0];
-    if(far){var q=nearestOn(main.pts,far.x,far.y),pb=routeLine('rail',0,[main.pts[q.i],K(far)]);if(pb){var stb=stationsAlong(pb,5000);addLine({kind:'rail',name:far.name+'支線',col:LK.rail.col,pts:pb,wp:[main.pts[q.i],K(far)],st:stb.slice(1),par:main.id,built:1});}}}
-  /* 高鐵：三個以上大城市才設，站點多在市區外圍 */
-  await prog('高鐵',0.84);var hs=corridor(towns.filter(function(s){return s.kind==='city'&&s.pop>=150000;}),proj);
-  if(hs.length>=2){var crh=chainRoute('hsr',0,hs.map(K)),wh=crh?crh.wp:null,ph=crh?crh.pts:null;if(ph){var sth=hs.filter(function(s){return nearestOn(ph,s.x,s.y).d*cs<6000;}).map(function(s){return ph[nearestOn(ph,s.x,s.y).i];});addLine({kind:'hsr',name:nextName('hsr'),col:LK.hsr.col,pts:ph,wp:wh,st:sth,built:1});}}
-  /* 捷運：首都三條交會於市中心的路線；第二大城一條；第三大城輕軌 */
-  await prog('捷運與輕軌',0.88);var cities=towns.filter(function(s){return s.kind==='city';});
-  function metroLines(s,n,kind){var R=Math.max(5,s.r/cs*1.35),a0=r()*PI,made=0;for(var i=0;i<n;i++){var a=a0+i*PI/n,ca=Math.cos(a),sa=Math.sin(a),o=(i-(n-1)/2)*Math.max(2,R*0.06);
-      var p0=[s.x-ca*R-sa*o,s.y-sa*R+ca*o],p1=[s.x-sa*o*0.3,s.y+ca*o*0.3],p2=[s.x+ca*R-sa*o,s.y+sa*R+ca*o];
-      [p0,p2].forEach(function(p){for(var t=0;t<60;t++){var q=clamp(Math.floor(p[1]),0,GH-1)*GW+clamp(Math.floor(p[0]),0,GW-1);if(!isWater(MP.lc[q])&&MP.lc[q]!==LCI.sand)break;p[0]+=(s.x-p[0])*0.06;p[1]+=(s.y-p[1])*0.06;}});
-      var w=[p0,p1,p2].map(function(p){return clamp(Math.floor(p[1]),0,GH-1)*GW+clamp(Math.floor(p[0]),0,GW-1);}),pm=kind==='metro'?routeLine('metro',0,w):routeLine('lrt',0,w);if(!pm||pm.length<6)continue;
-      var stm=stationsAlong(pm,LK[kind].gap);addLine({kind:kind,name:nextName(kind,0,{city:s.name}),col:nextColor(kind,s.name),pts:pm,wp:w,st:stm,built:1});made++;}return made;}
-  if(cities[0]&&cities[0].pop>=300000)metroLines(cities[0],3,'metro');
-  if(cities[1]&&cities[1].pop>=400000)metroLines(cities[1],1,'metro');
-  var lc3=cities[cities[1]&&cities[1].pop>=400000?2:1];if(lc3&&lc3.pop>=120000)metroLines(lc3,1,'lrt');
-  C.lines.forEach(function(L){L.cost=lineCost(L).cost;});
-  await prog('站前商圈、交流道與加油站',0.9);C.lver=(C.lver||0)+1;stationDistricts();buildNets();interchanges();gasStations();}
+  /* 鐵路：依地形成本建立的幹線（通過首都）、支線與環島連絡線 */
+  await prog('鐵路',0.8);var RL=planRail(sets);
+  /* 高鐵：連接大城市，避開山地 */
+  await prog('高鐵',0.84);planHSR(sets,RL);
+  await prog('站前商圈與市區路網',0.87);C.lver=(C.lver||0)+1;stationDistricts();buildNets();
+  /* 捷運與輕軌：在市區路網完成後沿幹道規劃 */
+  await prog('捷運與輕軌',0.9);planUrbanRail(r);C.lver++;C.lines.forEach(function(L){L.cost=lineCost(L).cost;});
+  await prog('交流道與加油站',0.91);interchanges();gasStations();}
 
 /* ===================== 礦產與能源（地下資源） ===================== */
 function genDeposits(){var MP=C.MP,S=C.S,P=C.P,GW=MP.GW,N=GW*MP.GH,NZ=new Noise(C.seed+'|rs'),rs=P.rs;
@@ -723,7 +709,7 @@ function planCities(sets){var MP=C.MP,N=MP.GW*MP.GH,G=growCtx();C.cities=[];C.nb
   cityBBoxes();
   sets.forEach(function(s,si){cityPOISeeds(si);});}
 function planLandUse(si,G){var pf=C.cities[si],MP=C.MP,P=C.P,S=C.S,GW=MP.GW,GH=MP.GH,cs=MP.cs,ha=haOf(),k0=cellK(pf.x,pf.y),cx=pf.x,cy=pf.y,P0=pf.pop,rr=mb32(hstr(C.seed+'|lu|'+si)),i,j;
-  var okc=function(k){return P.zt[k]===0&&!isWater(MP.lc[k])&&S.SL[k]<22;};
+  var okc=function(k){var c=MP.lc[k];return P.zt[k]===0&&!isWater(c)&&c!==LCI.sand&&c!==LCI.marsh&&S.SL[k]<22;};/* 沙灘與濕地保留原貌 */
   if(pf.kind==='village'){var nV=Math.max(3,Math.ceil(P0/(RES_HA[1]*ha*0.85))),LV=growFrom(G,k0,nV,okc,function(k){return MP.lc[k]>2?1+S.SL[k]*0.2+((ih(k%GW,(k/GW)|0,79)&255)/255)*1.5:0;});
     LV.forEach(function(k,ii){if(ii===1&&P0>600&&LV.length>4)setZone(k,ZI.edu,1,0);else setZone(k,ZI.res,1,1);P.sty[k]=7;P.cid[k]=si;C.sown[k]=si;});pf.n=LV.length;pf.Ru=Math.sqrt(LV.length/PI);return;}
   var cls=pf.cap||P0>=450000?'mega':P0>=150000?'big':P0>=40000?'city':'town';pf.cls=cls;
@@ -755,14 +741,14 @@ function planLandUse(si,G){var pf=C.cities[si],MP=C.MP,P=C.P,S=C.S,GW=MP.GW,GH=M
   else if(pf.depK>=0)thInd=Math.atan2(((pf.depK/GW)|0)-cy,pf.depK%GW-cx);else thInd=gates.length>1?gates[1]:ang+PI/2;
   var thUp=thInd+PI;pf.thInd=+thInd.toFixed(3);pf.thUp=+thUp.toFixed(3);
   if(nInd>0){var s0=0,sv=-1e9;for(i=0;i<n;i++){var v=rho[i]*Math.cos(th[i]-thInd);if(v>sv){sv=v;s0=i;}}
-    var lvI=cls==='mega'||cls==='big'?3:2,dI=cls==='town'?2:3,LI=growFrom(G,L[s0],nInd,function(kk){return P.zt[kk]===0&&!isWater(MP.lc[kk])&&S.SL[kk]<10;},function(kk){return MP.lc[kk]>2?1+S.SL[kk]*0.2+(pf.role==='port'&&S.dSea[kk]>6?2:0):0;},nInd*40+20000);
+    var lvI=cls==='mega'||cls==='big'?3:2,dI=cls==='town'?2:3,LI=growFrom(G,L[s0],nInd,function(kk){var c=MP.lc[kk];return P.zt[kk]===0&&!isWater(c)&&c!==LCI.sand&&c!==LCI.marsh&&S.SL[kk]<10;},function(kk){return MP.lc[kk]>2?1+S.SL[kk]*0.2+(pf.role==='port'&&S.dSea[kk]>6?2:0):0;},nInd*40+20000);
     LI.forEach(function(kk){setZone(kk,ZI.ind,lvI,dI);P.sty[kk]=5;P.cid[kk]=si;});if(LI.length>=6){var gx=0,gy=0;LI.forEach(function(kk){gx+=kk%GW+0.5;gy+=((kk/GW)|0)+0.5;});C.poiS.push({t:'ind',x:gx/LI.length,y:gy/LI.length,name:pf.name+(pf.role==='mining'?'礦區':'工業區'),si:si});}}
   /* 5. 大學校園：外圍、遠離工業的一側 */
   var nCamp=pf.cap?2:pf.role==='college'||cls==='big'||cls==='mega'?1:0;for(var c2=0;c2<nCamp;c2++){var cand=-1,cv=-1e9;for(i=0;i<n;i++){if(asg[i]||rho[i]<0.55||rho[i]>0.9)continue;var v2=-dAng(th[i],thUp+c2*1.3)+(ih(i,c2,5)%100)/400;if(v2>cv){cv=v2;cand=i;}}
     if(cand>=0)ringPick(L[cand]%GW+0.5,((L[cand]/GW)|0)+0.5,pf.cap?14:11).forEach(function(ii){setI(ii,ZI.edu,3,0,6);});}
   /* 5b. 科學園區：大學附近、高級住宅那一側的市區外緣（低建蔽、多綠地） */
   if(nSci>0){var s1=0,sv1=-1e9;for(i=0;i<n;i++){var v1=rho[i]*Math.cos(th[i]-thUp-0.6);if(v1>sv1){sv1=v1;s1=i;}}
-    var LS=growFrom(G,L[s1],nSci,function(kk){return P.zt[kk]===0&&!isWater(MP.lc[kk])&&S.SL[kk]<10;},function(kk){return MP.lc[kk]>2?1+S.SL[kk]*0.2:0;},nSci*40+8000);
+    var LS=growFrom(G,L[s1],nSci,function(kk){var c=MP.lc[kk];return P.zt[kk]===0&&!isWater(c)&&c!==LCI.sand&&c!==LCI.marsh&&S.SL[kk]<10;},function(kk){return MP.lc[kk]>2?1+S.SL[kk]*0.2:0;},nSci*40+8000);
     LS.forEach(function(kk){setZone(kk,ZI.ind,3,4);P.sty[kk]=8;P.cid[kk]=si;});if(LS.length){var qx=0,qy=0;LS.forEach(function(kk){qx+=kk%GW+0.5;qy+=((kk/GW)|0)+0.5;});C.poiS.push({t:'sci',x:qx/LS.length,y:qy/LS.length,name:pf.name+'科學園區',si:si});}}
   /* 6. 醫學中心、區域醫院、都會公園、河濱公園 */
   if(P0>=250000)for(var m=0;m<(pf.cap?2:1);m++){var a3=th[0]+m*2.4+1,mc=ringPick(cbx+Math.cos(a3)*Ru*0.22,cby+Math.sin(a3)*Ru*0.22,4);mc.forEach(function(ii){setI(ii,ZI.emg,3,0,0);});}
@@ -820,7 +806,7 @@ function stationDistricts(){var MP=C.MP,P=C.P,GW=MP.GW,GH=MP.GH,G=growCtx();
     if(zoned<6)hsrTown(k,L,G);});});}
 function hsrTown(k,L,G){var MP=C.MP,P=C.P,S=C.S,GW=MP.GW,x=kx(k)+0.5,y=ky(k)+0.5,i=L.pts.indexOf(k),a=L.pts[Math.max(0,i-3)],b=L.pts[Math.min(L.pts.length-1,i+3)],ang=Math.atan2(ky(b)-ky(a),kx(b)-kx(a)),si=C.cities.length,u=unitAt(k,2);
   var pf={si:si,x:x,y:y,kind:'town',pop:0,cap:false,name:(u?u.name.replace(/[縣市]$/,''):C.NM.place('plain'))+'高鐵特定區',role:'hsrtown',style:'grid',ang:+(((ang%PI)+PI)%PI).toFixed(4),angSrc:'高鐵路線',dev:0.92,gates:[+ang.toFixed(3)],coast:false,river:false,relief:0,farmF:0,dep:[0,0,0,0,0,0],old:false,depK:-1,capD:0};
-  C.cities.push(pf);var L2=growFrom(G,k,130,function(q){return P.zt[q]===0&&!isWater(MP.lc[q])&&S.SL[q]<10;},function(q){return MP.lc[q]>2?1+S.SL[q]*0.2:0;},20000);if(L2.length<20)return;
+  C.cities.push(pf);var L2=growFrom(G,k,130,function(q){return P.zt[q]===0&&!isWater(MP.lc[q])&&MP.lc[q]!==LCI.sand&&MP.lc[q]!==LCI.marsh&&S.SL[q]<10;},function(q){return MP.lc[q]>2?1+S.SL[q]*0.2:0;},20000);if(L2.length<20)return;
   L2.forEach(function(q,j){var d=dist(kx(q)+0.5,ky(q)+0.5,x,y);if(d<2.6)setZone(q,j%3?ZI.com:ZI.off,3,2);else if(j%17===5)setZone(q,ZI.park,1,0);else setZone(q,ZI.res,3,1);P.sty[q]=d<2.6?4:1;P.cid[q]=si;});
   var bb=[1e9,1e9,-1,-1];L2.forEach(function(q){var X=kx(q),Y=ky(q);if(X<bb[0])bb[0]=X;if(Y<bb[1])bb[1]=Y;if(X>bb[2])bb[2]=X;if(Y>bb[3])bb[3]=Y;});pf.bb=bb;
   pf.n=L2.length;pf.Ru=+Math.sqrt(L2.length/PI).toFixed(2);pf.cbd=[+x.toFixed(2),+y.toFixed(2)];C.nbh.push({x:+x.toFixed(2),y:+(y+2).toFixed(2),si:si,name:'站前里'});}
@@ -1187,8 +1173,7 @@ function unitOutline(u){if(!u||u.lv<1)return null;var MP=C.MP,GW=MP.GW,GH=MP.GH,
   for(var y=y0;y<=y1;y++)for(var x=x0;x<=x1;x++){var k=y*GW+x,a=A[k]===id;if(x<GW-1&&a!==(A[k+1]===id)){p.moveTo(x+1,y);p.lineTo(x+1,y+1);}if(y<GH-1&&a!==(A[k+GW]===id)){p.moveTo(x,y+1);p.lineTo(x+1,y+1);}}return p;}
 
 /* ---------- 路線的 Path2D（格中心連線，去掉共線點） ---------- */
-function linePath2D(L){if(L._p&&L._pn===L.pts.length)return L._p;var GW=C.MP.GW,P=L.pts,p=new Path2D();if(!P.length)return p;var px=P[0]%GW+0.5,py=((P[0]/GW)|0)+0.5,ldx=0,ldy=0,lx=px,ly=py;p.moveTo(px,py);
-  for(var i=1;i<P.length;i++){var x=P[i]%GW+0.5,y=((P[i]/GW)|0)+0.5,dx=x-lx,dy=y-ly;if(i>1&&(dx!==ldx||dy!==ldy))p.lineTo(lx,ly);ldx=dx;ldy=dy;lx=x;ly=y;}p.lineTo(lx,ly);L._p=p;L._pn=P.length;return p;}
+function linePath2D(L){var g=lineXY(L);if(L._p&&L._pg===g)return L._p;var p=new Path2D();if(g.length<2)return p;p.moveTo(g[0],g[1]);for(var i=2;i<g.length;i+=2)p.lineTo(g[i],g[i+1]);if(g.length===2)p.lineTo(g[0]+0.01,g[1]);L._p=p;L._pg=g;return p;}
 /* 站名：相鄰兩格內的車站視為轉乘站共用站名；其餘依鄉鎮或聚落命名，重複時加方位 */
 function stName(L,i){var k=L.st[i],R=C.stN||(C.stN={});if(R[k])return R[k];var x=kx(k),y=ky(k),key,used={};
   for(key in R){var q=+key;if(Math.abs(kx(q)-x)<=2&&Math.abs(ky(q)-y)<=2)return R[k]=R[key];used[R[key]]=1;}
@@ -1203,7 +1188,7 @@ function visRect(){var MP=C.MP,z=V.z;return [Math.max(0,Math.floor(V.x-VW/2/z)-1
 function sxOf(x){return VW/2+(x-V.x)*V.z;}function syOf(y){return VH/2+(y-V.y)*V.z;}
 /* 整張地圖大小的影像只畫可見範圍（整張放大繪製在高倍率時很慢） */
 function drawSub(img,vr,ox,oy,z){if(!img)return;var GW=C.MP.GW,GH=C.MP.GH,sc=img.width/GW,x0=Math.max(0,vr[0]-1),y0=Math.max(0,vr[1]-1),x1=Math.min(GW,vr[2]+1),y1=Math.min(GH,vr[3]+1);if(x1<=x0||y1<=y0)return;CX.drawImage(img,x0*sc,y0*sc,(x1-x0)*sc,(y1-y0)*sc,ox+x0*z,oy+y0*z,(x1-x0)*z,(y1-y0)*z);}
-function draw(){NEED=0;GEN.t=0;GEN.miss=false;var ctx=CX,W=VW,H=VH,MP=C.MP,base=LY.base||'street',st=base!=='terrain';ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle=st?WATERC:'#2b4a6b';ctx.fillRect(0,0,W,H);if(!MP||!IMG.base||!C.P||!C.U||!C.U.length)return;
+function draw(){NEED=0;GEN.t=0;GEN.miss=false;/* 拖曳、縮放時每個畫面少產生一點街區細節，停下來再一次補齊 */GEN.budget=(PAN&&PAN.moved)||PINCH||FLY||performance.now()-WHEELT<300?16:48;var ctx=CX,W=VW,H=VH,MP=C.MP,base=LY.base||'street',st=base!=='terrain';ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle=st?WATERC:'#2b4a6b';ctx.fillRect(0,0,W,H);if(!MP||!IMG.base||!C.P||!C.U||!C.U.length)return;
   if(st&&!IMG.streetW)buildStreetBase();
   if(C.dirty.ov){zoneImg();IMG.zgOK=false;C.dirty.ov=0;if(THEME)C.dirty.th=1;}if(base==='street'&&!IMG.zgOK){zoneImgG();IMG.zgOK=true;}
   if(C.dirty.net||IMG.netMode!==st)netImg();if(C.dirty.dmg)dmgImg();if(C.dirty.bnd)buildBounds();if(C.dirty.poi)buildPOI();if(THEME&&(C.dirty.th||!IMG.th))themeImg();
@@ -1212,15 +1197,16 @@ function draw(){NEED=0;GEN.t=0;GEN.miss=false;var ctx=CX,W=VW,H=VH,MP=C.MP,base=
   else{/* 街道圖：淡色底圖平滑放大；放大後海岸線另以向量重畫 */ctx.imageSmoothingEnabled=true;var hiz=z>=4;drawSub(hiz?IMG.streetL:IMG.streetW,vr,ox,oy,z);if(hiz){ctx.setTransform(DPR*z,0,0,DPR*z,DPR*ox,DPR*oy);drawWater(vr,z);ctx.setTransform(DPR,0,0,DPR,0,0);}}
   ctx.imageSmoothingEnabled=z<1.5;
   if(THEME&&IMG.th){ctx.globalAlpha=THEME==='lc'?1:0.82;ctx.drawImage(IMG.th,ox,oy,IMG.thC?CW*FB*z:MW,IMG.thC?CH*FB*z:MH);ctx.globalAlpha=1;}
-  if(LY.zone&&THEME!=='lc'){if(base==='street'&&IMG.zoneG){ctx.globalAlpha=THEME?0.5:1;drawSub(IMG.zoneG,vr,ox,oy,z);}else if(IMG.zone){ctx.globalAlpha=base==='plan'?0.9:(z>=9?0.5:THEME?0.35:0.85);drawSub(IMG.zone,vr,ox,oy,z);}ctx.globalAlpha=1;}
+  if(LY.zone&&THEME!=='lc'){if(base==='street'&&IMG.zoneG){/* 放大到街廓後由街廓本身呈現，分區底色淡出，城市外緣才不會有一圈色塊 */var fa=(LY.bld||LY.road)?clamp(1-(z-6)/4,0,1):1;ctx.globalAlpha=(THEME?0.5:1)*fa;if(fa>0)drawSub(IMG.zoneG,vr,ox,oy,z);}else if(IMG.zone){ctx.globalAlpha=base==='plan'?0.9:(z>=9?0.5:THEME?0.35:0.85);drawSub(IMG.zone,vr,ox,oy,z);}ctx.globalAlpha=1;}
   if(LY.dmg&&C.hasDmg&&IMG.dmg){drawSub(IMG.dmg,vr,ox,oy,z);}
   if(LY.road){if(z<3){ctx.globalAlpha=st?1:0.9;drawSub(IMG.net,vr,ox,oy,z);ctx.globalAlpha=1;}else drawRasterNet(vr,ox,oy,z);}
   if((LY.bld||LY.road)&&z>=7)fabricTiles(vr,z,base,ox,oy);
   ctx.setTransform(DPR*z,0,0,DPR*z,DPR*ox,DPR*oy);
-  if(LY.road)drawStreets(z,base,vr);
+  if(LY.bld||LY.road)drawWalls(z,vr);
+  if(LY.road)drawStreets(z,base,vr);if(LY.bld||LY.road){drawGates(z,vr);drawTombs(z,vr);}
   drawRunways(z);if(LY.road||LY.rail)drawLines(z,vr);if(LY.rail||LY.bld)drawStationsGeo(z,vr);if(LY.trf)drawTraffic(z,vr);if(LY.route)drawRoutes(z);if(LY.adm)drawBounds(z,vr);drawSelection(z);drawEventsMarks(z);
   ctx.setTransform(DPR,0,0,DPR,0,0);
-  var boxes=[];if(LY.lbl)drawLabels(ox,oy,z,boxes);if(LY.poi)drawPOI(ox,oy,z,boxes);if(LY.rail)drawStations(ox,oy,z,boxes);if(LY.lbl){drawStreetLabels(ox,oy,z,boxes);if(LY.road)drawShields(ox,oy,z,boxes);}
+  var boxes=[];if(LY.lbl)drawLabels(ox,oy,z,boxes);if(LY.poi)drawPOI(ox,oy,z,boxes);if(LY.rail)drawStations(ox,oy,z,boxes);if(LY.lbl){drawStreetLabels(ox,oy,z,boxes);if(LY.road){drawShields(ox,oy,z,boxes);drawRuralShields(ox,oy,z,boxes);}}
   if(typeof drawTool==='function')drawTool(ox,oy,z);}
 function drawRasterNet(vr,ox,oy,z){var ctx=CX,MP=C.MP,P=C.P,GW=MP.GW,GH=MP.GH,paths=[null,new Path2D(),new Path2D(),new Path2D(),new Path2D()],rp=new Path2D(),hp=new Path2D(),n=0;
   for(var y=vr[1];y<vr[3];y++)for(var x=vr[0];x<vr[2];x++){var k=y*GW+x,r=MP.rd[k],l=MP.rl[k],ln=P.ln[k];
@@ -1237,11 +1223,12 @@ function drawRasterNet(vr,ox,oy,z){var ctx=CX,MP=C.MP,P=C.P,GW=MP.GW,GH=MP.GH,pa
   ctx.setLineDash([]);ctx.strokeStyle=st?'#7C8DB5':'#2E54AA';ctx.lineWidth=rw*1.1;ctx.stroke(hp);ctx.strokeStyle='#F2F4F8';ctx.lineWidth=rw*0.45;ctx.setLineDash([rw*2.5,rw*2.5]);ctx.stroke(hp);ctx.restore();}
 var RVIS=[2.5,1.2,0.5,0.25,0,0];
 /* 路線在可見範圍內的部分（供虛線使用） */
-function visLinePath(L,vr){var GW=C.MP.GW,P=L.pts,p=new Path2D(),x0=vr[0]-2,y0=vr[1]-2,x1=vr[2]+2,y1=vr[3]+2,on=false;for(var i=0;i<P.length;i++){var x=P[i]%GW+0.5,y=((P[i]/GW)|0)+0.5,inn=x>=x0&&x<=x1&&y>=y0&&y<=y1;if(inn){if(!on)p.moveTo(x,y);else p.lineTo(x,y);on=true;}else{if(on)p.lineTo(x,y);on=false;}}return p;}
+function visLinePath(L,vr){var g=lineXY(L),p=new Path2D(),x0=vr[0]-2,y0=vr[1]-2,x1=vr[2]+2,y1=vr[3]+2,on=false;for(var i=0;i<g.length;i+=2){var x=g[i],y=g[i+1],inn=x>=x0&&x<=x1&&y>=y0&&y<=y1;if(inn){if(!on)p.moveTo(x,y);else p.lineTo(x,y);on=true;}else{if(on)p.lineTo(x,y);on=false;}}return p;}
 function drawLines(z,vr){var ctx=CX,cs=C.MP.cs,sel=C.sel&&C.sel.type==='line'?C.sel.id:-1,st=(LY.base||'street')!=='terrain';ctx.lineCap='round';ctx.lineJoin='round';
   var roads=C.lines.filter(function(L){return L.kind==='road'&&z>=RVIS[L.g];}).sort(function(a,b){return a.g-b.g;}),rw=function(L){return Math.max([0.9,1.2,1.6,2.1,2.6,3.2][L.g],RG[L.g][4]/cs*z)/z;};
   var dp=function(L,p){return vr&&z>=4?visLinePath(L,vr):p;};/* 虛線只畫可見的部分 */
   /* 國道與快速道路在市區是高架：先畫一道陰影 */if(LY.road&&st&&z>=2.5)roads.forEach(function(L){if(L.g<4||L.built<1)return;ctx.save();ctx.translate(Math.min(3,0.8+z*0.02)/z,Math.min(5,1.4+z*0.03)/z);ctx.strokeStyle='rgba(40,50,70,.2)';ctx.lineWidth=rw(L)+3/z;ctx.stroke(dp(L,linePath2D(L)));ctx.restore();});
+  if(LY.road)drawRural(z,vr);
   if(LY.road){roads.forEach(function(L){var p=linePath2D(L);ctx.strokeStyle=L.built<1?'rgba(90,90,90,.5)':(st?RGS[L.g][1]:RG[L.g][3]);ctx.lineWidth=rw(L)+(L.g>=3?2.2:1.6)/z;ctx.setLineDash(L.built<1?[4/z,3/z]:[]);ctx.stroke(L.built<1?dp(L,p):p);});
     roads.forEach(function(L){var p=linePath2D(L);ctx.strokeStyle=L.built<1?'rgba(255,255,255,.75)':(st?RGS[L.g][0]:RG[L.g][2]);ctx.lineWidth=rw(L);ctx.setLineDash(L.built<1?[4/z,3/z]:[]);ctx.stroke(L.built<1?dp(L,p):p);if(L.cut){ctx.strokeStyle='rgba(200,30,30,.85)';ctx.setLineDash([3/z,3/z]);ctx.stroke(dp(L,p));}});ctx.setLineDash([]);}
   if(LY.rail){var order=['rail','hsr','lrt','metro'];order.forEach(function(kind){C.lines.forEach(function(L){if(L.kind!==kind)return;var p=linePath2D(L),br=L.par>=0;
@@ -1252,14 +1239,14 @@ function drawLines(z,vr){var ctx=CX,cs=C.MP.cs,sel=C.sel&&C.sel.type==='line'?C.
   if(sel>=0){var L=lineById(sel);if(L){ctx.strokeStyle='rgba(124,182,255,.55)';ctx.lineWidth=10/z;ctx.stroke(linePath2D(L));}}}
 function drawStations(ox,oy,z,boxes){var ctx=CX,GW=C.MP.GW,done={};boxes=boxes||[];ctx.font='600 11px system-ui,"Noto Sans TC",sans-serif';ctx.textBaseline='middle';
   ['hsr','rail','metro','lrt'].forEach(function(kind){var d=POIDEF[kind];C.lines.forEach(function(L){if(L.kind!==kind)return;var minz=kind==='hsr'?0.6:kind==='rail'?1.3:kind==='metro'?1.6:2.5;if(z<minz)return;
-    L.st.forEach(function(k,i){var x=ox+(k%GW+0.5)*z,y=oy+(((k/GW)|0)+0.5)*z;if(x<-20||y<-20||x>VW+20||y>VH+20)return;var nm=stName(L,i),icon=kind==='hsr'||kind==='rail'||z>=d[3];
+    var sp=stPos(L);L.st.forEach(function(k,i){var x=ox+sp[i*2]*z,y=oy+sp[i*2+1]*z;if(x<-20||y<-20||x>VW+20||y>VH+20)return;var nm=stName(L,i),icon=kind==='hsr'||kind==='rail'||z>=d[3];
       if(!icon){ctx.lineWidth=2;ctx.fillStyle='#fff';ctx.strokeStyle=L.col||'#333';ctx.globalAlpha=L.built<1?0.6:1;ctx.beginPath();ctx.arc(x,y,kind==='metro'?4.2:3.2,0,2*PI);ctx.fill();ctx.stroke();ctx.globalAlpha=1;return;}
       if(done[nm+kind])return;done[nm+kind]=1;var s=kind==='hsr'?22:kind==='rail'?19:18,b=[x-s/2,y-s/2,x+s/2,y+s/2],hit=false;for(var q=0;q<boxes.length;q++){var o=boxes[q];if(b[0]<o[2]&&b[2]>o[0]&&b[1]<o[3]&&b[3]>o[1]){hit=true;break;}}
       if(hit){ctx.fillStyle='#fff';ctx.strokeStyle=d[1];ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,3.5,0,2*PI);ctx.fill();ctx.stroke();return;}
       boxes.push(b);ctx.globalAlpha=L.built<1?0.6:1;drawIcon(kind,x,y,s);ctx.globalAlpha=1;
       if(kind==='hsr'&&z>=1.4||kind==='rail'&&z>=4||z>=10){ctx.font='600 11.5px system-ui,"Noto Sans TC",sans-serif';var w=ctx.measureText(nm).width,lb=[x+s/2+2,y-8,x+s/2+6+w,y+8],ok=true;for(q=0;q<boxes.length;q++){var o2=boxes[q];if(lb[0]<o2[2]&&lb[2]>o2[0]&&lb[1]<o2[3]&&lb[3]>o2[1]){ok=false;break;}}if(ok){boxes.push(lb);textHalo(nm,x+s/2+4,y,'#1f2a36','rgba(255,255,255,.92)');}}});});});}
 /* 市區路名：沿路排字（主要道路「路」放大後出現，次要道路「街」再放大才出現），段數依位置 */
-function linePts(L){if(L._lp&&L._lpn===L.pts.length)return L._lp;var GW=C.MP.GW,o=[];L.pts.forEach(function(k,i){if(i%3&&i!==L.pts.length-1)return;o.push(k%GW+0.5,((k/GW)|0)+0.5);});L._lp=o;L._lpn=L.pts.length;return o;}
+function linePts(L){return lineXY(L);}
 function textHalo(t,x,y,fg,bg,align){var ctx=CX;ctx.textAlign=align||'left';ctx.lineJoin='round';ctx.lineWidth=3;ctx.strokeStyle=bg;ctx.strokeText(t,x,y);ctx.fillStyle=fg;ctx.fillText(t,x,y);}
 /* 放大時只取可見範圍的界線段（虛線會沿整條路徑計算，整國的界線在高倍率下非常慢） */
 function visBounds(L,vr){var sg=IMG.bndS&&IMG.bndS[L];if(!sg)return IMG.bnd[L];var x0=vr[0]-1,y0=vr[1]-1,x1=vr[2]+1,y1=vr[3]+1,p=new Path2D();for(var i=0;i<sg.length;i+=4){var a=sg[i],b=sg[i+1],c=sg[i+2],d=sg[i+3];if(Math.max(a,c)<x0||Math.min(a,c)>x1||Math.max(b,d)<y0||Math.min(b,d)>y1)continue;p.moveTo(a,b);p.lineTo(c,d);}return p;}
@@ -1327,6 +1314,16 @@ function drawWater(vr,z){var ctx=CX,MP=C.MP,GW=MP.GW,GH=MP.GH,lc=MP.lc,p=new Pat
 
 /* ---------- SVG 圖示：地標、設施、車站（自行繪製的 24×24 圖形，白色圖形放在分類色底章上） ---------- */
 var GLY={
+ palace:'M12 3.2 22 9v1.7H2V9zM4.3 11.9h15.4v1.5H4.3zM5.6 14.4h2.2v4.4H5.6zm5.3 0h2.2v4.4h-2.2zm5.3 0h2.2v4.4h-2.2zM3 19.6h18v1.9H3z',
+ gate:'M3 7.5h18V21h-5.6v-4.6a3.4 3.4 0 0 0-6.8 0V21H3zM3.4 3.5h3v2.6h-3zm5.1 0h3v2.6h-3zm5 0h3v2.6h-3zm5.1 0h3v2.6h-3z',
+ pagoda:'M12 1.8l2.8 3H9.2zM7.6 5.6h8.8l1.8 2H5.8zM9.2 8.6h5.6v1.8H9.2zM6.2 11.3h11.6l1.8 2H4.4zM9.2 14.3h5.6v1.8H9.2zM4.8 17h14.4l1.8 2H3zM8.5 19.8h7V22h-7z',
+ altar:'M12 2.8a9.2 9.2 0 1 1 0 18.4 9.2 9.2 0 0 1 0-18.4zm0 2.3a6.9 6.9 0 1 0 0 13.8 6.9 6.9 0 0 0 0-13.8zm0 2.6a4.3 4.3 0 1 1 0 8.6 4.3 4.3 0 0 1 0-8.6z',
+ tomb:'M2.6 20.2a9.4 7.4 0 0 1 18.8 0zM10.9 3.2h2.2v6.4h-2.2zM8.6 9.2h6.8v1.9H8.6z',
+ scenic:'M1.8 20.6 8.6 9.8l4 6.2 3.1-4.6 6.5 9.2zM17.4 3a2.7 2.7 0 1 1 0 5.4 2.7 2.7 0 0 1 0-5.4z',
+ light:'M10 2.8h4l.9 2.8H9.1zM9 6.8h6l1.5 12.2h-9zM5.5 20h13v1.9h-13zM3.2 5.2l4.4 1.2-.4 1.4-4.4-1.2zm17.6 0 .4 1.4-4.4 1.2-.4-1.4z',
+ fort:'M3 9.5h3.2V7H8v2.5h2.4V7h1.8v2.5h2.4V7h1.8v2.5H21V21H3zm6.4 6.2V21h5.2v-5.3a2.6 2.6 0 0 0-5.2 0z',
+ bell:'M12 2.6a1.5 1.5 0 0 1 1.5 1.5v.7a6.2 6.2 0 0 1 4.7 6v4.5l2.2 3H3.6l2.2-3v-4.5a6.2 6.2 0 0 1 4.7-6v-.7A1.5 1.5 0 0 1 12 2.6zm-2.1 16.6h4.2a2.1 2.1 0 0 1-4.2 0z',
+ spring:'M3.2 15.4h17.6a8.8 6 0 0 1-17.6 0zM7.6 3.4c-1.7 2.2 1.6 3.6 0 6.3l1.3.8c2.1-3.2-1.1-4.7.2-6.6zm4.4 0c-1.7 2.2 1.6 3.6 0 6.3l1.3.8c2.1-3.2-1.1-4.7.2-6.6zm4.4 0c-1.7 2.2 1.6 3.6 0 6.3l1.3.8c2.1-3.2-1.1-4.7.2-6.6z',
  school:'M12 3.2 2.5 8.6v1.6h19V8.6zM4.5 11.2h15v8.6h-5.2v-4.4h-4.6v4.4H4.5z',
  univ:'M12 4.5 1.8 9.3 12 14.1l8.2-3.9v5.3h1.6V9.3zM6.2 13v3.6c0 1.7 2.6 3.2 5.8 3.2s5.8-1.5 5.8-3.2V13L12 15.8z',
  hosp:'M6.5 4.5h3.6v5.8h3.8V4.5h3.6v15h-3.6v-5.9h-3.8v5.9H6.5z',
@@ -1366,6 +1363,8 @@ var POIDEF={capitol:['capitol','#455A64','中央機關',0.5,0],cityhall:['cityha
  airport:['plane','#1E88E5','機場',0,0],port:['anchor','#00838F','港口',0.8,1],power:['bolt','#78909C','發電廠',2,3],water:['drop','#039BE5','淨水場',4,4],waste:['bin','#78909C','焚化廠與污水處理廠',5,5],mil:['star','#6D7A35','軍事設施',2,3],
  park:['tree','#43A047','公園',3,3],stadium:['stadium','#43A047','體育場',3,3],temple:['temple','#A1662F','廟宇',8,5],market:['market','#E8710A','市場',8,5],night:['bowl','#E8710A','夜市',4,3],mall:['bag','#D81B60','百貨購物',4,3],
  sci:['chip','#00897B','科學園區',1.4,2],ind:['factory','#616161','工業區',3.5,4],hotel:['bed','#AD1457','旅館',9,6],gas:['pump','#F9A825','加油站',7,6],post:['mail','#2E7D32','郵局',9,6],library:['book','#8E24AA','圖書館',9,6],museum:['museum','#8E24AA','博物館與文化中心',3,3],
+ palace:['palace','#B23A2E','皇宮與故宮',0.8,1],wall:['gate','#8D6E63','城牆',2.2,2],gate:['gate','#8D6E63','城門',5,3],altar:['altar','#9C7A3C','壇廟',3,2],confucius:['temple','#A1452F','孔廟與宗廟',4,3],bell:['bell','#8D6E63','鐘鼓樓',6,4],pagoda:['pagoda','#8D6E63','古塔',5,4],oldst:['market','#C77C2B','老街',5,3],
+ tomb:['tomb','#7B6A4E','陵寢',2,2],scenic:['scenic','#2E7D32','風景名勝',1.6,2],light:['light','#00796B','燈塔',4,4],fort:['fort','#6D4C41','砲台與古堡',4,4],spring:['spring','#E64A19','溫泉',4,4],
  rail:['train','#37474F','鐵路車站',1.3,1,'sq'],hsr:['bullet','#EF6C00','高鐵車站',0.6,0,'sq'],metro:['metro','#1E88E5','捷運站',6,3,'sq'],lrt:['tram','#00897B','輕軌站',7,4,'sq']};
 var ICON={};
 function badgeSVG(t){var d=POIDEF[t],g=GLY[d[0]]||GLY.star,bg=d[5]==='sq'?'<rect x="1.2" y="1.2" width="21.6" height="21.6" rx="5.5" fill="'+d[1]+'" stroke="#fff" stroke-width="1.6"/>':'<circle cx="12" cy="12" r="10.8" fill="'+d[1]+'" stroke="#fff" stroke-width="1.6"/>';
@@ -1392,11 +1391,15 @@ function buildPOI(){var out=[],used={},U=C.U,P=C.P,MP=C.MP,rep=/(共和國|聯�
     else if(f.z===ZI.air){t='airport';n=f.name;}else if(f.z===ZI.port){t='port';n=f.name;}
     else if(f.z===ZI.utl){t=f.lv===3?'power':f.lv===2?'waste':'water';n=f.lv===3?(f.name||pick('n',[tn+'發電廠'])):pick('n',[tn+(f.lv===2?'焚化廠':'淨水場'),ctn+(f.lv===2?'資源回收廠':'給水廠')]);}
     else if(f.z===ZI.mil){t='mil';n=f.name||pick('n',[tn+'營區']);}
-    else if(f.z===ZI.park){if(f.n<2&&f.lv<2)return;t=f.n>=10&&f.lv>=2&&take(sc,'#stadium')?'stadium':'park';if(t==='stadium')n=pick('n',[ctn+'體育場',ctn+'運動公園']);
+    else if(f.z===ZI.park){if(f.n<2&&f.lv<2)return;if(herNoCut(city?city.si:-1,f.cx,f.cy))return;/* 宮城、壇廟、園林另有古蹟標示 */t=f.n>=10&&f.lv>=2&&take(sc,'#stadium')?'stadium':'park';if(t==='stadium')n=pick('n',[ctn+'體育場',ctn+'運動公園']);
       else if(f.lv>=2)n=pick(sc,MP.rv[k]>=2||C.S.dRiv[k]<2?[ctn+'河濱公園',nb[0]+'河濱公園']:(function(L){var i=h%L.length;return L.slice(i).concat(L.slice(0,i));})([ctn+'公園','中山公園','中正公園','中央公園','文化公園','和平公園']).concat(sfx(nb,'公園')));else n=pick(sc,sfx(nb,'公園'));}
     if(!t)return;f.poiName=n;out.push({t:t,x:f.cx,y:f.cy,name:n,lv:f.lv,fac:f});
     if(t==='office'){out.push({t:'post',x:f.cx+0.8,y:f.cy+0.4,name:pick('n',[tn+'郵局',tn+'中山路郵局']),lv:1});out.push({t:'library',x:f.cx-0.7,y:f.cy+0.6,name:pick('n',[tn+'圖書館',tn+'區圖書館']),lv:1});}
     if(t==='cityhall')out.push({t:'museum',x:f.cx+1.2,y:f.cy-0.8,name:pick('n',[(cu?cu.name.replace(/[縣市]$/,''):ctn)+'文化中心']),lv:2});if(t==='capitol')out.push({t:'museum',x:f.cx-1.5,y:f.cy+1.2,name:pick('n',['國立博物館','國家圖書館','國家音樂廳','國立美術館','國家檔案館']),lv:3});});
+  /* 古蹟與名勝 */var H=C.her||{walls:[],sites:[]},TT={palace:'palace',altar:'altar',lakepark:'scenic',temple2:'confucius',altar2:'altar',bell:'bell',gate:'gate',confucius:'confucius',oldst:'oldst',pagoda:'pagoda',scenic:'scenic',temple:'temple',tomb:'tomb',light:'light',fort:'fort',spring:'spring'};
+  H.sites.forEach(function(s){var t=TT[s.t];if(!t)return;var x=s.x,y=s.y;if(s.u0!=null){var c=hP(s.f,(s.u0+s.u1)/2,(s.v0+s.v1)/2);x=c[0];y=c[1];}if(take('h',s.name))out.push({t:t,x:x,y:y,name:s.name+(s.sub?'（'+s.sub+'）':''),lv:t==='palace'||t==='scenic'||t==='tomb'?3:2,her:s});});
+  H.walls.forEach(function(w){if(w.kind!=='city')return;var c=hP(w.f,w.u0,w.v1);out.push({t:'wall',x:c[0],y:c[1],name:w.name,lv:3,her:w});
+    try{herGates(w.si).forEach(function(g){if(!g.name)return;out.push({t:'gate',x:g.x,y:g.y,name:g.name,lv:g.w&&g.w.kind==='city'?3:2,her:g.w});});}catch(e){}});
   (C.poiS||[]).forEach(function(p){var k=cellK(p.x,p.y),z=P.zt[k],city=cityOfCell(k);if(isOpenWater(MP.lc[k])||z===ZI.air||z===ZI.mil||z===ZI.port)return;out.push({t:p.t,x:p.x,y:p.y,name:pick(city?'c'+city.si:'x',[p.name].concat(p.alt||[])),lv:1});});
   C.poi=out;C.dirty.poi=0;}
 
@@ -1463,9 +1466,10 @@ function drawFabricCells(vr,z,mode,skip){var MP=C.MP,P=C.P,GW=MP.GW,GH=MP.GH,ctx
 var FT={stamp:'',tiles:new Map()};
 function fabricTiles(vr,z,base,ox,oy){var MP=C.MP,P=C.P,GW=MP.GW,GH=MP.GH,ctx=CX,stamp=C.mid+'|'+C.t+'|'+(C.fabV||0)+'|'+base+'|'+DPR+'|'+LY.bld+LY.road;if(FT.stamp!==stamp){FT.tiles.clear();FT.stamp=stamp;}
   var zb=Math.pow(2,Math.round(Math.log(z)/Math.LN2*2)/2),px=zb*DPR,tc=Math.max(2,Math.min(32,Math.floor(512/px))),tx0=Math.floor(vr[0]/tc),ty0=Math.floor(vr[1]/tc),tx1=Math.floor((vr[2]-1)/tc),ty1=Math.floor((vr[3]-1)/tc);
-  ctx.setTransform(DPR,0,0,DPR,0,0);var sm0=ctx.imageSmoothingEnabled;ctx.imageSmoothingEnabled=true;
+  ctx.setTransform(DPR,0,0,DPR,0,0);var sm0=ctx.imageSmoothingEnabled;ctx.imageSmoothingEnabled=true;var tS=performance.now(),made=0;/* 每個畫面新畫的圖磚有時間上限，其餘下一個畫面再畫 */
   for(var ty=ty0;ty<=ty1;ty++)for(var tx=tx0;tx<=tx1;tx++){var key=zb+'|'+tx+'|'+ty,t=FT.tiles.get(key),x0=tx*tc,y0=ty*tc,x1=Math.min(GW,x0+tc),y1=Math.min(GH,y0+tc);if(x1<=x0||y1<=y0)continue;
-    if(t===undefined){var any=false;for(var y=y0;y<y1&&!any;y++)for(var x=x0;x<x1;x++){var k=y*GW+x;if(P.zt[k]||MP.dmg[k]){any=true;break;}}
+    if(t===undefined&&made>0&&performance.now()-tS>(GEN.budget>20?70:30)){GEN.miss=true;continue;}
+    if(t===undefined){made++;var any=base!=='plan'&&ruralTile(x0,y0,x1,y1,zb);for(var y=y0;y<y1&&!any;y++)for(var x=x0;x<x1;x++){var k=y*GW+x;if(P.zt[k]||MP.dmg[k]){any=true;break;}}
       var m0=GEN.miss;GEN.miss=false;if(!any)t=0;else{t=mkCanvas(Math.ceil((x1-x0)*px),Math.ceil((y1-y0)*px));var c2=t.getContext('2d');c2.setTransform(px,0,0,px,-x0*px,-y0*px);CX=c2;try{drawFabric([x0,y0,x1,y1],zb,base);}finally{CX=ctx;}}
       /* 街區細節還沒產生完的圖磚先畫出來但不快取，下一個畫面再補 */if(!GEN.miss){FT.tiles.set(key,t);if(FT.tiles.size>64)FT.tiles.delete(FT.tiles.keys().next().value);}GEN.miss=GEN.miss||m0;}
     if(!t)continue;/* 對齊裝置像素，相鄰圖磚之間不留縫 */var dx0=Math.round((ox+x0*z)*DPR)/DPR,dy0=Math.round((oy+y0*z)*DPR)/DPR,dx1=Math.round((ox+x1*z)*DPR)/DPR,dy1=Math.round((oy+y1*z)*DPR)/DPR;ctx.drawImage(t,dx0,dy0,dx1-dx0,dy1-dy0);}
@@ -1500,7 +1504,7 @@ function drawPOI(ox,oy,z,boxes){var ctx=CX,hits=C._poiHit=[];if(!C.poi)return;va
    河岸與海岸（與水岸平行）、坡地（沿等高線）。道路沿場的主、次方向生長，間距依道路層級：
    幹道（約 1 公里）→ 次要道路（約 400 公尺）→ 街（約 70～140 公尺，依分區）→ 巷弄（街廓內）。
    鐵道與河流是屏障，只有幹道與次要道路在相隔一段距離處立體交叉或架橋；國道與快速道路是高架，不與地面道路平面相交。 */
-var NET={},NETV=3;
+var NET={},NETV=4;
 function netC(si){return NET[si]||(NET[si]={});}
 function m2c(m){return m/C.MP.cs;}
 function aDiff(a,b){var d=Math.abs(a-b)%PI;return d>PI/2?PI-d:d;}/* 兩個方向（不分正反）的夾角 */
@@ -1512,21 +1516,26 @@ SHash.prototype.near=function(x,y,r,f){var c=this.c,i0=Math.floor((x-r)/c),i1=Ma
   for(var i=i0;i<=i1;i++)for(var j=j0;j<=j1;j++){var a=this.m.get((i+32768)*65536+(j+32768));if(!a)continue;for(var q=0;q<a.length;q+=3){var dx=a[q]-x,dy=a[q+1]-y,d2=dx*dx+dy*dy;if(d2<=r2&&f(a[q],a[q+1],a[q+2],d2))return true;}}return false;};
 /* ---------- 城市範圍（平滑邊界：以格中心的雙線性內插判斷，邊界呈斜線而非鋸齒） ---------- */
 function cityCellIn(si){var MP=C.MP,P=C.P,GW=MP.GW,GH=MP.GH;return function(X,Y){if(X<0||Y<0||X>=GW||Y>=GH)return 0;var k=Y*GW+X,z=P.zt[k];return P.cid[k]===si&&z>0&&z!==ZI.agr&&z!==ZI.cons&&z!==ZI.air&&z!==ZI.mil&&MP.lc[k]>3?1:0;};}
-function cityIn(si){var f=cityCellIn(si);return function(x,y){var u=x-0.5,v=y-0.5,i=Math.floor(u),j=Math.floor(v),fx=u-i,fy=v-j,a=f(i,j),b=f(i+1,j),c=f(i,j+1),d=f(i+1,j+1);if(a+b+c+d===4)return true;if(a+b+c+d===0)return false;
-  return a*(1-fx)*(1-fy)+b*fx*(1-fy)+c*(1-fx)*fy+d*fx*fy>=0.5;};}
+/* 邊界加上不規則的起伏（約 50～200 公尺），城市外緣不會是整齊的斜線 */
+var EDGEN=null;
+function cityIn(si){var f=cityCellIn(si),MP=C.MP,GW=MP.GW,GH=MP.GH,wet=function(X,Y){if(X<0||Y<0||X>=GW||Y>=GH)return true;var c=MP.lc[Y*GW+X];return c<=4||c===LCI.marsh;};if(!EDGEN||EDGEN.s!==C.seed){EDGEN=new Noise(C.seed+'|edge');EDGEN.s=C.seed;}var NZ=EDGEN;return function(x,y){var u=x-0.5,v=y-0.5,i=Math.floor(u),j=Math.floor(v),fx=u-i,fy=v-j,a=f(i,j),b=f(i+1,j),c=f(i,j+1),d=f(i+1,j+1);if(a+b+c+d===4)return true;if(a+b+c+d===0)return false;
+  var w=a*(1-fx)*(1-fy)+b*fx*(1-fy)+c*(1-fx)*fy+d*fx*fy;if(wet(i,j)||wet(i+1,j)||wet(i,j+1)||wet(i+1,j+1))return w>=0.5;/* 臨水的邊界維持平順 */
+  return w+0.3*NZ.n(x*0.62,y*0.62)+0.14*NZ.n(x*1.9+31,y*1.9-17)>=0.5;};}
 /* ---------- 張量場 ---------- */
 function cityBases(si){var pf=C.cities[si],r=mb32(hstr(C.seed+'|tf|'+si)),B=[],Ru=Math.max(1.5,pf.Ru||2),cx=pf.cbd?pf.cbd[0]:pf.x,cy=pf.cbd?pf.cbd[1]:pf.y;
   B.push({t:'g',x:cx,y:cy,th:pf.ang,sz:Ru*1.5,w:1});
   if(pf.style==='radial')B.push({t:'r',x:pf.x,y:pf.y,sz:Ru*0.7,w:1.3});
-  if(pf.old&&pf.kind!=='village'){var off=(r()<0.5?-1:1)*(0.22+r()*0.45);pf.oldAng=+(pf.ang+off).toFixed(3);B.push({t:'g',x:pf.x,y:pf.y,th:pf.ang+off,sz:Math.max(1.4,(pf.oldR||Ru*0.25)*1.6),w:2.4});}
+  var cw=herWalls(si).filter(function(w){return w.kind==='city';})[0];
+  if(cw){/* 皇城：城內街道與城牆平行 */var wa=Math.atan2(cw.f.uy,cw.f.ux);pf.oldAng=+wa.toFixed(3);B.push({t:'g',x:cw.f.cx,y:cw.f.cy,th:wa,sz:Math.max(cw.u1,cw.v1)*1.15,w:3.2});}
+  else if(pf.old&&pf.kind!=='village'){var off=(r()<0.5?-1:1)*(0.22+r()*0.45);pf.oldAng=+(pf.ang+off).toFixed(3);B.push({t:'g',x:pf.x,y:pf.y,th:pf.ang+off,sz:Math.max(1.4,(pf.oldR||Ru*0.25)*1.6),w:2.4});}
   /* 新市區：沿各聯外方向分期開發，各有自己的棋盤方向 */
   if(pf.kind==='city'){var nd=Math.min(4,1+Math.floor(Ru/5));(pf.gates||[]).slice(0,nd).forEach(function(g){var d=Ru*(0.55+r()*0.25);B.push({t:'g',x:pf.x+Math.cos(g)*d,y:pf.y+Math.sin(g)*d,th:g+(r()-0.5)*0.35,sz:Ru*0.45,w:1.3});});}
   /* 車站：站前街廓與鐵道平行 */
   cityStations(si).forEach(function(s){B.push({t:'g',x:s.x,y:s.y,th:s.th,sz:m2c(900),w:1.9});});
   return B;}
 function cityStations(si){var pf=C.cities[si],b=pf.bb,out=[];if(!b)return out;var GW=C.MP.GW;
-  C.lines.forEach(function(L){if((L.kind!=='rail'&&L.kind!=='hsr')||!L.st)return;L.st.forEach(function(k){var x=k%GW+0.5,y=((k/GW)|0)+0.5;if(x<b[0]-2||x>b[2]+3||y<b[1]-2||y>b[3]+3)return;var i=L.pts.indexOf(k);if(i<0)return;var a=L.pts[Math.max(0,i-3)],c=L.pts[Math.min(L.pts.length-1,i+3)];
-    out.push({x:x,y:y,th:Math.atan2(((c/GW)|0)-((a/GW)|0),c%GW-a%GW),kind:L.kind,L:L.id});});});return out;}
+  C.lines.forEach(function(L){if((L.kind!=='rail'&&L.kind!=='hsr')||!L.st)return;var sp=stPos(L);L.st.forEach(function(k,i){var x=sp[i*2],y=sp[i*2+1];if(x<b[0]-2||x>b[2]+3||y<b[1]-2||y>b[3]+3)return;var dv=lineDirAt(L,x,y);
+    out.push({x:x,y:y,th:Math.atan2(dv[1],dv[0]),kind:L.kind,L:L.id});});});return out;}
 function bilin(D,w,h,x,y){x-=0.5;y-=0.5;var i=Math.floor(x),j=Math.floor(y);if(i<0)i=0;if(j<0)j=0;if(i>w-2)i=w-2;if(j>h-2)j=h-2;var fx=clamp(x-i,0,1),fy=clamp(y-j,0,1),a=D[j*w+i],b=D[j*w+i+1],c=D[(j+1)*w+i],d=D[(j+1)*w+i+1];return a+(b-a)*fx+(c-a)*fy+(a-b-c+d)*fx*fy;}
 function cityField(si){var nc=netC(si);if(nc.F)return nc.F;var pf=C.cities[si],MP=C.MP,S=C.S,GW=MP.GW,GH=MP.GH,cs=MP.cs,b=pf.bb||[Math.floor(pf.x)-2,Math.floor(pf.y)-2,Math.floor(pf.x)+2,Math.floor(pf.y)+2];
   var pad=5,x0=Math.max(0,b[0]-pad),y0=Math.max(0,b[1]-pad),x1=Math.min(GW,b[2]+1+pad),y1=Math.min(GH,b[3]+1+pad),R=2,W=(x1-x0)*R+1,H=(y1-y0)*R+1,FC=new Float32Array(W*H),FS=new Float32Array(W*H);
@@ -1562,17 +1571,22 @@ function dpSimplify(p,tol){if(p.length<=4)return p.slice();var n=p.length/2,keep
   var o=[];for(i=0;i<n;i++)if(keep[i])o.push(p[i*2],p[i*2+1]);return o;}
 function segX(ax,ay,bx,by,cx,cy,dx,dy){/* 兩線段交點，回傳 [t,u] 或 null */var rx=bx-ax,ry=by-ay,sx=dx-cx,sy=dy-cy,den=rx*sy-ry*sx;if(Math.abs(den)<1e-12)return null;var qx=cx-ax,qy=cy-ay,t=(qx*sy-qy*sx)/den,u=(qx*ry-qy*rx)/den;return t>=0&&t<=1&&u>=0&&u<=1?[t,u]:null;}
 /* ---------- 路網中的既有道路：聯外道路（縣道、省道…）、鐵道、高架 ---------- */
-function regionalIn(si){var pf=C.cities[si],b=pf.bb,GW=C.MP.GW,out=[];if(!b)return out;var inD=cityIn(si);
-  C.lines.forEach(function(L){if(L.kind!=='road'||L.built<1||L.g>3)return;var run=[];for(var i=0;i<L.pts.length;i++){var k=L.pts[i],x=k%GW+0.5,y=((k/GW)|0)+0.5,inn=x>=b[0]-1&&x<=b[2]+2&&y>=b[1]-1&&y<=b[3]+2&&inD(x,y);
-      if(inn)run.push(x,y);else{if(run.length>=6)out.push({pts:smoothPts(run),cls:L.g>=2?1:2,g:L.g,L:L.id});run=[];}}if(run.length>=6)out.push({pts:smoothPts(run),cls:L.g>=2?1:2,g:L.g,L:L.id});});return out;}
+/* 與繪圖相同的平滑幾何（lineXY），每個城市快取，路線增減時重算 */
+function regionalIn(si){var pf=C.cities[si],b=pf.bb,out=[];if(!b)return out;var nc=netC(si),key=C.lines.length+'|'+(C.lver||0)+'|'+b.join(',');if(nc.reg&&nc.regK===key)return nc.reg;var inD=cityIn(si);
+  C.lines.forEach(function(L){if(L.kind!=='road'||L.built<1||L.g>3)return;var g=lineXYd(L),run=[];if(g.length<4)return;var push=function(){if(run.length>=6)out.push({pts:run,cls:L.g>=2?1:2,g:L.g,L:L.id});run=[];};
+    for(var i=0;i<g.length;i+=2){var x=g[i],y=g[i+1],inn=x>=b[0]-1&&x<=b[2]+2&&y>=b[1]-1&&y<=b[3]+2&&inD(x,y);if(inn){if(!run.length&&i>=2)run.push(g[i-2],g[i-1]);run.push(x,y);}else if(run.length){run.push(x,y);push();}}push();});
+  /* 古蹟的御道：當作固定的幹道 */herRoadsIn(si).forEach(function(o){out.push(o);});
+  nc.reg=out;nc.regK=key;return out;}
 function railPts(si,pad){var pf=C.cities[si],b=pf.bb,MP=C.MP,GW=MP.GW,H=new SHash(1),seen={};if(!b)return H;pad=pad||3;
-  C.lines.forEach(function(L){if(L.kind!=='rail'&&L.kind!=='hsr')return;for(var i=0;i<L.pts.length;i++){var k=L.pts[i],x=k%GW+0.5,y=((k/GW)|0)+0.5;if(x<b[0]-pad||x>b[2]+pad+1||y<b[1]-pad||y>b[3]+pad+1)continue;H.add(x,y,1);seen[k]=1;if(i>0){var k2=L.pts[i-1];H.add((x+k2%GW+0.5)/2,(y+((k2/GW)|0)+0.5)/2,1);}}});
+  C.lines.forEach(function(L){if(L.kind!=='rail'&&L.kind!=='hsr')return;var g=lineXY(L);for(var i=0;i<L.pts.length;i++)seen[L.pts[i]]=1;
+    for(var j=0;j<g.length;j+=2){var x=g[j],y=g[j+1];if(x<b[0]-pad||x>b[2]+pad+1||y<b[1]-pad||y>b[3]+pad+1)continue;H.add(x,y,1);if(j>=2){var px=g[j-2],py=g[j-1],n=Math.ceil(dist(px,py,x,y)*2);for(var s=1;s<n;s++)H.add(px+(x-px)*s/n,py+(y-py)*s/n,1);}}});
   for(var y=Math.max(0,b[1]-pad);y<=Math.min(MP.GH-1,b[3]+pad);y++)for(var x=Math.max(0,b[0]-pad);x<=Math.min(GW-1,b[2]+pad);x++){var k3=y*GW+x;if((MP.rl[k3]&3)&&!seen[k3])H.add(x+0.5,y+0.5,1);}
+  herWallPts(si,H);/* 城牆與宮牆：同鐵道，只有幹道能穿過（城門） */
   return H;}
 /* ---------- 幹道與次要道路 ---------- */
 function cityClass(pf){return pf.cls||(pf.cap||pf.pop>=450000?'mega':pf.pop>=150000?'big':pf.pop>=40000?'city':'town');}
 function genMajors(si){var pf=C.cities[si];if(!pf||!pf.n||pf.kind==='village'||!pf.bb)return [];var MP=C.MP,F=cityField(si),inD=cityIn(si),cls=cityClass(pf),r=mb32(hstr(C.seed+'|maj|'+si)),Ru=Math.max(1.5,pf.Ru||2);
-  var thf=function(x,y){return fieldTh(F,x,y);},dMain=m2c({mega:1050,big:950,city:850,town:700}[cls]),dMaj=m2c({mega:380,big:400,city:420,town:380}[cls])*(0.9+r()*0.2),step=m2c(15),rail=railPts(si),railR=m2c(30);
+  var thf=function(x,y){return fieldTh(F,x,y);},dMain=m2c({mega:1050,big:950,city:850,town:700}[cls]),dMaj=m2c({mega:380,big:400,city:420,town:380}[cls])*(0.9+r()*0.2),step=m2c(15),rail=railPts(si),railR=m2c(30),nop=herBarrier(si);
   var Hs=new SHash(Math.max(dMaj,0.5)),roads=[],cross=[],bridges=[],nid=0,cx=pf.cbd?pf.cbd[0]:pf.x,cy=pf.cbd?pf.cbd[1]:pf.y;
   /* 以實際的市區面積（含外圍工業區）決定道路總長，而不是名目上的半徑 */var cin=cityCellIn(si),areaC=0,bb=pf.bb;for(var yy=bb[1];yy<=bb[3];yy++)for(var xx=bb[0];xx<=bb[2];xx++)areaC+=cin(xx,yy);var diag=Math.hypot(bb[2]-bb[0]+1,bb[3]-bb[1]+1);
   function famOf(x,y,dx,dy){var th=Math.atan2(dy,dx);return aDiff(th,thf(x,y))<PI/4?0:1;}
@@ -1585,7 +1599,7 @@ function genMajors(si){var pf=C.cities[si];if(!pf||!pf.n||pf.kind==='village'||!
       var X=Math.floor(nx),Y=Math.floor(ny);if(X<0||Y<0||X>=MP.GW||Y>=MP.GH)return 1;var lc=MP.lc[Y*MP.GW+X];
       if(lc<=3){if(lc<=1)return 2;/* 河流、湖泊：幹道每 4 格、次要道路每 7 格可架一座橋，跨距有限 */if(water===0){var span=0,ok=false;for(var s=1;s<=Math.round((level===1?5:3)/step);s++){var ex=nx+d[0]*step*s,ey=ny+d[1]*step*s,ek=Math.floor(ey)*MP.GW+Math.floor(ex);if(ek<0||ek>=MP.lc.length)break;if(MP.lc[ek]>3){ok=true;span=s;break;}}
           if(!ok||nearCross(bridges,nx,ny,level===1?4:7))return 2;bridges.push(nx,ny);water=1;return 10+span+1;}return 0;}
-      water=0;if(!inD(nx,ny))return 2;/* 道路接到城市邊界為止（不留縫） */
+      water=0;if(!inD(nx,ny))return 2;/* 道路接到城市邊界為止（不留縫） */if(nop&&nop.near(nx,ny,nop.r,function(){return true;}))return 2;/* 宮牆、壇牆、園牆 */
       var onR=rail.near(nx,ny,railR,function(){return true;});if(onR&&!inRail){if(level>2||nearCross(cross,nx,ny,level===1?4:7))return 2;cross.push(nx,ny);inRail=true;var span2=Math.ceil(railR*2.4/step);return 10+span2;}if(!onR)inRail=false;
       if(L>sep*0.4&&Hs.near(nx,ny,sep,function(px,py,v){return v.f===fam&&v.id!==id&&!(src!=null&&v.id===src&&L<sep*2.2);}))return 1;return 0;};};}
   function srcPar(s,fam){/* 種子所在道路的方向與要追蹤的方向接近平行時跳過（避免沿著原路重疊） */if(s[3]==null)return false;var t=thf(s[0],s[1])+(fam?PI/2:0);return aDiff(t,Math.atan2(s[4],s[3]))<0.5;}
@@ -1628,6 +1642,7 @@ function nameMajors(si,roads){var pf=C.cities[si],used={},ri=0,r=mb32(hstr(C.see
 function fillGaps(si){var pf=C.cities[si],MP=C.MP,cs=MP.cs,F=cityField(si),thf=function(x,y){return fieldTh(F,x,y);},maxHa=60,step=m2c(15),r=mb32(hstr(C.seed+'|gap|'+si)),added=0,used={};
   C.streets.forEach(function(s){used[s.base.replace(/[東西南北]?(路|大道)$/,'')]=1;});var pool=shuffleR(STRN.slice(),r),pi=0;
   for(var it=0;it<8;it++){var nc=netC(si);nc.SB=null;nc.dom=null;var SB=citySB(si);if(!SB.list)return;var ha=function(sb){return sb.n/(SB.f*SB.f)*cs*cs/1e4;},big=SB.list.filter(function(sb){return ha(sb)>maxHa;}).sort(function(a,b){return b.n-a.n;});if(!big.length)break;var cnt=0;
+    big=big.filter(function(sb){return !herNoCut(si,sb.cx,sb.cy);});if(!big.length)break;
     big.slice(0,10).forEach(function(sb){var cells=[];for(var j=sb.bb[1];j<=sb.bb[3];j+=2)for(var i=sb.bb[0];i<=sb.bb[2];i+=2)if(SB.lab[j*SB.W+i]===sb.id)cells.push([SB.x0+(i+0.5)/SB.f,SB.y0+(j+0.5)/SB.f]);if(!cells.length)return;
       var nCut=Math.min(6,Math.max(1,Math.round(ha(sb)/maxHa))),seeds=[];shuffleR(cells,r);for(var q=0;q<cells.length&&seeds.length<nCut;q++){var c=cells[q];if(seeds.every(function(o){return dist(o[0],o[1],c[0],c[1])>m2c(500);}))seeds.push(c);}
       seeds.forEach(function(sd){var best=null;[0,1].forEach(function(fam){var p=traceBoth(thf,sd[0],sd[1],fam,function(){return {step:step,maxL:m2c(6000),check:function(x,y,nx,ny){var v=sbAt(SB,nx,ny);if(v===sb.id)return 0;return v===-2||v===-3||v===-1?2:1;}};}),L=plen(p);if(L>m2c(150)&&(!best||L<best.L))best={p:p,L:L};});
@@ -1641,11 +1656,11 @@ function buildNet(si){var pf=C.cities[si];if(!pf||!pf.n)return;var roads=genMajo
   if(cityClass(pf)==='mega'){var cx=pf.cbd?pf.cbd[0]:pf.x,cy=pf.cbd?pf.cbd[1]:pf.y,best=null,bv=0;C.streets.forEach(function(s){if(s.si!==si||s.cls!==1)return;var p=s.pts,dmin=1e9;for(var i=0;i<p.length;i+=2)dmin=Math.min(dmin,dist(p[i],p[i+1],cx,cy));var v=s.len-(dmin*3);if(dmin<(pf.Ru||5)*0.4&&v>bv){bv=v;best=s;}});
     if(best&&best.len>4){best.el=[0.12,0.88];best.elName=best.base.replace(/[東西南北]?(路|大道)$/,'')+'高架道路';}}}
 function buildNets(){var P=C.P,N=C.MP.GW*C.MP.GH;if(!P.rdB||P.rdB.length!==N)P.rdB=P.rd0.slice();else P.rd0.set(P.rdB);C.streets=[];C.stMask=new Uint8Array(N);NET={};cityBBoxes();/* 外圍後來加入的工業區等也要算進城市範圍 */if(!C.design)C.design=[];if(!C.uroads)C.uroads=[];if(!C.droads)C.droads=[];if(!C.bovr)C.bovr={};
-  (C.cities||[]).forEach(function(pf,si){if(pf&&pf.n&&pf.kind!=='village')buildNet(si);});rebuildRaster();C.netV=NETV;C.dirty.net=1;C.fabV=(C.fabV||0)+1;}
+  (C.cities||[]).forEach(function(pf,si){if(pf&&pf.n&&pf.kind!=='village')buildNet(si);});rebuildRaster();buildRural();C.netV=NETV;C.dirty.net=1;C.fabV=(C.fabV||0)+1;}
 /* 單一城市重新產生路網（例如補劃工業區之後） */
 function rebuildNet(si){C.streets=C.streets.filter(function(s){return s.si!==si;});C.streets.forEach(function(s,i){s.id=i;});delete NET[si];cityBBoxes();buildNet(si);}
 /* 重建街道的網格道路（刪除或新增道路後）：基底（匯入地圖原有的道路）＋所有城市街道 */
-function rebuildStreetRaster(){var P=C.P,N=C.MP.GW*C.MP.GH;if(P.rdB&&P.rdB.length===N)P.rd0.set(P.rdB);else P.rd0.fill(0);C.stMask=new Uint8Array(N);(C.streets||[]).forEach(function(o){rasterStreet(o);});rebuildRaster();}
+function rebuildStreetRaster(){var P=C.P,N=C.MP.GW*C.MP.GH;if(P.rdB&&P.rdB.length===N)P.rd0.set(P.rdB);else P.rd0.fill(0);C.stMask=new Uint8Array(N);(C.streets||[]).forEach(function(o){rasterStreet(o);});rasterRural();rebuildRaster();}
 /* ---------- 超級街廓：被幹道、次要道路、聯外道路、鐵道與城市邊界圍出的區域（15 公尺網格標記） ---------- */
 function citySB(si){var nc=netC(si);if(nc.SB)return nc.SB;var pf=C.cities[si],MP=C.MP,GW=MP.GW,GH=MP.GH,cs=MP.cs,b=pf.bb;if(!b){nc.SB={list:[]};return nc.SB;}
   var f=Math.max(1,Math.round(cs/15)),x0=Math.max(0,b[0]-1),y0=Math.max(0,b[1]-1),x1=Math.min(GW,b[2]+2),y1=Math.min(GH,b[3]+2),W=(x1-x0)*f,H=(y1-y0)*f,lab=new Int32Array(W*H),inD=cityIn(si),i,j;
@@ -1654,7 +1669,8 @@ function citySB(si){var nc=netC(si);if(nc.SB)return nc.SB;var pf=C.cities[si],MP
     for(var s=0;s<=n;s++){var px=ax+(bx-ax)*s/n,py=ay+(by-ay)*s/n,ci=Math.floor(px),cj=Math.floor(py);for(var dj=-R;dj<=R;dj++)for(var di=-R;di<=R;di++){var ii=ci+di,jj=cj+dj;if(ii<0||jj<0||ii>=W||jj>=H)continue;if((ii+0.5-px)*(ii+0.5-px)+(jj+0.5-py)*(jj+0.5-py)<=r*r+0.25){var o=jj*W+ii;if(lab[o]!==-1||val===-3)lab[o]=val;}}}}}
   C.streets.forEach(function(s){if(s.si===si)thick(s.pts,m2c(s.cls===1?14:9),-2);});regionalIn(si).forEach(function(o){thick(o.pts,m2c(o.g>=2?12:8),-2);});
   (C.uroads||[]).forEach(function(u){if(u.si===si&&u.cls<=2)thick(u.pts,m2c(u.cls===1?14:9),-2);});
-  C.lines.forEach(function(L){if((L.kind!=='rail'&&L.kind!=='hsr')||L.built<1)return;var p=[],GWl=GW;for(var q=0;q<L.pts.length;q++){var k=L.pts[q],x=k%GWl+0.5,y=((k/GWl)|0)+0.5;if(x<x0-1||x>x1+1||y<y0-1||y>y1+1){if(p.length>=4)thick(p,m2c(32),-3);p=[];continue;}p.push(x,y);}if(p.length>=4)thick(p,m2c(32),-3);});
+  C.lines.forEach(function(L){if((L.kind!=='rail'&&L.kind!=='hsr')||L.built<1)return;var p=[],g=lineXYd(L);for(var q=0;q<g.length;q+=2){var x=g[q],y=g[q+1];if(x<x0-1||x>x1+1||y<y0-1||y>y1+1){if(p.length){p.push(x,y);if(p.length>=4)thick(p,m2c(32),-3);}p=[];continue;}if(!p.length&&q>=2)p.push(g[q-2],g[q-1]);p.push(x,y);}if(p.length>=4)thick(p,m2c(32),-3);});
+  herWalls(si).forEach(function(w){thick(hRing(w),wallHW(w),-3);});
   var list=[],id=0,st=[];for(j=0;j<H;j++)for(i=0;i<W;i++){var o0=j*W+i;if(lab[o0]!==0)continue;id++;var sb={id:id,n:0,bb:[i,j,i,j],sx:0,sy:0,zh:{},sh:{},dnS:0,dnN:0,gen:null},top=0;st.length=0;st.push(o0);lab[o0]=id;
     while(st.length){var c=st.pop(),ci=c%W,cj=(c/W)|0;sb.n++;sb.sx+=ci;sb.sy+=cj;if(ci<sb.bb[0])sb.bb[0]=ci;if(cj<sb.bb[1])sb.bb[1]=cj;if(ci>sb.bb[2])sb.bb[2]=ci;if(cj>sb.bb[3])sb.bb[3]=cj;
       if((ci&3)===0&&(cj&3)===0){var kk=(y0+Math.floor(cj/f))*GW+x0+Math.floor(ci/f),zz=C.P.zt[kk],sy=C.P.sty[kk];sb.zh[zz]=(sb.zh[zz]||0)+1;sb.sh[sy]=(sb.sh[sy]||0)+1;if(zDev(zz)){sb.dnS+=C.P.dn[kk];sb.dnN++;}}
@@ -1829,18 +1845,23 @@ function placeBld(L,front,prm,tpl,des,h){var cs=C.MP.cs,ux,uy,vx,vy,cen=pgCent(L
 /* ---------- 街廓明細（依需要產生；分區或密度改變時重算） ---------- */
 function blockSig(bk){var MP=C.MP,P=C.P,k=bk.k,des=designAt(bk.cx,bk.cy);return P.zt[k]+'|'+P.dn[k]+'|'+((C.bovr||{})[bk.key]||'')+'|'+(MP.dmg[k]>110?1:0)+'|'+(des?[des.bdir,des.bang,des.btype,des.trees].join(','):'');}
 function blockDetail(bk){var MP=C.MP,P=C.P,k=bk.k,z=P.zt[k],dn=P.dn[k],ov=(C.bovr||{})[bk.key]||'',dmg=MP.dmg[k]>110?1:0,des=designAt(bk.cx,bk.cy),sig=blockSig(bk);
-  if(bk.det&&bk.det.sig===sig)return bk.det;var pf=C.cities[bk.si],r=mb32(hstr(C.seed+'|blk|'+bk.key)),det={sig:sig,blds:[],lanes:[],site:null,trees:[],yards:[],arcs:[],cls:'res',vac:false};bk.det=det;
+  if(bk.det&&bk.det.sig===sig)return bk.det;var pf=C.cities[bk.si],r=mb32(hstr(C.seed+'|blk|'+bk.key)),det={sig:sig,blds:[],lanes:[],site:null,trees:[],yards:[],arcs:[],crops:[],cls:'res',vac:false};bk.det=det;
   if(ov){det.site=siteOverride(bk,ov,r);det.cls=ov==='park'?'park':ov==='plaza'?'plaza':'parking';return det;}
   if(dmg){det.cls='rubble';return det;}
+  var hs=herSiteFor(bk);if(hs){var hp=herPlan(bk,hs,r);if(hp){det.site=hp;det.cls=hp.cls||'heritage';return det;}}
   if(z===ZI.edu||z===ZI.emg||z===ZI.gov||z===ZI.park||z===ZI.utl||z===ZI.port||z===ZI.mil){det.site=sitePlan(bk,z,P.zl[k],r);det.cls=det.site.cls||'pub';return det;}
   if(!zDev(z)){det.cls='vacant';return det;}
   if(!dn){det.cls='vacant';det.vac=true;return det;}
   det.cls=z===ZI.com?'com':z===ZI.off?'off':z===ZI.ind?'ind':(P.sty[k]===7||pf.kind==='village')?'farm':'res';
   var prm=lotPrm(z,dn,P.sty[k],pf,des),lots=[],cat=cityCatalog(bk.si);splitLots(bk.poly,prm,r,lots,det.lanes,0);var majE=blockMajE(bk);
-  lots.forEach(function(L,li){var fr=lotFront(L,bk.poly,det.lanes,majE),fam=prm.fam,h=ih(li,bk.k,31);
+  var fz=(z===ZI.res||z===ZI.com&&dn<=2)&&!des&&pf.kind!=='village',fb=fz?fringeAt(bk.si,bk.cx,bk.cy):0;if(fb>0.5&&dn<=2)det.cls='fringe';
+  lots.forEach(function(L,li){var fr=lotFront(L,bk.poly,det.lanes,majE),fam=prm.fam,h=ih(li,bk.k,31),pr=prm;
     if(fr&&fr.maj&&(fam==='row'||fam==='apt')&&z===ZI.res&&dn<=3)fam='shop';/* 幹道兩側的住宅一樓多為店面（騎樓） */
+    /* 城市外緣：部分地塊是菜園或小塊農地，其餘多為獨棟住宅與農舍 */
+    var ff=0;if(fz&&fb>0){var lc0=pgCent(L);ff=fringeAt(bk.si,lc0[0],lc0[1])*(dn>=3?0.35:1);}
+    if(ff>0.05&&fam!=='shop'){var hf=((h>>6)&1023)/1023;if(hf<ff*0.45){det.crops.push([hf<ff*0.14?'garden':'crop',L]);return;}if(hf<ff*0.95){fam=hf<ff*0.62?'farm':'house';pr={fam:fam,w:prm.w,d:prm.d,sF:5,sS:3,sB:5,A:prm.A};}}
     if(!fr&&fam!=='factory'&&fam!=='farm'&&(h&3)!==0){det.yards.push(L);return;}/* 街廓中間沒有臨街的地：天井、空地 */
-    var list=cat.fam[fam]||cat.fam[prm.fam]||cat.fam.row;if(!list||!list.length){list=[genTpl(fam,mb32(h),0)];}var tpl=list[h%list.length],pb=placeBld(L,fr,prm,tpl,des,h);if(!pb)return;
+    var list=pr!==prm?null:cat.fam[fam]||cat.fam[prm.fam]||cat.fam.row;if(pr===prm&&(!list||!list.length)){list=[genTpl(fam,mb32(h),0)];}var tpl=pr!==prm?fringeTpl(bk.si,fam,h):list[h%list.length],pb=placeBld(L,fr,pr,tpl,des,h);if(!pb)return;
     var fl=tplFloors(tpl,dn,h>>4);pb.parts.forEach(function(q){det.blds.push({p:q.p,fl:q.pod?Math.min(4,fl):fl,c:fam,saw:tpl.saw?[pb.ux,pb.uy]:null});});if(pb.arc)det.arcs.push(pb.arc);
     if((fam==='house'||fam==='farm')&&tpl.trees){for(var t=0;t<tpl.trees;t++){var hh=ih(li,t,bk.k),uu=pb.U0+((hh&255)/255)*(pb.U1-pb.U0),vv=pb.V1-((hh>>8&255)/255)*0.25*(pb.V1-pb.V0);det.trees.push(uu*pb.ux+vv*pb.vx,uu*pb.uy+vv*pb.vy,m2c(3+(hh>>16&3)));}}});
   if(des&&des.trees||(z===ZI.res&&(P.sty[k]===1||P.sty[k]===4)&&dn>=3))streetTrees(det,bk.poly,m2c(9),m2c(2.2),r);
@@ -1880,17 +1901,17 @@ function siteOverride(bk,ov,r){var S=siteBase(bk);if(ov==='park'){var s=sitePlan
   S.cls='parking';S.fills.push(['pave',bk.poly]);for(var u=4;u<S.Lu-4;u+=2.6)S.lines.push(['stripe',m2c(0.25),[].concat(uv2xy(S.o,S.o.u0+u/C.MP.cs,S.o.v0+4/C.MP.cs),uv2xy(S.o,S.o.u0+u/C.MP.cs,S.o.v0+9/C.MP.cs))]);return S;}
 /* ===================== 街區繪製（畫在圖磚裡）、幹道、高架、車站與街名 ===================== */
 var PALS={
- street:{ground:'#FFFFFF',blk:{res:'#F1F3F5',com:'#FBEFD8',off:'#EEEEF6',ind:'#ECEAF2',pub:'#EEF1F6',pubs:'#EEF1F6',school:'#F3EEDD',campus:'#EAF1E2',hosp:'#FBE6E9',gov:'#E8EEF7',park:'#CDEAC6',plaza:'#EBEAE6',parking:'#E8EAED',vacant:'#EEF2E4',farm:'#EEF0E0',port:'#E4E7EB',util:'#E8EAEE',mil:'#E1EADB',rubble:'#E6DCD1'},
-  fill:{track:'#E7B9A2',field:'#BEE0AE',court:'#C6DEC0',water:'#AAD3F5',lawn:'#D3EBC9',pave:'#E5E6E9',plaza:'#E8E6E1',dark:'#9AA0A8',pubb:'#D8DCE3',cont:'#A8B7CB',cont2:'#CDB6A3'},
-  bld:{row:'#E1E3E7',shop:'#EADFCF',house:'#E3E4E8',apt:'#DEE1E6',tower:'#D8DCE3',retail:'#E7DBC8',office:'#DADEE7',otower:'#D3D9E2',factory:'#DCDAE3',farm:'#E5DCCC',pub:'#DAE0E9'},
+ street:{ground:'#FFFFFF',blk:{palace:'#EFE7D6',altarP:'#D5EACB',heritage:'#EEE7DA',fringe:'#EEF1E8',res:'#F1F3F5',com:'#FBEFD8',off:'#EEEEF6',ind:'#ECEAF2',pub:'#EEF1F6',pubs:'#EEF1F6',school:'#F3EEDD',campus:'#EAF1E2',hosp:'#FBE6E9',gov:'#E8EEF7',park:'#CDEAC6',plaza:'#EBEAE6',parking:'#E8EAED',vacant:'#EEF2E4',farm:'#EEF0E0',port:'#E4E7EB',util:'#E8EAEE',mil:'#E1EADB',rubble:'#E6DCD1'},
+  fill:{track:'#E7B9A2',field:'#BEE0AE',court:'#C6DEC0',water:'#AAD3F5',lawn:'#D3EBC9',pave:'#E5E6E9',plaza:'#E8E6E1',dark:'#9AA0A8',pubb:'#D8DCE3',cont:'#A8B7CB',cont2:'#CDB6A3',crop:'#E1ECCD',garden:'#D3E5BF',terrace:'#F4F1EA'},
+  bld:{row:'#E1E3E7',shop:'#EADFCF',house:'#E3E4E8',apt:'#DEE1E6',tower:'#D8DCE3',retail:'#E7DBC8',office:'#DADEE7',otower:'#D3D9E2',factory:'#DCDAE3',farm:'#E5DCCC',pub:'#DAE0E9',pal:'#EDCF86',palR:'#D88C6E',palB:'#9DB7CF'},
   bldE:'#C8CCD3',street:'#FFFFFF',streetC:'#D6DBE2',lane:'#FFFFFF',laneC:'#E2E5EA',tree:'#B3D8A0',path:'#F6F3EC',stripe:'#FFFFFF',fence:'#9AA58C',shadow:'rgba(60,64,72,.15)',rubble:'#C62828'},
- terrain:{ground:'#E7DFD0',blk:{res:'#DCCBB8',com:'#D9B9A8',off:'#C9CBD6',ind:'#C9C2CF',pub:'#CBD3DC',pubs:'#CBD3DC',school:'#D8CDA6',campus:'#C2D2A8',hosp:'#E2C2C2',gov:'#C3CEDD',park:'#A8C46B',plaza:'#D8CBB3',parking:'#C9C4B9',vacant:'#C9CF9C',farm:'#C9CF79',port:'#BDBFC4',util:'#C4C8CE',mil:'#AAB48A',rubble:'#8A7D70'},
-  fill:{track:'#B5654A',field:'#86B26E',court:'#9DBA80',water:'#5A96CA',lawn:'#9FC07A',pave:'#B9B4A8',plaza:'#D8CBB3',dark:'#5F6368',pubb:'#AEB4BC',cont:'#7C93B0',cont2:'#B38B6D'},
-  bld:{row:'#CFA98A',shop:'#C99A8E',house:'#D2B79A',apt:'#BFAFA4',tower:'#A8B7C8',retail:'#C99A8E',office:'#A8B7C8',otower:'#98A8BC',factory:'#AAA7A0',farm:'#D6C49A',pub:'#B8BFC8'},
+ terrain:{ground:'#E7DFD0',blk:{palace:'#D8C8A6',altarP:'#A8C46B',heritage:'#D6C6A8',fringe:'#CFCDA6',res:'#DCCBB8',com:'#D9B9A8',off:'#C9CBD6',ind:'#C9C2CF',pub:'#CBD3DC',pubs:'#CBD3DC',school:'#D8CDA6',campus:'#C2D2A8',hosp:'#E2C2C2',gov:'#C3CEDD',park:'#A8C46B',plaza:'#D8CBB3',parking:'#C9C4B9',vacant:'#C9CF9C',farm:'#C9CF79',port:'#BDBFC4',util:'#C4C8CE',mil:'#AAB48A',rubble:'#8A7D70'},
+  fill:{track:'#B5654A',field:'#86B26E',court:'#9DBA80',water:'#5A96CA',lawn:'#9FC07A',pave:'#B9B4A8',plaza:'#D8CBB3',dark:'#5F6368',pubb:'#AEB4BC',cont:'#7C93B0',cont2:'#B38B6D',crop:'#A9C46B',garden:'#93B65E',terrace:'#DCD4C3'},
+  bld:{row:'#CFA98A',shop:'#C99A8E',house:'#D2B79A',apt:'#BFAFA4',tower:'#A8B7C8',retail:'#C99A8E',office:'#A8B7C8',otower:'#98A8BC',factory:'#AAA7A0',farm:'#D6C49A',pub:'#B8BFC8',pal:'#D9AE4A',palR:'#B5573C',palB:'#4E74A0'},
   bldE:'rgba(0,0,0,.28)',street:'#EFE9DE',streetC:'rgba(80,60,40,.35)',lane:'#EFE9DE',laneC:'rgba(80,60,40,.25)',tree:'#4F8F45',path:'#E6DFD2',stripe:'#FFFFFF',fence:'#5F6B48',shadow:'rgba(0,0,0,.22)',rubble:'#B71C1C'}};
 /* 都市計畫圖：街廓依分區著色（臺灣都市計畫圖慣用色） */
-PALS.plan=(function(){var b={},cl={res:ZI.res,com:ZI.com,off:ZI.off,ind:ZI.ind,pub:ZI.gov,pubs:ZI.emg,school:ZI.edu,campus:ZI.edu,hosp:ZI.emg,gov:ZI.gov,park:ZI.park,plaza:ZI.park,parking:ZI.gov,vacant:ZI.agr,farm:ZI.res,port:ZI.port,util:ZI.utl,mil:ZI.mil,rubble:ZI.res};Object.keys(cl).forEach(function(k){b[k]=hexOf(mixC(rgbOf(ZT[cl[k]][3]),[255,255,255],0.28));});
-  return {ground:'#FFFFFF',blk:b,fill:PALS.street.fill,bld:{row:'rgba(255,255,255,.45)',shop:'rgba(255,255,255,.45)',house:'rgba(255,255,255,.45)',apt:'rgba(255,255,255,.45)',tower:'rgba(255,255,255,.45)',retail:'rgba(255,255,255,.45)',office:'rgba(255,255,255,.45)',otower:'rgba(255,255,255,.45)',factory:'rgba(255,255,255,.45)',farm:'rgba(255,255,255,.45)',pub:'rgba(255,255,255,.45)'},
+PALS.plan=(function(){var b={},cl={palace:ZI.park,altarP:ZI.park,heritage:ZI.gov,fringe:ZI.res,res:ZI.res,com:ZI.com,off:ZI.off,ind:ZI.ind,pub:ZI.gov,pubs:ZI.emg,school:ZI.edu,campus:ZI.edu,hosp:ZI.emg,gov:ZI.gov,park:ZI.park,plaza:ZI.park,parking:ZI.gov,vacant:ZI.agr,farm:ZI.res,port:ZI.port,util:ZI.utl,mil:ZI.mil,rubble:ZI.res};Object.keys(cl).forEach(function(k){b[k]=hexOf(mixC(rgbOf(ZT[cl[k]][3]),[255,255,255],0.28));});
+  return {ground:'#FFFFFF',blk:b,fill:Object.assign({},PALS.street.fill,{crop:hexOf(mixC(rgbOf(ZT[ZI.agr][3]),[255,255,255],0.2)),garden:hexOf(mixC(rgbOf(ZT[ZI.agr][3]),[255,255,255],0.1))}),bld:{row:'rgba(255,255,255,.45)',shop:'rgba(255,255,255,.45)',house:'rgba(255,255,255,.45)',apt:'rgba(255,255,255,.45)',tower:'rgba(255,255,255,.45)',retail:'rgba(255,255,255,.45)',office:'rgba(255,255,255,.45)',otower:'rgba(255,255,255,.45)',factory:'rgba(255,255,255,.45)',farm:'rgba(255,255,255,.45)',pub:'rgba(255,255,255,.45)',pal:'rgba(255,240,200,.75)',palR:'rgba(255,220,200,.75)',palB:'rgba(220,235,255,.75)'},
     bldE:'rgba(0,0,0,.18)',street:'#FFFFFF',streetC:'#9E9E9E',lane:'#FFFFFF',laneC:'#BDBDBD',tree:'#6FAE5F',path:'#FFFFFF',stripe:'#FFFFFF',fence:'#6B7A3A',shadow:'rgba(0,0,0,0)',rubble:'#C62828'};})();
 function blkClass(z,dn,sty,pf){if(z===ZI.edu)return 'school';if(z===ZI.emg)return 'hosp';if(z===ZI.gov)return 'gov';if(z===ZI.park)return 'park';if(z===ZI.utl)return 'util';if(z===ZI.port)return 'port';if(z===ZI.mil)return 'mil';
   if(!zDev(z)||!dn)return 'vacant';if(z===ZI.com)return 'com';if(z===ZI.off)return 'off';if(z===ZI.ind)return 'ind';return sty===7||pf&&pf.kind==='village'?'farm':'res';}
@@ -1898,16 +1919,19 @@ function polyPath(path,P){if(!P||P.length<3)return;path.moveTo(P[0][0],P[0][1]);
 function flatPath(path,p){if(p.length<4)return;path.moveTo(p[0],p[1]);for(var i=2;i<p.length;i+=2)path.lineTo(p[i],p[i+1]);}
 function domPath(SB){var p=new Path2D();if(!SB.lab)return p;var loops=gridLoops(SB.lab,SB.W,SB.H,function(v){return v!==-1;},0,0,SB.W-1,SB.H-1);loops.forEach(function(L){var P=dpClosed(L.map(function(v){return [SB.x0+v[0]/SB.f,SB.y0+v[1]/SB.f];}),m2c(5));polyPath(p,P);});return p;}
 function drawFabric(vr,z,mode){var pal=PALS[mode]||PALS.street,ctx=CX,MP=C.MP,P=C.P,cs=MP.cs,x0=vr[0]-1,y0=vr[1]-1,x1=vr[2]+1,y1=vr[3]+1,dz=z>=22,bz=z>=32&&LY.bld,ez=z>=50,shz=z>=70&&mode!=='plan',tz=z>=30&&LY.bld;
-  var PM={},gp=function(k){return PM[k]||(PM[k]=new Path2D());},trees=[],handled={};
-  citiesIn(vr).forEach(function(si){var nc=netC(si),pf=C.cities[si];if(!nc.SB){if(!genOK()){GEN.miss=true;return;}genRun(function(){citySB(si);});}var SB=nc.SB;if(!SB||!SB.list)return;handled[si]=1;
-    if(!nc.dom)nc.dom=domPath(SB);ctx.fillStyle=pal.ground;ctx.fill(nc.dom,'evenodd');
+  var PM={},gp=function(k){return PM[k]||(PM[k]=new Path2D());},trees=[],handled={},CL=citiesIn(vr);
+  /* 鄉間地景（城市範圍以外）：田塊、農路、水圳、樹冠 */
+  drawRuralTex(vr,z,mode,function(k,x,y){var cid=C.P.cid[k];if(cid===0xFFFF||CL.indexOf(cid)<0)return false;var nc=netC(cid);if(!nc.cin)nc.cin=cityCellIn(cid);return nc.cin(x,y)===1;});
+  CL.forEach(function(si){var nc=netC(si),pf=C.cities[si];if(!nc.SB){if(!genOK()){GEN.miss=true;return;}genRun(function(){citySB(si);});}var SB=nc.SB;if(!SB||!SB.list)return;handled[si]=1;
+    /* 都市計畫圖以白底呈現城市範圍；街道圖與地形圖不鋪底色，讓外緣自然接到農地與林地 */if(mode==='plan'){if(!nc.dom)nc.dom=domPath(SB);ctx.fillStyle=pal.ground;ctx.fill(nc.dom,'evenodd');}
     SB.list.forEach(function(sb){if(sb.wb[2]<x0||sb.wb[0]>x1||sb.wb[3]<y0||sb.wb[1]>y1)return;if(!sb.gen){if(!genOK()){GEN.miss=true;return;}genRun(function(){sbGen(si,sb);});}var g=sb.gen;
       g.blocks.forEach(function(bk){if(bk.bb[2]<x0||bk.bb[0]>x1||bk.bb[3]<y0||bk.bb[1]>y1)return;var det=null;
         if(dz){if(bk.det&&bk.det.sig===blockSig(bk))det=bk.det;else if(genOK())det=genRun(function(){return blockDetail(bk);});else GEN.miss=true;}
         var cls=det?det.cls:blkClass(P.zt[bk.k],P.dn[bk.k],P.sty[bk.k],pf);if(!det&&MP.dmg[bk.k]>110)cls='rubble';polyPath(gp('b:'+cls),bk.poly);
         if(!det)return;
-        if(det.site){var S=det.site;S.fills.forEach(function(f){polyPath(gp('f:'+f[0]),f[1]);});if(bz)S.blds.forEach(function(b){polyPath(gp('B:pub'),b.p);if(shz)shadowPoly(gp('sh'),b.p,b.fl);});if(tz)for(var t=0;t<S.trees.length;t+=3)trees.push(S.trees[t],S.trees[t+1],S.trees[t+2]);
+        if(det.site){var S=det.site;S.fills.forEach(function(f){polyPath(gp('f:'+f[0]),f[1]);});if(bz)S.blds.forEach(function(b){polyPath(gp('B:'+(b.c&&pal.bld[b.c]?b.c:'pub')),b.p);if(shz)shadowPoly(gp('sh'),b.p,b.fl);});if(tz)for(var t=0;t<S.trees.length;t+=3)trees.push(S.trees[t],S.trees[t+1],S.trees[t+2]);
           S.lines.forEach(function(l){flatPath(gp('l:'+l[0]+':'+l[1].toFixed(4)),l[2]);});}
+        if(det.crops&&det.crops.length)det.crops.forEach(function(c){polyPath(gp('f:'+c[0]),c[1]);});
         if(det.lanes.length&&z>=18)det.lanes.forEach(function(l){flatPath(gp('lane:'+(l.cls===5?5:3)),l.pts);});
         if(bz){det.blds.forEach(function(b){polyPath(gp('B:'+b.c),b.p);if(shz)shadowPoly(gp('sh'),b.p,b.fl);if(b.saw&&z>=60)sawLines(gp('saw'),b.p,b.saw);});det.yards.forEach(function(Y){polyPath(gp('yard'),Y);});if(z>=56)det.arcs.forEach(function(a){flatPath(gp('arc'),a);});}
         if(tz)for(var t2=0;t2<det.trees.length;t2+=3)trees.push(det.trees[t2],det.trees[t2+1],det.trees[t2+2]);
@@ -1936,18 +1960,19 @@ function drawStreets(z,mode,vr){var ctx=CX,cs=C.MP.cs,st=C.streets;if(!st||!st.l
   ctx.lineCap='round';ctx.lineJoin='round';var wOf=function(s){return Math.max(s.cls===1?1.9:1.2,(s.cls===1?26:17)/cs*z)/z;};
   [2,1].forEach(function(cls){var L=vis.filter(function(s){return s.cls===cls;}),c=cls===1?col.main:col.major;ctx.strokeStyle=c[1];L.forEach(function(s){ctx.lineWidth=wOf(s)+(z<6?0.8:1.5)/z;ctx.stroke(streetPath(s));});ctx.strokeStyle=c[0];L.forEach(function(s){ctx.lineWidth=wOf(s);ctx.stroke(streetPath(s));});});
   (C.uroads||[]).forEach(function(u){if(u.cls>2||z<3.2||!bbHit(u.bb,vr))return;var c=u.cls===1?col.main:col.major,w=Math.max(u.cls===1?1.9:1.2,(u.cls===1?26:17)/cs*z)/z,p=new Path2D();flatPath(p,u.pts);ctx.strokeStyle=c[1];ctx.lineWidth=w+1.5/z;ctx.stroke(p);ctx.strokeStyle=c[0];ctx.lineWidth=w;ctx.stroke(p);});
+  /* 古蹟的御道 */((C.her||{}).roads||[]).forEach(function(o){if(z<1.6)return;var p=new Path2D(),w=Math.max(1.9,26/cs*z)/z;flatPath(p,o.pts);ctx.strokeStyle=col.main[1];ctx.lineWidth=w+1.5/z;ctx.stroke(p);ctx.strokeStyle=col.main[0];ctx.lineWidth=w;ctx.stroke(p);});
   vis.forEach(function(s){if(!s.el||z<2.5)return;var q=subPts(s.pts,s.el[0],s.el[1]);if(q.length<4)return;var p=new Path2D(),sh=new Path2D(),w=Math.max(2.6,30/cs*z)/z,ofx=Math.min(3,0.8+z*0.02)/z;flatPath(p,q);var qs=q.map(function(v,i){return v+(i&1?ofx*1.6:ofx);});flatPath(sh,qs);
     ctx.strokeStyle=col.sh;ctx.lineWidth=w+2/z;ctx.stroke(sh);ctx.strokeStyle=col.el[1];ctx.lineWidth=w+1.6/z;ctx.stroke(p);ctx.strokeStyle=col.el[0];ctx.lineWidth=w;ctx.stroke(p);
     if(z>=6){[q.slice(0,4),q.slice(-4)].forEach(function(e){var rp=new Path2D();flatPath(rp,e);ctx.strokeStyle=col.el[0];ctx.lineWidth=w*0.6;ctx.stroke(rp);});}});}
 /* 車站建築、月台與站前廣場 */
-function drawStationsGeo(z,vr){if(z<12)return;var ctx=CX,GW=C.MP.GW,M=1/C.MP.cs,done={};C.lines.forEach(function(L){if((L.kind!=='rail'&&L.kind!=='hsr')||!L.st)return;L.st.forEach(function(k){if(done[k])return;done[k]=1;var x=k%GW+0.5,y=((k/GW)|0)+0.5;if(x<vr[0]-2||x>vr[2]+2||y<vr[1]-2||y>vr[3]+2)return;
-    var i=L.pts.indexOf(k),a=L.pts[Math.max(0,i-2)],b=L.pts[Math.min(L.pts.length-1,i+2)],ux=b%GW-a%GW,uy=((b/GW)|0)-((a/GW)|0),l=Math.hypot(ux,uy)||1;ux/=l;uy/=l;var vx=-uy,vy=ux,len=(L.kind==='hsr'?300:180)*M,wid=(L.kind==='hsr'?40:24)*M,off=24*M,
+function drawStationsGeo(z,vr){if(z<12)return;var ctx=CX,GW=C.MP.GW,M=1/C.MP.cs,done={};C.lines.forEach(function(L){if((L.kind!=='rail'&&L.kind!=='hsr')||!L.st)return;var sp=stPos(L);L.st.forEach(function(k,si){if(done[k])return;done[k]=1;var x=sp[si*2],y=sp[si*2+1];if(x<vr[0]-2||x>vr[2]+2||y<vr[1]-2||y>vr[3]+2)return;
+    var dv=lineDirAt(L,x,y),ux=dv[0],uy=dv[1];var vx=-uy,vy=ux,len=(L.kind==='hsr'?300:180)*M,wid=(L.kind==='hsr'?40:24)*M,off=24*M,
     rect=function(cu,cv,hu,hv){var p=new Path2D();p.moveTo(x+ux*(cu-hu)+vx*(cv-hv),y+uy*(cu-hu)+vy*(cv-hv));p.lineTo(x+ux*(cu+hu)+vx*(cv-hv),y+uy*(cu+hu)+vy*(cv-hv));p.lineTo(x+ux*(cu+hu)+vx*(cv+hv),y+uy*(cu+hu)+vy*(cv+hv));p.lineTo(x+ux*(cu-hu)+vx*(cv+hv),y+uy*(cu-hu)+vy*(cv+hv));p.lineTo(x+ux*(cu-hu)+vx*(cv-hv),y+uy*(cu-hu)+vy*(cv-hv));return p;};
     var pf=cityOfCell(k),side=1;if(pf){var cx=pf.cbd?pf.cbd[0]:pf.x,cy=pf.cbd?pf.cbd[1]:pf.y;side=(cx-x)*vx+(cy-y)*vy>0?1:-1;}
     ctx.fillStyle='#E8E6E1';ctx.fill(rect(0,side*(off+wid/2+30*M),len*0.32,30*M));ctx.fillStyle='#D9DCE3';ctx.fill(rect(0,side*(off),len/2,wid/2));ctx.strokeStyle='#B9BEC8';ctx.lineWidth=0.8/z;ctx.stroke(rect(0,side*off,len/2,wid/2));
     ctx.fillStyle='#E3E5EA';ctx.fill(rect(0,-side*8*M,len*0.55,4*M));ctx.fill(rect(0,side*8*M,len*0.55,4*M));});});}
 /* ---------- 路名：幹道、次要道路（路）、街；巷號標在巷口 ---------- */
-function drawStreetLabels(ox,oy,z,boxes){var st=C.streets,vr=visRect();if(!st||z<4.5)return;var F='"Noto Sans TC",system-ui,sans-serif';
+function drawStreetLabels(ox,oy,z,boxes){if(z>=4.5)((C.her||{}).roads||[]).forEach(function(o){labelAlong(o.pts,o.name,ox,oy,z,boxes,'600 12px "Noto Sans TC",system-ui,sans-serif','#3C4043');});var st=C.streets,vr=visRect();if(!st||z<4.5)return;var F='"Noto Sans TC",system-ui,sans-serif';
   st.forEach(function(s){if(s.cls===2&&z<9)return;if(!bbHit(s.bb,vr))return;labelAlong(s.pts,function(t){return streetLabel(s,t);},ox,oy,z,boxes,(s.cls===1?'600 12px ':'500 11px ')+F,s.cls===1?'#3C4043':'#5F6368');});
   if(z>=4.5)C.lines.forEach(function(L){if(L.kind!=='road'||L.g>1||z<6||L.pts.length<4)return;labelAlong(linePts(L),L.name,ox,oy,z,boxes,'500 11px '+F,'#5F6368');});
   if(z<20)return;citiesIn(vr).forEach(function(si){var SB=netC(si).SB;if(!SB||!SB.list)return;SB.list.forEach(function(sb){if(!sb.gen||!bbHit(sb.wb,vr))return;sb.gen.minor.forEach(function(o){if(!o.name)return;
@@ -2013,6 +2038,483 @@ function streetHtml(s){var pf=C.cities[s.si],st=streetStats(s),t=TRF[s.si],h='<p
   if(st){h+=bullets({title:'容量使用率（V/C）',sub:'尖峰小時車流 ÷ 道路容量，各路段',rows:st.es.slice().sort(function(a,b){return b.vc-a.vc;}).slice(0,6).map(function(e,i){return {label:'路段 '+(i+1),v:e.vc>0.01?1/e.vc:3,txt:'V/C '+fmt(e.vc,2),note:fmt(e.km,2)+' km・'+fmt(e.v)+' 車／時（容量 '+fmt(e.cap)+'）'};})});}
   if(t&&t.stats)h+='<p class="lc-note">全市尖峰平均車速 '+fmt(t.stats.spd)+' km/h，壅塞路段（V/C 0.9 以上）承載 '+pct(t.stats.cong)+' 的車公里。開啟上方圖層「路況」可看全市車流。</p>';
   return h;}
+/* ===================== 軌道運輸規劃 =====================
+   一般鐵路：以地形成本（海、湖、山地、陡坡）在城鎮之間建立最小生成樹，取通過首都的最長路徑為幹線，人口較多的分枝成為支線；
+     幹線兩端都在海岸且相距不遠時補一段連絡線，成為環島鐵路。車站設在沿線的城鎮、村落與大城市的通勤站，依站距篩選並按路線順序排列。
+   高速鐵路：只連接大城市並避開山地；首都與百萬人口城市和鐵路共站，其他城市的車站設在市區外圍（之後形成高鐵特定區）。
+   捷運與輕軌：街道路網完成後沿幹道規劃，串連鐵路車站、市中心、機關、大學、醫院、高鐵站與機場，路線交會處設轉乘站；
+     臨海城市的輕軌繞成環狀。路線以平滑的幾何（L.geo）繪製，車站位置（L.sxy）落在線上。 */
+
+/* ---------- 幾何 ---------- */
+function cellsXY(pts){var GW=C.MP.GW,o=new Array(pts.length*2);for(var i=0;i<pts.length;i++){o[i*2]=pts[i]%GW+0.5;o[i*2+1]=((pts[i]/GW)|0)+0.5;}return o;}
+function chaikinN(p,n){for(var it=0;it<n;it++){if(p.length<6)return p;var q=[p[0],p[1]];for(var i=0;i<p.length-2;i+=2){var x0=p[i],y0=p[i+1],x1=p[i+2],y1=p[i+3];q.push(x0*0.75+x1*0.25,y0*0.75+y1*0.25,x0*0.25+x1*0.75,y0*0.25+y1*0.75);}q.push(p[p.length-2],p[p.length-1]);p=q;}return p;}
+/* Douglas–Peucker；ok(a,b) 檢查原路徑第 a 點到第 b 點之間改走直線是否可行（不穿越海面、不翻過山） */
+function dpOK(p,tol,ok){if(p.length<=4)return p.slice();var n=p.length/2,keep=new Uint8Array(n),st=[0,n-1];keep[0]=keep[n-1]=1;
+  while(st.length){var b=st.pop(),a=st.pop();if(b<=a+1)continue;var ax=p[a*2],ay=p[a*2+1],bx=p[b*2],by=p[b*2+1],dx=bx-ax,dy=by-ay,L2=dx*dx+dy*dy||1e-12,md=-1,mi=-1;
+    for(var i=a+1;i<b;i++){var px=p[i*2]-ax,py=p[i*2+1]-ay,t=clamp((px*dx+py*dy)/L2,0,1),ex=px-t*dx,ey=py-t*dy,d=ex*ex+ey*ey;if(d>md){md=d;mi=i;}}
+    if(md>tol*tol||ok&&!ok(a,b)){keep[mi]=1;st.push(a,mi,mi,b);}}
+  var o=[];for(var j=0;j<n;j++)if(keep[j])o.push(p[j*2],p[j*2+1]);return o;}
+/* 轉角以半徑 r（格）的弧線取代（以二次曲線近似），不超過相鄰線段長度的 45% */
+function roundCorners(p,r){if(p.length<6)return p.slice();var o=[p[0],p[1]],n=p.length/2;
+  for(var i=1;i<n-1;i++){var x=p[i*2],y=p[i*2+1],ax=p[i*2-2],ay=p[i*2-1],bx=p[i*2+2],by=p[i*2+3],l1=Math.hypot(x-ax,y-ay),l2=Math.hypot(bx-x,by-y);if(l1<1e-6||l2<1e-6)continue;
+    var ux=(x-ax)/l1,uy=(y-ay)/l1,vx=(bx-x)/l2,vy=(by-y)/l2,th=Math.acos(clamp(ux*vx+uy*vy,-1,1));if(th<0.04){o.push(x,y);continue;}
+    var t=Math.min(r*Math.tan(Math.min(th,2.6)/2),l1*0.45,l2*0.45),sx=x-ux*t,sy=y-uy*t,ex=x+vx*t,ey=y+vy*t,m=Math.max(2,Math.ceil(th/0.18));
+    for(var k=0;k<=m;k++){var s=k/m,a1=(1-s)*(1-s),b1=2*(1-s)*s,c1=s*s;o.push(a1*sx+b1*x+c1*ex,a1*sy+b1*y+c1*ey);}}
+  o.push(p[p.length-2],p[p.length-1]);return o;}
+/* 折線經過的格子（依序、不重複相鄰） */
+function rastXY(p){var GW=C.MP.GW,GH=C.MP.GH,o=[],last=-1;for(var i=2;i<p.length;i+=2){var ax=p[i-2],ay=p[i-1],bx=p[i],by=p[i+1],n=Math.max(1,Math.ceil(Math.hypot(bx-ax,by-ay)*3));
+    for(var s=(i===2?0:1);s<=n;s++){var X=clamp(Math.floor(ax+(bx-ax)*s/n),0,GW-1),Y=clamp(Math.floor(ay+(by-ay)*s/n),0,GH-1),k=Y*GW+X;if(k!==last){o.push(k);last=k;}}}
+  if(!o.length&&p.length>=2)o.push(clamp(Math.floor(p[1]),0,GH-1)*GW+clamp(Math.floor(p[0]),0,GW-1));return o;}
+function nearPt(p,x,y){var bd=1e18,bx=p[0],by=p[1],bi=0,bt=0;for(var i=2;i<p.length;i+=2){var ax=p[i-2],ay=p[i-1],dx=p[i]-ax,dy=p[i+1]-ay,L2=dx*dx+dy*dy,t=L2?clamp(((x-ax)*dx+(y-ay)*dy)/L2,0,1):0,px=ax+dx*t,py=ay+dy*t,d=(px-x)*(px-x)+(py-y)*(py-y);if(d<bd){bd=d;bx=px;by=py;bi=i/2-1;bt=t;}}
+  return {x:bx,y:by,d:Math.sqrt(bd),i:bi,t:bt};}
+function geoRound(a){return a.map(function(v){return Math.round(v*100)/100;});}
+/* 路線的繪製幾何：產生時算好的 L.geo，或由格子路徑平滑而來 */
+function lineXY(L){if(L.geo&&L.geo.length>=4)return L.geo;if(L._xy&&L._xyn===L.pts.length)return L._xy;var p=cellsXY(L.pts);if(p.length>=6)p=chaikinN(dpOK(p,0.4),2);L._xy=p;L._xyn=L.pts.length;return p;}
+/* 每段不超過 step 格的版本（判斷是否在城市範圍內時用） */
+function densify(p,step){var o=p.length?[p[0],p[1]]:[];for(var i=2;i<p.length;i+=2){var ax=p[i-2],ay=p[i-1],bx=p[i],by=p[i+1],n=Math.max(1,Math.ceil(dist(ax,ay,bx,by)/step));for(var s=1;s<=n;s++)o.push(ax+(bx-ax)*s/n,ay+(by-ay)*s/n);}return o;}
+function lineXYd(L){var g=lineXY(L);if(L._xd&&L._xdg===g)return L._xd;L._xd=densify(g,0.75);L._xdg=g;return L._xd;}
+/* 車站在幾何上的位置 */
+function stPos(L){var n=L.st.length,p=lineXY(L);if(L.sxy&&L.sxy.length===n*2)return L.sxy;if(L._sp&&L._spn===n&&L._spg===p&&L._sps===L.st[0]+'|'+L.st[n-1])return L._sp;var GW=C.MP.GW,o=[];
+  L.st.forEach(function(k){var q=p.length>=4?nearPt(p,k%GW+0.5,((k/GW)|0)+0.5):{x:k%GW+0.5,y:((k/GW)|0)+0.5};o.push(q.x,q.y);});L._sp=o;L._spn=n;L._spg=p;L._sps=L.st[0]+'|'+L.st[n-1];return o;}
+function lineDirAt(L,x,y){var p=lineXY(L);if(p.length<4)return [1,0];var q=nearPt(p,x,y),i=q.i*2,dx=p[i+2]-p[i],dy=p[i+3]-p[i+1],l=Math.hypot(dx,dy)||1;return [dx/l,dy/l];}
+/* 路徑上距某點最近的格子索引 */
+function nearIdx(pts,x,y){var GW=C.MP.GW,bi=0,bd=1e18;for(var i=0;i<pts.length;i++){var dx=pts[i]%GW+0.5-x,dy=((pts[i]/GW)|0)+0.5-y,d=dx*dx+dy*dy;if(d<bd){bd=d;bi=i;}}return bi;}
+
+/* ---------- 規劃用：兩點直線的地形成本、最小生成樹、幹線 ---------- */
+function terrCost(a,b,mode){var MP=C.MP,S=C.S,GW=MP.GW,GH=MP.GH,ax=a.x,ay=a.y,bx=b.x,by=b.y,Ln=Math.hypot(bx-ax,by-ay),n=Math.max(1,Math.ceil(Ln)),c=0,h=mode==='hsr',e0=h?220:350,ed=h?55:110,sk=h?0.2:0.13;
+  for(var i=0;i<=n;i++){var X=clamp(Math.floor(ax+(bx-ax)*i/n),0,GW-1),Y=clamp(Math.floor(ay+(by-ay)*i/n),0,GH-1),k=Y*GW+X,lc=MP.lc[k],e=MP.el[k],v=1,sl=S.SL[k]*sk;
+    if(lc<=2)v+=h?90:60;else if(lc===LCI.riv)v+=1.5;if(e>e0)v+=(e-e0)/ed;v+=sl*sl;c+=v;}
+  return c*Ln/(n+1);}
+function mstOf(nodes,cf,maxD){var n=nodes.length,inT=new Uint8Array(n),best=new Float64Array(n),from=new Int32Array(n),adj=[],i,j;for(i=0;i<n;i++){best[i]=Infinity;from[i]=-1;adj.push([]);}best[0]=0;
+  for(var it=0;it<n;it++){var u=-1,bv=Infinity;for(i=0;i<n;i++)if(!inT[i]&&best[i]<bv){bv=best[i];u=i;}if(u<0)break;inT[u]=1;if(from[u]>=0){adj[u].push({j:from[u],c:bv});adj[from[u]].push({j:u,c:bv});}
+    for(j=0;j<n;j++)if(!inT[j]){var a=nodes[u],b=nodes[j];if(dist(a.x,a.y,b.x,b.y)>maxD)continue;var c=cf(a,b);if(c<best[j]){best[j]=c;from[j]=u;}}}
+  return adj;}
+/* 依實際地形的最小生成樹：在兩倍粗的網格上以多源 Dijkstra 劃出各城鎮的範圍，相鄰範圍間的最短連線（沿海岸繞過山地）為候選邊，再以 Kruskal 取樹 */
+function geoMST(nodes,kind,maxD,maxRatio){var MP=C.MP,GW=MP.GW,GH=MP.GH,f=2,W=Math.ceil(GW/f),H=Math.ceil(GH/f),N=W*H,cost=new Float32Array(N),x,y,a,b;
+  for(y=0;y<H;y++)for(x=0;x<W;x++){var s=0,n=0,m=0;for(b=0;b<f;b++)for(a=0;a<f;a++){var X=x*f+a,Y=y*f+b;if(X>=GW||Y>=GH)continue;m++;var c=stepCost(Y*GW+X,kind,0);if(c>0){s+=c;n++;}}cost[y*W+x]=n*2>=m?s/n*f:0;}
+  var g=new Float32Array(N).fill(Infinity),lab=new Int16Array(N).fill(-1),done=new Uint8Array(N),Hp=new THeap(1<<15);
+  nodes.forEach(function(s,i){var cx=Math.min(W-1,Math.floor(s.x/f)),cy=Math.min(H-1,Math.floor(s.y/f)),c=cy*W+cx;if(cost[c]<=0){var bd=1e9;for(var dy=-3;dy<=3;dy++)for(var dx=-3;dx<=3;dx++){var X=cx+dx,Y=cy+dy;if(X<0||Y<0||X>=W||Y>=H)continue;var q=Y*W+X;if(cost[q]>0&&dx*dx+dy*dy<bd){bd=dx*dx+dy*dy;c=q;}}}if(cost[c]<=0||lab[c]>=0)return;g[c]=0;lab[c]=i;Hp.push(c,0);});
+  while(Hp.size()){var c=Hp.pop();if(done[c])continue;done[c]=1;var cx=c%W,cy=(c/W)|0,gc=g[c];for(var d=0;d<8;d++){var X=cx+D8X[d],Y=cy+D8Y[d];if(X<0||Y<0||X>=W||Y>=H)continue;var q=Y*W+X;if(cost[q]<=0||done[q])continue;var ng=gc+(cost[c]+cost[q])*0.5*D8L[d];if(ng<g[q]){g[q]=ng;lab[q]=lab[c];Hp.push(q,ng);}}}
+  var E={};for(var c2=0;c2<N;c2++){var la=lab[c2];if(la<0)continue;var x2=c2%W,y2=(c2/W)|0;for(var d2=0;d2<4;d2++){var X2=x2+[1,0,1,-1][d2],Y2=y2+[0,1,1,1][d2];if(X2<0||Y2<0||X2>=W||Y2>=H)continue;var q2=Y2*W+X2,lb=lab[q2];if(lb<0||lb===la)continue;
+      var v=g[c2]+g[q2]+(cost[c2]+cost[q2])*0.5*(d2>=2?1.4142:1),key=la<lb?la*4096+lb:lb*4096+la;if(E[key]==null||v<E[key])E[key]=v;}}
+  var list=Object.keys(E).map(function(k){var i=Math.floor(k/4096),j=k%4096;return {i:i,j:j,c:E[k]};}).filter(function(e){var A=nodes[e.i],B=nodes[e.j],L=dist(A.x,A.y,B.x,B.y);return L<=maxD&&e.c<=Math.max(L,8)*maxRatio;}).sort(function(p,q){return p.c-q.c;});
+  var par=nodes.map(function(_,i){return i;}),fd=function(i){while(par[i]!==i){par[i]=par[par[i]];i=par[i];}return i;},adj=nodes.map(function(){return [];});
+  list.forEach(function(e){var ra=fd(e.i),rb=fd(e.j);if(ra===rb)return;par[ra]=rb;adj[e.i].push({j:e.j,c:e.c});adj[e.j].push({j:e.i,c:e.c});});
+  return adj;}
+/* 大城市成為樞紐：鄰居的其他分枝若直接接到大城市不會差太多（地形成本 1.3 倍內），就改接到大城市 */
+function hubify(adj,nodes,kind){var order=nodes.map(function(s,i){return i;}).filter(function(i){return nodes[i].kind==='city';}).sort(function(a,b){return nodes[b].pop-nodes[a].pop;});
+  order.forEach(function(c){adj[c].slice().forEach(function(e){var u=e.j;adj[u].slice().forEach(function(e2){var v=e2.j;if(v===c||nodes[v].pop>nodes[u].pop*1.5&&nodes[v].kind==='city')return;var A=nodes[c],B=nodes[v],tc=terrCost(A,B,kind);if(tc>e2.c*1.3||dist(A.x,A.y,B.x,B.y)>dist(nodes[u].x,nodes[u].y,B.x,B.y)*1.6)return;
+      adj[u]=adj[u].filter(function(o){return o.j!==v;});adj[v]=adj[v].filter(function(o){return o.j!==u;});adj[c].push({j:v,c:tc});adj[v].push({j:c,c:tc});});});});}
+function compsOf(adj){var n=adj.length,lab=new Int32Array(n).fill(-1),out=[];for(var i=0;i<n;i++){if(lab[i]>=0)continue;var st=[i],cp=[];lab[i]=out.length;while(st.length){var u=st.pop();cp.push(u);adj[u].forEach(function(e){if(lab[e.j]<0){lab[e.j]=out.length;st.push(e.j);}});}out.push(cp);}return out;}
+function treeDist(adj,src,block){var n=adj.length,d=new Float64Array(n).fill(-1),par=new Int32Array(n).fill(-1),st=[src];d[src]=0;if(block>=0)d[block]=-2;
+  while(st.length){var u=st.pop();for(var q=0;q<adj[u].length;q++){var e=adj[u][q];if(d[e.j]!==-1)continue;d[e.j]=d[u]+e.c;par[e.j]=u;st.push(e.j);}}if(block>=0)d[block]=-1;return {d:d,par:par};}
+function treePath(par,from,to){var o=[from],g=0;while(o[o.length-1]!==to&&g++<1e5){var p=par[o[o.length-1]];if(p<0)break;o.push(p);}return o;}
+/* 通過 root 的最長路徑：root 各分枝中最遠（依人口加權）的兩個端點 */
+function trunkOf(adj,root,w){var best=[];adj[root].forEach(function(e){var T=treeDist(adj,e.j,root),far=e.j,fv=-1;for(var i=0;i<adj.length;i++)if(T.d[i]>=0){var v=T.d[i]+e.c+(w?w(i):0);if(v>fv){fv=v;far=i;}}best.push({c:e.j,far:far,v:fv,par:T.par});});
+  best.sort(function(a,b){return b.v-a.v;});var A=best[0]?treePath(best[0].par,best[0].far,best[0].c).concat([root]):[root];if(best[1])A=A.concat(treePath(best[1].par,best[1].far,best[1].c).reverse());return A;}
+function nearBorder(k,m){var GW=C.MP.GW,GH=C.MP.GH,x=k%GW,y=(k/GW)|0;return x<m||y<m||x>=GW-m||y>=GH-m;}
+function railOK(p){var MP=C.MP,GW=MP.GW,GH=MP.GH;return function(a,b){var ax=p[a*2],ay=p[a*2+1],bx=p[b*2],by=p[b*2+1],n=Math.ceil(Math.hypot(bx-ax,by-ay)*2);for(var s=1;s<n;s++){var X=clamp(Math.floor(ax+(bx-ax)*s/n),0,GW-1),Y=clamp(Math.floor(ay+(by-ay)*s/n),0,GH-1);if(MP.lc[Y*GW+X]<=2)return false;}return true;};}
+/* 沿線車站：候選 {i:路徑索引, pr:優先度, gap:最小站距（公尺）}；優先度高的先選，再按路線順序排列 */
+function pickStations(pts,cands,minGap){var cs=C.MP.cs,GW=C.MP.GW,cum=new Float64Array(pts.length),acc=[];for(var i=1;i<pts.length;i++){var a=pts[i-1],b=pts[i];cum[i]=cum[i-1]+((a%GW!==b%GW&&((a/GW)|0)!==((b/GW)|0))?1.4142:1)*cs;}
+  cands.sort(function(a,b){return b.pr-a.pr;}).forEach(function(c){var g=c.gap||minGap;if(acc.every(function(o){return Math.abs(cum[o.i]-cum[c.i])>=Math.min(g,o.gap||minGap)||c.pr>=1e9&&o.pr>=1e9&&o.i!==c.i;}))acc.push(c);});
+  acc.sort(function(a,b){return a.i-b.i;});var out=[];acc.forEach(function(c){var k=pts[c.i];if(out.indexOf(k)<0)out.push(k);});return out;}
+
+/* ---------- 一般鐵路 ---------- */
+function planRail(sets){var MP=C.MP,S=C.S,P=C.P,cs=MP.cs,GW=MP.GW,GH=MP.GH,cap=sets.filter(function(s){return s.cap;})[0]||sets[0];
+  var nodes=sets.filter(function(s){return s!==cap&&s.kind!=='village'&&(s.pop>=15000||s.kind==='city');});nodes.unshift(cap);if(nodes.length<2)return null;
+  var adj=geoMST(nodes,'rail',90000/cs,5);hubify(adj,nodes,'rail');
+  var wt=function(i){return Math.sqrt(nodes[i].pop)/10;},lines=[],main=null;
+  /* 城市的車站在市中心旁（約 0.4～0.8 公里，往內陸的一側），鐵路不直接穿過市中心 */
+  function wpOf(i,prev,next){var s=nodes[i],k=K(s);if(s.kind!=='city')return k;var ax=prev>=0?nodes[prev].x:s.x,ay=prev>=0?nodes[prev].y:s.y,bx=next>=0?nodes[next].x:s.x,by=next>=0?nodes[next].y:s.y,dx=bx-ax,dy=by-ay,l=Math.hypot(dx,dy);if(l<1)return k;dx/=l;dy/=l;
+    var d=clamp(s.r/cs*0.25,3,7),best=k,bv=-1e9;[1,-1].forEach(function(sg){var X=Math.floor(s.x-dy*d*sg),Y=Math.floor(s.y+dx*d*sg);if(X<1||Y<1||X>=GW-1||Y>=GH-1)return;var q=Y*GW+X,z=P.zt[q],hm=herMask();if(isWater(MP.lc[q])||S.SL[q]>12||z===ZI.air||z===ZI.mil||z===ZI.port||hm&&hm[q])return;var v=S.dSea[q]+S.dRiv[q]*0.3;if(v>bv){bv=v;best=q;}});
+    if(best===k){var hm2=herMask();if(hm2&&hm2[k]){/* 市中心在皇城內：車站設在城外最近處 */var bd=1e9;for(var b=-30;b<=30;b++)for(var a=-30;a<=30;a++){var X2=Math.floor(s.x)+a,Y2=Math.floor(s.y)+b;if(X2<0||Y2<0||X2>=GW||Y2>=GH)continue;var q2=Y2*GW+X2;if(hm2[q2]||isWater(MP.lc[q2])||!P.zt[q2])continue;var d2=a*a+b*b;if(d2<bd){bd=d2;best=q2;}}}}
+    return best;}
+  function route(seq,startK){var wps=[];if(startK!=null)wps.push(startK);seq.forEach(function(i,j){if(startK!=null&&j===0)return;wps.push(wpOf(i,j>0?seq[j-1]:-1,j<seq.length-1?seq[j+1]:-1));});var cr=chainRoute('rail',0,wps);if(!cr||cr.pts.length<4)return null;
+    var raw=cellsXY(cr.pts),geo=chaikinN(dpOK(raw,0.7,railOK(raw)),2),pts=rastXY(geo);return {pts:pts,geo:geo,wps:cr.wp,seq:seq};}
+  function stationsFor(R){var cands=[],bb=[1e9,1e9,-1e9,-1e9];R.pts.forEach(function(k){var x=k%GW,y=(k/GW)|0;if(x<bb[0])bb[0]=x;if(y<bb[1])bb[1]=y;if(x>bb[2])bb[2]=x;if(y>bb[3])bb[3]=y;});
+    R.wps.forEach(function(k){cands.push({i:nearIdx(R.pts,k%GW+0.5,((k/GW)|0)+0.5),pr:1e9,gap:1500});});
+    sets.forEach(function(s){if(s.x<bb[0]-12||s.x>bb[2]+12||s.y<bb[1]-12||s.y>bb[3]+12)return;var q=nearestOn(R.pts,s.x,s.y),dm=q.d*cs;
+      if(s.kind!=='village'&&dm<2500)cands.push({i:q.i,pr:s.pop,gap:2200});else if(s.kind==='village'&&dm<1200)cands.push({i:q.i,pr:s.pop*0.4,gap:3000});});
+    /* 大城市市區內約每 2.5 公里一個通勤站 */
+    var acc=1e9;for(var i=0;i<R.pts.length;i++){acc+=cs;var k=R.pts[i],cid=P.cid[k],pf=cid!==0xFFFF&&C.cities?C.cities[cid]:null;if(!pf||pf.pop<120000||!(zDev(P.zt[k])||zPub(P.zt[k])&&P.zt[k]!==ZI.air))continue;if(acc>=2500){cands.push({i:i,pr:2500,gap:2000});acc=0;}}
+    return pickStations(R.pts,cands,2200);}
+  function mainName(R){/* 城市的主要車站以城市命名（如「竹灣站」），其餘由站名規則決定 */R.wps.forEach(function(k,j){var s=nodes[R.seq[j]]||null;if(!s||s.kind!=='city')return;var L=lines[lines.length-1],best=-1,bd=1e9;L.st.forEach(function(q){var d=dist(kx(q),ky(q),kx(k),ky(k));if(d<bd){bd=d;best=q;}});if(best>=0&&bd<4){C.stN=C.stN||{};if(!C.stN[best])C.stN[best]=s.name+'站';}});}
+  compsOf(adj).map(function(cp){var pop=0;cp.forEach(function(i){pop+=nodes[i].pop;});return {cp:cp,pop:pop,cap:cp.indexOf(0)>=0};}).sort(function(a,b){return (b.cap-a.cap)||b.pop-a.pop;}).forEach(function(o,ci){
+    if(o.cp.length<2||!o.cap&&o.pop<120000)return;var root=o.cap?0:o.cp.slice().sort(function(a,b){return nodes[b].pop-nodes[a].pop;})[0],trunk=trunkOf(adj,root,wt);if(trunk.length<2)return;var on={};trunk.forEach(function(i){on[i]=1;});
+    var T=route(trunk,null);if(!T)return;var M=addLine({kind:'rail',name:o.cap?nextName('rail'):nodes[root].name+'幹線',col:LK.rail.col,pts:T.pts,wp:T.wps,st:stationsFor(T),built:1});M.geo=geoRound(T.geo);lines.push(M);mainName(T);if(o.cap)main=M;
+    /* 支線：幹線上各節點的分枝，總人口夠多或包含城市者 */
+    var br=[];trunk.forEach(function(t){adj[t].forEach(function(e){if(on[e.j])return;var Tq=treeDist(adj,e.j,t),pop=0,city=false,far=e.j,fv=-1;for(var i=0;i<adj.length;i++)if(Tq.d[i]>=0){pop+=nodes[i].pop;if(nodes[i].kind==='city')city=true;var v=Tq.d[i]+wt(i);if(v>fv){fv=v;far=i;}}
+      if(pop>=30000||city)br.push({t:t,seq:[t].concat(treePath(Tq.par,far,e.j).reverse()),pop:pop});});});
+    br.sort(function(a,b){return b.pop-a.pop;}).slice(0,5).forEach(function(b){var jx=nodes[b.t].x,jy=nodes[b.t].y,jk=M.st.slice().sort(function(a,c){return dist(kx(a),ky(a),jx,jy)-dist(kx(c),ky(c),jx,jy);})[0];if(jk==null)return;
+      var R=route(b.seq,jk);if(!R)return;var far=nodes[b.seq[b.seq.length-1]],L=addLine({kind:'rail',name:far.name+'線',col:LK.rail.col,pts:R.pts,wp:R.wps,st:stationsFor(R),par:M.id,built:1});L.geo=geoRound(R.geo);if(L.st[0]!==jk&&L.pts[0]===jk)L.st.unshift(jk);lines.push(L);mainName(R);});
+    /* 環島：幹線兩端都靠海、彼此不遠時補上連絡線 */
+    var e0=nodes[trunk[0]],e1=nodes[trunk[trunk.length-1]],dAB=dist(e0.x,e0.y,e1.x,e1.y)*cs,tl=plen(T.geo)*cs;
+    if(o.cap&&trunk.length>=5&&dAB<85000&&dAB<tl*0.32&&S.dSea[K(e0)]*cs<8000&&S.dSea[K(e1)]*cs<8000){var a0=M.st[0],a1=M.st[M.st.length-1],pc=findPath(a0,a1,'rail',0);
+      if(pc&&pathLen(pc)*1000<dAB*2.1&&pc.filter(function(k){return nearBorder(k,5);}).length<pc.length*0.05){var raw=cellsXY(pc),geo=chaikinN(dpOK(raw,0.7,railOK(raw)),2),pts=rastXY(geo),mx=(e0.x+e1.x)/2,my=(e0.y+e1.y)/2,cx=0,cy=0;nodes.forEach(function(s){cx+=s.x;cy+=s.y;});cx/=nodes.length;cy/=nodes.length;
+        var dx=mx-cx,dy=my-cy,nm=(Math.abs(dy)>=Math.abs(dx)?(dy>0?'南':'北'):(dx>0?'東':'西'))+'迴線',L2=addLine({kind:'rail',name:nm,col:LK.rail.col,pts:pts,wp:[a0,a1],st:stationsFor({pts:pts,geo:geo,wps:[a0,a1],seq:[]}),par:M.id,built:1});L2.geo=geoRound(geo);lines.push(L2);}}});
+  return lines.length?{main:main||lines[0],lines:lines}:null;}
+
+/* ---------- 高速鐵路 ---------- */
+function hsrOutskirt(s,prev,next){var MP=C.MP,S=C.S,P=C.P,GW=MP.GW,GH=MP.GH,cs=MP.cs,R=clamp(s.r/cs*1.1+6,9,34),ax,ay,bx,by,o;
+  if(prev&&next){ax=prev.x;ay=prev.y;bx=next.x;by=next.y;}else{o=prev||next;ax=o.x;ay=o.y;bx=s.x*2-o.x;by=s.y*2-o.y;}
+  var best=-1,bv=1e18;for(var a=0;a<36;a++){var th=a/36*2*PI;for(var f=0.75;f<=1.35;f+=0.15){var rr=R*f,X=Math.floor(s.x+Math.cos(th)*rr),Y=Math.floor(s.y+Math.sin(th)*rr);if(X<3||Y<3||X>=GW-3||Y>=GH-3)continue;var k=Y*GW+X,z=P.zt[k];
+      if(isWater(MP.lc[k])||S.SL[k]>6||MP.el[k]>320||z===ZI.air||z===ZI.mil||z===ZI.port||z===ZI.cons||z===ZI.utl)continue;
+      var v=psDist(X+0.5,Y+0.5,ax,ay,bx,by)+(zDev(z)&&P.dn[k]>=3?14:0)+(S.dSea[k]<4?10:0)+Math.abs(f-1)*R*0.4;if(v<bv){bv=v;best=k;}}}
+  return best>=0?best:K(s);}
+function planHSR(sets,rail){var MP=C.MP,S=C.S,cs=MP.cs,GW=MP.GW,cap=sets.filter(function(s){return s.cap;})[0]||sets[0];
+  var nodes=sets.filter(function(s){return s!==cap&&s.kind==='city'&&s.pop>=150000;});nodes.unshift(cap);if(nodes.length<2)return null;
+  var adj=geoMST(nodes,'hsr',160000/cs,4);hubify(adj,nodes,'hsr');var trunk=trunkOf(adj,0,function(i){return Math.sqrt(nodes[i].pop)/6;});
+  if(trunk.length<2)return null;var span=0;for(var i=1;i<trunk.length;i++)span+=dist(nodes[trunk[i-1]].x,nodes[trunk[i-1]].y,nodes[trunk[i]].x,nodes[trunk[i]].y)*cs;if(span<50000)return null;
+  var railSt=[];(rail&&rail.lines||[]).forEach(function(L){L.st.forEach(function(k){railSt.push(k);});});
+  var stK=trunk.map(function(i,j){var s=nodes[i];if(s.cap||s.pop>=800000){var b=-1,bd=4000/cs;railSt.forEach(function(k){var d=dist(kx(k)+0.5,ky(k)+0.5,s.x,s.y);if(d<bd){bd=d;b=k;}});if(b>=0)return b;}
+    return hsrOutskirt(s,j>0?nodes[trunk[j-1]]:null,j<trunk.length-1?nodes[trunk[j+1]]:null);});
+  /* 中途站讓路線繞路時，改在前後站直達路線上最靠近市區（1～6 公里）的地方設站 */
+  for(var j0=1;j0<stK.length-1;j0++){if(railSt.indexOf(stK[j0])>=0)continue;var s0=nodes[trunk[j0]],dp=findPath(stK[j0-1],stK[j0+1],'hsr',0);if(!dp)continue;var q0=nearestOn(dp,s0.x,s0.y),dm=q0.d*cs;if(dm<900||dm>6500)continue;
+    var pa=findPath(stK[j0-1],stK[j0],'hsr',0),pb=findPath(stK[j0],stK[j0+1],'hsr',0);if(pa&&pb&&pathLen(dp)>(pathLen(pa)+pathLen(pb))*0.96)continue;var kq=dp[q0.i],zq=C.P.zt[kq];if(isWater(MP.lc[kq])||zq===ZI.air||zq===ZI.mil)continue;stK[j0]=kq;}
+  var path=[],used=[stK[0]];for(var j=1;j<stK.length;j++){var seg=findPath(used[used.length-1],stK[j],'hsr',0);if(!seg)continue;if(path.length)seg=seg.slice(1);for(var q=0;q<seg.length;q++)path.push(seg[q]);used.push(stK[j]);}
+  if(used.length<2||path.length<10)return null;
+  var raw=cellsXY(path),ok=function(a,b){var ax=raw[a*2],ay=raw[a*2+1],bx=raw[b*2],by=raw[b*2+1],n=Math.ceil(Math.hypot(bx-ax,by-ay)*2),mx=0;for(var t=a;t<=b;t++){var e0=MP.el[path[t]];if(e0>mx)mx=e0;}
+      for(var s=1;s<n;s++){var X=Math.floor(ax+(bx-ax)*s/n),Y=Math.floor(ay+(by-ay)*s/n),k=Y*GW+X;if(MP.lc[k]<=2||MP.el[k]>mx+120||C.P.zt[k]===ZI.air)return false;}return true;};
+  /* 只在車站之間簡化（車站維持原位），轉彎改為大半徑曲線 */
+  var cuts=used.map(function(k){return path.indexOf(k);}).filter(function(i){return i>=0;}),geo=[];if(cuts[0]!==0)cuts.unshift(0);if(cuts[cuts.length-1]!==path.length-1)cuts.push(path.length-1);
+  for(var c=1;c<cuts.length;c++){var a0=cuts[c-1],a1=cuts[c];if(a1<=a0)continue;var sub=raw.slice(a0*2,a1*2+2),okS=function(o){return function(a,b){return ok(a+o,b+o);};}(a0),sp=roundCorners(dpOK(sub,4.5,okS),m2c(2600));if(geo.length)sp=sp.slice(2);for(var z2=0;z2<sp.length;z2++)geo.push(sp[z2]);}
+  geo=chaikinN(geo,1);var pts=rastXY(geo),st=[],sxy=[];used.forEach(function(k){var q=nearPt(geo,kx(k)+0.5,ky(k)+0.5),i2=nearIdx(pts,q.x,q.y);if(st.indexOf(pts[i2])>=0)return;st.push(pts[i2]);sxy.push(q.x,q.y);});
+  var L=addLine({kind:'hsr',name:nextName('hsr'),col:LK.hsr.col,pts:pts,wp:used,st:st,built:1});L.geo=geoRound(geo);L.sxy=geoRound(sxy);
+  /* 站名：與鐵路共站時沿用鐵路站名；市區外圍的新站稱「高鐵○○站」 */C.stN=C.stN||{};used.forEach(function(k,j){var ti=stK.indexOf(k);if(ti<0||!st[j])return;var s=nodes[trunk[ti]];if(railSt.indexOf(k)<0&&!C.stN[st[j]])C.stN[st[j]]='高鐵'+s.name+'站';});
+  return L;}
+
+/* ---------- 捷運與輕軌（沿街道路網） ---------- */
+function gNear(G,x,y,maxD){var bi=-1,bd=maxD*maxD;for(var n=0;n<G.nodes.length;n++){if(!G.adj[n].length)continue;var q=G.nodes[n],dx=q[0]-x,dy=q[1]-y,d=dx*dx+dy*dy;if(d<bd){var ok=false;for(var a=0;a<G.adj[n].length;a++)if(!G.E[G.adj[n][a]].el){ok=true;break;}if(ok){bd=d;bi=n;}}}return bi;}
+function gPath(G,a,b,wf){var N=G.nodes.length,d=new Float64Array(N).fill(Infinity),pe=new Int32Array(N).fill(-1),H=new THeap(256),done=new Uint8Array(N);d[a]=0;H.push(a,0);
+  while(H.size()){var u=H.pop();if(done[u])continue;done[u]=1;if(u===b)break;var A=G.adj[u];for(var q=0;q<A.length;q++){var ei=A[q],e=G.E[ei];if(e.el)continue;var v=e.a===u?e.b:e.a,w=wf(ei,e);if(!(w<Infinity))continue;var nd=d[u]+w;if(nd<d[v]){d[v]=nd;pe[v]=ei;H.push(v,nd);}}}
+  if(!done[b])return null;var nodes=[b],edges=[],cur=b,g=0;while(cur!==a&&g++<1e5){var ei=pe[cur],e=G.E[ei];edges.push(ei);cur=e.a===cur?e.b:e.a;nodes.push(cur);}return {nodes:nodes.reverse(),edges:edges.reverse(),cost:d[b]};}
+function cityR90(si,cx,cy){var pf=C.cities[si],P=C.P,GW=C.MP.GW,b=pf.bb,ds=[];for(var y=b[1];y<=b[3];y+=2)for(var x=b[0];x<=b[2];x+=2){var k=y*GW+x;if(P.cid[k]===si&&P.zt[k])ds.push(dist(x+0.5,y+0.5,cx,cy));}ds.sort(function(a,c){return a-c;});return ds.length?Math.max(6,ds[Math.floor(ds.length*0.9)]):Math.max(6,pf.Ru||8);}
+/* 錨點：鐵路車站、市中心、機關、大學、醫院、體育場、機場、高鐵站，以及外圍各方位的住宅重心（候選端點） */
+function railAnchors(si,cx,cy,R,kind){var pf=C.cities[si],P=C.P,MP=C.MP,GW=MP.GW,b=pf.bb,out=[],cs=MP.cs;
+  C.lines.forEach(function(L){if((L.kind!=='rail'&&L.kind!=='hsr')||L.built<1)return;var sp=stPos(L);L.st.forEach(function(k,i){var x=sp[i*2],y=sp[i*2+1],d=dist(x,y,cx,cy);if(d>R*(L.kind==='hsr'?2.6:1.25))return;out.push({x:x,y:y,t:L.kind,nm:stName(L,i),w:L.kind==='hsr'?3.5:L.par<0?2.6:1.6,d:d,main:false});});});
+  var rs=out.filter(function(a){return a.t==='rail';}).sort(function(a,c){return a.d-c.d;});if(rs[0]&&rs[0].d<R*0.6)rs[0].main=true;
+  (C.fac||[]).forEach(function(f){var t=f.z===ZI.gov&&f.lv>=2?'gov':f.z===ZI.edu&&f.lv>=3?'univ':f.z===ZI.emg&&f.lv>=3?'hosp':f.z===ZI.park&&f.n>=10&&f.lv>=2?'stadium':f.z===ZI.air&&kind==='metro'?'air':null;if(!t)return;
+    var d=dist(f.cx,f.cy,cx,cy);if(d>R*(t==='air'?3.2:1.1))return;if(t!=='air'&&P.cid[cellK(f.cx,f.cy)]!==si)return;out.push({x:f.cx,y:f.cy,t:t,nm:f.poiName||'',w:t==='air'?(pf.cap?4:2):t==='gov'?(f.lv>=3?2.2:1.6):1.4,d:d});});
+  /* 各方位外圍的住宅重心 */
+  var NS=12,acc=[];for(var s=0;s<NS;s++)acc.push({p:0,x:0,y:0});var tot=0;for(var y=b[1];y<=b[3];y++)for(var x=b[0];x<=b[2];x++){var k=y*GW+x;if(P.cid[k]!==si)continue;var z=P.zt[k],dn=P.dn[k],pp=P.pop[k]||(z===ZI.res?[0,1,2.5,5,8,12][dn]||0:z===ZI.com||z===ZI.off?1.5*dn:0);if(!pp)continue;var dx=x+0.5-cx,dy=y+0.5-cy,d=Math.hypot(dx,dy);tot+=pp;if(d<R*0.5||d>R*1.08)continue;var sc=Math.floor(((Math.atan2(dy,dx)+2*PI)%(2*PI))/(2*PI)*NS)%NS;acc[sc].p+=pp;acc[sc].x+=(x+0.5)*pp;acc[sc].y+=(y+0.5)*pp;}
+  acc.forEach(function(a){if(!a.p||a.p<tot*0.012)return;out.push({x:a.x/a.p,y:a.y/a.p,t:'res',nm:'',w:Math.min(2.4,a.p/tot*NS),d:dist(a.x/a.p,a.y/a.p,cx,cy)});});
+  return out;}
+function angOf(a,cx,cy){return Math.atan2(a.y-cy,a.x-cx);}
+function angGap(a,b){var d=Math.abs(a-b)%(2*PI);return d>PI?2*PI-d:d;}
+/* 路網外延伸段上的中間站（約每 2.5 公里，兩端各留 1.2 公里） */
+function tailStops(p,lenM){var out=[],cs=C.MP.cs;if(lenM<4000)return out;var n=Math.round((lenM-2400)/2500);for(var i=1;i<=n;i++){var s=(1200+(lenM-2400)*i/(n+1))/cs,acc=0;for(var j=2;j<p.length;j+=2){var d=dist(p[j-2],p[j-1],p[j],p[j+1]);if(acc+d>=s){var t=(s-acc)/(d||1);out.push([p[j-2]+(p[j]-p[j-2])*t,p[j-1]+(p[j+1]-p[j-1])*t,-1,null]);break;}acc+=d;}}return out;}
+function selfCross(P){for(var i=1;i<P.length;i++)for(var j=i+2;j<P.length;j++){if(i===1&&j===P.length-1)continue;if(segX(P[i-1][0],P[i-1][1],P[i][0],P[i][1],P[j-1][0],P[j-1][1],P[j][0],P[j][1]))return true;}return false;}
+/* 一個城市的捷運或輕軌 */
+function urbanLines(si,n,kind,r){var pf=C.cities[si],G=roadGraph(si);if(!G||!G.E.length||G.nodes.length<8)return 0;var MP=C.MP,cs=MP.cs,cx=pf.cbd?pf.cbd[0]:pf.x,cy=pf.cbd?pf.cbd[1]:pf.y,R=cityR90(si,cx,cy),A=railAnchors(si,cx,cy,R,kind),snap=m2c(650);
+  var usedE={},usedN={},lines=[],terms=[],thru={};
+  function markUsed(lg){lg.edges.forEach(function(ei){usedE[ei]=1;});lg.nodes.forEach(function(v){usedN[v]=1;});}
+  A.forEach(function(a){a.node=gNear(G,a.x,a.y,snap);});
+  var core=A.filter(function(a){return a.node>=0&&a.d<R*0.5&&(a.t==='rail'||a.t==='gov'||a.t==='univ'||a.t==='hosp'||a.t==='stadium');});var cbdN=gNear(G,cx,cy,m2c(900));if(cbdN>=0)core.push({x:G.nodes[cbdN][0],y:G.nodes[cbdN][1],t:'cbd',nm:'',w:2,d:0,node:cbdN});
+  var main=A.filter(function(a){return a.main&&a.node>=0;})[0];
+  var tc=A.filter(function(a){return a.d>R*0.42&&(a.t!=='gov');});
+  function wfn(own){return function(ei,e){var m=e.cls===1||e.g>=2?1:1.3;if(own[ei])m*=6;else if(usedE[ei])m*=3.2;else if(usedN[e.a]&&usedN[e.b])m*=1.8;return e.km*m;};}
+  function legs(seq,own){var nodes=[],edges=[];for(var i=1;i<seq.length;i++){var pth=gPath(G,seq[i-1],seq[i],wfn(own));if(!pth)return null;pth.edges.forEach(function(ei){own[ei]=1;});if(nodes.length)pth.nodes.shift();nodes=nodes.concat(pth.nodes);edges=edges.concat(pth.edges);}return {nodes:nodes,edges:edges};}
+  function ext(a){/* 端點在路網外（機場、高鐵站）：從最近的路網節點沿地形接過去 */var nd=gNear(G,a.x,a.y,R*3.5);if(nd<0)return null;var q=G.nodes[nd],d=dist(q[0],q[1],a.x,a.y);if(d<=snap)return {node:nd,tail:null};if(a.t!=='air'&&a.t!=='hsr')return d<=snap*(a.t==='rail'?2.4:1.6)?{node:nd,tail:null}:null;
+    var p=findPath(cellK(q[0],q[1]),cellK(a.x,a.y),'road',1,400000);if(!p||p.length<2)return null;var t=cellsXY(p);t[0]=q[0];t[1]=q[1];t[t.length-2]=a.x;t[t.length-1]=a.y;return {node:nd,tail:chaikinN(dpOK(t,0.8),2)};}
+  var made=0,tries=0,fail=[];
+  if(kind==='lrt'&&pf.coast&&pf.pop>=230000&&G.nodes.length>=90&&r()<0.85&&n===1){/* 環狀輕軌 */var ring=[],ph=r()*2*PI;for(var q8=0;q8<7;q8++){var th=ph+q8/7*2*PI,nd=gNear(G,cx+Math.cos(th)*R*0.5,cy+Math.sin(th)*R*0.5,R*0.2);if(nd>=0&&ring.indexOf(nd)<0)ring.push(nd);}
+    if(ring.length>=5){ring.push(ring[0]);var own={},lg=legs(ring,own);var rl=0;if(lg)lg.edges.forEach(function(ei){rl+=G.E[ei].km;});if(lg&&lg.edges.length>=6&&rl*1000/cs<2*PI*R*0.5*1.8&&!selfCross(lg.nodes.map(function(v){return G.nodes[v];}))){lines.push({lg:lg,a:null,b:null,loop:true,anchors:core.filter(function(c){return lg.nodes.indexOf(c.node)>=0;})});}}}
+  function pairUp(minGap){var best=null,bs=-1e9;for(var i=0;i<tc.length;i++)for(var j=i+1;j<tc.length;j++){var a=tc[i],b=tc[j];if(a.used||b.used)continue;var ga=angGap(angOf(a,cx,cy),angOf(b,cx,cy));if(ga<minGap)continue;
+      var sc=a.w+b.w+(ga-minGap)/(PI-minGap)*1.5;terms.forEach(function(t){if(angGap(angOf(a,cx,cy),t)<0.6)sc-=2.5;if(angGap(angOf(b,cx,cy),t)<0.6)sc-=2.5;});if(sc>bs){bs=sc;best=[a,b];}}return bs>-2?best:null;}
+  while(lines.length<n&&tries++<n*3){var best=pairUp(PI*0.55)||pairUp(PI*0.33);
+    /* 臨海或狹長的城市：找不到兩端時，由市中心的核心點拉一條放射線到外圍 */
+    if(!best){var t1=tc.filter(function(a){return !a.used&&terms.every(function(t){return angGap(angOf(a,cx,cy),t)>0.5;});}).sort(function(a,b){return b.w-a.w;})[0],c1=core.filter(function(c){return c.t==='cbd'||c.t==='rail';}).sort(function(a,b){return angGap(angOf(b,cx,cy),angOf(t1||b,cx,cy))-angGap(angOf(a,cx,cy),angOf(t1||a,cx,cy));})[0];
+      if(t1&&c1)best=[Object.assign({},c1,{d:0,w:0}),t1];}
+    if(!best){fail.push('nopair');break;}var ta=best[0],tb=best[1],ea=ext(ta),eb=ext(tb);if(!ea||!eb){/* 接不上路網的端點不再使用，另一端保留給下一條線 */if(!ea)ta.used=1;if(!eb)tb.used=1;fail.push('ext:'+ta.t+'/'+tb.t);continue;}ta.used=tb.used=1;
+    /* 經過的核心點：第一條線經過主要車站與市中心，其餘挑繞路最少、尚未有線經過的核心點 */
+    var mid=[],ax=G.nodes[ea.node][0],ay=G.nodes[ea.node][1],bx=G.nodes[eb.node][0],by=G.nodes[eb.node][1],L0=Math.max(1,dist(ax,ay,bx,by));
+    if(!lines.length&&main)mid.push(main);
+    var cands=core.filter(function(c){return mid.indexOf(c)<0;}).map(function(c){var det=(dist(ax,ay,c.x,c.y)+dist(c.x,c.y,bx,by))/L0+(thru[c.node]||0)*0.35-(c.t==='cbd'&&!lines.length?0.3:0)-c.w*0.04;return [det,c];}).sort(function(p,q){return p[0]-q[0];});
+    if(cands[0]&&cands[0][0]<1.45)mid.push(cands[0][1]);
+    mid.sort(function(p,q){return ((p.x-ax)*(bx-ax)+(p.y-ay)*(by-ay))-((q.x-ax)*(bx-ax)+(q.y-ay)*(by-ay));});
+    var seq=[ea.node].concat(mid.map(function(c){return c.node;})).concat([eb.node]).filter(function(v,i2,arr){return i2===0||arr[i2-1]!==v;}),own={},lg=legs(seq,own);
+    if(!lg||lg.edges.length<3){if(mid.length){own={};lg=legs([ea.node,eb.node],own);}if(!lg||lg.edges.length<3){fail.push('legs');continue;}}
+    var glen=0;lg.edges.forEach(function(ei){glen+=G.E[ei].km;});
+    if(glen*1000/cs>L0*2.1&&mid.length){/* 經過核心點繞太遠（例如要繞過宮城）：改走兩端之間的最短路 */var own2={},lg2=legs([ea.node,eb.node],own2);if(lg2&&lg2.edges.length>=3){var gl2=0;lg2.edges.forEach(function(ei){gl2+=G.E[ei].km;});if(gl2<glen){lg=lg2;glen=gl2;mid=[];}}}
+    if(glen*1000/cs>L0*2.6){fail.push('long:'+(glen*1000/cs/L0).toFixed(2));continue;}
+    lines.push({lg:lg,a:ta,b:tb,ea:ea,eb:eb,anchors:mid.concat([ta,tb]).filter(function(c){return c.node>=0;})});markUsed(lg);mid.forEach(function(c){thru[c.node]=(thru[c.node]||0)+1;});terms.push(angOf(ta,cx,cy),angOf(tb,cx,cy));}
+  (C._ul=C._ul||[]).push({si:si,kind:kind,n:n,nodes:G.nodes.length,E:G.E.length,A:A.length,core:core.length,tc:tc.length,lines:lines.length,fail:fail.join(' '),R:+R.toFixed(1),noNode:A.filter(function(a){return a.node<0;}).map(function(a){return a.t;}).join(',')});
+  if(!lines.length)return 0;
+  lines.forEach(function(o){markUsed(o.lg);});
+  /* 轉乘站：兩條線共用的路口（連續共用時取中間） */
+  var xfer={};for(var i2=0;i2<lines.length;i2++)for(var j2=i2+1;j2<lines.length;j2++){var sB={};lines[j2].lg.nodes.forEach(function(v){sB[v]=1;});var run=[];lines[i2].lg.nodes.concat([-1]).forEach(function(v){if(v>=0&&sB[v])run.push(v);else if(run.length){xfer[run[Math.floor(run.length/2)]]=1;run=[];}});}
+  lines.forEach(function(o){var nodes=o.lg.nodes,last=-1,lastS=-1e9,acc=0;for(var q=0;q<nodes.length;q++){if(q>0)acc+=dist(G.nodes[nodes[q-1]][0],G.nodes[nodes[q-1]][1],G.nodes[nodes[q]][0],G.nodes[nodes[q]][1]);if(!xfer[nodes[q]])continue;if(last>=0&&(acc-lastS)*cs<600){delete xfer[nodes[q]];continue;}last=q;lastS=acc;}});
+  lines.forEach(function(o,li){var lg=o.lg,geo=[],cum=[0],nodeS=[0];
+    lg.edges.forEach(function(ei,q){var e=G.E[ei],fwd=e.a===lg.nodes[q],p=e.p;if(!fwd){var rp=[];for(var z=p.length-2;z>=0;z-=2)rp.push(p[z],p[z+1]);p=rp;}for(var z2=geo.length?2:0;z2<p.length;z2+=2){if(geo.length){var lx=geo[geo.length-2],ly=geo[geo.length-1];cum.push(cum[cum.length-1]+dist(lx,ly,p[z2],p[z2+1]));}geo.push(p[z2],p[z2+1]);}nodeS.push(cum[cum.length-1]);});
+    /* 車站：起訖、錨點、轉乘點、與鐵路共站，其餘依距市中心的距離取站距（市中心約 0.9 公里、外圍約 1.6 公里），落在路口 */
+    var Lkm=cum[cum.length-1]*cs/1000,forced={},ni,nodes=lg.nodes;forced[0]=1;forced[nodes.length-1]=1;
+    nodes.forEach(function(v,q){if(xfer[v])forced[q]=1;});(o.anchors||[]).forEach(function(c){var q=nodes.indexOf(c.node);if(q>=0)forced[q]=c;});
+    A.forEach(function(c){if(c.t!=='rail'&&c.t!=='hsr')return;var best2=-1,bd2=m2c(420);nodes.forEach(function(v,q){var d=dist(G.nodes[v][0],G.nodes[v][1],c.x,c.y);if(d<bd2){bd2=d;best2=q;}});if(best2>=0)forced[best2]=c;});
+    var fk=Object.keys(forced).map(Number).sort(function(a,b){return a-b;}),stIdx=[];
+    for(var f=0;f<fk.length;f++){var q0=fk[f];if(stIdx.length&&(nodeS[q0]-nodeS[stIdx[stIdx.length-1]])*cs<350&&forced[q0]===1&&!xfer[nodes[q0]])continue;stIdx.push(q0);if(f===fk.length-1)break;var q1=fk[f+1],s0=nodeS[q0],s1=nodeS[q1],mx=(G.nodes[nodes[q0]][0]+G.nodes[nodes[q1]][0])/2,my=(G.nodes[nodes[q0]][1]+G.nodes[nodes[q1]][1])/2,dd=dist(mx,my,cx,cy)/R;
+      var g=(kind==='lrt'?(dd<0.5?600:800):(dd<0.35?900:dd<0.75?1200:1600))/cs,cnt=Math.max(0,Math.round((s1-s0)/g)-1);
+      for(var t=1;t<=cnt;t++){var tg=s0+(s1-s0)*t/(cnt+1),bq=-1,bv=1e9;for(var q=q0+1;q<q1;q++){var dv=Math.abs(nodeS[q]-tg);if(dv>g*0.38)continue;var deg=G.adj[nodes[q]].length,imp=G.adj[nodes[q]].some(function(ei){return G.E[ei].cls===1||G.E[ei].g>=2;})?1:0;var v=dv/g-(deg>=3?0.15:0)-imp*0.12;if(v<bv){bv=v;bq=q;}}
+        if(bq>=0&&stIdx.indexOf(bq)<0&&(nodeS[bq]-nodeS[stIdx[stIdx.length-1]])*cs>450&&(s1-nodeS[bq])*cs>450)stIdx.push(bq);}}
+    var pos=stIdx.map(function(q){return [G.nodes[nodes[q]][0],G.nodes[nodes[q]][1],nodes[q],forced[q]&&forced[q]!==1?forced[q]:null];});
+    /* 路網外的延伸段（機場、高鐵站） */
+    if(o.ea&&o.ea.tail){var t1=o.ea.tail,rv=[];for(var z4=t1.length-2;z4>=0;z4-=2)rv.push(t1[z4],t1[z4+1]);geo=rv.slice(0,-2).concat(geo);var tl1=plen(rv)*cs;if(tl1<1500&&pos.length>1)pos.shift();tailStops(rv,tl1).reverse().forEach(function(s){pos.unshift(s);});pos.unshift([rv[0],rv[1],-1,o.a]);}
+    if(o.eb&&o.eb.tail){var t2=o.eb.tail,tl2=plen(t2)*cs;geo=geo.concat(t2.slice(2));if(tl2<1500&&pos.length>1)pos.pop();tailStops(t2,tl2).forEach(function(s){pos.push(s);});pos.push([t2[t2.length-2],t2[t2.length-1],-1,o.b]);}
+    var minSp=(kind==='lrt'?420:600)/cs,kept=[];pos.forEach(function(s,i3){var imp=s[3]||xfer[s[2]]||i3===0||i3===pos.length-1;if(kept.length){var pv=kept[kept.length-1];if(dist(pv[0],pv[1],s[0],s[1])<minSp){if(imp&&!pv.imp){kept.pop();}else if(!imp)return;}}s.imp=imp;kept.push(s);});pos=kept;
+    geo=roundCorners(geo,m2c(kind==='lrt'?40:200));var pts=rastXY(geo),st=[],sxy=[],names=[];
+    pos.forEach(function(s){var q=nearPt(geo,s[0],s[1]),k=pts[nearIdx(pts,q.x,q.y)];if(st.indexOf(k)>=0)return;st.push(k);sxy.push(q.x,q.y);names.push(s);});
+    if(o.loop&&st.length>2&&dist(sxy[0],sxy[1],sxy[sxy.length-2],sxy[sxy.length-1])*cs<450){st.pop();sxy.splice(-2,2);names.pop();}
+    if(st.length<2)return;var L=addLine({kind:kind,name:o.loop?pf.name+'環狀輕軌':nextName(kind,0,{city:pf.name}),col:nextColor(kind,pf.name),pts:pts,wp:[],st:st,built:1});L.geo=geoRound(geo);L.sxy=geoRound(sxy);L.auto=1;L._nm=names;L.si=si;made++;});
+  return made;}
+/* 站名：與鐵路共站沿用鐵路站名；在地標旁以地標命名；其餘以交會的兩條路名合稱（如「中山民生」），再不然用里名或行政區名 */
+function stemOf(n){return String(n||'').replace(/(大道|路|街)$/,'').replace(/[東西南北]$/,'').slice(0,2);}
+function nameUrbanStations(){var R=C.stN||(C.stN={}),used={};Object.keys(R).forEach(function(k){used[R[k]]=1;});var sById={};(C.streets||[]).forEach(function(s){sById[s.id]=s;});
+  C.lines.forEach(function(L){if(!L.auto||!L._nm)return;var G=roadGraph(L.si),pf=C.cities[L.si],cn=pf?pf.name:'';
+    L.st.forEach(function(k,i){if(R[k])return;var x=kx(k),y=ky(k),key,s=L._nm[i],a=s&&s[3],nm='',cand=[];
+      for(key in R){var q=+key;if(Math.abs(kx(q)-x)<=2&&Math.abs(ky(q)-y)<=2){nm=R[key];break;}}
+      if(!nm&&a){if(a.t==='rail'||a.t==='hsr')nm=a.nm;else if(a.nm){var b=a.nm.replace(/^國立/,'').replace(/附設醫院$/,'醫院').replace(/國際機場$/,'機場');cand.push(b+'站');}else if(a.t==='air')cand.push(cn+'機場站');else if(a.t==='gov')cand.push('市政府站');}
+      if(!nm){var v=s?s[2]:-1,bases=[];if(G&&v>=0)G.adj[v].forEach(function(ei){var e=G.E[ei],st2=e.sid!=null?sById[e.sid]:null,bs=st2?stemOf(st2.base||st2.name):'';if(bs&&bases.indexOf(bs)<0)bases.push(bs);});
+        if(bases.length>=2)cand.push(bases[0]+bases[1]+'站',bases[1]+bases[0]+'站');
+        var nb=(C.nbh||[]).map(function(o){return [dist(o.x,o.y,x+0.5,y+0.5),o.name.replace(/里$/,'')];}).filter(function(o){return o[0]<6;}).sort(function(p,q){return p[0]-q[0];});
+        if(bases.length===1&&nb[0])cand.push(bases[0]+nb[0][1]+'站');nb.slice(0,3).forEach(function(o){cand.push(o[1]+'站');});var u=unitAt(k,3);if(u)cand.push(u.name.replace(/[鄉鎮市區]$/,'')+'站');
+        for(var c=0;c<cand.length;c++)if(!used[cand[c]]){nm=cand[c];break;}if(!nm&&cand[0]){var dirs=['東','西','南','北','中'];for(var d=0;d<dirs.length&&!nm;d++){var t=cand[0].replace(/站$/,dirs[d]+'站');if(!used[t])nm=t;}}}
+      if(!nm)return;R[k]=nm;used[nm]=1;});delete L._nm;});}
+function planUrbanRail(r){if(!C.cities)return;computeFac();try{buildPOI();}catch(e){}
+  C.lines.forEach(function(L){if(L.kind==='rail'||L.kind==='hsr')L.st.forEach(function(k,i){stName(L,i);});});
+  var list=C.cities.map(function(pf,si){return {pf:pf,si:si};}).filter(function(o){return o.pf&&o.pf.kind==='city'&&o.pf.n&&o.pf.bb;}).sort(function(a,b){return b.pf.pop-a.pf.pop;}),lrt=0;
+  list.forEach(function(o){var pf=o.pf,n=0;if(pf.cap&&pf.pop>=300000)n=clamp(Math.round(pf.pop/320000),1,6);else if(pf.pop>=400000)n=clamp(Math.round(pf.pop/450000),1,4);
+    if(n){urbanLines(o.si,n,'metro',r);return;}if(lrt<2&&pf.pop>=150000&&urbanLines(o.si,1,'lrt',r))lrt++;});
+  nameUrbanStations();}
+/* ===================== 城鄉過渡與鄉間：城市外緣、農田、林地、鄉道 =====================
+   城市外緣：街廓離城市邊界（外面是農地或林地）越近，地塊越大、建物越稀疏，改為獨棟與農舍，夾雜菜園與小塊農地。
+   鄉間：農田依農區方向切成田塊（稻作、旱作、休耕的顏色略有不同），田間有農路與灌溉水圳，散布農舍；林地畫出樹冠。
+   鄉道與產業道路：每個村落、沒有接上道路網的城鎮與偏遠設施，沿地形找最近的道路接過去（向量道路，有編號）。 */
+
+/* ---------- 城市外緣 ---------- */
+/* 超級街廓網格上，每格到「對外是農地、林地或空地」的邊界的距離（網格單位） */
+function sbEdge(SB){if(SB.ed)return SB.ed;var MP=C.MP,P=C.P,GW=MP.GW,W=SB.W,H=SB.H,N=W*H,d=new Float32Array(N),INF=1e6,i,j,f=SB.f;
+  for(j=0;j<H;j++)for(i=0;i<W;i++){var o=j*W+i;d[o]=INF;if(SB.lab[o]!==-1)continue;var k=(SB.y0+Math.floor(j/f))*GW+SB.x0+Math.floor(i/f),c=MP.lc[k],z=P.zt[k];if(c>4&&c!==LCI.marsh&&(z===0||z===ZI.agr||z===ZI.cons))d[o]=0;}
+  for(j=0;j<H;j++)for(i=0;i<W;i++){var o1=j*W+i,v=d[o1];if(!v)continue;if(i>0&&d[o1-1]+1<v)v=d[o1-1]+1;if(j>0){if(d[o1-W]+1<v)v=d[o1-W]+1;if(i>0&&d[o1-W-1]+1.414<v)v=d[o1-W-1]+1.414;if(i<W-1&&d[o1-W+1]+1.414<v)v=d[o1-W+1]+1.414;}d[o1]=v;}
+  for(j=H-1;j>=0;j--)for(i=W-1;i>=0;i--){var o2=j*W+i,v2=d[o2];if(!v2)continue;if(i<W-1&&d[o2+1]+1<v2)v2=d[o2+1]+1;if(j<H-1){if(d[o2+W]+1<v2)v2=d[o2+W]+1;if(i<W-1&&d[o2+W+1]+1.414<v2)v2=d[o2+W+1]+1.414;if(i>0&&d[o2+W-1]+1.414<v2)v2=d[o2+W-1]+1.414;}d[o2]=v2;}
+  SB.ed=d;return d;}
+/* 外緣係數：邊界上為 1，往內 190 公尺降到 0 */
+function fringeAt(si,x,y){var SB=netC(si).SB;if(!SB||!SB.lab)return 0;var i=Math.floor((x-SB.x0)*SB.f),j=Math.floor((y-SB.y0)*SB.f);if(i<0||j<0||i>=SB.W||j>=SB.H)return 0;var d=sbEdge(SB)[j*SB.W+i]*C.MP.cs/SB.f;return clamp(1-d/190,0,1);}
+/* 外緣用的獨棟住宅與農舍外形（每個城市一小組，避免重複產生） */
+function fringeTpl(si,fam,h){var cat=cityCatalog(si);if(cat.fam[fam]&&cat.fam[fam].length)return cat.fam[fam][h%cat.fam[fam].length];cat._x=cat._x||{};if(!cat._x[fam]){var r=mb32(hstr(C.seed+'|fr|'+si+fam)),L=[];for(var i=0;i<5;i++)L.push(genTpl(fam,r,i));cat._x[fam]=L;}var X=cat._x[fam];return X[h%X.length];}
+
+/* ---------- 鄉間地景（畫在圖磚裡） ---------- */
+var RTX={s:null};
+function farmCfg(x,y){/* 農區：約 3 公里一片，方向與田塊大小各自一致 */var rx=Math.floor(x/26),ry=Math.floor(y/26),key=rx*7919+ry;if(RTX.s!==C.seed){RTX.s=C.seed;RTX.c={};}var c=RTX.c[key];if(c)return c;var h=ih(rx,ry,4421),g=C.geo||{ax:0,ay:1},base=Math.atan2(g.ay,g.ax);
+  var th=base+((h&255)/255-0.5)*0.9+((h>>8&1)?PI/2:0);c={ca:Math.cos(th),sa:Math.sin(th),l:0.62+((h>>9&255)/255)*0.4,w:0.27+((h>>17&255)/255)*0.14,h:h};RTX.c[key]=c;return c;}
+var FARMC={street:{rice:'#E2ECCF',rice2:'#D9E8C4',dry:'#E9EBD2',fallow:'#EEE8D6',veg:'#D6E6C0',orch:'#D5E5C2',house:'#E6E1D8',green:'#E2E8E8',road:'#FFFFFF',roadC:'#E3E3DA',canal:'#B4D8F2',canopy:'rgba(120,170,105,.16)',canopy2:'rgba(90,150,90,.12)',farmTree:'#C3DCB0'},
+  terrain:{rice:'#A9C46B',rice2:'#9DBB60',dry:'#C9CF79',fallow:'#D4C9A0',veg:'#93B65E',orch:'#9CB25A',house:'#C9A88A',green:'#E7E9E6',road:'#EFE9DE',roadC:'rgba(80,60,40,.3)',canal:'#5A96CA',canopy:'rgba(30,70,30,.22)',canopy2:'rgba(20,60,25,.18)',farmTree:'#4F8F45'}};
+FARMC.plan=FARMC.street;
+function drawRuralTex(vr,z,mode,skip){if(z<10||mode==='plan')return;/* 都市計畫圖只呈現分區 */var MP=C.MP,P=C.P,S=C.S,GW=MP.GW,GH=MP.GH,ctx=CX,pal=FARMC[mode]||FARMC.street,PM={},gp=function(k){return PM[k]||(PM[k]=new Path2D());},det=z>=18,fine=z>=28,cnt=0,FY={};
+  /* 田塊是否成立以田塊中心所在的格決定（邊界順著田埂，而不是格線） */
+  var farmy=function(k){var v=FY[k];if(v!==undefined)return v;var lc=MP.lc[k],zt=P.zt[k],x=k%GW,y=(k/GW)|0;v=(lc===LCI.field||lc===LCI.hedge||lc===LCI.orch||lc===LCI.mead)&&MP.rv[k]<2&&S.SL[k]<12&&(!zt||zt===ZI.agr)&&!(skip&&skip(k,x,y));FY[k]=v;return v;};
+  var gl=det?1:2,gw=det?1:3;/* 縮小時以數塊田合成一區上色，畫面較平靜 */
+  for(var y=vr[1];y<vr[3];y++)for(var x=vr[0];x<vr[2];x++){var k=y*GW+x,lc=MP.lc[k],zt=P.zt[k];
+    var near=MP.rv[k]<2&&lc>3&&(farmy(k)||x>0&&farmy(k-1)||x<GW-1&&farmy(k+1)||y>0&&farmy(k-GW)||y<GH-1&&farmy(k+GW))&&!(zt&&zt!==ZI.agr&&zt!==ZI.cons)&&!(skip&&skip(k,x,y));/* 河道、水面與市區格不畫田 */
+    if(near){cnt++;var c=farmCfg(x,y),ca=c.ca,sa=c.sa,l=c.l*gl,w=c.w*gw,us=[],vs=[];
+      [[x,y],[x+1,y],[x,y+1],[x+1,y+1]].forEach(function(p){us.push(p[0]*ca+p[1]*sa);vs.push(-p[0]*sa+p[1]*ca);});var u0=Math.min.apply(null,us),u1=Math.max.apply(null,us),v0=Math.min.apply(null,vs),v1=Math.max.apply(null,vs),g=det?0.012:0.004;
+      var sq=[[x,y],[x+1,y],[x+1,y+1],[x,y+1]],cut=function(P0){return pgClipC(P0,sq);};
+      for(var i=Math.floor(u0/l);i<=Math.floor(u1/l);i++)for(var j=Math.floor(v0/w);j<=Math.floor(v1/w);j++){var mu=(i+0.5)*l,mv=(j+0.5)*w,mx=mu*ca-mv*sa,my=mu*sa+mv*ca;if(mx<0||my<0||mx>=GW||my>=GH)continue;var kc=Math.floor(my)*GW+Math.floor(mx);if(!farmy(kc))continue;
+        var hh=ih(i,j,(c.h&65535)+gl*7),t=hh%23,lk=MP.lc[kc],cls=lk===LCI.orch?(t<15?'orch':'veg'):lk===LCI.mead?(t<12?'dry':'fallow'):t<8?'rice':t<13?'rice2':t<16?'dry':t<19?'fallow':t<22?'veg':(det?'green':'dry');
+        var a=i*l+g,b=(i+1)*l-g,e=j*w+g,f=(j+1)*w-g,poly=[[a*ca-e*sa,a*sa+e*ca],[b*ca-e*sa,b*sa+e*ca],[b*ca-f*sa,b*sa+f*ca],[a*ca-f*sa,a*sa+f*ca]],cp=cut(poly);if(cp.length>=3)polyPath(gp(cls),cp);
+        /* 農舍：偶爾一間，旁邊一棵樹 */if(fine&&(hh>>8)%37===0){var cu=(i+0.5)*l,cv=j*w+w*0.3,hw=0.055,hd=0.04,hp=[[cu-hw,cv-hd],[cu+hw,cv-hd],[cu+hw,cv+hd],[cu-hw,cv+hd]].map(function(q){return [q[0]*ca-q[1]*sa,q[0]*sa+q[1]*ca];});var hc=cut(hp);if(hc.length>=3){polyPath(gp('house'),hc);var tx=(cu+hw*1.6)*ca-(cv+hd*1.4)*sa,ty=(cu+hw*1.6)*sa+(cv+hd*1.4)*ca;if(tx>x&&tx<x+1&&ty>y&&ty<y+1){var tp=gp('farmTree');tp.moveTo(tx+0.03,ty);tp.arc(tx,ty,0.03,0,2*PI);}}}}
+      /* 農路（每三列田塊一條）與水圳（每五行一條）：只畫在農田上 */
+      if(det&&farmy(k)){var seg=function(path,pu0,pv0,pu1,pv1){var A=[pu0*ca-pv0*sa,pu0*sa+pv0*ca],B=[pu1*ca-pv1*sa,pu1*sa+pv1*ca],cl=clipLine(A[0],A[1],B[0]-A[0],B[1]-A[1],x,y);if(cl){path.moveTo(cl[0],cl[1]);path.lineTo(cl[2],cl[3]);}};
+        for(var i2=Math.floor(u0/l);i2<=Math.ceil(u1/l);i2++){if(((i2%3)+3)%3!==0)continue;seg(gp('road'),i2*l,v0-1,i2*l,v1+1);}
+        for(var j2=Math.floor(v0/w);j2<=Math.ceil(v1/w);j2++){if(((j2%5)+5)%5!==0||(ih(j2,c.h&255,9)&1))continue;seg(gp('canal'),u0-1,j2*w,u1+1,j2*w);}}}
+    else if(z>=16&&(lc===LCI.dfor||lc===LCI.cfor||lc===LCI.jung||lc===LCI.scrub)&&(!zt||zt===ZI.cons||zt===ZI.agr)){/* 樹冠 */var n=lc===LCI.scrub?4:fine?12:6,pp=gp((x+y)&1?'canopy':'canopy2');for(var t2=0;t2<n;t2++){var h2=ih(x*13+t2,y*7,301),cx=x+((h2&255)+0.5)/256,cy=y+((h2>>8&255)+0.5)/256,rr=(lc===LCI.scrub?0.035:0.05)+((h2>>16&255)/255)*0.045;pp.moveTo(cx+rr,cy);pp.arc(cx,cy,rr,0,2*PI);}cnt++;}}
+  if(!cnt)return;['rice','rice2','dry','fallow','veg','orch','green','house','farmTree','canopy','canopy2'].forEach(function(kk){if(!PM[kk])return;ctx.fillStyle=pal[kk];ctx.fill(PM[kk]);});
+  if(PM.road){var wr=Math.max(0.7/z,3.2/MP.cs);ctx.lineCap='butt';ctx.strokeStyle=pal.roadC;ctx.lineWidth=wr+0.8/z;ctx.stroke(PM.road);ctx.strokeStyle=pal.road;ctx.lineWidth=wr;ctx.stroke(PM.road);}
+  if(PM.canal){ctx.strokeStyle=pal.canal;ctx.lineWidth=Math.max(0.6/z,2.2/MP.cs);ctx.stroke(PM.canal);}}
+/* 圖磚裡有沒有需要畫的鄉間地景 */
+function ruralTile(x0,y0,x1,y1,z){if(z<10)return false;var MP=C.MP,GW=MP.GW;for(var y=y0;y<y1;y+=2)for(var x=x0;x<x1;x+=2){var c=MP.lc[y*GW+x];if(c===LCI.field||c===LCI.hedge||c===LCI.orch||c===LCI.mead||(z>=16&&(c===LCI.dfor||c===LCI.cfor||c===LCI.jung||c===LCI.scrub)))return true;}return false;}
+
+/* ---------- 鄉道與產業道路 ---------- */
+var RUR=null;
+function ruralInit(N){if(!RUR||RUR.N!==N)RUR={N:N,g:new Float64Array(N),from:new Int32Array(N),st:new Int32Array(N),cl:new Int32Array(N),s:0,H:new THeap(1<<14)};return RUR;}
+/* 由起點（可多個）以地形成本擴張，碰到 goal 的格子就停，回傳路徑（起點→道路） */
+function ruralPath(srcs,goal,maxN){var MP=C.MP,GW=MP.GW,GH=MP.GH,F=ruralInit(GW*GH),s=++F.s,H=F.H,cnt=0,hit=-1;H.clear();
+  srcs.forEach(function(k){F.g[k]=0;F.st[k]=s;F.from[k]=-1;H.push(k,0);});
+  while(H.size()){var c=H.pop();if(F.cl[c]===s)continue;F.cl[c]=s;if(F.from[c]>=0&&goal(c)){hit=c;break;}if(++cnt>(maxN||150000))return null;var x=c%GW,y=(c/GW)|0,gc=F.g[c];
+    for(var d=0;d<8;d++){var X=x+D8X[d],Y=y+D8Y[d];if(X<0||Y<0||X>=GW||Y>=GH)continue;var k=Y*GW+X;if(F.cl[k]===s)continue;var cc=stepCost(k,'road',1);if(!cc)continue;if(MP.rd[k])cc*=0.55;var ng=gc+cc*D8L[d];if(F.st[k]!==s||ng<F.g[k]){F.st[k]=s;F.g[k]=ng;F.from[k]=c;H.push(k,ng);}}}
+  if(hit<0)return null;var out=[],cur=hit,g2=0;while(cur>=0&&g2++<1e6){out.push(cur);cur=F.from[cur];}return out.reverse();}
+function roadMask(){var MP=C.MP,P=C.P,N=MP.GW*MP.GH,m=new Uint8Array(N),st=C.stMask;for(var k=0;k<N;k++)if((P.ln[k]&1)||st&&(st[k]&3))m[k]=1;return m;}
+function buildRural(){var MP=C.MP,P=C.P,GW=MP.GW,GH=MP.GH,N=GW*GH,cs=MP.cs;C.rural=[];var M=roadMask(),T=[],cnt={},nid=0;
+  try{computeFac();}catch(e){}
+  (C.cities||[]).forEach(function(pf,si){if(!pf||!pf.n&&pf.kind!=='village')return;T.push({k:cellK(pf.x,pf.y),kind:pf.kind==='village'?'village':'town',pop:pf.pop||0,si:si,name:pf.name});});
+  /* 城市路網以外的設施（電廠、淨水場、營區、港口、機場，以及村落的公所與學校） */(C.fac||[]).forEach(function(f){var k=cellK(f.cx,f.cy),cid=P.cid[k],pf=cid!==0xFFFF&&C.cities?C.cities[cid]:null;if(pf&&pf.kind!=='village'&&pf.n){var cin=cityCellIn(cid);if(cin(k%GW,(k/GW)|0))return;}
+    if(f.z===ZI.utl||f.z===ZI.mil||f.z===ZI.port||f.z===ZI.air||f.z===ZI.gov&&f.lv<=1||f.z===ZI.edu&&f.lv<=1)T.push({k:k,kind:'fac',pop:0,z:f.z});});
+  T.sort(function(a,b){var o={town:0,village:1,fac:2};return o[a.kind]-o[b.kind]||b.pop-a.pop;});
+  function near(k,r){var x=k%GW,y=(k/GW)|0;for(var b=-r;b<=r;b++)for(var a=-r;a<=r;a++){var X=x+a,Y=y+b;if(X<0||Y<0||X>=GW||Y>=GH)continue;if(M[Y*GW+X])return true;}return false;}
+  function add(path,g,kind){if(!path||path.length<2)return;var raw=cellsXY(path),geo=chaikinN(dpOK(raw,0.45),2),u=unitAt(path[path.length-1],2)||unitAt(path[0],2),cc=u?u.name.charAt(0):'鄉';cnt[cc]=(cnt[cc]||0)+1;
+    C.rural.push({id:nid++,pts:geoRound(geo),g:g,kind:kind,name:g?cc+cnt[cc]:'產業道路'});path.forEach(function(k){M[k]=1;});}
+  T.forEach(function(t){if(t.kind==='town'){/* 城鎮：街道是否接到聯外道路（沿道路格往外找） */var pf=C.cities[t.si],b=pf.bb||[0,0,0,0],seen={},st=[],x0=b[0]-25,y0=b[1]-25,x1=b[2]+25,y1=b[3]+25,ok=false,src=[];
+      for(var y=Math.max(0,b[1]);y<=Math.min(GH-1,b[3]);y++)for(var x=Math.max(0,b[0]);x<=Math.min(GW-1,b[2]);x++){var q=y*GW+x;if(M[q]&&P.cid[q]===t.si){st.push(q);seen[q]=1;}}if(!st.length)st.push(t.k);
+      var comp=[];while(st.length&&!ok){var c=st.pop();comp.push(c);if(P.ln[c]&1){ok=true;break;}var cx=c%GW,cy=(c/GW)|0;for(var d=0;d<8;d++){var X=cx+D8X[d],Y=cy+D8Y[d];if(X<x0||Y<y0||X>x1||Y>y1||X<0||Y<0||X>=GW||Y>=GH)continue;var q2=Y*GW+X;if(!M[q2]||seen[q2])continue;seen[q2]=1;st.push(q2);}}
+      if(ok)return;var inC={};comp.forEach(function(q){inC[q]=1;});add(ruralPath(comp.length?comp:[t.k],function(q){return M[q]&&!inC[q];},260000),1,'town');return;}
+    if(near(t.k,t.kind==='village'?0:1))return;add(ruralPath([t.k],function(q){return M[q]===1;},t.kind==='village'?220000:120000),t.kind==='fac'&&t.z!==ZI.edu&&t.z!==ZI.gov?0:1,t.kind);});
+  /* 村落之間：相距 4.5 公里內、沿現有道路要繞很遠的，補一條村道 */
+  var vs=T.filter(function(t){return t.kind==='village';}),links=0;vs.forEach(function(a){if(links>vs.length*0.6)return;var best=null,bd=1e9;vs.forEach(function(b){if(b===a)return;var d=dist(a.k%GW,(a.k/GW)|0,b.k%GW,(b.k/GW)|0);if(d<bd){bd=d;best=b;}});if(!best||bd*cs>4500||bd*cs<900)return;
+    var tc=terrCost({x:a.k%GW+0.5,y:((a.k/GW)|0)+0.5},{x:best.k%GW+0.5,y:((best.k/GW)|0)+0.5},'rail');if(tc>bd*2.2)return;var p=ruralPath([a.k],function(q){return q===best.k;},60000);if(!p)return;var newCells=p.filter(function(q){return !M[q];}).length;if(newCells<p.length*0.5)return;add(p,1,'link');links++;});
+  rasterRural();}
+function rasterRural(){var MP=C.MP,P=C.P,N=MP.GW*MP.GH;if(!C.stMask||C.stMask.length!==N)C.stMask=new Uint8Array(N);(C.rural||[]).forEach(function(o){var p=o.pts,v=o.g?2:1;for(var i=2;i<p.length;i+=2){var L=dist(p[i-2],p[i-1],p[i],p[i+1]),n=Math.max(1,Math.ceil(L*2));for(var j=0;j<=n;j++){var k=cellK(p[i-2]+(p[i]-p[i-2])*j/n,p[i-1]+(p[i+1]-p[i-1])*j/n);if(isOpenWater(MP.lc[k]))continue;if(P.rd0[k]<v)P.rd0[k]=v;if(MP.rd[k]<v)MP.rd[k]=v;C.stMask[k]|=4;}}});}
+/* 繪製：鄉道（白色、細灰邊）與產業道路（較窄） */
+function ruralPath2D(o){if(o._p)return o._p;var p=new Path2D(),q=o.pts;p.moveTo(q[0],q[1]);for(var i=2;i<q.length;i+=2)p.lineTo(q[i],q[i+1]);o._p=p;return p;}
+function drawRural(z,vr){var R=C.rural;if(!R||!R.length||z<1.6)return;var ctx=CX,cs=C.MP.cs,st=(LY.base||'street')!=='terrain',x0=vr[0]-2,y0=vr[1]-2,x1=vr[2]+2,y1=vr[3]+2,A=new Path2D(),B=new Path2D(),n=0;
+  R.forEach(function(o){if(!o.bb){var b=[1e9,1e9,-1e9,-1e9];for(var i=0;i<o.pts.length;i+=2){b[0]=Math.min(b[0],o.pts[i]);b[1]=Math.min(b[1],o.pts[i+1]);b[2]=Math.max(b[2],o.pts[i]);b[3]=Math.max(b[3],o.pts[i+1]);}o.bb=b;}if(o.bb[2]<x0||o.bb[0]>x1||o.bb[3]<y0||o.bb[1]>y1)return;if(!o.g&&z<3)return;(o.g?A:B).addPath(ruralPath2D(o));n++;});if(!n)return;
+  ctx.lineCap='round';ctx.lineJoin='round';var wa=Math.max(1.1,7/cs*z)/z,wb=Math.max(0.8,5/cs*z)/z;
+  ctx.strokeStyle=st?'#D3D8DF':'#B9B3A8';ctx.lineWidth=wa+1.4/z;ctx.stroke(A);ctx.lineWidth=wb+1.2/z;ctx.stroke(B);
+  ctx.strokeStyle=st?'#FFFFFF':'#F2EEE6';ctx.lineWidth=wa;ctx.stroke(A);ctx.strokeStyle=st?'#FBFAF7':'#ECE6DA';ctx.lineWidth=wb;ctx.stroke(B);}
+/* 鄉道編號牌（如「竹12」） */
+function drawRuralShields(ox,oy,z,boxes){var R=C.rural;if(!R||z<4.5||z>40)return;var ctx=CX;ctx.font='700 9.5px system-ui,"Noto Sans TC",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  R.forEach(function(o){if(!o.g||o.pts.length<6)return;var i=Math.floor(o.pts.length/4)*2,x=ox+o.pts[i]*z,y=oy+o.pts[i+1]*z;if(x<10||y<10||x>VW-10||y>VH-10)return;var w=Math.max(18,ctx.measureText(o.name).width+8),hh=14,b=[x-w/2-2,y-hh/2-2,x+w/2+2,y+hh/2+2];
+    for(var q=0;q<boxes.length;q++){var B=boxes[q];if(b[0]<B[2]&&b[2]>B[0]&&b[1]<B[3]&&b[3]>B[1])return;}boxes.push(b);
+    ctx.fillStyle='#FFFFFF';ctx.strokeStyle='#5F6368';ctx.lineWidth=1;ctx.beginPath();if(ctx.roundRect)ctx.roundRect(x-w/2,y-hh/2,w,hh,3);else ctx.rect(x-w/2,y-hh/2,w,hh);ctx.fill();ctx.stroke();ctx.fillStyle='#3C4043';ctx.fillText(o.name,x,y+0.5);});
+  ctx.textAlign='left';}
+/* ===================== 古蹟與名勝 =====================
+   首都的皇城：順著市區棋盤方向的方形城牆，外有護城河；主要道路穿過城牆處即為城門（依方位命名）。城內偏北為皇宮（宮牆與內護城河），
+   宮前宮後各有一條御道貫穿南北城門；東南有祭天的壇廟，西側有湖泊園林，宮前左右為太廟與社稷壇，宮後有鐘樓與鼓樓。
+   有舊城的城市留下東西南北城門、孔廟與老街。郊外有陵寢、名山與山寺、湖泊風景區、海岬燈塔、港口砲台與溫泉。
+   城牆與宮牆是街道的屏障（同鐵道：只有幹道能穿過），宮殿、壇廟與園林各自成為一個完整的街廓，內部依古蹟配置繪製。 */
+var HER_G={S:['正陽門','聚寶門','永定門','宣武門','崇文門'],N:['玄武門','德勝門','安定門','神策門'],E:['朝陽門','東直門','太平門','通濟門'],W:['西華門','阜成門','清涼門','定淮門']};
+var HER_PAL=['紫宸宮','太極宮','乾元宮','承天宮','大明宮'],HER_LAKE=['太液池','玄武湖','翠湖','月牙湖','蓮花池'],HER_TOMB=['孝陵','長陵','昭陵','泰陵','景陵'];
+function herNew(){return {walls:[],sites:[],roads:[]};}
+/* 座標框：u 軸大致東西、v 軸大致南北（朝南），由市區棋盤方向決定 */
+function herFrame(cx,cy,ang){var a=[Math.cos(ang),Math.sin(ang)],b=[-Math.sin(ang),Math.cos(ang)];if(Math.abs(a[1])>Math.abs(b[1])){var t=a;a=b;b=t;}if(b[1]<0)b=[-b[0],-b[1]];if(a[0]*b[1]-a[1]*b[0]<0)a=[-a[0],-a[1]];return {cx:cx,cy:cy,ux:a[0],uy:a[1],vx:b[0],vy:b[1]};}
+function hP(f,u,v){return [f.cx+u*f.ux+v*f.vx,f.cy+u*f.uy+v*f.vy];}
+function hL(f,x,y){var dx=x-f.cx,dy=y-f.cy;return [dx*f.ux+dy*f.uy,dx*f.vx+dy*f.vy];}
+function hRing(w){var o=[];[[w.u0,w.v0],[w.u1,w.v0],[w.u1,w.v1],[w.u0,w.v1],[w.u0,w.v0]].forEach(function(q){var p=hP(w.f,q[0],q[1]);o.push(p[0],p[1]);});return o;}
+function hRect(f,u0,v0,u1,v1){return [hP(f,u0,v0),hP(f,u1,v0),hP(f,u1,v1),hP(f,u0,v1)];}
+function hEll(f,cu,cv,ru,rv,n){var o=[];for(var i=0;i<n;i++){var a=i/n*2*PI;o.push(hP(f,cu+Math.cos(a)*ru,cv+Math.sin(a)*rv));}return o;}
+function herWalls(si){return ((C.her||{}).walls||[]).filter(function(w){return w.si===si;});}
+/* 牆帶（城牆＋護城河）一半的寬度（格） */
+function wallHW(w){return m2c((w.wallM+w.moatM)/2+6);}
+function herZone(f,u0,v0,u1,v1,si,z,lv){var MP=C.MP,P=C.P,GW=MP.GW,c=[hP(f,u0,v0),hP(f,u1,v0),hP(f,u1,v1),hP(f,u0,v1)],bx=[1e9,1e9,-1e9,-1e9];c.forEach(function(p){bx[0]=Math.min(bx[0],p[0]);bx[1]=Math.min(bx[1],p[1]);bx[2]=Math.max(bx[2],p[0]);bx[3]=Math.max(bx[3],p[1]);});
+  for(var y=Math.max(0,Math.floor(bx[1]));y<=Math.min(MP.GH-1,Math.floor(bx[3]));y++)for(var x=Math.max(0,Math.floor(bx[0]));x<=Math.min(GW-1,Math.floor(bx[2]));x++){var q=hL(f,x+0.5,y+0.5);if(q[0]<u0||q[0]>u1||q[1]<v0||q[1]>v1)continue;var k=y*GW+x;if(isWater(MP.lc[k]))continue;setZone(k,z,lv,0);P.sty[k]=0;P.cid[k]=si;}}
+
+/* 古蹟範圍格：2＝宮城、壇廟、園林（道路與鐵路不得穿越），1＝皇城內 */
+function herMask(){var H=C.her,MP=C.MP;if(!H||!MP)return null;if(C._herM&&C._herMV===H&&C._herMN===H.walls.length)return C._herM;var GW=MP.GW,GH=MP.GH,m=new Uint8Array(GW*GH);
+  H.walls.forEach(function(w){var v=w.kind==='city'?1:2,g=w.kind==='city'?0:0.35,c=hRing(w),bx=[1e9,1e9,-1e9,-1e9];for(var i=0;i<c.length;i+=2){bx[0]=Math.min(bx[0],c[i]);bx[1]=Math.min(bx[1],c[i+1]);bx[2]=Math.max(bx[2],c[i]);bx[3]=Math.max(bx[3],c[i+1]);}
+    for(var y=Math.max(0,Math.floor(bx[1])-1);y<=Math.min(GH-1,Math.ceil(bx[3])+1);y++)for(var x=Math.max(0,Math.floor(bx[0])-1);x<=Math.min(GW-1,Math.ceil(bx[2])+1);x++){var q=hL(w.f,x+0.5,y+0.5);if(q[0]<w.u0-g||q[0]>w.u1+g||q[1]<w.v0-g||q[1]>w.v1+g)continue;var k=y*GW+x;if(m[k]<v)m[k]=v;}});
+  C._herM=m;C._herMV=H;C._herMN=H.walls.length;return m;}
+/* ---------- 規劃 ---------- */
+function planHeritage(r){var H=C.her=herNew();if(!C.cities)return H;var cap=-1;C.cities.forEach(function(pf,si){if(pf&&pf.cap&&pf.kind==='city'&&cap<0)cap=si;});
+  if(cap>=0)imperialCity(cap,r);
+  C.cities.forEach(function(pf,si){if(!pf||si===cap||pf.kind==='village'||!pf.n)return;if(pf.old&&pf.pop>=20000)oldTownHer(si,r);});
+  scenicSpots(r);return H;}
+function imperialCity(si,r){var pf=C.cities[si],MP=C.MP,P=C.P,GW=MP.GW,GH=MP.GH,H=C.her;
+  var inC=function(x,y){var X=Math.floor(x),Y=Math.floor(y);if(X<0||Y<0||X>=GW||Y>=GH)return false;var k=Y*GW+X,z=P.zt[k];return P.cid[k]===si&&z>0&&z!==ZI.agr&&z!==ZI.cons&&z!==ZI.air&&z!==ZI.mil&&z!==ZI.port&&MP.lc[k]>4&&MP.rv[k]<3;};
+  var base=clamp((pf.Ru||8)*0.5,5.5,17),best=null;
+  for(var sc=1;sc>=0.5&&!best;sc-=0.1){var bv=0;for(var ou=-1;ou<=1.01;ou+=0.25)for(var ov=-1;ov<=1.01;ov+=0.25){var A=base*sc,B=A*0.86,f0=herFrame(pf.x,pf.y,pf.ang),c=hP(f0,ou*A,ov*B),f=herFrame(c[0],c[1],pf.ang),n=0,ok=0,n2=0,ok2=0,t,i,j;
+      for(t=0;t<80;t++){var s=t/20,u,v;if(s<1){u=-A+2*A*s;v=-B;}else if(s<2){u=A;v=-B+2*B*(s-1);}else if(s<3){u=A-2*A*(s-2);v=B;}else{u=-A;v=B-2*B*(s-3);}var p=hP(f,u,v);n++;if(inC(p[0],p[1]))ok++;}
+      for(i=-3;i<=3;i++)for(j=-3;j<=3;j++){var p2=hP(f,i/3*A*0.95,j/3*B*0.95);n2++;if(inC(p2[0],p2[1]))ok2++;}
+      if(ok/n<0.9||ok2/n2<0.9)continue;var val=1-0.12*Math.hypot(ou,ov);if(val>bv){bv=val;best={f:f,A:A,B:B};}}}
+  if(!best||best.A<5)return;var f=best.f,A=best.A,B=best.B,pick=function(L){return L[Math.floor(r()*L.length)];};
+  H.walls.push({si:si,kind:'city',f:f,u0:-A,v0:-B,u1:A,v1:B,wallM:18,moatM:46,name:pf.name+'城牆',moat:'護城河'});
+  /* 皇宮：城內偏北，坐北朝南 */var a=clamp(A*0.3,2.3,4.4),b=a*1.28,pv=-Math.min(B*0.16,B-b-1.4);if(pv-b<-B+1.3)pv=-B+1.3+b;var pal=pick(HER_PAL);
+  H.walls.push({si:si,kind:'palace',f:f,u0:-a,v0:pv-b,u1:a,v1:pv+b,wallM:10,moatM:42,name:pal+'宮牆',moat:'筒子河'});herZone(f,-a-0.2,pv-b-0.2,a+0.2,pv+b+0.2,si,ZI.park,3);
+  H.sites.push({t:'palace',si:si,f:f,u0:-a,v0:pv-b,u1:a,v1:pv+b,name:pal,sub:'故宮博物院',plan:'palace'});
+  /* 御道：宮前到南城門、宮後到北城門 */var g0=hP(f,0,pv+b+0.5),g1=hP(f,0,B+1.8),g2=hP(f,0,pv-b-0.5),g3=hP(f,0,-B-1.8);H.roads.push({si:si,pts:[g0[0],g0[1],g1[0],g1[1]],name:'御道街',g:2},{si:si,pts:[g2[0],g2[1],g3[0],g3[1]],name:'御道北街',g:2});
+  /* 天壇式祭壇：城內東南 */var aw=clamp(A*0.2,1.5,2.6),au=A-aw-1.1,av=B-aw-1.1;if(au-aw>a+0.8&&av-aw>pv+b+0.5){H.walls.push({si:si,kind:'altar',f:f,u0:au-aw,v0:av-aw,u1:au+aw,v1:av+aw,wallM:6,moatM:0,name:'天壇壇牆'});herZone(f,au-aw-0.1,av-aw-0.1,au+aw+0.1,av+aw+0.1,si,ZI.park,2);
+    H.sites.push({t:'altar',si:si,f:f,u0:au-aw,v0:av-aw,u1:au+aw,v1:av+aw,name:'天壇',plan:'altar'});}
+  /* 湖泊園林：宮城西側 */var lw=clamp(A*0.17,1.1,2.3),lh=Math.min(lw*1.9,B*0.75),lu=-(a+1.3+lw);if(lu-lw>-A+0.9&&Math.abs(pv)+lh<B-0.9){var lk=pick(HER_LAKE);H.walls.push({si:si,kind:'garden',f:f,u0:lu-lw,v0:pv-lh,u1:lu+lw,v1:pv+lh,wallM:5,moatM:0,name:lk+'園牆'});herZone(f,lu-lw-0.1,pv-lh-0.1,lu+lw+0.1,pv+lh+0.1,si,ZI.park,2);
+    H.sites.push({t:'lakepark',si:si,f:f,u0:lu-lw,v0:pv-lh,u1:lu+lw,v1:pv+lh,name:lk,plan:'lake'});}
+  /* 宮前左右：太廟、社稷壇；宮後：鐘樓、鼓樓 */
+  [['temple2','太廟',a+1.3,pv+b*0.55],['altar2','社稷壇',-(a+1.3),pv+b*0.55],['bell','鐘樓',0.55,pv-b-1.5],['bell','鼓樓',-0.55,pv-b-1.5]].forEach(function(o){if(Math.abs(o[2])>A-0.8||Math.abs(o[3])>B-0.8)return;var p=hP(f,o[2],o[3]);H.sites.push({t:o[0],si:si,f:f,x:p[0],y:p[1],name:o[1],plan:o[0]==='bell'?'tower':'temple'});});}
+function oldTownHer(si,r){var pf=C.cities[si],H=C.her,MP=C.MP,R=Math.max(1.4,(pf.oldR||1.5)*1.3),f=herFrame(pf.x,pf.y,pf.ang),dirs=[['東門',R,0],['西門',-R,0],['南門',0,R],['北門',0,-R]],big=pf.kind==='city'||pf.pop>=40000;
+  var land=function(p){var k=cellK(p[0],p[1]);return !isWater(MP.lc[k])&&C.P.cid[k]===si&&C.P.zt[k];};
+  /* 舊城：城市多半留下兩三座城門；市鎮偶爾留一座 */if(big||r()<0.3)dirs.forEach(function(d){if(r()<(big?0.35:0.7))return;var p=hP(f,d[1],d[2]);if(!land(p))return;H.sites.push({t:'gate',si:si,f:f,x:p[0],y:p[1],name:pf.name+d[0],plan:'gate'});});
+  var c=hP(f,R*0.45,-R*0.3);if(land(c)&&(pf.kind==='city'||r()<0.4))H.sites.push({t:'confucius',si:si,f:f,x:c[0],y:c[1],name:pf.name+(pf.kind==='city'?'孔廟':'文昌祠'),plan:'temple'});
+  var o=hP(f,-R*0.35,R*0.25);if(land(o)&&r()<0.55)H.sites.push({t:'oldst',si:si,f:f,x:o[0],y:o[1],name:pf.name+'老街'});
+  if(pf.pop>=60000&&r()<0.35){var tw=hP(f,R*0.2,R*0.6);if(land(tw))H.sites.push({t:'pagoda',si:si,f:f,x:tw[0],y:tw[1],name:pf.name+['文峰塔','鎮海塔','慈恩塔'][Math.floor(r()*3)],plan:'pagoda'});}}
+function scenicSpots(r){var MP=C.MP,S=C.S,P=C.P,GW=MP.GW,GH=MP.GH,cs=MP.cs,H=C.her,used=[],NM=C.NM;
+  var far=function(x,y,d){return used.every(function(u){return dist(u[0],u[1],x,y)>d;});},add=function(o){used.push([o.x,o.y]);H.sites.push(o);};
+  var big=(C.cities||[]).filter(function(pf){return pf&&pf.kind==='city'&&pf.n;}).sort(function(a,b){return b.pop-a.pop;}).slice(0,8);
+  /* 名山與山寺 */big.forEach(function(pf,ci){var R=Math.round(15000/cs),bk=-1,be=450;for(var t=0;t<2500;t++){var x=Math.floor(pf.x+(r()*2-1)*R),y=Math.floor(pf.y+(r()*2-1)*R);if(x<0||y<0||x>=GW||y>=GH)continue;var k=y*GW+x;if(MP.el[k]>be&&!isWater(MP.lc[k])){be=MP.el[k];bk=k;}}
+    if(bk<0||!far(kx(bk),ky(bk),40))return;var mn=NM.place('mtn')+'山';add({t:'scenic',si:-1,x:kx(bk)+0.5,y:ky(bk)+0.5,name:mn+'風景區',el:Math.round(be)});
+    var tx=pf.x+(kx(bk)-pf.x)*0.55,ty=pf.y+(ky(bk)-pf.y)*0.55,tk=cellK(tx,ty);if(!isWater(MP.lc[tk])&&!P.zt[tk])add({t:'temple',si:-1,x:tx,y:ty,name:mn.replace(/山$/,'')+['寺','禪寺','山寺','巖'][ci%4]});});
+  /* 陵寢：首都附近的山坡，坐北朝南 */var cap=(C.cities||[]).filter(function(pf){return pf&&pf.cap;})[0];if(cap){var bt=null,bs=-1e9;for(var t2=0;t2<3000;t2++){var a=r()*2*PI,d=(6000+r()*15000)/cs,x2=Math.floor(cap.x+Math.cos(a)*d),y2=Math.floor(cap.y+Math.sin(a)*d);if(x2<2||y2<2||x2>=GW-2||y2>=GH-2)continue;var k2=y2*GW+x2,e=MP.el[k2],sl=S.SL[k2];
+      if(isWater(MP.lc[k2])||P.zt[k2]||e<100||e>650||sl>16)continue;var es=MP.el[k2+GW*2]||e,sc=(e-es)*0.4-Math.abs(e-280)*0.05-sl;if(sc>bs){bs=sc;bt=k2;}}
+    if(bt!=null)add({t:'tomb',si:-1,x:kx(bt)+0.5,y:ky(bt)+0.5,name:HER_TOMB[Math.floor(r()*HER_TOMB.length)],plan:'tomb',f:herFrame(kx(bt)+0.5,ky(bt)+0.5,0)});}
+  /* 湖泊風景區 */var seen=new Uint8Array(GW*GH);for(var k3=0;k3<GW*GH;k3+=3){if(MP.lc[k3]!==LCI.lake||seen[k3])continue;var st=[k3],cp=0,sx=0,sy=0;seen[k3]=1;while(st.length&&cp<20000){var c=st.pop();cp++;sx+=kx(c);sy+=ky(c);[1,-1,GW,-GW].forEach(function(dd){var q=c+dd;if(q>=0&&q<GW*GH&&!seen[q]&&MP.lc[q]===LCI.lake){seen[q]=1;st.push(q);}});}
+    if(cp<25)continue;var lx=sx/cp+0.5,ly=sy/cp+0.5,nb=big.filter(function(pf){return dist(pf.x,pf.y,lx,ly)*cs<30000;})[0];if(!nb&&cp<300)continue;if(!far(lx,ly,25))continue;add({t:'scenic',si:-1,x:lx,y:ly,name:NM.place('gen')+'湖風景區'});}
+  /* 海岬燈塔 */var caps=[];for(var t3=0;t3<6000&&caps.length<3;t3++){var k4=Math.floor(r()*GW*GH);if(MP.lc[k4]<=3||S.dSea[k4]>1.2)continue;var x4=kx(k4),y4=ky(k4),seaN=0,tot=0;for(var b=-6;b<=6;b+=2)for(var a2=-6;a2<=6;a2+=2){var X=x4+a2,Y=y4+b;if(X<0||Y<0||X>=GW||Y>=GH)continue;tot++;if(MP.lc[Y*GW+X]<=1)seaN++;}
+    if(seaN<tot*0.62||!far(x4,y4,120)||big.some(function(pf){return dist(pf.x,pf.y,x4,y4)*cs<7000;}))continue;caps.push(1);add({t:'light',si:-1,x:x4+0.5,y:y4+0.5,name:NM.place('coast')+'燈塔'});}
+  /* 港口砲台 */(C.facN||[]).forEach(function(fc){if(fc.kind!=='port')return;var pf=big.filter(function(c){return dist(c.x,c.y,fc.x,fc.y)*cs<8000;})[0];if(!pf||pf.pop<90000)return;for(var t4=0;t4<400;t4++){var a3=r()*2*PI,d3=(1500+r()*2500)/cs,x5=fc.x+Math.cos(a3)*d3,y5=fc.y+Math.sin(a3)*d3,k5=cellK(x5,y5);if(MP.lc[k5]>3&&S.dSea[k5]<=1.5&&!P.zt[k5]&&far(x5,y5,15)){var fn=pf.name+['砲台','古堡','要塞'][t4%3];if(H.sites.some(function(o){return o.name===fn;}))break;add({t:'fort',si:-1,x:x5,y:y5,name:fn});break;}}});
+  /* 溫泉：山谷溪邊 */var nsp=0;for(var t5=0;t5<8000&&nsp<2;t5++){var k6=Math.floor(r()*GW*GH),e6=MP.el[k6];if(MP.rv[k6]<2||e6<250||e6>950||MP.lc[k6]<=3)continue;var x6=kx(k6)+0.5,y6=ky(k6)+0.5;if(!big.some(function(pf){return dist(pf.x,pf.y,x6,y6)*cs<26000;})||!far(x6,y6,60))continue;nsp++;add({t:'spring',si:-1,x:x6,y:y6,name:NM.place('mtn')+'溫泉'});}}
+
+/* ---------- 路網：城牆是屏障，御道是固定的幹道 ---------- */
+function herRoadsIn(si){return ((C.her||{}).roads||[]).filter(function(o){return o.si===si;}).map(function(o){return {pts:densify(o.pts,0.5),cls:1,g:2,her:o.name};});}
+function herWallPts(si,H){herWalls(si).forEach(function(w){if(w.kind!=='city')return;var p=densify(hRing(w),0.2);for(var i=0;i<p.length;i+=2)H.add(p[i],p[i+1],1);});}
+/* 宮城、壇廟與園林的圍牆：街道不能穿過 */
+function herBarrier(si){var ws=herWalls(si).filter(function(w){return w.kind!=='city';});if(!ws.length)return null;var H=new SHash(1),r=0;ws.forEach(function(w){var p=densify(hRing(w),0.15);for(var i=0;i<p.length;i+=2)H.add(p[i],p[i+1],1);r=Math.max(r,wallHW(w));});H.r=r+m2c(14);return H;}
+/* 不切分的大街廓（宮城、壇廟、園林） */
+function herNoCut(si,x,y){return ((C.her||{}).sites||[]).some(function(s){if(s.si!==si||s.u0==null)return false;var q=hL(s.f,x,y);return q[0]>=s.u0-0.4&&q[0]<=s.u1+0.4&&q[1]>=s.v0-0.4&&q[1]<=s.v1+0.4;});}
+/* 城門：街道穿過城牆的地方（依方位與道路等級命名） */
+function herGates(si){var nc=netC(si);if(nc.gates&&nc.gatesK===(C.streets||[]).length)return nc.gates;var out=[];
+  herWalls(si).forEach(function(w){if(w.kind!=='city'&&w.kind!=='palace')return;var ring=hRing(w),roads=[];C.streets.forEach(function(s){if(s.si===si&&s.cls<=2)roads.push({p:s.pts,m:s.cls===1});});regionalIn(si).forEach(function(o){roads.push({p:o.pts,m:true,ax:!!o.her});});(C.uroads||[]).forEach(function(u){if(u.si===si&&u.cls<=2)roads.push({p:u.pts,m:u.cls===1});});
+    var hits=[];for(var i=2;i<ring.length;i+=2)roads.forEach(function(rd){var p=rd.p;for(var j=2;j<p.length;j+=2){var h=segX(ring[i-2],ring[i-1],ring[i],ring[i+1],p[j-2],p[j-1],p[j],p[j+1]);if(!h)continue;var x=ring[i-2]+(ring[i]-ring[i-2])*h[0],y=ring[i-1]+(ring[i+1]-ring[i-1])*h[0];if(hits.some(function(o){return dist(o.x,o.y,x,y)<m2c(60);}))continue;var dx=p[j]-p[j-2],dy=p[j+1]-p[j-1],q=hL(w.f,x,y);hits.push({x:x,y:y,m:rd.m,ax:rd.ax,th:Math.atan2(ring[i+1]-ring[i-1],ring[i]-ring[i-2]),side:Math.abs(q[0]-w.u0)<0.3?'W':Math.abs(q[0]-w.u1)<0.3?'E':Math.abs(q[1]-w.v0)<0.3?'N':'S',q:q});}});
+    if(w.kind==='palace'){/* 宮門：南午門、北神武門、東西華門（固定在各邊中段） */var mu=(w.u0+w.u1)/2,mv=(w.v0+w.v1)/2,ra=Math.atan2(w.f.uy,w.f.ux),rb=Math.atan2(w.f.vy,w.f.vx);[['S','午門',mu,w.v1,ra],['N','神武門',mu,w.v0,ra],['E','東華門',w.u1,mv+(w.v1-w.v0)*0.25,rb],['W','西華門',w.u0,mv+(w.v1-w.v0)*0.25,rb]].forEach(function(o){var p=hP(w.f,o[2],o[3]);out.push({x:p[0],y:p[1],m:o[0]==='S',ax:o[0]==='S'||o[0]==='N',th:o[4],side:o[0],name:o[1],w:w});});return;}
+    ['S','N','E','W'].forEach(function(sd){if(hits.some(function(g){return g.side===sd;}))return;var mu=(w.u0+w.u1)/2,mv=(w.v0+w.v1)/2,q=sd==='S'?[mu,w.v1]:sd==='N'?[mu,w.v0]:sd==='E'?[w.u1,mv]:[w.u0,mv],p=hP(w.f,q[0],q[1]),k=cellK(p[0],p[1]);if(isWater(C.MP.lc[k]))return;hits.push({x:p[0],y:p[1],m:true,ax:false,th:sd==='S'||sd==='N'?Math.atan2(w.f.uy,w.f.ux):Math.atan2(w.f.vy,w.f.vx),side:sd,q:q,closed:true});});
+    ['S','N','E','W'].forEach(function(sd){var L=hits.filter(function(g){return g.side===sd;}).sort(function(a,b){return (b.ax?2:0)+(b.m?1:0)-((a.ax?2:0)+(a.m?1:0))||Math.abs(a.q[sd==='S'||sd==='N'?0:1])-Math.abs(b.q[sd==='S'||sd==='N'?0:1]);}),names=HER_G[sd];L.forEach(function(g,i){g.name=i<names.length?names[i]:'';g.w=w;});});out=out.concat(hits);});
+  nc.gates=out;nc.gatesK=(C.streets||[]).length;return out;}
+
+/* ---------- 繪製：護城河、城牆、角樓與城門（向量，在街廓圖磚之後、街道之前） ---------- */
+function drawWalls(z,vr){var H=C.her;if(!H||!H.walls.length||z<1.5)return;var ctx=CX,cs=C.MP.cs,st=(LY.base||'street')!=='terrain',x0=vr[0]-3,y0=vr[1]-3,x1=vr[2]+3,y1=vr[3]+3;ctx.lineJoin='miter';ctx.lineCap='butt';
+  H.walls.forEach(function(w){var ring=hRing(w),bx=[1e9,1e9,-1e9,-1e9];for(var i=0;i<ring.length;i+=2){bx[0]=Math.min(bx[0],ring[i]);bx[1]=Math.min(bx[1],ring[i+1]);bx[2]=Math.max(bx[2],ring[i]);bx[3]=Math.max(bx[3],ring[i+1]);}if(bx[2]<x0||bx[0]>x1||bx[3]<y0||bx[1]>y1)return;
+    if(w.kind!=='city'&&w.kind!=='palace'&&z<6)return;
+    var mo=m2c(w.moatM),wl=m2c(w.wallM),grow=function(d){return {f:w.f,u0:w.u0-d,v0:w.v0-d,u1:w.u1+d,v1:w.v1+d};},path=function(o){var q=hRing(o),p=new Path2D();p.moveTo(q[0],q[1]);for(var j=2;j<q.length;j+=2)p.lineTo(q[j],q[j+1]);p.closePath();return p;};
+    if(mo>0){/* 護城河：城牆外側 */var mp=path(grow(wl/2+m2c(4)+mo/2));ctx.strokeStyle=st?'#AAD3F5':'#5A96CA';ctx.lineWidth=Math.max(mo,(w.kind==='city'?2.2:1.4)/z);ctx.stroke(mp);if(z>=20){ctx.strokeStyle=st?'#8EC1EA':'#3F7FB8';ctx.lineWidth=0.8/z;ctx.stroke(path(grow(wl/2+m2c(4))));ctx.stroke(path(grow(wl/2+m2c(4)+mo)));}}
+    var wp=path(w),pal=w.kind==='palace'||w.kind==='altar',col=st?(pal?'#C9785E':'#C4B394'):(pal?'#9E4A35':'#8C7A5C'),edge=st?(pal?'#A65A44':'#9E8B69'):'#5C4A33';
+    ctx.strokeStyle=edge;ctx.lineWidth=Math.max(wl,(w.kind==='city'?2.4:1.4)/z)+Math.min(1.2/z,wl*0.25);ctx.stroke(wp);ctx.strokeStyle=col;ctx.lineWidth=Math.max(wl,(w.kind==='city'?2.4:1.4)/z);ctx.stroke(wp);
+    if(z>=36&&wl*z>5){/* 城垛 */ctx.strokeStyle=edge;ctx.lineWidth=wl*0.22;ctx.setLineDash([m2c(2.2),m2c(2.2)]);ctx.stroke(path(grow(wl*0.39)));ctx.setLineDash([]);}
+    if(w.kind==='city'&&z>=9){/* 角樓 */var cr=[[w.u0,w.v0],[w.u1,w.v0],[w.u1,w.v1],[w.u0,w.v1]],tw=m2c(22);ctx.fillStyle=st?'#B99C74':'#7A6448';cr.forEach(function(q){var c=hRect(w.f,q[0]-tw,q[1]-tw,q[0]+tw,q[1]+tw),p=new Path2D();polyPath(p,c);ctx.fill(p);});}});}
+function drawGates(z,vr){var H=C.her;if(!H||!H.walls.length||z<8)return;var ctx=CX,st=(LY.base||'street')!=='terrain';(C.cities||[]).forEach(function(pf,si){if(!herWalls(si).length)return;herGates(si).forEach(function(g){if(g.x<vr[0]-1||g.x>vr[2]+1||g.y<vr[1]-1||g.y>vr[3]+1)return;
+    var w=g.w,big=w.kind==='city'&&!!g.name,L=m2c(big?(g.ax?52:38):26),D=m2c(w.wallM+(big?14:8)),c=Math.cos(g.th),s=Math.sin(g.th),nx=-s,ny=c,p=new Path2D(),q=[[-L/2,-D/2],[L/2,-D/2],[L/2,D/2],[-L/2,D/2]].map(function(v){return [g.x+v[0]*c+v[1]*nx,g.y+v[0]*s+v[1]*ny];});polyPath(p,q);
+    ctx.fillStyle=st?(w.kind==='palace'?'#D9886C':'#BFA27A'):'#7A6448';ctx.fill(p);ctx.strokeStyle=st?'#8D7352':'#3E3022';ctx.lineWidth=0.9/z;ctx.stroke(p);
+    if(z>=24){/* 城門洞 */var r2=m2c(big?7:5),hp=new Path2D();[[-L*0.22,0],[0,0],[L*0.22,0]].slice(big&&g.ax?0:1,big&&g.ax?3:2).forEach(function(v){var x=g.x+v[0]*c,y=g.y+v[0]*s;hp.moveTo(x+r2*0.5,y);hp.arc(x,y,r2*0.5,0,2*PI);});ctx.fillStyle=st?'#8D7352':'#3E3022';ctx.fill(hp);}});});}
+/* 陵寢：神道與寶頂（郊外，不在任何城市的街廓裡） */
+function drawTombs(z,vr){var H=C.her;if(!H||z<9)return;var ctx=CX,st=(LY.base||'street')!=='terrain';H.sites.forEach(function(s){if(s.t!=='tomb'||s.x<vr[0]-3||s.x>vr[2]+3||s.y<vr[1]-3||s.y>vr[3]+3)return;var f=s.f||herFrame(s.x,s.y,0),M=m2c(1);
+    var way=new Path2D(),a=hP(f,0,M*60),b=hP(f,0,M*820);way.moveTo(a[0],a[1]);way.lineTo(b[0],b[1]);ctx.strokeStyle=st?'#E8E1D2':'#CDBE9E';ctx.lineWidth=Math.max(1.2/z,M*10);ctx.stroke(way);
+    var mound=new Path2D();polyPath(mound,hEll(f,0,0,M*70,M*60,28));ctx.fillStyle=st?'#CFE3BE':'#7FA65E';ctx.fill(mound);ctx.strokeStyle=st?'#B6A27C':'#6B5A3A';ctx.lineWidth=Math.max(0.8/z,M*4);ctx.stroke(mound);
+    if(z>=24){var stl=new Path2D();for(var i=0;i<12;i++){var v=M*(200+i*45);[-1,1].forEach(function(sd){var p=hP(f,sd*M*14,v);stl.moveTo(p[0]+M*3,p[1]);stl.arc(p[0],p[1],M*3,0,2*PI);});}ctx.fillStyle=st?'#B9AE98':'#6E6250';ctx.fill(stl);
+      var hall=new Path2D();polyPath(hall,hRect(f,-M*18,M*95,M*18,M*125));ctx.fillStyle=st?'#D9886C':'#9E4A35';ctx.fill(hall);}});}
+
+/* ---------- 街廓裡的古蹟配置 ---------- */
+function herSiteFor(bk){var H=C.her;if(!H||!H.sites.length)return null;var best=null;H.sites.forEach(function(s){if(best||s.si!==bk.si||!s.plan||s.plan==='tomb')return;
+    if(s.u0!=null){var q=hL(s.f,bk.cx,bk.cy);if(q[0]>=s.u0&&q[0]<=s.u1&&q[1]>=s.v0&&q[1]<=s.v1)best=s;return;}
+    var lim={gate:16000,tower:22000,pagoda:26000}[s.plan]||60000;if(bk.A>lim||!pgIn(bk.poly,s.x,s.y))return;best=s;});return best;}
+function herPlan(bk,s,r){var S=siteBase(bk),M=m2c(1),f=s.f,B=function(u0,v0,u1,v1,c,fl){var p=pgClipC(hRect(f,u0,v0,u1,v1),S.HL);if(p.length>=3)S.blds.push({p:p,fl:fl||2,c:c||'pal'});},Fi=function(cls,poly){var p=pgClipC(poly,S.HL);if(p.length>=3)S.fills.push([cls,p]);};
+  if(s.plan==='palace'){S.cls='palace';var cu=(s.u0+s.u1)/2,v0=s.v0,v1=s.v1,hw=(s.u1-s.u0)/2,hh=(v1-v0)/2;M=M*clamp(hw/m2c(300),1,2.2);var m=M*8;
+    Fi('plaza',hRect(f,cu-hw+m,v0+m,cu+hw-m,v1-m));
+    var axis=function(t){return v1-(v1-v0)*t;};/* t：由南（0）往北（1） */
+    /* 午門（凹字形）與內金水橋 */var gu=hw*0.42;B(cu-gu,v1-M*48,cu+gu,v1-M*20,'palR',3);B(cu-gu,v1-M*95,cu-gu+M*22,v1-M*48,'palR',3);B(cu+gu-M*22,v1-M*95,cu+gu,v1-M*48,'palR',3);
+    /* 前朝：台基與三大殿 */var t0=axis(0.30),t1=axis(0.56);Fi('terrace',hRect(f,cu-hw*0.38,t1,cu+hw*0.38,t0));B(cu-hw*0.3,t0-M*58,cu+hw*0.3,t0-M*20,'pal',3);B(cu-M*16,t0-M*95,cu+M*16,t0-M*68,'pal',2);B(cu-hw*0.22,t1+M*14,cu+hw*0.22,t1+M*48,'pal',2);
+    B(cu-hw*0.2,axis(0.22)-M*16,cu+hw*0.2,axis(0.22)+M*8,'pal',2);
+    /* 前朝兩側的廊廡 */[-1,1].forEach(function(sd){B(cu+sd*hw*0.42-M*7,t1,cu+sd*hw*0.42+M*7,t0,'pal',1);});
+    /* 內廷三宮 */var i0=axis(0.62),i1=axis(0.82);Fi('terrace',hRect(f,cu-hw*0.22,i1,cu+hw*0.22,i0));B(cu-hw*0.18,i0-M*40,cu+hw*0.18,i0-M*10,'pal',2);B(cu-M*12,i0-M*68,cu+M*12,i0-M*50,'pal',2);B(cu-hw*0.18,i1+M*10,cu+hw*0.18,i1+M*36,'pal',2);
+    /* 東西六宮：小院落 */[-1,1].forEach(function(sd){for(var i=0;i<3;i++)for(var j=0;j<2;j++){var uu=cu+sd*(hw*0.42+j*hw*0.22),vv=axis(0.6+i*0.08);B(uu-hw*0.08,vv-M*24,uu+hw*0.08,vv-M*8,'pal',1);B(uu-hw*0.08,vv+M*4,uu+hw*0.08,vv+M*12,'pal',1);}});
+    /* 外東、外西的宮院 */[-1,1].forEach(function(sd){for(var i=0;i<4;i++){var vv=axis(0.18+i*0.1);B(cu+sd*hw*0.78-hw*0.12,vv-M*20,cu+sd*hw*0.78+hw*0.12,vv,'pal',1);}});
+    /* 御花園 */var g0=axis(0.86),g1=axis(0.97);Fi('lawn',hRect(f,cu-hw*0.3,g1,cu+hw*0.3,g0));B(cu-M*14,(g0+g1)/2-M*10,cu+M*14,(g0+g1)/2+M*10,'pal',1);for(var t=0;t<26;t++){var hu=cu+(r()-0.5)*hw*0.56,hv=g1+r()*(g0-g1),p=hP(f,hu,hv);S.trees.push(p[0],p[1],m2c(3+r()*2));}
+    /* 中軸線上的御道 */var a=hP(f,cu,v1-m),b2=hP(f,cu,v0+m);S.lines.push(['path',m2c(6),[a[0],a[1],b2[0],b2[1]]]);return S;}
+  if(s.plan==='altar'){S.cls='altarP';var cu2=(s.u0+s.u1)/2,cv2=(s.v0+s.v1)/2,hw2=(s.u1-s.u0)/2,hh2=(s.v1-s.v0)/2;scatterTrees(S,bk.poly,m2c(11),0.8,r,[hRect(f,cu2-M*22,s.v0,cu2+M*22,s.v1)]);
+    /* 南：圜丘（三層圓台）；北：祈年殿；中間一條高起的丹陛橋 */var sv=cv2+hh2*0.45,nv=cv2-hh2*0.45;S.lines.push(['path',m2c(26),[].concat(hP(f,cu2,sv),hP(f,cu2,nv))]);
+    [M*70,M*52,M*34].forEach(function(rr,i){Fi(i===1?'plaza':'terrace',hEll(f,cu2,sv,rr,rr,40));});Fi('pave',hRect(f,cu2-M*62,nv-M*62,cu2+M*62,nv+M*62));Fi('terrace',hEll(f,cu2,nv,M*44,M*44,40));
+    var ring=hEll(f,cu2,nv,M*20,M*20,24);S.blds.push({p:ring,fl:4,c:'palB'});var hall=hRect(f,cu2-M*16,sv-M*120,cu2+M*16,sv-M*96);S.blds.push({p:hall,fl:2,c:'palB'});return S;}
+  if(s.plan==='lake'){S.cls='park';var cu3=(s.u0+s.u1)/2,cv3=(s.v0+s.v1)/2,ru=(s.u1-s.u0)/2,rv=(s.v1-s.v0)/2,lake=[];for(var i=0;i<36;i++){var a2=i/36*2*PI,w=0.72+0.12*Math.sin(a2*3+1.3)+0.07*Math.cos(a2*5);lake.push(hP(f,cu3+Math.cos(a2)*ru*w,cv3+Math.sin(a2)*rv*w*0.92));}Fi('lawn',bk.poly);Fi('water',lake);
+    [[0.25,-0.3,0.16,0.12],[-0.2,0.25,0.12,0.1]].forEach(function(o,j){var isl=hEll(f,cu3+ru*o[0],cv3+rv*o[1],ru*o[2],rv*o[3]*1.4,18);Fi('lawn',isl);var c=hP(f,cu3+ru*o[0],cv3+rv*o[1]);for(var t=0;t<6;t++)S.trees.push(c[0]+(r()-0.5)*ru*o[2]*1.2,c[1]+(r()-0.5)*rv*o[3]*1.4,m2c(3+r()*2));if(j===0){var tw=hEll(f,cu3+ru*o[0],cv3+rv*o[1],M*7,M*7,8);S.blds.push({p:tw,fl:6,c:'palB'});}});
+    var br=[].concat(hP(f,cu3+ru*0.25,cv3-rv*0.3),hP(f,cu3+ru*0.86,cv3-rv*0.3));S.lines.push(['path',m2c(5),br]);scatterTrees(S,bk.poly,m2c(13),0.55,r,[lake]);return S;}
+  if(s.plan==='temple'||s.plan==='tower'||s.plan==='gate'||s.plan==='pagoda'){var o=pgObb(bk.poly),c3=pgCent(bk.poly),cs=C.MP.cs,Lu=(o.u1-o.u0)*cs,Lv=(o.v1-o.v0)*cs,f2=herFrame(c3[0],c3[1],Math.atan2(o.uy,o.ux)),B2=function(u0,v0,u1,v1,cl,fl){var p=pgClipC(hRect(f2,u0*M,v0*M,u1*M,v1*M),S.HL);if(p.length>=3)S.blds.push({p:p,fl:fl||1,c:cl});},F2=function(cl,u0,v0,u1,v1){var p=pgClipC(hRect(f2,u0*M,v0*M,u1*M,v1*M),S.HL);if(p.length>=3)S.fills.push([cl,p]);};
+    var half=Math.min(Lu,Lv)*0.42;S.cls='heritage';
+    if(s.plan==='tower'){F2('plaza',-half,-half,half,half);B2(-15,-15,15,15,'palR',3);perimTrees(S,bk.poly,m2c(12),m2c(3),r);return S;}
+    if(s.plan==='gate'){F2('plaza',-half,-half,half,half);B2(-16,-9,16,9,'palR',2);return S;}
+    if(s.plan==='pagoda'){F2('lawn',-half,-half,half,half);var pg=pgClipC(hEll(f2,0,0,M*9,M*9,8),S.HL);if(pg.length>=3)S.blds.push({p:pg,fl:12,c:'palB'});scatterTrees(S,bk.poly,m2c(10),0.4,r,[pg]);return S;}
+    var dw=Math.min(half,70),dl=Math.min(Math.max(Lu,Lv)*0.42,110);F2('court',-dw,-dl,dw,dl);B2(-dw*0.6,dl-22,dw*0.6,dl-8,'palR',1);B2(-dw*0.55,-12,dw*0.55,12,'pal',2);B2(-dw*0.45,-dl+10,dw*0.45,-dl+30,'pal',2);[-1,1].forEach(function(sd){B2(sd*dw*0.86-6,-dl*0.7,sd*dw*0.86+6,dl*0.6,'pal',1);});
+    perimTrees(S,bk.poly,m2c(10),m2c(3),r);return S;}
+  return null;}
 /* ===================== 介面骨架 ===================== */
 var MAXZ=160,ROOT,EL={},TAB='map',TOOL={k:'browse'},SPEED=0,LASTT=0,ACCT=0,PANEL={l:1,r:1},HOV=null;
 var TABS=[['map','🗺','地圖'],['zone','▦','分區'],['net','🚆','交通'],['port','✈','港埠航線'],['adm','🏛','行政區'],['dis','⚠','天災'],['pol','⚖','政策'],['design','✎','街區'],['stat','📊','統計'],['file','💾','檔案'],['help','❔','說明']];
@@ -2100,10 +2602,10 @@ function onChange(e){var t=e.target,c=t.dataset.c;if(!c)return;
   if(typeof panelChange==='function')panelChange(c,t,e);}
 function onInput(e){var t=e.target,c=t.dataset.c;if(!c)return;if(typeof panelInput==='function')panelInput(c,t,e);}
 /* ---------- 地圖上的指標操作 ---------- */
-var PT={},PAN=null,PINCH=null,PAINT=null;
+var PT={},PAN=null,PINCH=null,PAINT=null,WHEELT=0;
 function bindMap(){var cv=EL.cv;
   cv.addEventListener('contextmenu',function(e){e.preventDefault();});
-  cv.addEventListener('wheel',function(e){if(!C.MP)return;e.preventDefault();var r=cv.getBoundingClientRect(),d=e.deltaMode===1?e.deltaY*30:e.deltaY;zoomAt(e.clientX-r.left,e.clientY-r.top,Math.exp(-d*0.0016));},{passive:false});
+  cv.addEventListener('wheel',function(e){WHEELT=performance.now();if(!C.MP)return;e.preventDefault();var r=cv.getBoundingClientRect(),d=e.deltaMode===1?e.deltaY*30:e.deltaY;zoomAt(e.clientX-r.left,e.clientY-r.top,Math.exp(-d*0.0016));},{passive:false});
   cv.addEventListener('pointerdown',function(e){if(!C.MP)return;cv.setPointerCapture(e.pointerId);var r=cv.getBoundingClientRect(),sx=e.clientX-r.left,sy=e.clientY-r.top;PT[e.pointerId]={x:sx,y:sy};FLY=null;
     var ids=Object.keys(PT);if(ids.length===2){PAINT=null;PAN=null;var a=PT[ids[0]],b=PT[ids[1]];PINCH={d:dist(a.x,a.y,b.x,b.y),z:V.z,cx:(a.x+b.x)/2,cy:(a.y+b.y)/2,vx:V.x,vy:V.y};return;}
     var paintTool=(TOOL.k==='zone'||TOOL.k==='own'||TOOL.k==='admPaint'||TOOL.k==='dreg')&&e.button===0;
@@ -2224,8 +2726,9 @@ function toolClick(sx,sy,k,e){var t=TOOL,MP=C.MP,P=C.P;if(TOOLTAB[t.k]==='design
     if(t.wp.length&&t.wp[t.wp.length-1]===kk)return;t.wp.push(kk);linePreview();return;}
   if(t.k==='station'){var L=lineAtScreen(sx,sy);if(!L||L.kind==='road'){toast('請點在鐵路、高鐵、捷運或輕軌路線上',true);return;}var c=cellXY(sx,sy),q=nearestOn(L.pts,c[0],c[1]),kk2=L.pts[q.i],ix=L.st.indexOf(kk2);
     if(ix<0){var near=L.st.filter(function(s){var a=nearestOn(L.pts,kx(s)+0.5,ky(s)+0.5).i;return Math.abs(a-q.i)*MP.cs<LK[L.kind].gap*0.25;});if(near.length){toast('這裡離「'+stName(L,L.st.indexOf(near[0]))+'」太近',true);return;}
-      var cst=LK[L.kind].st;C.R.funds-=cst;L.st.push(kk2);L.st.sort(function(a,b){return L.pts.indexOf(a)-L.pts.indexOf(b);});toast('新增「'+stName(L,L.st.indexOf(kk2))+'」，造價 '+fmtMoney(cst));}
-    else{var nm=stName(L,ix);L.st.splice(ix,1);toast('撤除「'+nm+'」');}C.dirty.f=1;quickRefresh();topBar();req();return;}
+      var cst=LK[L.kind].st,old={},np=nearPt(lineXY(L),c[0],c[1]);if(L.sxy)L.st.forEach(function(s,i){old[s]=[L.sxy[i*2],L.sxy[i*2+1]];});C.R.funds-=cst;L.st.push(kk2);L.st.sort(function(a,b){return L.pts.indexOf(a)-L.pts.indexOf(b);});
+      if(L.sxy){var o2=[];L.st.forEach(function(s){var v=old[s]||[np.x,np.y];o2.push(v[0],v[1]);});L.sxy=o2;}toast('新增「'+stName(L,L.st.indexOf(kk2))+'」，造價 '+fmtMoney(cst));}
+    else{var nm=stName(L,ix);L.st.splice(ix,1);if(L.sxy)L.sxy.splice(ix*2,2);toast('撤除「'+nm+'」');}C.dirty.f=1;quickRefresh();topBar();req();return;}
   if(t.k==='route'){var f=k>=0?facAt(k):null;if(!f||f.z!==(t.kind==='air'?ZI.air:ZI.port)){toast('請點選'+(t.kind==='air'?'機場':'港口')+'用地',true);return;}
     if(t.a==null){if(f.lv<(t.kind==='air'?1:2)){toast(t.kind==='air'?'機場還沒興建完成':'漁港不能開設航線，請把港口等級提升為商港',true);return;}t.a=f.id;modePill();renderLeft();req();return;}
     if(f.id===t.a){toast('起點與終點相同',true);return;}addRoute(t.kind,t.a,f.id,-1);t.a=null;modePill();renderLeft();return;}
@@ -2537,6 +3040,9 @@ LEFT.help=function(){return '<div class="lc-help"><h4>這是什麼</h4><p>一個
   '<h4>密度怎麼決定</h4><ul><li>分區的「等級」是上限（住一最高到中低密度、住二到中密度、住三可以蓋高樓）。</li><li>每個月，每一格依<b>地區品質</b>（道路、學校、醫療、公園、大眾運輸、污染、災害潛勢、海景）、<b>資源整合程度</b>（道路、捷運、水電、公共服務的涵蓋）與該鄉鎮的<b>市場需求</b>計算目標密度，逐步往上蓋或衰退；每升一級要消耗建材。</li><li>受災超過一定程度的格子不會再開發，直到重建完成。</li></ul>'+
   '<h4>人口為什麼移入移出</h4><ul><li>每個鄉鎮有十一項因素：就業機會、住房供給、公共服務、交通便利、地區品質、生活成本、環境污染、災害與重建、水電供應、行政中心、國際門戶，加權成遷徙吸引力。</li><li>吸引力低於全國平均越多，移出率越高；移出的人依各地吸引力與空屋分配，同縣市、同省的鄉鎮較容易接收。</li><li>國際移民取決於全國平均吸引力、對外航線與財政狀況。</li><li>點選鄉鎮可看各項因素的貢獻；主題圖「遷徙吸引力」「淨遷入率」可看全國分布。</li></ul>'+
   '<h4>交通</h4><ul><li>道路分六級：巷道、鄉道、縣道、省道、快速道路、國道。道路依地形自動選線，沿既有道路拓寬較便宜。</li><li>鐵路與輕軌依地形選線，高鐵與捷運走直線。起點點在既有路線上會成為支線。</li><li>車站周邊的人口與就業決定運量，也提高周邊的地區品質與辦公需求。</li></ul>'+
+  '<h4>新國土的軌道路網</h4><ul><li><b>鐵路</b>：先依地形算出城鎮之間的最短連線（沿海岸繞過山地，不翻山越嶺），取通過首都的最長路徑當幹線，人口多的分枝是支線；幹線兩端靠海又不遠時補一段環島連絡線。車站設在沿線城鎮、村落與大城市的通勤站，城市的主要車站在市中心旁。</li><li><b>高鐵</b>只連大城市、避開山地；首都與百萬人口城市與鐵路共站，其他城市的車站在市區外圍，之後形成高鐵特定區。</li><li><b>捷運</b>在市區路網完成後沿幹道規劃，串連鐵路車站、市中心、機關、大學、醫院、高鐵站與機場，兩線交會的路口是轉乘站，站名取自交會的兩條路（如「中山民權站」）或旁邊的地標；臨海城市的輕軌可能繞成環狀。</li></ul>'+
+  '<h4>城鄉過渡與鄉道</h4><ul><li>城市外緣不是一刀切：越靠近邊界，地塊越大、建物越稀疏，多為獨棟與農舍，夾著菜園與小塊農地；沙灘與濕地保留原貌，不劃為建地。</li><li>城市以外的農田依農區方向分成田塊，有農路與水圳；林地畫出樹冠。</li><li>每個村落、沒有接上道路的城鎮與郊外的設施都有<b>鄉道</b>或<b>產業道路</b>接到道路網，鄉道依縣市編號（如「竹12」）。</li></ul>'+
+  '<h4>古蹟與名勝</h4><ul><li>首都保留<b>皇城</b>：順著市區方向的方形城牆與護城河，幹道穿過城牆的地方就是城門；城內偏北是皇宮（宮牆、筒子河、午門與中軸線上的殿宇），宮前左右為太廟與社稷壇，宮後有鐘鼓樓，東南有天壇，西側是湖泊園林。城牆只有幹道能穿過，宮城、壇廟與園林不會被道路或鐵路切穿。</li><li>有舊城的城市留下城門、孔廟、老街與古塔；郊外有名山與山寺、陵寢、湖泊風景區、海岬燈塔、港口砲台與溫泉。</li></ul>'+
   '<h4>天災</h4><ul><li>地震震度依臺灣中央氣象署的 0～7 級；低窪近河、近海的鬆軟地層震度較大。</li><li>颱風依路徑造成風災、豪雨淹水、山崩與暴潮；保護區可以降低山崩。</li><li>重建可選原地重建、耐震提升或遷移重建。</li></ul>'+
   '<h4>快捷鍵</h4><ul><li>空白鍵：暫停或繼續；Esc：結束目前的工具；Enter：完成路線；Backspace：刪除最後一個轉折點；＋／－：縮放。</li></ul></div>';};
 /* ---------- 右側：選取的鄉鎮、行政區、路線、設施 ---------- */
@@ -2775,6 +3281,7 @@ async function newMap(o){setSpeed(0);toolCancel&&TOOL.k!=='browse'&&toolCancel()
     await prog('城市規劃：依地理、產業與交通配置土地使用與街道',0.4);planCities(sets);
     await prog('行政區劃',0.47);buildAdmin(sets);C.sown=null;
     await prog('公共設施',0.55);placeFacilities(sets,r,{});
+    await prog('古蹟與名勝：皇城、城門、宮殿、壇廟、名山與湖泊',0.58);planHeritage(r);
     await genTransport(sets,r,prog);
     await prog('國外航點',0.92);genExternal(r);
     await prog('人口與經濟',0.95);finishSetup(true,r,true);if(topUpJobs(sets,true)){netAfterTopUp();finishSetup(true,r,true);}finishVisual();
@@ -2827,7 +3334,7 @@ function netAfterTopUp(){var T=C._touched||[];if(!T.length||C.netV!==NETV)return
 /* 匯入的地圖工作機會不足時，在主要城鎮外圍補劃工業區（依人口比例） */
 function topUpJobs(sets,quiet){var TS=townships(),P=0,J=0,ha=haOf();TS.forEach(function(u){var T=C.T[u.id];P+=T.P;J+=T.J;});var gap=0.5*P*0.94-J;if(gap<=0)return false;
   var need=Math.ceil(gap/(JOB_HA.ind[2]*ha)),big=sets.filter(function(s){return s.kind!=='village';}),tot=sum(big,function(s){return s.pop;})||1,G=growCtx(),MP=C.MP,S=C.S,P0=C.P,n=0;
-  var okc=function(k){return P0.zt[k]===0&&!isWater(MP.lc[k])&&S.SL[k]<12;},costf=function(k){return MP.lc[k]>2?1+S.SL[k]*0.15:0;};
+  var okc=function(k){var c=MP.lc[k];return P0.zt[k]===0&&!isWater(c)&&c!==LCI.sand&&c!==LCI.marsh&&S.SL[k]<12;},costf=function(k){return MP.lc[k]>2?1+S.SL[k]*0.15:0;};
   /* 新工業區從既有的工業區（或市區外緣的工業方向）往外長成一片，而不是沿著市區邊緣圍成一圈 */
   var GW=MP.GW,GH=MP.GH,seedOf=function(s,si){var pf=C.cities&&C.cities[si];if(!pf)return K(s);var ip=(C.poiS||[]).filter(function(q){return q.t==='ind'&&q.si===si;})[0];if(ip)return cellK(ip.x,ip.y);
     var th=pf.thInd!=null?pf.thInd:(ih(si,7,3)%628)/100,rr=(pf.Ru||2)*1.15+2;return cellK(clamp(pf.x+Math.cos(th)*rr,0,GW-1),clamp(pf.y+Math.sin(th)*rr,0,GH-1));};
@@ -2851,10 +3358,10 @@ async function warMapObj(){var MP=C.MP,P=C.P,GW=MP.GW,N=GW*MP.GH,lc=MP.lc.slice(
 async function cityObj(){var MP=C.MP,P=C.P,m={},p={},i;Object.keys(MP).forEach(function(k){if(MAPTA.indexOf(k)<0&&k.charCodeAt(0)!==95&&typeof MP[k]!=='function')m[k]=MP[k];});m.format='LatoWarMap';
   for(i=0;i<MAPTA.length;i++)if(MP[MAPTA[i]])m[MAPTA[i]]=await packTA(MP[MAPTA[i]]);for(i=0;i<PLANTA.length;i++)p[PLANTA[i]]=await packTA(P[PLANTA[i]]);
   var U=C.U.map(function(u){var o={};Object.keys(u).forEach(function(k){if(k!=='sc')o[k]=u[k];});return o;});
-  var lines=C.lines.map(function(L){return {id:L.id,kind:L.kind,g:L.g,name:L.name,col:L.col,pts:Array.from(L.pts),wp:L.wp,st:L.st,par:L.par,built:L.built,cut:L.cut,t0:L.t0,len:L.len,cost:L.cost,months:L.months,riders:L.riders,rh:L.rh};});
+  var lines=C.lines.map(function(L){return {id:L.id,kind:L.kind,g:L.g,name:L.name,col:L.col,pts:Array.from(L.pts),geo:L.geo||undefined,sxy:L.sxy||undefined,wp:L.wp,st:L.st,par:L.par,built:L.built,cut:L.cut,t0:L.t0,len:L.len,cost:L.cost,months:L.months,riders:L.riders,rh:L.rh};});
   var noTmp=function(a){return (a||[]).map(function(x){var o={};Object.keys(x).forEach(function(k){if(k.charCodeAt(0)!==95)o[k]=x[k];});return o;});};
   var rec=[];for(i=0;i<C.rec.length;i++){var q=C.rec[i];rec.push({ev:q.ev,name:q.name,cells:await packTA(q.cells),tot:q.tot,pos:q.pos,mode:q.mode,done:q.done,left:q.left,tEnd:q.tEnd});}
-  return {format:'LatoCity',v:1,saved:new Date().toISOString(),name:C.name,seed:C.seed,map:m,plan:p,U:U,lines:lines,routes:C.routes,ext:C.ext,facN:C.facN,ev:C.ev.map(function(e){var o=Object.assign({},e);delete o._ln;return o;}),rec:rec,T:C.T,R:C.R,t:C.t,y0:C.y0,hist:C.hist,opt:C.opt,nid:C.nid,nmc:C.nmc,faults:C.faults,geo:C.geo||null,xst:C.xst,stN:C.stN||{},netV:C.netV||0,design:C.design||[],uroads:C.uroads||[],droads:C.droads||[],bovr:C.bovr||{},cities:noTmp(C.cities),streets:noTmp(C.streets),nbh:C.nbh||[],poiS:C.poiS||[],ics:C.ics||[],pol:C.pol||polDefault()};}
+  return {format:'LatoCity',v:1,saved:new Date().toISOString(),name:C.name,seed:C.seed,map:m,plan:p,U:U,lines:lines,routes:C.routes,ext:C.ext,facN:C.facN,ev:C.ev.map(function(e){var o=Object.assign({},e);delete o._ln;return o;}),rec:rec,T:C.T,R:C.R,t:C.t,y0:C.y0,hist:C.hist,opt:C.opt,nid:C.nid,nmc:C.nmc,faults:C.faults,geo:C.geo||null,xst:C.xst,stN:C.stN||{},netV:C.netV||0,rural:noTmp(C.rural),her:C.her||herNew(),design:C.design||[],uroads:C.uroads||[],droads:C.droads||[],bovr:C.bovr||{},cities:noTmp(C.cities),streets:noTmp(C.streets),nbh:C.nbh||[],poiS:C.poiS||[],ics:C.ics||[],pol:C.pol||polDefault()};}
 async function loadCity(o){setSpeed(0);loading('讀取規劃檔',0.1);await yld();
   try{resetState();var m=o.map,MP={},i;Object.keys(m).forEach(function(k){MP[k]=m[k];});for(i=0;i<MAPTA.length;i++)if(typeof m[MAPTA[i]]==='string')MP[MAPTA[i]]=await unpackTA(m[MAPTA[i]]);C.MP=MP;C.seed=o.seed||MP.seed||'city';
     planInit();for(i=0;i<PLANTA.length;i++)if(o.plan[PLANTA[i]])C.P[PLANTA[i]]=await unpackTA(o.plan[PLANTA[i]]);
@@ -2863,9 +3370,9 @@ async function loadCity(o){setSpeed(0);loading('讀取規劃檔',0.1);await yld(
     C.NM=new Namer(C.seed);C.U.forEach(function(u){C.NM.use(u.name.slice(0,2));});(MP.set||[]).forEach(function(s){if(s.name)C.NM.use(s.name);});
     C.pol=o.pol||polDefault();
     await prog('重建圖層',0.5);statics();
-    C.design=o.design||[];C.uroads=o.uroads||[];C.droads=o.droads||[];C.bovr=o.bovr||{};
-    if(o.cities&&o.streets&&o.netV>=NETV){C.cities=o.cities;C.streets=o.streets;C.nbh=o.nbh||[];C.poiS=o.poiS||[];C.ics=o.ics||[];C.netV=o.netV;rasterStreets();if(!o.plan.rdB)C.P.rdB=C.P.rd0.slice();}
-    else if(o.cities&&o.streets){/* v2 存檔：先移除舊的格狀街道，再依新方法產生路網 */C.cities=o.cities;C.streets=o.streets;C.nbh=o.nbh||[];C.poiS=o.poiS||[];C.ics=o.ics||[];rasterStreets();var N2=C.MP.GW*C.MP.GH;for(var q=0;q<N2;q++)if(C.stMask[q])C.P.rd0[q]=0;C.P.rdB=C.P.rd0.slice();buildNets();}
+    C.design=o.design||[];C.uroads=o.uroads||[];C.droads=o.droads||[];C.bovr=o.bovr||{};C.her=o.her||herNew();
+    if(o.cities&&o.streets&&o.netV>=NETV){C.cities=o.cities;C.streets=o.streets;C.nbh=o.nbh||[];C.poiS=o.poiS||[];C.ics=o.ics||[];C.netV=o.netV;C.rural=o.rural||[];rasterStreets();rasterRural();if(!o.plan.rdB)C.P.rdB=C.P.rd0.slice();}
+    else if(o.cities&&o.streets){/* 舊版路網：v3 存檔保留原有基底道路重新產生；v2 先移除舊的格狀街道 */C.cities=o.cities;C.streets=o.streets;C.nbh=o.nbh||[];C.poiS=o.poiS||[];C.ics=o.ics||[];rasterStreets();if(!(o.netV>=3&&o.plan.rdB)){var N2=C.MP.GW*C.MP.GH;for(var q=0;q<N2;q++)if(C.stMask[q])C.P.rd0[q]=0;C.P.rdB=C.P.rd0.slice();}rebuildRaster();buildNets();}
     else{/* 舊版規劃檔：由鄉鎮治所推出城市與街道 */var sets=(MP.set||[]).filter(function(s){return s.kind==='city'||s.kind==='town'||s.kind==='village';}).map(function(s){return {x:s.x,y:s.y,pop:s.pop||500,kind:s.kind,r:s.r||600,name:s.name||''};});
       if(!sets.length)sets=C.U.filter(function(u){return u.lv===3&&!u.dead;}).map(function(u){var T=C.T[u.id]||{},p=T.P||1000;return {x:kx(u.seat)+0.5,y:ky(u.seat)+0.5,pop:p,kind:p>=50000?'city':p>=5000?'town':'village',r:600,name:u.name.replace(/[鄉鎮市區]$/,''),cap:u.capital?1:0};});
       sets.sort(function(a,b){return b.pop-a.pop;});if(sets[0])sets[0].cap=1;C.P.rdB=C.P.rd0.slice();deriveCities(sets);C.lver=(C.lver||0)+1;buildNets();interchanges();gasStations();}
@@ -2890,7 +3397,7 @@ async function quickLoad(){try{var db=await idb(),s=await new Promise(function(r
 function onEvent(e){if(TAB==='dis')renderLeft();renderRight();topBar();}
 /* ---------- 啟動 ---------- */
 function boot(){buildUI();loadIcons();requestAnimationFrame(loop);newMap(NEWO);}
-window.LatoCity={C:function(){return C;},trafficRun:trafficRun,NET:function(){return NET;},buildNets:buildNets,citySB:citySB,sbGen:sbGen,blockDetail:blockDetail,cityCatalog:cityCatalog,designRect:designRect,designAct:designAct,roadAt:roadAt,blockAt:blockAt,LY:LY,polSet:polSet,polRefresh:polRefresh,req:req,draw:draw,buildPOI:buildPOI,simStep:simStep,runDisaster:runDisaster,typhoonTrack:typhoonTrack,setView:setView,select:select,newMap:newMap,importWar:importWar,warMapObj:warMapObj,cityObj:cityObj,loadCity:loadCity};
+window.LatoCity={C:function(){return C;},_fn:function(n){return eval(n);},trafficRun:trafficRun,NET:function(){return NET;},buildNets:buildNets,citySB:citySB,sbGen:sbGen,blockDetail:blockDetail,cityCatalog:cityCatalog,designRect:designRect,designAct:designAct,roadAt:roadAt,blockAt:blockAt,LY:LY,polSet:polSet,polRefresh:polRefresh,req:req,draw:draw,buildPOI:buildPOI,simStep:simStep,runDisaster:runDisaster,typhoonTrack:typhoonTrack,setView:setView,select:select,newMap:newMap,importWar:importWar,warMapObj:warMapObj,cityObj:cityObj,loadCity:loadCity};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
 </script>
