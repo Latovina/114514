@@ -2806,7 +2806,7 @@ window.LatoTerrainLib={LTCore:LTCore,LTClimate:LTClimate,LTRivers:LTRivers,LTLay
 "use strict";
 var root=document.getElementById('lato-warsim');
 if(!root)return;
-var LWBUILD="3751985d-online";
+var LWBUILD="863762fa-online";
 var MPON=1;
 /* ===================== LatoArmory 與 LatoVehicle 運算庫（材料、外彈道、終端彈道、裝甲、載具設計與計價、化生放核魔），原樣嵌入 ===================== */
 
@@ -16067,6 +16067,48 @@ function nsClose(){if(!G.nid)return;G.units.forEach(function(o){if(!isLeaf(o)||!
 (function(){var b=v8Step;v8Step=function(){b();if(!G.started)return;try{if(G.step%8===3)nsSense();}catch(e){if(typeof console!=='undefined')console.warn('海上偵察',e);}};})();
 /* 各時代的偵察手段（說明與面板用） */
 function nsMeans(y){return y<1905?'目視（桅頂瞭望與望遠鏡）、派出巡航艦與通報艦搜索；夜間只能靠月光與燈光':y<1940?'目視與測距儀、巡洋艦與驅逐艦組成的偵察線、少量水上飛機；無線電測向':y<1946?'目視、偵察機與水上偵察機（艦型常報錯）、早期雷達（距離有限、時好時壞、近岸有假回波）':y<1970?'搜索雷達、偵察機與反潛巡邏機、聲納；敵我識別器':'搜索雷達、電子偵察（截收對方雷達）、衛星、預警機、數據鏈與敵我識別器';}
+/* ===================== 火槍與冷兵器時代：八百里加急、優先展開隊形 =====================
+   一、八百里加急（可選用，有冷卻時間）：電報普及以前（1870 年前），命令可以交給驛馬快遞——不經各級司令部轉手，直接送到受令部隊，
+       沿途換馬疾馳，速度約一般傳令的兩倍，找人的時間也短。每一方同時只有兩組快馬，用過後要等驛馬回復（預設 90 分鐘）。
+       AI 在撤退與反擊等緊急命令上會使用。
+   二、優先展開隊形：火槍與冷兵器時代的部隊在行軍縱隊下幾乎無法作戰，展開成橫隊要花很久（十七世紀約半小時）。
+       部隊依敵軍的速度（騎兵來得快）與自己展開所需的時間，提早在安全距離停下展開；進攻時已展開的部隊等同一編制的友軍也展開完畢，
+       再一齊推進（最多等 30 分鐘），不會一個一個零星撞上敵陣。 ===================== */
+var EXPN=2;
+function expEra(side){var y=G.set.y||1943;return y<1870;}
+function expOn(side){return !!G&&G.set.exp!==false&&expEra(side);}
+function expCd(){var v=+G.set.expCd;return v>0?v*60:5400;}
+function expS(side){var S=SD(side);if(!S.expR||S.expR.length!==EXPN)S.expR=[];while(S.expR.length<EXPN)S.expR.push(0);return S.expR;}
+function expReady(side){if(!expOn(side))return -1;var R=expS(side);for(var i=0;i<R.length;i++)if(G.t>=R[i])return i;return -1;}
+function expNext(side){var R=expS(side);return Math.min.apply(null,R);}
+function expLeft(side){if(!expOn(side))return 0;return expS(side).filter(function(t){return G.t>=t;}).length;}
+VIA.express='八百里加急';CRK.express=['八百里加急（驛馬快遞）','急'];
+/* 命令以八百里加急送出：直送受令部隊，不經各級轉手 */
+(function(){var b=sendOrder;sendOrder=function(from,to,o,viaChain){if(!o||!o.exp)return b.apply(this,arguments);var side=to.side,i=expReady(side);
+  if(i<0){delete o.exp;logE(side,'cmd','八百里加急的驛馬尚未備妥（約 '+durTxt(Math.max(0,expNext(side)-G.t))+' 後），改以一般傳令送出');return b.apply(this,arguments);}
+  var m=b(from,to,o,false);if(!m||m.k!=='order')return m;var src=uById(m.from)||from||to;if(src.id===to.id)return m;var E=commEra(src,to),M=G.set.delayMul===undefined?1:G.set.delayMul,km=dist(src.x,src.y,to.x,to.y)/1000,sec=(120+km/((E.cour||12)*1.9)*3600)*M;
+  m.ta=G.t+sec;m.via=['express'];m.exp=1;o.eta=m.ta;if(m.lg)m.lg.forEach(function(l){l.t1=l.t0+sec;l.f=Math.min(l.f,60);l.k='express';l.r=1;});else m.lg=[crLeg(src,to,G.t,sec,E,{rider:1},'express')];
+  expS(side)[i]=G.t+expCd();logE(side,'cmd','以八百里加急將「'+ordN(o)+'」直送'+uName(to)+'，約 '+durTxt(sec)+'送達（驛馬 '+durTxt(expCd())+'後再備妥）',src.x,src.y,to.id);return m;};})();
+/* AI：撤退與反擊用八百里加急 */
+(function(){var b=issue;issue=function(u,k,p){p=p||{};if(u&&SD(u.side).ai&&expReady(u.side)>=0&&!p.exp&&(k==='withdraw'||p.dk==='counter'||k==='counter'))p.exp=1;return b(u,k,p);};})();
+/* ---------- 優先展開隊形 ---------- */
+function dfOn(u){if(!G||G.set.deployFirst===false)return false;var s=ST(u);if(s.dom!=='land'||u.irr)return false;var E=uEra(u);if(!(E.fan||E.y<1870))return false;var r=roleOf(u);return r==='man'||r==='fire'||r==='rec';}
+/* 展開所需時間（秒） */
+function dfTime(u){var E=uEra(u);return E.deploy*60*(1.3-0.006*(u.trn||60))*(ST(u).fl.indexOf('g')>=0?1.5:1);}
+/* 敵軍逼近的速度（公尺／秒）：看得到騎兵就以騎兵計 */
+function dfEnemyV(u){var C=G.ct[u.side]||{},v=4/3.6;for(var id in C){var c=C[id];if(c.dead||G.t-c.t>1800||c.dom!=='land')continue;if(dist(c.x,c.y,u.x,u.y)>8000)continue;if(c.br==='cav'||c.br==='drg'||c.br==='mon')v=Math.max(v,11/3.6);}return v;}
+/* 應該開始展開的距離 */
+function dfDist(u){var s=ST(u);return clamp(rangeOf(s)*1.5+dfEnemyV(u)*dfTime(u)*0.6+300,900,4500);}
+(function(){var b=marchSafe;marchSafe=function(u){var d=b(u);if(!dfOn(u))return d;return Math.max(d,dfDist(u));};})();
+/* 進攻：已展開的部隊等友軍展開完畢，一齊推進 */
+function dfWait(u){var o=u.ord;if(!o||o.k!=='attack'||o.dfGo||u.form!=='deployed'||u.formTo||!u.p||u.p<0)return false;var ed=u._ed===undefined?1e9:u._ed;if(ed>dfDist(u)*1.2||ed<rangeOf(ST(u))*1.6){return false;}
+  if(!o.dfT0)o.dfT0=G.t;if(G.t-o.dfT0>1800){o.dfGo=1;return false;}var P=uById(u.p);if(!P)return false;var L=kidsOf(P).filter(function(q){return q!==u&&alive(q)&&isLeaf(q)&&dfOn(q)&&q.ord&&q.ord.k==='attack'&&dist(q.x,q.y,u.x,u.y)<5000;});
+  var late=L.filter(function(q){return q.form!=='deployed'||q.formTo;});if(!late.length){o.dfGo=1;if(!P.dfLog||G.t-P.dfLog>1800){P.dfLog=G.t;logE(u.side,'tac',uName(P)+'全線展開完畢，一齊向敵陣推進',u.x,u.y,P.id);}return false;}
+  if(!o.dfLog&&(!P.dfWLog||G.t-P.dfWLog>1800)){o.dfLog=1;P.dfWLog=G.t;logE(u.side,'tac',uName(P)+'的'+uName(u)+'已展開成戰鬥隊形，等待友軍（還有 '+late.length+' 個單位）展開後一齊推進',u.x,u.y,u.id);}return true;}
+(function(){var b=leafStep;leafStep=function(u){if(dfOn(u)&&dfWait(u)){formStep(u);return;}
+  /* 行軍縱隊遇到逼近的敵軍：先停下展開，不再前進 */
+  if(dfOn(u)&&u.form==='march'&&!u.formTo&&u.task==='go'&&(u._ed===undefined?1e9:u._ed)<dfDist(u)&&!(u.ord&&u.ord.k==='withdraw')){setForm(u,'deployed');if(!u.dfLogT||G.t-u.dfLogT>3600){u.dfLogT=G.t;logE(u.side,'tac',uName(u)+'發現敵軍逼近，停止前進、優先展開隊形（約 '+durTxt(dfTime(u))+'）',u.x,u.y,u.id);}}
+  return b(u);};})();
 /* ===================== 兵牌：北約 APP-6、華約式、明式與二戰德軍式 =====================
    北約式：外框依觀看者的立場（友軍長方形、敵軍菱形、中立方形、不明四葉形；空中只有上半、水下只有下半），內部圖示依兵種，
    上方梯隊記號、下方機動方式（輪型、履帶、牽引）與兵力條，左上角分隊顏色、右上角隊徽；部隊可以自訂圖片。
@@ -27043,11 +27085,12 @@ HELP14.push('<h4>排與組：在連的指揮下依戰術部署</h4><ul><li>連�
 var HELPV={tab:'feat',q:''};
 /* 更新日誌（新的在前）：d 日期、t 標題、i 項目 */
 var CHLOG=[
- {d:'2026-11-05',t:'海戰重做',i:[
+ {d:'2026-11-05',t:'海戰重做、八百里加急與優先展開',i:[
   '主力艦以一艘為一個單位，編制範本改成由單艦組成的隊；小艇、魚雷艇、布雷與掃雷維持小隊。新增各時代的海軍陸戰隊、水上偵察機、海上巡邏機、預警機、輕巡洋艦、輕型航艦、槳帆船隊、布雷艦隊與掃雷艇隊。',
   '海軍指揮官與陸軍指揮官分開，有六種個性，依時代採用不同戰術（搶上風、戰列線、夜間魚雷突擊、艦載機先制、飛彈齊射），指揮艦艇、海軍航空隊與陸戰隊；命令以旗號、燈號、通報艦、無線電或數據鏈傳遞。',
   '海上偵察依時代而不同（目視、偵察機、早期雷達與假回波、電子偵察、衛星），識別會出錯：戰艦認成巡洋艦、輕航艦認成正規航艦，近距離交戰才發現；夜間可能把敵艦當友艦而打出識別燈號暴露自己。',
-  '水雷：布雷、觸雷與掃雷，雷區在發現後才標在地圖上。']},
+  '水雷：布雷、觸雷與掃雷，雷區在發現後才標在地圖上。',
+  '火槍與冷兵器時代：可選用八百里加急（直送受令部隊、約兩倍速度、兩組快馬、用後約 90 分鐘才再備妥）；部隊依敵軍速度提早展開隊形，展開時不前進，進攻時等友軍展開完畢再一齊推進。']},
  {d:'2026-11-05',t:'裝備編輯器、部隊點數依花費、排與組的戰術、雪地與高山、對抗措施',i:[
   '說明頁分成「功能說明」與「更新日誌」：功能依主題分類、可搜尋；更新日誌依日期整理。',
   '獨立的裝備編輯器（lato-warsim-armory.html，聯機伺服器的 /armory）：只有裝備庫，依年代建立工作區，設計裝甲、彈藥、飛彈、化生毒劑、核彈頭等。裝備庫新增「匯入匯出」分頁：逐類勾選匯出成武器裝備檔、LatoArmory 程式庫或 LatoVehicle 設計檔；匯入前先列出檔案內容，只匯入勾選的；武器裝備檔也帶上飛彈、魚雷與炸彈。',
@@ -27301,6 +27344,21 @@ HELP14.push('<h4>海軍：單艦、海軍指揮官、命令傳遞、偵察與誤
   '<li>識別會出錯：距離越遠、夜間、天候差、觀測者訓練差越容易認錯，常見的是戰艦認成大型巡洋艦、輕型航艦認成正規航艦、驅逐艦認成巡洋艦；飛行員的報告更不可靠。第一印象會持續，直到看得更清楚或近距離交戰才更正（紀錄會寫「近距離交戰時才發現對手實際上是戰鬥艦」）。海軍指揮官依識別到的艦型評估兵力，所以也會因誤認而做錯決定。敵情圖上的艦艇顯示識別結果（「？」表示沒把握）。</li>'+
   '<li>夜間預期附近有友艦時，艦長可能把敵艦當成友艦：不開火，還打出識別燈號表明身分，反而暴露自己，直到對方開火或靠近才醒悟（如埃斯佩蘭斯角海戰的青葉號）。謹慎的艦長會先以燈號盤問，盤問期間不開火，但燈光也讓對方看見。1950 年以後有敵我識別器，這類錯誤少得多。</li>'+
   '<li>「設定 → 指揮」可以關閉海軍指揮官、指定各方的個性，玩家方也可以交給海軍指揮官代管（你下的命令優先）。</li></ul>');
+/* ===================== 火槍與冷兵器時代（介面）：八百里加急按鈕、設定、說明 ===================== */
+UI.expArm=false;
+function expBtnTxt(side){var n=expLeft(side);return '⚡ 八百里加急'+(UI.expArm?'（下一道命令）':n?'（'+n+'）':'（'+durTxt(Math.max(0,expNext(side)-G.t))+'）');}
+(function(){var b=barRender;barRender=function(){b();try{var me=mySide();if(!G||!G.started||G.replay||!UI.bar||me===null||!expOn(me))return;var sp=UI.bar.querySelector('.lw-sp');if(!sp||UI.bar.querySelector('[data-k="exp"]'))return;
+  var e=document.createElement('button');e.type='button';e.className='lw-btn sm'+(UI.expArm?' pri':'');e.setAttribute('data-k','exp');e.setAttribute('data-a','exparm');e.style.cssText='min-height:24px;font-size:12px;white-space:nowrap';
+  e.title='把下一道命令交給驛馬快遞：不經各級司令部轉手，直送受令部隊，約為一般傳令的兩倍速度。每方兩組快馬，用過後約 '+durTxt(expCd())+'才再備妥。';e.textContent=expBtnTxt(me);sp.parentNode.insertBefore(e,sp);}catch(x){}};})();
+var EXPT=0;(function(){var b=hudTick;hudTick=function(force){b(force);var n=Date.now();if(!force&&n-EXPT<2000)return;EXPT=n;var e=UI.bar&&UI.bar.querySelector('[data-k="exp"]'),me=mySide();if(e&&G&&me!==null){e.textContent=expBtnTxt(me);e.classList.toggle('pri',!!UI.expArm);}};})();
+ACT.exparm=function(){var me=mySide();if(me===null)return;if(!UI.expArm&&expReady(me)<0){toast('驛馬還沒備妥，約 '+durTxt(Math.max(0,expNext(me)-G.t))+'後才能再用。');return;}UI.expArm=!UI.expArm;toast(UI.expArm?'下一道命令將以八百里加急送出。':'已取消八百里加急。');var e=UI.bar&&UI.bar.querySelector('[data-k="exp"]');if(e){e.textContent=expBtnTxt(me);e.classList.toggle('pri',UI.expArm);}};
+/* 玩家下命令：八百里加急只用在下一道命令 */
+(function(){var b=issue;issue=function(u,k,p){if(UI.expArm&&u&&!SD(u.side).ai&&expOn(u.side)){p=p||{};p.exp=1;UI.expArm=false;}return b(u,k,p);};})();
+setSec('cmd','exp',{t:'八百里加急',o:32,h:function(){var S=G.set;return setOpt(setRow('八百里加急',setChk('setb','exp',S.exp!==false,'1870 年以前可以把命令交給驛馬快遞，直送受令部隊'))+setRow('驛馬備妥','<span><input type="number" min="10" max="1440" value="'+Math.round(expCd()/60)+'" data-c="setexpcd" style="width:80px"> 分鐘</span>'));}});
+CHG.setexpcd=function(t){var v=+t.value;G.set.expCd=v>0?clamp(v,10,1440):90;};
+setSec('combat','dfirst',{t:'優先展開隊形',o:29,h:function(){return setOpt(setRow('優先展開隊形',setChk('setb','deployFirst',G.set.deployFirst!==false,'1870 年以前的部隊依敵軍速度提早停下展開，進攻時等友軍展開完畢再一齊推進')));}});
+HELP14.push('<h4>火槍與冷兵器時代：八百里加急與優先展開隊形</h4><ul><li><b>八百里加急</b>：電報普及以前（1870 年前），作戰頁頂列的「⚡ 八百里加急」可以把下一道命令交給驛馬快遞——不經各級司令部轉手、直送受令部隊，沿途換馬疾馳，約為一般傳令的兩倍速度，地圖上的傳令兵標成「急」。每一方兩組快馬，用過後約 90 分鐘才再備妥（可在「設定 → 指揮」調整或關閉）；快馬沒備妥時改以一般傳令送出。AI 在撤退與反擊時會使用。</li>'+
+  '<li><b>優先展開隊形</b>：這些時代的部隊在行軍縱隊下幾乎無法作戰，展開成橫隊又很花時間（十七世紀約半小時）。部隊會依敵軍的速度（看到騎兵就提早）與自己展開所需的時間，在安全距離停下展開，展開時不前進；進攻時已展開的部隊等同一編制的友軍也展開完畢，再一齊推進（最多等 30 分鐘），不會零星撞上敵陣。可在「設定 → 戰鬥」關閉。</li></ul>');
 /* ===================== 聯機版：在房間裡調整所有模擬設定 =====================
    房主可以在房間頁的「模擬設定」（開戰前不論有沒有載入想定都可以）或作戰中的「設定」分頁調整所有模擬設定；
    改動以「設定路徑 → 值」送到伺服器，所有人一起套用。載入想定前調整的設定，也會套用到之後載入的想定或存檔；「恢復想定的設定」可以撤銷。
