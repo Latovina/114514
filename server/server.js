@@ -74,7 +74,7 @@ const PIDF=path.join(DATA,'server.pid');
 /* ---------- 網頁與 API ---------- */
 const PG={};
 const PUB=path.resolve(process.env.LATO_PUBLIC||path.join(ROOT,'public'));
-/* 網頁：index.html（模擬器）與 editor.html（編制與裝備編輯器），檔案更新時自動重新讀取並壓縮 */
+/* 網頁：index.html（模擬器）、editor.html（編制與裝備編輯器）與 armory.html（裝備編輯器），檔案更新時自動重新讀取並壓縮 */
 function page(name){name=name||'index.html';const f=path.join(PUB,name),P=PG[name]||(PG[name]={b:null,z:null,m:0});try{const st=fs.statSync(f);if(!P.b||st.mtimeMs!==P.m){P.b=fs.readFileSync(f);P.z=zlib.gzipSync(P.b,{level:9});P.m=st.mtimeMs;}}catch(e){P.b=Buffer.from('<!DOCTYPE html><meta charset="utf-8"><p>找不到 public/'+name+'。</p>');P.z=null;}return P;}
 function sendPage(req,res,name){const P=page(name),gz=P.z&&/\bgzip\b/.test(req.headers['accept-encoding']||'');res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-cache','Content-Length':gz?P.z.length:P.b.length,...(gz?{'Content-Encoding':'gzip'}:{})});res.end(gz?P.z:P.b);}
 function sendJ(res,code,o){const b=Buffer.from(JSON.stringify(o));res.writeHead(code,{'Content-Type':'application/json; charset=utf-8','Content-Length':b.length,'Cache-Control':'no-store'});res.end(b);}
@@ -85,6 +85,7 @@ const server=http.createServer(async function(req,res){const U=new URL(req.url,'
   try{
     if(req.method==='GET'&&(p==='/'||p==='/index.html')){sendPage(req,res,'index.html');return;}
     if(req.method==='GET'&&(p==='/editor'||p==='/editor/'||p==='/editor.html')){sendPage(req,res,'editor.html');return;}
+    if(req.method==='GET'&&(p==='/armory'||p==='/armory/'||p==='/armory.html')){sendPage(req,res,'armory.html');return;}
     if(p==='/api/avatar'&&req.method==='POST'){const u=auth(bearer(req,q));if(!u){sendJ(res,401,{err:'請先登入。'});return;}if(!rateOK('av|'+u.id,10,600000)){sendJ(res,429,{err:'更換太頻繁，請稍後再試。'});return;}
       if(tooBig(req,res,CFG.avatarKB*1024,'圖片太大（上限 '+CFG.avatarKB+' KB）。'))return;let buf;try{buf=await readRaw(req,CFG.avatarKB*1024);}catch(e){sendJ(res,413,{err:'圖片太大（上限 '+CFG.avatarKB+' KB）。'});return;}const ext=imgExt(buf);if(!ext){sendJ(res,400,{err:'只接受 PNG、JPEG、GIF 或 WebP 圖片。'});return;}
       avDel(u);fs.writeFileSync(path.join(AVDIR,u.id+'.'+ext),buf);u.av=Date.now()%1e9;u.avx=ext;saveUsers();avChanged(u);sendJ(res,200,{ok:1,av:u.av});return;}

@@ -12,6 +12,7 @@
 | `simcore.js` | 模擬核心（由遊戲原始碼產生，請勿手動修改） |
 | `public/index.html` | 玩家用的網頁（聯機版，也包含完整單機功能） |
 | `public/editor.html` | 編制與裝備編輯器（網址 `/editor`）：設計單位類型、編制、武器、彈藥、裝甲與載具，匯出後到模擬器匯入 |
+| `public/armory.html` | 裝備編輯器（網址 `/armory`）：只有裝備庫，設計武器、彈藥、飛彈、裝甲、載具、化生毒劑與核彈頭，逐類匯入匯出 |
 | `package.json` | 套件描述（沒有相依套件） |
 | `data/` | 第一次啟動後自動建立：設定、帳號、房間存檔、回放、背景音樂（`bgm/`、`roombgm/`）、伺服器增援範本（`templates.json`）、玩家頭像（`avatars/`） |
 
@@ -194,6 +195,7 @@ sudo certbot --nginx -d war.example.com
 - **回放清理**：管理員面板可以勾選刪除回放，或一次刪除幾天以前的回放、只保留最近幾份。
 - **增援範本與名單**：管理員面板可以上傳伺服器增援範本（單機版增援對話框匯出的 `.latoreinf.json`，所有房間共用）、刪除範本、停用內建編制範本。房主可以在房間頁上傳房間範本，並設定每一方的增援白名單／黑名單；伺服器派遣增援前會檢查名單。
 - **編制與裝備編輯器**：網址加上 `/editor`（例如 `https://warsim.encyclato.org/editor`）就是獨立的編輯器頁面，不需要登入。
+- **裝備編輯器**：網址加上 `/armory` 是只有裝備庫的編輯器，可以逐類匯出、匯入裝甲、彈藥、化生武器、核彈頭等設計，也能存成 LatoArmory 程式庫；不需要登入。
 - **忘記管理員密碼**：在 VPS 上先停止服務再執行（伺服器執行中會拒絕，以免改動被覆蓋）：
   ```bash
   systemctl stop lato-warsim
@@ -209,7 +211,7 @@ sudo certbot --nginx -d war.example.com
 
 ## 九、更新版本
 
-把新的 `server.js`、`worker.js`、`simcore.js`、`public/index.html`、`public/editor.html` 覆蓋上去（**不要覆蓋 `data/`**），然後：
+把新的 `server.js`、`worker.js`、`simcore.js`、`public/index.html`、`public/editor.html`、`public/armory.html` 覆蓋上去（**不要覆蓋 `data/`**），然後：
 
 ```bash
 sudo systemctl restart lato-warsim
