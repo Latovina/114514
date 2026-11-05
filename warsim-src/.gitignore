@@ -4,3 +4,4 @@ test/*_hook.html
 test/*.png
 test/*.out
 __pycache__/
+out/
