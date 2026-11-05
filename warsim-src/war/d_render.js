@@ -12,8 +12,9 @@ function renderMap(MP,opt,img,rect){opt=opt||{};var GW=MP.GW,GH=MP.GH,S=opt.S||2
   var WAT=rgbOf('#4C8BC8'),LK=rgbOf('#5A96CA'),RDc=RD.map(function(r){return rgbOf(r[3]||'#000');}),RAIL=[60,60,60],RAIL2=[200,200,196];
   function put(px,py,c){var q=(py*W+px)*4;D[q]=c[0];D[q+1]=c[1];D[q+2]=c[2];D[q+3]=255;}
   /* 戰場地面（彈坑、翻起的土）：直接改這一格的地表顏色，雨後變成爛泥（opt.gd 回傳 0～255 的損壞程度，opt.wet 0～1） */
+  /* 地面積雪與融雪泥濘（opt.sw 回傳 [積雪覆蓋 0～1, 泥濘 0～1]） */var SWF=opt.sw||null;
   var GDF=opt.gd||null,wet=clamp(opt.wet||0,0,1),MUDC=[mixC([126,104,78],[74,60,46],wet),mixC([92,74,56],[52,42,34],wet),mixC([150,132,104],[96,84,70],wet)];
-  for(var y=y0;y<y1;y++)for(var x=x0;x<x1;x++){var k=y*GW+x,c=lc[k],e=el[k],col,gdv=GDF&&!isWater(c)?GDF(k)||0:0;
+  for(var y=y0;y<y1;y++)for(var x=x0;x<x1;x++){var k=y*GW+x,c=lc[k],e=el[k],col,gdv=GDF&&!isWater(c)?GDF(k)||0:0,swq=SWF&&!isWater(c)?SWF(k):null;
       var eR=el[y*GW+Math.min(GW-1,x+1)],eL=el[y*GW+Math.max(0,x-1)],eD=el[Math.min(GH-1,y+1)*GW+x],eU=el[Math.max(0,y-1)*GW+x],nx=-(eR-eL)/(2*cs)*ex,ny=-(eD-eU)/(2*cs)*ex,nl=Math.sqrt(nx*nx+ny*ny+1),sh=(nx*L[0]+ny*L[1]+L[2])/nl,shf=fl0?1:1+(sh-flat)*1.25;
       var hsh=ih(x,y,msd(MP)),hv=(hsh&255)/255;
       if(c===LCI.sea||c===LCI.shal){col=ramp(SEAR,e);shf=1;}else if(c===LCI.lake){col=LK;shf=1;}else if(c===LCI.riv){col=WAT;shf=1;}
@@ -25,6 +26,7 @@ function renderMap(MP,opt,img,rect){opt=opt||{};var GW=MP.GW,GH=MP.GH,S=opt.S||2
       if(!isWater(c)&&c!==LCI.snow&&e>700&&!isUrban(c))col=mixC(col,[185,165,126],0.3*sm(700,2600,e));
       /* 每個子像素：紋理（森林樹冠、聚落建築、沼澤水點） */
       if(gdv)col=mixC(col,MUDC[0],Math.min(0.85,0.25+gdv/255*0.6));
+      if(swq){if(swq[1]>0)col=mixC(col,[108,88,64],Math.min(0.75,swq[1]*0.75));if(swq[0]>0)col=mixC(col,[238,242,245],Math.min(0.92,swq[0]));}
       /* 平面地圖（簡易圖形模式）：不加陰影與紋理 */if(fl0){for(var fy2=0;fy2<S;fy2++)for(var fx2=0;fx2<S;fx2++)put(x*S+fx2,y*S+fy2,col);}
       else for(var sy=0;sy<S;sy++)for(var sx=0;sx<S;sx++){var px=x*S+sx,py=y*S+sy,h2=ih(px,py,msd(MP)^0x5bd1)&1023,cc=col;
         if(c===LCI.dfor||c===LCI.cfor||c===LCI.jung)cc=mixC(col,h2<300?[20,40,20]:[255,255,230],h2<300?0.28:h2>880?0.12:0);
