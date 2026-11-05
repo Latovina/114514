@@ -1,0 +1,25 @@
+const { chromium } = require('playwright');
+/* 說明頁：「功能說明」依主題分類、標題沒有版本號、可搜尋；「更新日誌」依日期列出、包含更早的版本；沒有頁面錯誤 */
+(async()=>{const b=await chromium.launch();const p=await b.newPage({viewport:{width:1200,height:800}});const errs=[];p.on('pageerror',e=>errs.push(e.message));
+ const W=(f,...a)=>p.evaluate(f,...a);const ok=(c,m)=>{console.log((c?'PASS ':'FAIL ')+m);if(!c)process.exitCode=1;};
+ await p.goto('file://'+__dirname+'/warsim_hook.html');await p.waitForTimeout(500);
+ await W(()=>window.__W.E('show')('help'));await p.waitForTimeout(200);
+ const f=await W(()=>{const c=document.querySelector('.lw-help .lw-card');const S=[...c.querySelectorAll('.lw-helpsec summary b')].map(x=>x.textContent);const C=[...c.querySelectorAll('.lw-helpcat')].map(x=>x.textContent);
+   const cat={};c.querySelectorAll('.lw-helpsec').forEach(d=>{let h=d.previousElementSibling;while(h&&!h.classList.contains('lw-helpcat'))h=h.previousElementSibling;(cat[h.textContent]=cat[h.textContent]||[]).push(d.querySelector('b').textContent);});
+   return {raw:[...c.querySelectorAll('h4')].length,big:Math.max(...[...c.querySelectorAll('.lw-helpsec')].map(d=>d.querySelectorAll('h4').length)),n:S.length,ver:S.filter(t=>/^v\d+：/.test(t)).length,C,cat,intro:/Battleplan/.test(c.innerHTML)};});
+ const n0=await W(()=>{const E=window.__W.E,d=document.createElement('div');d.innerHTML=E('HELP14').join('');return d.querySelectorAll('h4').length;});const h14=await W(()=>{const d=document.createElement('div');d.innerHTML=window.__W.E('HELP14').join('');return [...d.querySelectorAll('h4')].map(h=>h.textContent.trim());});
+ ok(f.n>=100&&h14.every(t=>f.n&&true),'the feature guide keeps every section ('+f.n+')');const all=await W(()=>[...document.querySelectorAll('.lw-helpsec summary b')].map(x=>x.textContent));ok(h14.every(t=>all.indexOf(t)>=0),'every later section is in the guide ('+n0+')');ok(f.raw===0&&f.big===0,'nothing is left outside the sections, and no section swallows the next ones');ok(f.ver===0,'section titles have no version prefix');ok(f.C.length>=8,'sections are grouped by subject ('+f.C.join('、')+')');ok(f.intro,'the introduction is kept');
+ const inCat=(c,re)=>(f.cat[c]||[]).some(t=>re.test(t));
+ ok(inCat('後勤、補給與醫療',/油料/)&&inCat('地圖、地形與天氣',/積雪/)&&inCat('部隊與編制',/排與組/)&&inCat('戰鬥與火力',/對抗措施/),'sections land in the right subject');
+ const other=(f.cat['其他']||[]);ok(other.length<=6,'few sections are left uncategorised ('+other.join('、')+')');
+ await p.fill('input[data-i="helpq"]','高山症');await p.waitForTimeout(100);
+ const s=await W(()=>{const v=[...document.querySelectorAll('.lw-helpsec')].filter(d=>d.style.display!=='none');return {n:v.length,open:v.every(d=>d.open),t:v.map(d=>d.querySelector('b').textContent)};});
+ ok(s.n>=1&&s.n<=2&&s.open&&s.t.some(t=>/高山症/.test(t)),'searching shows and opens only the matching sections ('+s.t.join('、')+')');
+ await p.click('[data-a="helptab"][data-v="log"]');await p.waitForTimeout(100);
+ const l=await W(()=>{const c=document.querySelector('.lw-help .lw-card');const H=[...c.querySelectorAll('h4')].map(x=>x.textContent);return {H,has:/v5/.test(c.textContent)&&/v13/.test(c.textContent),sec:c.querySelectorAll('.lw-helpsec').length};});
+ const D=l.H.filter(t=>/^\d{4}-\d\d-\d\d/.test(t)).map(t=>t.slice(0,10));
+ ok(D.length>=8&&D.every((d,i)=>!i||D[i-1]>=d),'the changelog lists updates by date, newest first ('+D[0]+' … '+D[D.length-1]+')');
+ ok(/v12/.test(l.H.join()+await W(()=>document.querySelector('.lw-help .lw-card').textContent))&&l.has&&l.H.some(t=>/更早的版本/.test(t)),'older versions (v4–v13) are listed');ok(l.sec===0,'the changelog does not repeat the feature guide');
+ await p.click('[data-a="helptab"][data-v="feat"]');await p.waitForTimeout(100);ok(await W(()=>document.querySelector('input[data-i="helpq"]').value==='高山症'),'the search is kept when switching back');
+ await p.screenshot({path:__dirname+'/help.png'});
+ ok(errs.length===0,'no page errors'+(errs.length?': '+errs.slice(0,3).join(' | '):''));await b.close();})();
