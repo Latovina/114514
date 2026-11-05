@@ -1,0 +1,49 @@
+/* ===================== 作戰頁 v4：新命令（勸降、收集資源、打造器材、聯合作戰）、手繪作戰圖、請求與收件匣、事件與平民面板、玩家扮演的梯隊 ===================== */
+ordReg('persuade','勸降','atk',{g:'📢',col:'#8E24AA'});ordReg('joint','聯合作戰','atk',{g:'✦',col:'#AD1457'});ordReg('gather','收集資源','log',{g:'🪓',col:'#6D4C41'});ordReg('craft','打造器材','log',{nt:1,g:'🔨',col:'#6D4C41'});
+
+Object.assign(DCN,{persuade:'勸降：點選被包圍或士氣低落的敵軍。心理作戰部隊（擴音器、傳單）範圍 2.5 公里，其他部隊約 1 公里。成功率取決於敵軍士氣、是否被圍、斷糧缺彈，以及本方對待戰俘的聲望——若本方曾處決戰俘，敵軍會更頑強。',
+  gather:'收集資源：點選森林（木材）、岩地或廢墟（石料、廢鐵）。勞工與工兵最快，步兵也可以；拆除有人居住的房屋會造成財產損失與民怨。',craft:'打造器材：用攜帶的材料就地打造（先用「收集資源」取得木石）。雲梯、攻城槌、攻城塔削弱城牆與堡壘；浮橋組件讓任何部隊都能架橋；三具木筏可設木筏渡口。',
+  joint:'聯合作戰：點選目標。司令部統一規劃 H 時：地面部隊同步進攻、空降與機降部隊在目標後方垂直包圍、兩棲部隊登陸、砲兵與艦砲實施準備射擊、航空兵打擊與掩護。需要編制內有多個軍種。'});
+(function(){var base=canOrd;canOrd=function(u,k){var L=isLeaf(u)?[u]:leavesOf(u).filter(alive);if(!L.length)return false;if(u.irr||L.every(function(q){return q.irr;}))return false;
+  if(k==='persuade'||k==='gather'||k==='craft')return L.some(function(q){return ST(q).dom==='land';});if(k==='joint')return !isLeaf(u)&&kidsOf(u).length>=2;if(k==='bridge')return L.some(isEng)||L.some(canKitBridge);if(k==='xsite')return L.some(isEng)||L.some(canRaft);return base(u,k);};})();
+/* 新命令的選項 */
+function v4Opts(k,O,us){var o='';if(k==='gather')o+='<span>資源</span><select data-c="oo" data-f="rk">'+[['auto','自動'],['wood','木材'],['stone','石料'],['metal','金屬']].map(function(q){return '<option value="'+q[0]+'"'+(O.rk===q[0]?' selected':'')+'>'+q[1]+'</option>';}).join('')+'</select>';
+  if(k==='craft'){o+='<span>器材</span><select data-c="oo" data-f="ck">'+Object.keys(KIT).map(function(q){return '<option value="'+q+'"'+(O.ck===q?' selected':'')+' title="'+esc(KIT[q][5])+'">'+KIT[q][0]+'</option>';}).join('')+'</select><span>數量</span><select data-c="oo" data-f="cn">'+[1,2,3,4,6,8,10,20,40].map(function(v){return '<option value="'+v+'"'+(O.cn===v?' selected':'')+'>'+v+'</option>';}).join('')+'</select>';
+    var K=KIT[O.ck]||KIT.ladder;o+='<span>需要</span><span class="lw-note">每個 '+craftNeedTxt(O.ck,1)+'、'+K[4]+' 人時。'+esc(K[5])+'</span>';var u=us[0];if(u&&isLeaf(u))o+='<span>攜帶</span><span class="lw-note">'+(kitTxt(u)||'無')+'</span>';}
+  if(k==='joint')o+='<span>準備時間</span><select data-c="oo" data-f="jp">'+[30,60,90,120,180,240].map(function(v){return '<option value="'+v+'"'+(O.jp===v?' selected':'')+'>'+v+' 分鐘</option>';}).join('')+'</select>';return o;}
+/* 請求面板 */
+function reqPanel(us){var u=us[0];if(!u)return '';var S=SD(u.side),me=S.pu>0&&S.ai?uById(S.pu):null,src=me&&inTree(u,me.id)?u:u,par=src.p>=0?uById(src.p):null,O=UI.ordOpt;
+  var peers=G.units.filter(function(q){return q.side===u.side&&!isLeaf(q)&&alive(q)&&q.id!==u.id&&(q.ech||0)>=2&&!inTree(q,u.id)&&!inTree(u,q.id);}).slice(0,40);
+  var o='<details class="lw-req"><summary class="lw-note" style="cursor:pointer;font-weight:600">請求支援或協同行動（經指揮鏈延遲）</summary><div class="lw-opt"><span>請求</span><select data-c="oo" data-f="rq">'+Object.keys(REQN).map(function(k){return '<option value="'+k+'"'+(O.rq===k?' selected':'')+'>'+REQN[k]+'</option>';}).join('')+'</select>';
+  o+='<span>對象</span><select data-c="oo" data-f="rqTo"><option value="up"'+(O.rqTo==='up'?' selected':'')+'>上級（'+esc(par?uName(par):'無')+'）</option>'+peers.map(function(q){return '<option value="'+q.id+'"'+(String(O.rqTo)===String(q.id)?' selected':'')+'>'+esc(uName(q))+(aiControls(q)?'（AI）':'')+'</option>';}).join('')+'</select></div><div class="lw-row"><button type="button" class="lw-btn sm" data-a="rqgo">在地圖上點選位置並送出</button><button type="button" class="lw-btn sm" data-a="rqnow">以所在位置送出</button></div></details>';return o;}
+function reqTarget(u){var O=UI.ordOpt;if(O.rqTo==='up'||!O.rqTo){return u.p>=0?uById(u.p):null;}return uById(+O.rqTo);}
+ACT.rqgo=function(){UI.tool='req';modeBt();};
+ACT.rqnow=function(){var u=uById(UI.sel[0]);if(!u)return;var c=isLeaf(u)?[u.x,u.y]:cOf(u)||[u.x,u.y];reqFromUI(u,c[0],c[1]);};
+function reqFromUI(u,x,y){var to=reqTarget(u);if(!to||!alive(to)){toast('找不到請求對象。');return;}var m=reqSend(u,to,UI.ordOpt.rq,{x:x,y:y});decLog(u.side,'玩家',uName(u)+'向'+uName(to)+'請求'+REQN[UI.ordOpt.rq]+'（'+placeTxt(x,y)+'）');toast('請求已送出，約 '+durTxt(m.ta-G.t)+' 後送達'+uName(to)+'。');UI.tool='sel';modeBt();btLeft(true);}
+/* 收件匣（分類與內容見「通信」） */
+function ibGet(b){var id=+b.getAttribute('data-v');return (G.inbox||[]).filter(function(m){return m.id===id;})[0];}
+ACT.ibok=function(b){var m=ibGet(b);if(!m||m.done)return;var to=uById(m.to),from=uById(m.from);if(m.k==='rep'){m.done='已讀';btLeft(true);return;}
+  if(m.k==='dir'&&to){issue(to,m.dk,{x:m.x,y:m.y,face:m.face,opt:Object.assign({},optsFor(m.dk),m.opt||{})});m.done='已遵照執行';decLog(to.side,'玩家','遵照上級指令：'+(ORDN[m.dk]||m.dk));if(from)reqReply(to,from,true,'遵照執行');}
+  else if(m.k==='req'&&to&&from){var r=reqDecide(to,from,{rk:m.rk,x:m.x,y:m.y});reqReply(to,from,r[0],r[1]);m.done=(r[0]?'已同意：':'無法執行：')+r[1];decLog(to.side,'玩家',(r[0]?'同意':'無法同意')+uName(from)+'的請求：'+r[1]);}btLeft(true);};
+ACT.ibno=function(b){var m=ibGet(b);if(!m||m.done)return;var to=uById(m.to),from=uById(m.from);if(to&&from)reqReply(to,from,false,m.k==='dir'?'不同意上級指令':'無法提供');m.done='已拒絕';decLog(to?to.side:0,'玩家','拒絕'+(m.k==='dir'?'上級指令':'請求')+'：'+m.txt);btLeft(true);};
+ACT.mtgo=function(b){var m=ibGet(b);if(!m||m.done)return;var M=(G.meets||[]).filter(function(q){return q.id===m.mid;})[0],k=b.getAttribute('data-k');if(!M){m.done='遭遇戰已結束';btLeft(true);return;}var ids=(M.pl[m.side]||[]).filter(function(id){var q=uById(id);return q&&alive(q)&&q.meet===M.id&&q.meetHold>0;});if(!ids.length){m.done='部隊已自行處置';btLeft(true);return;}meetDecide(M,m.side,k,'玩家',ids);m.done='已下令：'+(k==='attack'?'進攻':'駐紮');btLeft(true);toast('遭遇戰：已命令 '+ids.length+' 個單位'+(k==='attack'?'就地發起攻擊':'就地駐紮防禦')+'。');};
+ACT.ibmap=function(b){var m=ibGet(b);if(m&&m.x!==undefined)vCenter(m.x,m.y,1.5);};
+/* 事件面板 */
+function evtHtml(){var o='';if(G.evt&&G.evt.A.length)o+='<div class="lw-evl">'+G.evt.A.map(function(e){return '<div>⚠ <b>'+EVK[e.k]+'</b>'+(e.k==='quake'?'（規模 '+fx(e.M,1)+'）':'')+(e.k!=='monsoon'?'，剩 '+durTxt(e.t1-G.t):'')+'</div>';}).join('')+'</div>';
+  if(G.civ){var c=civSum();o+='<div class="lw-kv"><span>平民</span><span>在場約 '+fmt(c.pres)+'，死亡 '+fmt(c.kill)+'、受傷 '+fmt(c.wound)+'</span><span>難民</span><span>逃離 '+fmt(c.fled)+'，路上 '+fmt(c.refRoad)+'（'+c.refN+' 群）、收容所 '+fmt(c.camp)+'</span><span>財產損失</span><span>'+money(c.propTot)+'</span>'+SIDES().map(function(s){var C=G.civ.cs[s];return '<span style="color:'+G.sides[s].color+'">'+esc(G.sides[s].name)+'</span><span>戰俘 '+fmt(C.powHeld)+'、軍紀案件 '+C.incid+'、戰爭罪行 '+C.crimes+'、聲望 '+fmt(G.civ.rep[s])+(G.press?'、後方民心 '+fmt(G.press.home[s]):'')+'</span>';}).join('')+'</div>';}
+  var L=[];for(var i=G.log.length-1;i>=0&&L.length<120;i--){var e=G.log[i];if(!/^(evt|crime|disc|dis|gue|short|pers|wel|ref|pow|civ|press|req)$/.test(e.k))continue;if(UI.side>=0&&G.set.fog&&e.s>=0&&e.s!==UI.side&&!/evt|press/.test(e.k))continue;L.push(e);}
+  return o+'<div class="lw-log">'+L.map(function(e){return '<div class="k-'+e.k+'" data-a="logat" data-x="'+(e.x||'')+'" data-y="'+(e.y||'')+'" data-u="'+(e.u||'')+'"><span class="t">'+tTxt(e.t).slice(-11)+'</span>'+esc(e.txt)+'</div>';}).join('')+'</div>';}
+/* 玩家扮演的梯隊 */
+function myCmdHtml(){var s=UI.side;if(s<0)return '';var S=SD(s),L=G.units.filter(function(u){return u.side===s&&!isLeaf(u)&&alive(u)&&!u.irr;}).sort(function(a,b){return (b.ech||0)-(a.ech||0);});
+  return '<label class="lw-note" title="選擇只指揮某一個集團軍、軍、師、旅、團或連，陣營其餘部分由 AI 指揮；上級 AI 會經指揮鏈送來指令">我的指揮 <select data-c="mycmd"><option value="0"'+(!S.ai?' selected':'')+'>全軍（玩家）</option><option value="-1"'+(S.ai&&!S.pu?' selected':'')+'>全部交給 AI</option>'+L.map(function(u){return '<option value="'+u.id+'"'+(S.ai&&S.pu===u.id?' selected':'')+'>'+esc(ECH[clamp(u.ech,0,8)][1]+'：'+uName(u))+'</option>';}).join('')+'</select></label>';}
+CHG.mycmd=function(t){var s=UI.side;if(s<0)return;var S=SD(s),v=+t.value;if(v===0){S.ai=false;S.pu=0;}else if(v<0){S.ai=true;S.pu=0;}else{S.ai=true;S.pu=v;}decLog(s,'玩家',v===0?'親自指揮全軍':v<0?'把全軍交給 AI 指揮':'只指揮'+uName(uById(v))+'，其餘由 AI 指揮');toast(v===0?'由你指揮全軍。':v<0?'全軍改由 AI 指揮（可隨時取回）。':'你現在只指揮「'+uName(uById(v))+'」；上級 AI 的指令會送到收件匣。');show('battle');};
+/* 單位面板的 v4 資訊 */
+function v4Status(u,leaf,L){var o='';if(u.irr)o+='<span>游擊隊</span><span class="lw-note">地方武裝，自主行動（襲擾、伏擊、化整為零），不受指揮鏈指揮</span>';
+  if(leaf){if(u.dis!==undefined)o+='<span>軍紀</span><span>'+fmt(u.dis)+(u.dis<35?'（<b style="color:#b3261e">渙散</b>）':u.dis<55?'（鬆弛）':'（良好）')+'</span>';if((u.wia||0)>0.5||(u.sick||0)>0.5)o+='<span>傷病</span><span>待後送傷患 '+fmt(u.wia||0)+'、病患 '+fmt(u.sick||0)+(u.dzk&&DZ[u.dzk]?'（'+DZ[u.dzk][0]+'）':'')+'</span>';
+    var kt=kitTxt(u);if(kt)o+='<span>器材</span><span>'+esc(kt)+'</span>';if(u.ref||u.pw){var cap=mixX(u,'cap');o+='<span>收容</span><span>'+(u.ref?'難民 '+fmt(u.ref):'')+(u.pw?' 戰俘 '+fmt(u.pw):'')+'／容量 '+fmt(cap)+(u.campHun>50?'（<b style="color:#b3261e">糧食不足</b>）':'')+'</span>';}
+    var fm=femOf(u);if(fm>0.005)o+='<span>女性</span><span>約 '+pct(fm*100,1)+'</span>';}
+  else{var P=aiOf(u),ctl=aiControls(u);o+='<span>指揮</span><span>'+(ctl?'AI：'+esc(aiName(u))+'<br><span class="lw-note">'+esc(AIT[P.t][1])+'</span>':'玩家')+'</span>';}
+  /* 對戰俘與平民的態度：目前值（戰況造成偏移時標示原本的設定與原因） */if(!u.irr){var pf=polForm(u),PH=polHolder(u),PE=PH.polE,att=function(k,T2){var c=polOf(u,k),b=polBase(u,k);return T2[c][1]+(c!==b?'<span class="lw-note">（原為「'+T2[b][1]+'」'+(PE&&PE.why?'；'+esc(PE.why):'')+'）</span>':'');};o+='<span>戰俘態度</span><span>'+att('pow',POWP)+(pf&&pf!==u?'<span class="lw-note">（沿用'+esc(uName(pf))+'）</span>':'')+'</span><span>平民態度</span><span>'+att('civ',CIVP)+'</span>';}
+  if(!leaf){
+    if(u.aiTr&&u.aiTr.length)o+='<span>行為樹</span><span class="lw-note">'+u.aiTr.filter(function(q){return q[1]==='S';}).slice(-4).map(function(q){return esc(q[0]);}).join(' → ')+'</span>';}
+  if(u.ttl)o+='<span>稱號</span><span>「'+esc(u.ttl)+'」</span>';return o;}

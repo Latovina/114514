@@ -1,0 +1,52 @@
+/* ===================== 部隊番號：各階層的前綴與稱呼、完整番號（第一師第一旅第一營第一連）與縮寫（1D-1R-1B-1C） =====================
+   陣營的番號規則存在 G.sides[s].nm.x（隨存檔、聯機同步）；顯示方式（本級名稱／完整番號／縮寫）是每位觀看者自己的偏好。 */
+var ECHT=['排','連','營','團','旅','師','軍','集團軍','軍團群'],ECHAB=['P','C','B','G','R','D','K','A','AG'],ECHLN=['排','連','營','團','旅','師','軍','集團軍','軍團群'];
+var NMXK='lato-warsim-nmx',NMXP=(function(){try{return Object.assign({mode:'own',map:'own'},JSON.parse(localStorage.getItem(NMXK)||'{}')||{});}catch(e){return {mode:'own',map:'own'};}})();
+function nmxSave(){try{localStorage.setItem(NMXK,JSON.stringify(NMXP));}catch(e){}}
+function nmxX(side){var S=G&&G.sides&&G.sides[side],N=S&&S.nm;return N&&N.x||null;}
+function nmxCfg(side){var X=nmxX(side)||{};return {pre:X.pre||[],tm:X.tm||[],ab:X.ab||[],pat:X.pat||'{n}{a}',sep:X.sep===undefined?'-':X.sep,gp:X.gp||'',gs:X.gs||'',west:!!(G&&G.sides&&G.sides[side]&&nmOf(side).fmt==='west')};}
+function nmxEch(u){var e=u.ech;if(e===undefined||e===null)e=isLeaf(u)?1:3;return clamp(e|0,0,8);}
+var ZHD={'〇':0,'零':0,'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9};
+function zhToInt(s){var n=0,cur=0;for(var i=0;i<s.length;i++){var c=s.charAt(i);if(ZHD[c]!==undefined)cur=ZHD[c];else if(c==='十'){n+=(cur||1)*10;cur=0;}else if(c==='百'){n+=(cur||1)*100;cur=0;}else if(c==='千'){n+=(cur||1)*1000;cur=0;}}return n+cur;}
+/* 番號數字：名稱裡的數字（阿拉伯或中文），西式的字母連，都沒有就用在上級裡同階層的次序 */
+function nmxNum(u){if(u.num>0)return String(u.num);var n=u.name||'',m=/[0-9]+/.exec(n);if(m)return m[0];m=/第([〇零一二兩三四五六七八九十百千]+)/.exec(n)||/^([〇零一二兩三四五六七八九十百千]+)/.exec(n);if(m){var v=zhToInt(m[1]);if(v>0)return String(v);}var w=/^([A-Z])\s/.exec(n);if(w)return w[1];
+  var P=u.p>=0?uById(u.p):null;if(P){var e=nmxEch(u),sib=(P.kids||[]).map(uById).filter(function(k){return k&&nmxEch(k)===e;}),i=sib.indexOf(u);if(i>=0)return String(i+1);}return '1';}
+/* 本級名稱套用陣營規則：數字前的「第」換成自訂前綴、結尾的階層稱呼換成自訂稱呼 */
+function nmxOwnC(C,e,n){var t=C.tm[e],p=C.pre[e];if(t){var re=e===0?/(排|班)$/:new RegExp(ECHT[e]+'$');if(re.test(n))n=n.replace(re,t);}
+  if(p!==undefined&&p!==null&&p!=='第')n=n.replace(/第(?=[0-9〇零一二兩三四五六七八九十百千{])/,p);return n;}
+function nmxOwn(u,n){return nmxOwnC(nmxCfg(u.side),nmxEch(u),n===undefined?(u.name||''):n);}
+function nmxChain(u){var L=[],c=u,k=0;while(c&&k<14){L.unshift(c);if(c.p<0)break;c=uById(c.p);k++;}return L;}
+function nmxTokC(C,e,num){var a=C.ab[e];if(a===undefined||a===null||a==='')a=ECHAB[e];return C.pat.split('{n}').join(num).split('{a}').join(a);}
+function nmxFull(u){var C=nmxCfg(u.side),L=nmxChain(u).map(function(x){return nmxOwnC(C,nmxEch(x),x.name||'');});if(C.west)L.reverse();return C.gp+L.join(C.west?', ':'')+C.gs;}
+function nmxAbbr(u){var C=nmxCfg(u.side);return C.gp+nmxChain(u).map(function(x){return nmxTokC(C,nmxEch(x),nmxNum(x));}).join(C.sep)+C.gs;}
+function nmxSide(u){return !!u&&u.side>=0&&!!G&&!!G.sides&&u.side<G.sides.length;}
+(function(){var b=uName;uName=function(u){var n=b(u);if(!nmxSide(u))return n;try{var m=NMXP.mode;if(m==='full')return nmxFull(u);if(m==='abbr')return nmxAbbr(u);return nmxX(u.side)?nmxOwn(u,n):n;}catch(e){return n;}};})();
+(function(){var b=shortName;shortName=function(u){var m=NMXP.map;if(!nmxSide(u)||m==='own'&&!nmxX(u.side))return b(u);try{var n=m==='abbr'?nmxAbbr(u):m==='full'?nmxFull(u):nmxOwn(u),L=m==='own'?12:24;return n.length>L?n.slice(0,L)+'…':n;}catch(e){return b(u);}};})();
+(function(){var b=v4Status;v4Status=function(u,leaf,L){var o=b(u,leaf,L);if(!nmxSide(u)||u.irr)return o;try{o+='<span>番號</span><span>'+esc(nmxFull(u))+'<br><span class="lw-note">'+esc(nmxAbbr(u))+'</span></span>';}catch(e){}return o;};})();
+
+/* ---------- 兵力編成：番號規則 ---------- */
+function nmxEdit(side){var S=G.sides[side],N=S.nm||(S.nm={num:'seq',fmt:'arabic',ttl:'none',pre:true});return N.x||(N.x={pre:[],tm:[],ab:[],pat:'{n}{a}',sep:'-',gp:'',gs:''});}
+function nmxDemo(C){var L=[[5,'第一師'],[4,'第一旅'],[2,'第一營'],[1,'第一連']];var full=L.map(function(q){return nmxOwnC(C,q[0],q[1]);}).join(''),ab=L.map(function(q){return nmxTokC(C,q[0],'1');}).join(C.sep);return C.gp+full+C.gs+'　→　'+C.gp+ab+C.gs;}
+function nmxPv(side){var C=nmxCfg(side),u=OB&&OB.sel?uById(OB.sel):null;if(!u||u.side!==side)u=G.units.filter(function(q){return q.side===side&&isLeaf(q)&&q.p>=0;})[0];return '<b>例</b>：'+esc(nmxDemo(C))+(u?'<br><b>'+esc(u.name||'')+'</b>：'+esc(nmxFull(u))+'　→　'+esc(nmxAbbr(u)):'');}
+function nmxHtml(side){var C=nmxCfg(side),X=nmxX(side)||{},o='<div class="lw-nmx" style="margin-top:8px;border-top:1px dashed #9995;padding-top:6px"><b>番號：階層稱呼、前後綴與縮寫</b> <span class="lw-note">例如把「第一師第一旅第一營第一連」寫成 1D-1R-1B-1C，或改稱「第一域第一協第一聯第一序」（1F.1S.1T.1U）</span>';
+  o+='<table class="lw-tbl" style="margin-top:4px"><tr><th>階層</th><th>前綴</th><th>稱呼</th><th>縮寫</th></tr>';
+  for(var e=7;e>=0;e--)o+='<tr><td>'+ECHLN[e]+'</td><td><input type="text" data-i="nmxf" data-s="'+side+'" data-e="'+e+'" data-f="pre" value="'+esc(C.pre[e]!==undefined&&C.pre[e]!==null?C.pre[e]:'第')+'" style="width:4em"></td><td><input type="text" data-i="nmxf" data-s="'+side+'" data-e="'+e+'" data-f="tm" value="'+esc(C.tm[e]||ECHT[e])+'" style="width:5em"></td><td><input type="text" data-i="nmxf" data-s="'+side+'" data-e="'+e+'" data-f="ab" value="'+esc(C.ab[e]||ECHAB[e])+'" style="width:4em"></td></tr>';
+  o+='</table><div class="lw-opt"><span>縮寫格式</span><select data-c="nmxs" data-s="'+side+'" data-f="pat">'+[['{n}{a}','1D（數字在前）'],['{a}{n}','D1（代號在前）'],['{n}','1（只有數字）'],['{a}','D（只有代號）']].map(function(q){return '<option value="'+q[0]+'"'+(C.pat===q[0]?' selected':'')+'>'+q[1]+'</option>';}).join('')+'</select>'+
+    '<span>分隔符號</span><select data-c="nmxs" data-s="'+side+'" data-f="sep">'+[['-','1D-1R（連字號）'],['.','1D.1R（句點）'],['/','1D/1R（斜線）'],[' ','1D 1R（空格）'],['·','1D·1R（間隔號）'],['','1D1R（不分隔）']].map(function(q){return '<option value="'+q[0]+'"'+(C.sep===q[0]?' selected':'')+'>'+q[1]+'</option>';}).join('')+'</select>'+
+    '<span>番號前綴</span><input type="text" data-i="nmxg" data-s="'+side+'" data-f="gp" value="'+esc(X.gp||'')+'" placeholder="例：藍軍" style="width:8em"><span>番號後綴</span><input type="text" data-i="nmxg" data-s="'+side+'" data-f="gs" value="'+esc(X.gs||'')+'" placeholder="例：（預備隊）" style="width:8em"></div>';
+  o+='<div class="lw-note" data-k="nmxpv" data-s="'+side+'">'+nmxPv(side)+'</div>';
+  o+='<div class="lw-row" style="flex-wrap:wrap"><button type="button" class="lw-btn sm" data-a="nmxpre" data-s="'+side+'" data-v="std">預設稱呼</button><button type="button" class="lw-btn sm" data-a="nmxpre" data-s="'+side+'" data-v="fx">範例：域・協・聯・序</button><button type="button" class="lw-btn sm" data-a="nmxapply" data-s="'+side+'" title="把目前的前綴與稱呼直接寫進每支部隊的名稱（存檔與匯出的編制檔也會是新名稱）">寫入部隊名稱</button><button type="button" class="lw-btn sm" data-a="nmxexp" data-s="'+side+'">⇩ 匯出番號規則</button><label class="lw-btn sm">⇧ 匯入番號規則<input type="file" accept=".json,application/json" data-c="nmxfile" data-s="'+side+'" hidden></label></div>';
+  o+='<div class="lw-opt"><span>名稱顯示</span>'+nmxModeSel('mode')+'<span>地圖標籤</span>'+nmxModeSel('map')+'<span class="lw-note" style="grid-column:1/-1">顯示方式只影響你自己的畫面（存在這台電腦）；番號規則屬於這一方，會存進存檔。</span></div></div>';return o;}
+function nmxModeSel(f){return '<select data-c="nmxm" data-f="'+f+'">'+[['own','本級名稱（第1連）'],['full','完整番號（第一師第一旅…第1連）'],['abbr','縮寫（1D-1R-1B-1C）']].map(function(q){return '<option value="'+q[0]+'"'+(NMXP[f]===q[0]?' selected':'')+'>'+q[1]+'</option>';}).join('')+'</select>';}
+(function(){var b=sideV4Html;sideV4Html=function(side){var o=b(side),i=o.lastIndexOf('</details>');if(i<0)return o+nmxHtml(side);return o.slice(0,i)+nmxHtml(side)+o.slice(i);};})();
+function nmxRef(side){document.querySelectorAll('[data-k="nmxpv"]').forEach(function(el){el.innerHTML=nmxPv(+el.getAttribute('data-s'));});if(typeof vDraw==='function')vDraw(false);}
+function nmxRedraw(){if(UI.tab==='orbat'){OB.v4open=1;obTree();if(typeof obDet==='function')obDet();}else if(UI.tab==='battle'){btLeft(true);btStatus();}if(typeof vDraw==='function')vDraw(false);}
+INP.nmxf=function(t){var s=+t.getAttribute('data-s'),X=nmxEdit(s),e=+t.getAttribute('data-e'),f=t.getAttribute('data-f'),v=t.value.slice(0,12);if(f==='pre'){X.pre[e]=v==='第'?null:v;}else if(f==='tm'){X.tm[e]=v===ECHT[e]||!v?null:v;}else{X.ab[e]=v===ECHAB[e]||!v?null:v;}nmxRef(s);};
+INP.nmxg=function(t){var s=+t.getAttribute('data-s'),X=nmxEdit(s);X[t.getAttribute('data-f')]=t.value.slice(0,24);nmxRef(s);};
+CHG.nmxs=function(t){var s=+t.getAttribute('data-s'),X=nmxEdit(s);X[t.getAttribute('data-f')]=t.value;nmxRef(s);};
+CHG.nmxm=function(t){NMXP[t.getAttribute('data-f')]=t.value;nmxSave();nmxRedraw();};
+ACT.nmxpre=function(b){var s=+b.getAttribute('data-s'),X=nmxEdit(s);if(b.getAttribute('data-v')==='fx'){X.tm=[];X.ab=[];X.pre=[];X.tm[5]='域';X.tm[4]='協';X.tm[2]='聯';X.tm[1]='序';X.ab[5]='F';X.ab[4]='S';X.ab[2]='T';X.ab[1]='U';X.sep='.';}else{X.tm=[];X.ab=[];X.pre=[];X.sep='-';X.pat='{n}{a}';X.gp='';X.gs='';}nmxRedraw();toast('已套用'+(b.getAttribute('data-v')==='fx'?'範例稱呼（域・協・聯・序）':'預設稱呼')+'。');};
+ACT.nmxapply=function(b){var s=+b.getAttribute('data-s'),C=nmxCfg(s),n=0;G.units.forEach(function(u){if(u.side!==s)return;var nm=nmxOwnC(C,nmxEch(u),u.name||'');if(nm!==u.name){u.name=nm;n++;}if(u.tpl)u.tpl=nmxOwnC(C,nmxEch(u),u.tpl);});if(typeof dupNames==='function')dupNames();nmxRedraw();toast('已把新的前綴與稱呼寫入 '+n+' 支部隊的名稱。');};
+ACT.nmxexp=function(b){var s=+b.getAttribute('data-s');download((G.sides[s].name||'side')+'.latonaming.json',JSON.stringify({format:'LatoWarsimNaming',v:1,x:nmxX(s)||{}},null,1),'application/json');};
+CHG.nmxfile=function(t){var s=+t.getAttribute('data-s'),f=t.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(){try{var J=JSON.parse(rd.result);if(J.format!=='LatoWarsimNaming'||!J.x)throw new Error('不是番號規則檔');var X=nmxEdit(s),x=J.x;['pre','tm','ab'].forEach(function(k){X[k]=Array.isArray(x[k])?x[k].slice(0,9).map(function(v){return v===null||v===undefined?null:String(v).slice(0,12);}):[];});['pat','sep','gp','gs'].forEach(function(k){if(typeof x[k]==='string')X[k]=x[k].slice(0,24);});nmxRedraw();toast('已匯入番號規則。');}catch(e){toast('讀取失敗：'+e.message);}};rd.readAsText(f);};
+HELP14.push('<h4>番號：階層稱呼、前後綴與縮寫</h4><ul><li>「兵力編成 → 政策、福利與命名」可以為每個階層設定前綴（預設「第」）、稱呼（排、連、營、團、旅、師、軍）與縮寫代號（P、C、B、G、R、D、K），以及縮寫格式（1D 或 D1）、分隔符號（1D-1R-1B-1C 或 1D.1R.1B.1C）與整個番號的前綴、後綴。</li><li>例如把師、旅、營、連改稱域、協、聯、序，代號改成 F、S、T、U，「第一師第一旅第一營第一連」就顯示為「第一域第一協第一聯第一序」，縮寫為 1F.1S.1T.1U。</li><li>「名稱顯示」選擇在面板與紀錄裡顯示本級名稱、完整番號或縮寫；「地圖標籤」另外設定。單位面板一律列出完整番號與縮寫。顯示方式只影響自己的畫面；番號規則屬於該陣營，會存進存檔，也可以匯出、匯入。</li><li>「寫入部隊名稱」把新的前綴與稱呼直接改進每支部隊的名稱。</li></ul>');

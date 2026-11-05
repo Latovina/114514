@@ -1,0 +1,6 @@
+# 建置產生的測試檔（python3 build.py 會重新產生）
+test/bsim.js
+test/*_hook.html
+test/*.png
+test/*.out
+__pycache__/
